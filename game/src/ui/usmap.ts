@@ -19,6 +19,15 @@ const LABELED_STATES = new Set([
   "NC", "VA", "WV", "PA", "NY", "ME", "AK", "HI",
 ]);
 
+/**
+ * Which side of its pin a city's label sits on (above by default). Texas has three pins close
+ * together: Houston's label goes east over the Gulf and Austin's west, clear of Dallas's above
+ * and of the "YOU" tag, which hangs below the player's marker.
+ */
+const LABEL_SIDE: Record<string, "left" | "right"> = { houston: "right", austin: "left" };
+/** Gap between a pin and a label beside it, wide enough to clear the player's marker. */
+const LABEL_GAP = 22;
+
 const GRID_STEP = 4;
 
 function snap(v: number): number {
@@ -175,8 +184,14 @@ export class UsMap {
       const py = snap(xy[1]);
       this.cityLocations.set(p.id, [px, py]);
       const labelW = p.name.length * 8 + 14;
+      // Above the pin, or beside it at the height of the pin's point (see LABEL_SIDE).
+      const side = LABEL_SIDE[p.id];
+      const badgeAt = side ? `${(side === "right" ? 1 : -1) * (LABEL_GAP + labelW / 2)}, 2` : "0, -22";
+      // The outer group places the pin; the inner one is what grows on hover, since a CSS
+      // transform on the placed group would replace its translate.
       return `
-        <g class="pin ${isHandmade(p.id) ? "handmade" : ""}" data-pin="${p.id}" transform="translate(${px},${py})">
+        <g transform="translate(${px},${py})">
+        <g class="pin ${isHandmade(p.id) ? "handmade" : ""}" data-pin="${p.id}">
           <!-- Pixel Pin Graphic -->
           <rect class="pin-shadow" x="-8" y="2" width="16" height="4" />
           <path class="pin-base" d="M-7,-19 h14 v10 h-2 v2 h-2 v4 h-4 v-4 h-2 v-2 h-4 z" />
@@ -184,12 +199,13 @@ export class UsMap {
           <rect class="pin-highlight" x="-4" y="-16" width="3" height="3" />
           <rect class="pin-core" x="-1" y="-12" width="3" height="3" />
           <!-- Pixel Label Badge -->
-          <g class="pin-badge" transform="translate(0, -22)">
+          <g class="pin-badge" transform="translate(${badgeAt})">
             <rect class="pin-bg" x="${-labelW / 2}" y="-13" width="${labelW}" height="14" />
             <rect class="pin-border" x="${-labelW / 2 + 2}" y="-11" width="${labelW - 4}" height="10" />
             <text class="pin-text" x="0" y="-3">${p.name}</text>
           </g>
           <title>${p.name}</title>
+        </g>
         </g>`;
     }).join("");
 
@@ -256,7 +272,8 @@ export class UsMap {
                 <rect class="current-diamond" x="-9" y="-9" width="18" height="18" transform="rotate(45)" />
                 <rect class="current-diamond-inner" x="-5" y="-5" width="10" height="10" transform="rotate(45)" />
                 <rect class="current-core-dot" x="-2" y="-2" width="4" height="4" />
-                <g class="current-tag" transform="translate(0, -22)">
+                <!-- Below the marker: every city label is above or beside its pin. -->
+                <g class="current-tag" transform="translate(0, 36)">
                   <rect x="-16" y="-12" width="32" height="13" class="current-tag-bg" />
                   <rect x="-14" y="-10" width="28" height="9" class="current-tag-fill" />
                   <text x="0" y="-3" class="current-tag-text">YOU</text>
