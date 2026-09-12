@@ -15,6 +15,8 @@ import { LifeTimeline, serialize } from "../src/sim/rewind/index.ts";
 import { applyForCard, openCard, recordApplication, type ApplicationResult } from "../src/sim/money/index.ts";
 import { cardOffer } from "../src/debt-demo/shop-value.ts";
 import { CURATED } from "../src/data/cards-curated.ts";
+import { encodeGame, parseSave, SAVE_VERSION, SaveFormatError } from "../src/sim/save/codec.ts";
+import { Inbox } from "../src/sim/mail/inbox.ts";
 
 const START = new Date(2026, 8, 11);
 const json = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -259,6 +261,23 @@ test("card applications survive a save, so the issuer rules and sign-up bonuses 
   assert.match(again.reasons.join(" "), /Capital One/);
   // Amex pays a card's sign-up bonus once per lifetime.
   assert.equal(applyCard(back, "amex-blue-cash-everyday", 400, 0).bonusEligible, false);
+});
+
+test("a whole game encodes, survives JSON, and parses back", () => {
+  const market = new MarketPath(11, START);
+  const life = new PlayerLife({ place: TX, day: 0, market, holdings: STARTER_PORTFOLIO });
+  const town = new NpcTown({ place: TX, day: 0, market, start: START });
+  const mail = new Inbox();
+  const save = encodeGame({ seed: 11, day: 0, hash: "TX", bankRun: "11-abc", life, town, mail, desk: null });
+  assert.equal(save.version, SAVE_VERSION);
+  const back = parseSave(json(save));
+  assert.deepEqual(back, save);
+});
+
+test("a save from an unknown version or with no life is refused, not half-loaded", () => {
+  assert.throws(() => parseSave({ version: SAVE_VERSION + 1, seed: 1, day: 0, life: {} }), SaveFormatError);
+  assert.throws(() => parseSave({ version: SAVE_VERSION, seed: 1, day: 0 }), SaveFormatError);
+  assert.throws(() => parseSave("nope"), SaveFormatError);
 });
 
 test("a rewind to before a card application forgets it", () => {
