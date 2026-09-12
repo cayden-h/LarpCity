@@ -69,15 +69,35 @@ const POP_SIGMA = BULL.sigma * 1.4;
 const BOND_DURATION = 8;
 const T4_SCALE = Math.sqrt(2 / 4);
 
-function hash(...parts: (string | number)[]): number {
+/** FNV-1a of a stream name; run once per name at load, never per draw. */
+function nameHash(name: string): number {
   let h = 2166136261;
-  for (const ch of parts.join("|")) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  for (const ch of name) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   return h >>> 0;
 }
 
+/** Independent random streams. Adding one never shifts the others' draws. */
+const STREAM = {
+  regime: nameHash("regime"),
+  market: nameHash("market"),
+  bond: nameHash("bond"),
+  pop: nameHash("pop"),
+  idio: Object.fromEntries(["LTM", "BOND", "NNST"].map((id) => [id, nameHash(`idio:${id}`)])) as Record<InstrumentId, number>,
+};
+
+/** Integer mix of (seed, stream, day), murmur3-finalizer style: no strings on the hot path. */
+function key(seed: number, stream: number, day: number): number {
+  let h = Math.imul(seed ^ 0x9e3779b9, 0x85ebca6b);
+  h ^= Math.imul((stream + 0x632be5ab) | 0, 0xc2b2ae35);
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h ^= Math.imul((day + 0x27d4eb2f) | 0, 0x165667b1);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
 /** Four independent uniforms in (0, 1] for one key. */
-function uniforms(seed: number, stream: string, day: number): [number, number, number, number] {
-  let a = hash(seed, stream, day);
+function uniforms(seed: number, stream: number, day: number): [number, number, number, number] {
+  let a = key(seed, stream, day);
   const next = () => {
     a = (a + 0x6d2b79f5) >>> 0;
     let t = a;
@@ -110,11 +130,14 @@ export class MarketPath {
   private readonly prices: Record<InstrumentId, number[]> = { LTM: [instrument("LTM").start], BOND: [instrument("BOND").start], NNST: [instrument("NNST").start] };
   private readonly regimes: Regime[] = ["bull"];
   readonly presets: MarketPresets;
+  /** Weekday of game day 0; weekdays advance by calendar days, so no Date is needed per day. */
+  private readonly startDow: number;
 
   constructor(seed = 20260911, start = new Date(2026, 8, 11), dates: { boom?: Date; pop?: Date } = {}) {
     this.seed = seed;
     this.start = start;
-    const u = uniforms(seed, "pop", 0);
+    this.startDow = start.getDay();
+    const u = uniforms(seed, STREAM.pop, 0);
     const popDay = this.weekdayFrom(Math.max(1, this.dayOf(dates.pop ?? AI_BUBBLE_POP_START)));
     this.presets = {
       boomDay: Math.max(1, this.dayOf(dates.boom ?? AI_BOOM_START)),
@@ -135,17 +158,28 @@ export class MarketPath {
     return Math.round((b.getTime() - a.getTime()) / DAY_MS);
   }
 
+  private weekend(day: number): boolean {
+    const dow = (((this.startDow + day) % 7) + 7) % 7;
+    return dow === 0 || dow === 6;
+  }
+
   private weekdayFrom(day: number): number {
     let d = day;
-    while ([0, 6].includes(this.dateOf(d).getDay())) d++;
+    while (this.weekend(d)) d++;
     return d;
   }
 
-  /** Trading days in [from, to). */
-  private tradingDays(from: number, to: number): number {
-    let n = 0;
-    for (let d = from; d < to; d++) if (![0, 6].includes(this.dateOf(d).getDay())) n++;
+  /** Trading days in [0, day) for day >= 0: whole weeks at 5 each, then at most 6 more days. */
+  private tradingBefore(day: number): number {
+    const weeks = Math.floor(day / 7);
+    let n = weeks * 5;
+    for (let d = weeks * 7; d < day; d++) if (!this.weekend(d)) n++;
     return n;
+  }
+
+  /** Trading days in [from, to); the steered boom and pop ask this every day, so it's O(1). */
+  private tradingDays(from: number, to: number): number {
+    return this.tradingBefore(to) - this.tradingBefore(from);
   }
 
   /** Calendar date of a game day. */
@@ -199,8 +233,7 @@ export class MarketPath {
   private extend(day: number) {
     for (let d = this.index.length; d <= day; d++) {
       const prevRegime = this.regimes[d - 1];
-      const weekday = this.dateOf(d).getDay();
-      if (weekday === 0 || weekday === 6) {
+      if (this.weekend(d)) {
         this.index.push(this.index[d - 1]);
         this.regimes.push(prevRegime);
         for (const i of INSTRUMENTS) this.prices[i.id].push(this.prices[i.id][d - 1]);
@@ -212,11 +245,11 @@ export class MarketPath {
       if (inPop) regime = "bear";
       else if (d === pr.popEndDay) regime = "bull";
       else {
-        const flip = uniforms(this.seed, "regime", d)[0] < (prevRegime === "bull" ? BULL : BEAR).exit;
+        const flip = uniforms(this.seed, STREAM.regime, d)[0] < (prevRegime === "bull" ? BULL : BEAR).exit;
         regime = flip ? (prevRegime === "bull" ? "bear" : "bull") : prevRegime;
       }
       const p = regime === "bull" ? BULL : BEAR;
-      const zm = t4(uniforms(this.seed, "market", d));
+      const zm = t4(uniforms(this.seed, STREAM.market, d));
       // In the scripted pop the drift steers each day toward the preset depth, and the last
       // day carries no noise, so the fall always lands exactly on it.
       const left = inPop ? this.tradingDays(d, pr.popEndDay) : 0;
@@ -228,11 +261,11 @@ export class MarketPath {
       for (const i of INSTRUMENTS) {
         let r: number;
         if (i.id === "BOND") {
-          const zb = normal(...(uniforms(this.seed, "bond", d).slice(0, 2) as [number, number]));
+          const zb = normal(...(uniforms(this.seed, STREAM.bond, d).slice(0, 2) as [number, number]));
           // Mildly opposite to the market's shock (flight to safety), clamped so a fat-tailed crash day can't whipsaw bonds.
           r = BOND.mu + BOND.sigma * (BOND.corr * Math.max(-4, Math.min(4, zm)) + Math.sqrt(1 - BOND.corr ** 2) * zb);
         } else {
-          const zi = i.idioVol ? normal(...(uniforms(this.seed, `idio:${i.id}`, d).slice(0, 2) as [number, number])) : 0;
+          const zi = i.idioVol ? normal(...(uniforms(this.seed, STREAM.idio[i.id], d).slice(0, 2) as [number, number])) : 0;
           const inBoom = d >= pr.boomDay && d < pr.popDay;
           if (i.id === "NNST" && (inPop || inBoom)) {
             // Both halves of the AI arc are steered like the pop: noise along the way, landing on the preset.
