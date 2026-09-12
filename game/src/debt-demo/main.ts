@@ -764,16 +764,14 @@ function txnsHtml(): string {
 function investingPage(): Page {
   if (fund) return fundPage(fund);
   const positions = life.positions();
-  const invested = life.history.some((h) => h.investments > 0) || positions.length > 0;
   const bp = life.buyingPower();
   const top = open0();
   const each = life.recurring.reduce((s, r) => s + r.amount, 0);
-  const chart = invested ? twinsChart() : histChart(priceSeries("SP500"), (y) => num(y, 2), {});
-  if (!invested) chart.change = (p, scrubbing) => marketChange(chart.pts, p, scrubbing);
+  // Every life starts with the starter portfolio, so there is always a you line to compare.
   return {
     side: true,
-    chart,
-    main: `${heroHtml(invested ? "Investing · you vs if you had held" : "Stock market · S&amp;P 500")}${rangesHtml()}
+    chart: twinsChart(),
+    main: `${heroHtml("Investing · you vs if you had held")}${rangesHtml()}
       ${recoveryCard()}${concentrationCard()}
       ${nextCard(
         `Buying power ${usd(bp, 2)}`,
