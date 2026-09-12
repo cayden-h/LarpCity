@@ -20,12 +20,12 @@ import {
   type Projection,
 } from "../debt/index.ts";
 import { instrument, MarketPath, type InstrumentId } from "../market/index.ts";
-import { Ledger } from "../money/accounts.ts";
+import { Ledger, type LedgerSave } from "../money/accounts.ts";
 import type { Account, Holding } from "../money/types.ts";
-import { CrashWatch, PANIC_DRAWDOWN } from "../skip/crash.ts";
+import { CrashWatch, PANIC_DRAWDOWN, type CrashSave } from "../skip/crash.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
 import { cashRateOn } from "./rates.ts";
-import { Twins } from "./twins.ts";
+import { Twins, type TwinsSave } from "./twins.ts";
 
 /** What the life needs to know about where the player lives (a StateInfo satisfies it). */
 export interface Place {
@@ -129,6 +129,43 @@ export interface RecurringBuy {
 
 export type TradeResult ={ ok: true; event: LifeEvent } | { ok: false; error: string };
 
+/** A life as plain JSON, for the saved game (sim/save). Listeners are not saved: whoever restores the life re-attaches them. */
+export interface LifeSave {
+  place: Place;
+  employed: boolean;
+  age: number;
+  monthlyTakeHome: number;
+  grossAnnual: number;
+  job: string;
+  orders: StandingOrders | null;
+  recurring: RecurringBuy[];
+  today: number;
+  history: LifeSnapshot[];
+  book: DebtBook;
+  ledger: LedgerSave;
+  twins: TwinsSave;
+  startDay: number;
+  startAge: number;
+  rentAnchor: { amount: number; housing: number } | null;
+  crash: CrashSave;
+  crashCash: number;
+  lastFirst: { stock: number; bond: number } | null;
+  k401Year: number;
+  k401Ytd: number;
+  ltmPeak: number;
+  inBear: boolean;
+  startUnits: [InstrumentId, number][];
+  startSnap: LifeSnapshot;
+}
+
+/** Days of daily history a saved player life keeps; older days keep every 7th. */
+export const SAVE_DAILY_DAYS = 400;
+
+/** History for a save: every day in the last `keepDaily` days before `today`, and every 7th day before that. */
+export function compactHistory(history: LifeSnapshot[], today: number, keepDaily: number): LifeSnapshot[] {
+  return history.filter((s) => s.day > today - keepDaily || s.day % 7 === 0);
+}
+
 /** Checking, a high-yield savings account, an emergency fund, an empty brokerage account, and an empty 401(k). */
 export function defaultAccounts(day: number): Account[] {
   return [
@@ -192,7 +229,7 @@ export class PlayerLife {
   private readonly rentAnchor: { amount: number; housing: number } | null;
   private readonly cashRate: (date: Date) => number;
   private readonly listeners: ((events: LifeEvent[], life: PlayerLife) => void)[] = [];
-  private readonly crash = new CrashWatch();
+  private readonly crash: CrashWatch;
   /** Proceeds of the crash rule's panic sale, waiting to buy back in. */
   private crashCash = 0;
   /** Stock and bond prices on the last 1st of the month, for the 401(k)'s monthly return. */
@@ -208,7 +245,39 @@ export class PlayerLife {
   /** Balances on the first day, before anything the player does that day. */
   private readonly startSnap: LifeSnapshot;
 
-  constructor(o: LifeOptions) {
+  constructor(o: LifeOptions, saved?: LifeSave) {
+    this.market = o.market ?? new MarketPath();
+    this.cashRate = o.cashRate ?? cashRateOn;
+    if (saved) {
+      const s = structuredClone(saved);
+      this.place = s.place;
+      this.startDay = s.startDay;
+      this.startAge = s.startAge;
+      this.age = s.age;
+      this.today = s.today;
+      this.book = s.book;
+      this.monthlyTakeHome = s.monthlyTakeHome;
+      this.grossAnnual = s.grossAnnual;
+      this.job = s.job;
+      this.employed = s.employed;
+      this.rentAnchor = s.rentAnchor;
+      this.orders = s.orders;
+      this.recurring = s.recurring;
+      this.ledger = Ledger.fromSave(s.ledger);
+      this.twins = Twins.fromSave(s.twins, this.market);
+      this.crash = CrashWatch.fromSave(s.crash);
+      this.crashCash = s.crashCash;
+      this.lastFirst = s.lastFirst;
+      this.k401Year = s.k401Year;
+      this.k401Ytd = s.k401Ytd;
+      this.ltmPeak = s.ltmPeak;
+      this.inBear = s.inBear;
+      this.startUnits.push(...s.startUnits);
+      this.history.push(...s.history);
+      this.startSnap = s.startSnap;
+      return;
+    }
+    this.crash = new CrashWatch();
     this.place = o.place;
     this.startDay = o.day;
     this.startAge = o.age ?? 27;
@@ -222,13 +291,50 @@ export class PlayerLife {
     // The engine's bankruptcy test compares minimums with the book's take-home, so keep them in sync.
     this.book.monthlyTakeHome = this.monthlyTakeHome;
     this.ledger = new Ledger(o.accounts ?? defaultAccounts(o.day));
-    this.market = o.market ?? new MarketPath();
     this.ltmPeak = this.market.price("LTM", o.day);
-    this.cashRate = o.cashRate ?? cashRateOn;
     this.twins = new Twins(this.market);
     if (o.holdings) this.seedHoldings(o.holdings, o.day);
     this.startSnap = this.snapshot(o.day);
     this.record(o.day);
+  }
+
+  /** The life from a save, on `market` (rebuilt from the save's seed; it isn't stored). */
+  static fromSave(s: LifeSave, o: { market: MarketPath; cashRate?: (date: Date) => number }): PlayerLife {
+    return new PlayerLife({ place: s.place, day: s.startDay, market: o.market, cashRate: o.cashRate }, s);
+  }
+
+  /** Everything needed to carry on from today, as plain JSON; history keeps `keepDaily` days daily and weekly before. */
+  toSave(keepDaily = SAVE_DAILY_DAYS): LifeSave {
+    // A JSON round trip, not structuredClone: the save is exactly what the server
+    // stores, so a value JSON can't carry (a key set to undefined, NaN) shows up here.
+    const save: LifeSave = {
+      place: { abbr: this.place.abbr, name: this.place.name, rpp: this.place.rpp },
+      employed: this.employed,
+      age: this.age,
+      monthlyTakeHome: this.monthlyTakeHome,
+      grossAnnual: this.grossAnnual,
+      job: this.job,
+      orders: this.orders,
+      recurring: this.recurring,
+      today: this.today,
+      history: compactHistory(this.history, this.today, keepDaily),
+      book: this.book,
+      ledger: this.ledger.toSave(),
+      twins: this.twins.toSave(),
+      startDay: this.startDay,
+      startAge: this.startAge,
+      rentAnchor: this.rentAnchor,
+      crash: this.crash.toSave(),
+      crashCash: this.crashCash,
+      lastFirst: this.lastFirst,
+      k401Year: this.k401Year,
+      k401Ytd: this.k401Ytd,
+      ltmPeak: this.ltmPeak,
+      inBear: this.inBear,
+      startUnits: this.startUnits,
+      startSnap: this.startSnap,
+    };
+    return JSON.parse(JSON.stringify(save));
   }
 
   /**
