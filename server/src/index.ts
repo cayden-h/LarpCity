@@ -15,9 +15,10 @@ const { default: helmet } = await import("helmet");
 const { default: cors } = await import("cors");
 const { env } = await import("./env.js");
 const { logger } = await import("./logger.js");
-const { generalLimiter } = await import("./middleware/rateLimit.js");
+const { generalLimiter, strictLimiter } = await import("./middleware/rateLimit.js");
 const { errorHandler } = await import("./middleware/errorHandler.js");
 const { healthRouter } = await import("./routes/health.js");
+const { personaRouter, personaWebhookRouter } = await import("./routes/persona.js");
 const { runMigrations } = await import("./db.js");
 const { sessionMiddleware } = await import("./session.js");
 
@@ -25,11 +26,16 @@ const app = express();
 
 app.use(helmet());
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+
+// Mounted before express.json(): Persona's HMAC check needs the exact raw body.
+app.use("/api/persona", strictLimiter, personaWebhookRouter);
+
 app.use(express.json({ limit: "2mb" }));
 app.use(sessionMiddleware);
 app.use(generalLimiter);
 
 app.use("/api", healthRouter);
+app.use("/api/persona", strictLimiter, personaRouter);
 
 app.use(errorHandler);
 
