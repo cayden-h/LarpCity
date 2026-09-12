@@ -25,6 +25,8 @@ export interface TimelineOptions {
   window?: number;
   /** Most days between two kept checkpoints. */
   maxGap?: number;
+  /** Nothing outside the sim ever changes this life (an NPC), so replaying always reproduces it: thin without checking. */
+  neverActs?: boolean;
 }
 
 export class LifeTimeline {
@@ -32,6 +34,7 @@ export class LifeTimeline {
   private readonly start: Date;
   private readonly window: number;
   private readonly maxGap: number;
+  private readonly neverActs: boolean;
   /** Oldest first, one per day inside the window. */
   private readonly cps: LifeCheckpoint[] = [];
   /** How many checkpoints at the front were judged and kept for good. */
@@ -45,6 +48,7 @@ export class LifeTimeline {
     this.start = o.start;
     this.window = o.window ?? 365;
     this.maxGap = o.maxGap ?? 90;
+    this.neverActs = o.neverActs ?? false;
     this.cps.push(life.checkpoint());
     this.lastDay = life.today;
     life.onEvents(() => {
@@ -93,6 +97,10 @@ export class LifeTimeline {
     const cp = this.cps[i];
     const prev = i > 0 ? this.cps[i - 1] : null;
     if (prev && cp.day - prev.day < this.maxGap) {
+      if (this.neverActs) {
+        this.cps.splice(i, 1);
+        return;
+      }
       const shadow = this.shadow ?? prev.state.detached();
       for (let d = shadow.today + 1; d <= cp.day; d++) shadow.onDay(d, this.dateOf(d));
       shadow.history.length = 0;

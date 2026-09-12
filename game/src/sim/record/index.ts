@@ -84,6 +84,8 @@ export class RunRecorder {
   private events: EventEntry[] = [];
   private readonly seq = new Map<number, number>();
   private sending: Promise<void> | null = null;
+  /** A rewind asking the server for its branch; nothing sends until it answers. */
+  private forking: Promise<void> | null = null;
 
   constructor(o: RunRecorderOptions) {
     this.life = o.life;
@@ -128,7 +130,44 @@ export class RunRecorder {
 
   /** Resolves once nothing is in flight. */
   async idle(): Promise<void> {
-    while (this.sending) await this.sending;
+    while (this.sending || this.forking) await (this.sending ?? this.forking);
+  }
+
+  /**
+   * After the life rewinds to `day`: the old run keeps everything lived on it
+   * (days not sent yet go to it first), and a fork of it through the day before
+   * becomes this run, so the coach and the newspaper read the new branch. The
+   * rewound day itself is recorded again from the life as it is now.
+   */
+  rewind(day: number): Promise<void> {
+    const oldRun = this.runId;
+    const oldSnaps = [...this.snaps.values()];
+    const oldEvents = this.events;
+    for (const d of [...this.snaps.keys()]) if (d >= day) this.snaps.delete(d);
+    this.events = this.events.filter((e) => e.day < day);
+    this.seq.clear();
+    this.record(this.life.log.filter((e) => e.day === day));
+    if (!oldRun) return Promise.resolve();
+    // Nothing sends until the branch exists.
+    this.runId = null;
+    this.forking = (async () => {
+      while (this.sending) await this.sending;
+      try {
+        await this.post(oldRun, oldSnaps, oldEvents);
+      } catch (e) {
+        this.log(`Run recording: the old branch keeps what it had (${e instanceof Error ? e.message : String(e)})`);
+      }
+      if (day > 0) {
+        const r = await this.send(`/runs/${oldRun}/fork`, { throughDay: day - 1 }).catch(() => null);
+        if (r?.ok) {
+          this.runId = ((await r.json()) as { runId: string }).runId;
+          return;
+        }
+      }
+      // Day 0, or the server wouldn't fork: record the branch as a fresh run from here.
+      await this.begin();
+    })().finally(() => (this.forking = null));
+    return this.forking;
   }
 
   private record(events: LifeEvent[]): void {
@@ -143,12 +182,27 @@ export class RunRecorder {
     for (const d of this.seq.keys()) if (d < day - 1) this.seq.delete(d);
   }
 
+  /** Sends days and events to a run in batches the server accepts; throws at the first failure. */
+  private async post(runId: string, snaps: SnapshotEntry[], events: EventEntry[]): Promise<void> {
+    const days = [...snaps].sort((a, b) => a.day - b.day);
+    for (let i = 0; i < days.length; i += MAX_BATCH) {
+      const r = await this.send("/snapshot", { runId, entries: days.slice(i, i + MAX_BATCH) });
+      if (!r.ok) throw new Error(`snapshots failed (${r.status})`);
+    }
+    for (let i = 0; i < events.length; i += MAX_BATCH) {
+      const r = await this.send("/events", { runId, events: events.slice(i, i + MAX_BATCH) });
+      if (!r.ok) throw new Error(`events failed (${r.status})`);
+    }
+  }
+
   private async flush(): Promise<void> {
+    // The run this flush started on, even if a rewind switches runs while it's in flight.
+    const runId = this.runId;
     try {
       const days = [...this.snaps.values()].sort((a, b) => a.day - b.day);
       for (let i = 0; i < days.length; i += MAX_BATCH) {
         const batch = days.slice(i, i + MAX_BATCH);
-        const r = await this.send("/snapshot", { runId: this.runId, entries: batch });
+        const r = await this.send("/snapshot", { runId, entries: batch });
         if (!r.ok) throw new Error(`snapshots failed (${r.status})`);
         // A day re-recorded while this was in flight keeps its newer copy for the next send.
         for (const s of batch) if (this.snaps.get(s.day) === s) this.snaps.delete(s.day);
@@ -156,7 +210,7 @@ export class RunRecorder {
       const events = this.events;
       for (let i = 0; i < events.length; i += MAX_BATCH) {
         const batch = events.slice(i, i + MAX_BATCH);
-        const r = await this.send("/events", { runId: this.runId, events: batch });
+        const r = await this.send("/events", { runId, events: batch });
         if (!r.ok) throw new Error(`events failed (${r.status})`);
         const sent = new Set(batch);
         this.events = this.events.filter((e) => !sent.has(e));
