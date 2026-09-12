@@ -1,4 +1,4 @@
-import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
+import { ElevenLabsClient, type ElevenLabs } from "@elevenlabs/elevenlabs-js";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -23,6 +23,14 @@ export function buildCaptions(characters: string[], starts: number[]): { word: s
   });
   if (current) words.push({ word: current, start: wordStart });
   return words;
+}
+
+/** Word start times from a timestamped TTS response (the SDK returns camelCase fields). */
+export function captionsFromResponse(
+  result: Pick<ElevenLabs.AudioWithTimestampsResponse, "alignment" | "normalizedAlignment">,
+): { word: string; start: number }[] {
+  const alignment = result.alignment ?? result.normalizedAlignment;
+  return buildCaptions(alignment?.characters ?? [], alignment?.characterStartTimesSeconds ?? []);
 }
 
 async function readCache(file: string): Promise<Buffer | null> {
@@ -61,15 +69,12 @@ export async function speak(
     return { audioBase64: cachedAudio.toString("base64"), words: JSON.parse(cachedCaptions) };
   }
 
-  const result = (await client.textToSpeech.convertWithTimestamps(voiceId, {
+  const result = await client.textToSpeech.convertWithTimestamps(voiceId, {
     text,
     modelId: "eleven_flash_v2_5",
-  })) as any;
-  const audioBase64: string = result.audioBase64 ?? result.audio_base64;
-  const alignment = result.alignment ?? result.normalized_alignment ?? {};
-  const characters: string[] = alignment.characters ?? [];
-  const starts: number[] = alignment.character_start_times_seconds ?? [];
-  const words = buildCaptions(characters, starts);
+  });
+  const audioBase64 = result.audioBase64;
+  const words = captionsFromResponse(result);
 
   const buffer = Buffer.from(audioBase64, "base64");
   await writeFile(audioFile, buffer);

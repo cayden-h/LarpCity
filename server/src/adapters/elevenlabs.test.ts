@@ -1,6 +1,20 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildCaptions } from "./elevenlabs.js";
+import { buildCaptions, captionsFromResponse } from "./elevenlabs.js";
+
+test("captionsFromResponse reads the SDK's camelCase alignment", () => {
+  const alignment = {
+    characters: ["h", "i", " ", "y", "o", "u"],
+    characterStartTimesSeconds: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
+    characterEndTimesSeconds: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+  };
+  const expected = [
+    { word: "hi", start: 0.0 },
+    { word: "you", start: 0.3 },
+  ];
+  assert.deepEqual(captionsFromResponse({ alignment }), expected);
+  assert.deepEqual(captionsFromResponse({ normalizedAlignment: alignment }), expected);
+});
 
 test("buildCaptions groups characters into words at spaces", () => {
   const chars = ["h", "i", " ", "y", "o", "u"];
