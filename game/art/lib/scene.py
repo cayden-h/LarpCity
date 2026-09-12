@@ -4,12 +4,36 @@ import math
 import bpy
 from mathutils import Vector
 
-from .iso import HALF_H, HALF_W, PX_PER_BU, VIEW_DIR, ground_at_screen
+from .iso import HALF_H, HALF_W, PX_PER_BU, VIEW_DIR, Z_PX_PER_BU, ground_at_screen
 
 SCALE = 4          # render at 4x; art/pixelize.py shrinks to 1x game pixels
 PAD = 8            # game px of air around the footprint
-SHADOW_PAD = 28    # extra room on the right and bottom for the cast shadow
-SKY_STRENGTH = 0.35
+SKY_STRENGTH = 0.12  # a faint, cool fill: shaded faces stay dark enough that the three face tones read
+EXPOSURE = -0.6
+# The one key light, as the direction its light travels. Toward +Y it lights the game's left face (-Y);
+# toward +X the right face (+X) turns away into shade; about 60 degrees up, so the top is the lightest.
+# Shadows fall back and to the right, like the procedural buildings' shading (bricks.ts).
+SUN_DIR = (0.5, 1.0, -1.9)
+SUN_ENERGY = 5.0
+SUN_COLOR = (1.0, 0.88, 0.72)  # warm afternoon light, for the reference's warm palette
+CATCHER_MARGIN = 1.2  # how far (Blender units) the shadow catcher reaches past the lot; a shadow ends there
+SHADOW_BLUR = 2       # game px of room past the geometric shadow for its soft edge
+
+
+def shadow_reach(w: int, d: int, top_px: float) -> tuple[float, float, float, float]:
+    """Screen bounds (left, top, right, bottom, in game px from tile (0, 0)'s top corner) of the cast shadow of
+    a w x d lot's box top_px tall: its footprint swept along SUN_DIR to the ground, cut off at the catcher."""
+    sx, sy, sz = SUN_DIR
+    h = top_px / Z_PX_PER_BU
+    dx, dy = -sx / sz * h, -sy / sz * h
+    x0 = max(min(0, dx), -CATCHER_MARGIN)
+    x1 = min(max(w, w + dx), w + CATCHER_MARGIN)
+    y0 = max(min(-d, -d + dy), -d - CATCHER_MARGIN)
+    y1 = min(max(0, dy), CATCHER_MARGIN)
+    # Blender (x, y) on the ground lands at screen ((x + y) * HALF_W, (x - y) * HALF_H)
+    xs = [(x + y) * HALF_W for x in (x0, x1) for y in (y0, y1)]
+    ys = [(x - y) * HALF_H for x in (x0, x1) for y in (y0, y1)]
+    return min(xs), min(ys), max(xs), max(ys)
 
 
 def reset() -> None:
@@ -35,7 +59,7 @@ def reset() -> None:
     sc.render.image_settings.file_format = "PNG"
     sc.render.image_settings.color_mode = "RGBA"
     sc.view_settings.view_transform = "Standard"  # AgX washes out brand colors
-    sc.view_settings.exposure = -0.35
+    sc.view_settings.exposure = EXPOSURE
     cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam"))
     cam.data.type = "ORTHO"
     cam.data.clip_end = 1000
@@ -49,21 +73,28 @@ def day_lighting() -> None:
     world.use_nodes = True
     nt = world.node_tree
     sky = nt.nodes.new("ShaderNodeTexSky")
+    # The sky is only the soft fill: its own sun disc (low, from the +X side) would outshine the key light,
+    # light the right face instead of the left, and throw long shadows the wrong way.
+    sky.sun_disc = False
     nt.links.new(sky.outputs["Color"], nt.nodes["Background"].inputs["Color"])
     nt.nodes["Background"].inputs["Strength"].default_value = SKY_STRENGTH
     sun = bpy.data.objects.new("sun", bpy.data.lights.new("sun", "SUN"))
-    sun.data.energy = 2.2
+    sun.data.energy = SUN_ENERGY
+    sun.data.color = SUN_COLOR
     sun.data.angle = math.radians(1.5)
-    # Light travels mostly toward +Y: the game's left face (-Y) is lit, the right face (+X) is in half shade.
-    sun.rotation_euler = Vector((-0.35, 1.0, -1.1)).normalized().to_track_quat("-Z", "Y").to_euler()
+    sun.rotation_euler = Vector(SUN_DIR).normalized().to_track_quat("-Z", "Y").to_euler()
     bpy.context.scene.collection.objects.link(sun)
 
 
 def frame(w: int, d: int, top_px: float, extra: int = 0) -> dict:
     """Aim the camera so tile (0, 0)'s top corner lands at a known pixel (ax, ay), in game px.
-    extra widens the canvas for things that overhang the lot (a freeway V board)."""
-    left, right = -d * HALF_W - PAD - extra, w * HALF_W + PAD + SHADOW_PAD + extra
-    top, bottom = -math.ceil(top_px) - PAD, (w + d) * HALF_H + PAD + SHADOW_PAD // 2
+    extra widens the canvas for things that overhang the lot (a freeway V board). The canvas also takes in
+    the whole cast shadow (shadow_reach), and no more, so no side carries padding it does not need."""
+    sl, st, sr, sb = shadow_reach(w, d, top_px)
+    left = min(-d * HALF_W - PAD - extra, math.floor(sl) - SHADOW_BLUR)
+    right = max(w * HALF_W + PAD + extra, math.ceil(sr) + SHADOW_BLUR)
+    top = min(-math.ceil(top_px) - PAD, math.floor(st) - SHADOW_BLUR)
+    bottom = max((w + d) * HALF_H + PAD, math.ceil(sb) + SHADOW_BLUR)
     width, height = right - left, bottom - top
     sc = bpy.context.scene
     sc.render.resolution_x, sc.render.resolution_y = width * SCALE, height * SCALE

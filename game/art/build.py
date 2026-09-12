@@ -30,7 +30,7 @@ def render(spec, raw):
     peak = BUILDERS[spec["kind"]](w, d, floors, spec["seed"], **spec["opts"])
     if spec["sign"]:
         peak = max(peak, signs.place(spec["sign"], w, d, body_top(floors)))
-    geo.shadow_catcher(w, d)
+    geo.shadow_catcher(w, d, S.CATCHER_MARGIN)
     top_px = math.ceil(peak * Z_PX_PER_BU)
     fr = S.frame(w, d, top_px, extra=spec["pad"])
     files = {"day": f"{sid}.day.png", "night": f"{sid}.night.png", "ids": f"{sid}.ids.png"}
