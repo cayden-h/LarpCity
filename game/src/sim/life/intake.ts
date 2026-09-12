@@ -5,7 +5,7 @@
 
 import { creditCard, installment, newBook } from "../debt/factory.ts";
 import type { Debt } from "../debt/types.ts";
-import type { MarketPath } from "../market/index.ts";
+import type { InstrumentId, MarketPath } from "../market/index.ts";
 import { defaultAccounts, PlayerLife, TAKE_HOME_SHARE, type Place } from "./player.ts";
 
 export interface IntakeAnswers {
@@ -84,7 +84,7 @@ export function debtsFor(total: number, day: number): Debt[] {
 }
 
 /** The player's starting life from the onboarding answers. */
-export function lifeFromIntake(a: IntakeAnswers, o: { place: Place; day: number; market: MarketPath }): PlayerLife {
+export function lifeFromIntake(a: IntakeAnswers, o: { place: Place; day: number; market: MarketPath; holdings?: Partial<Record<InstrumentId, number>> }): PlayerLife {
   const monthlyTakeHome = takeHomeFor(a.salary);
   const book = newBook({ debts: debtsFor(a.debt, o.day), agi: a.salary, monthlyTakeHome, strategy: "avalanche", day: o.day });
   // Savings sit in the high-yield account. Checking fills with the first
@@ -100,5 +100,6 @@ export function lifeFromIntake(a: IntakeAnswers, o: { place: Place; day: number;
     book,
     accounts,
     market: o.market,
+    holdings: o.holdings,
   });
 }

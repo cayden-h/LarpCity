@@ -14,7 +14,7 @@ import {
   takeHomeFor,
   type IntakeAnswers,
 } from "../src/sim/life/intake.ts";
-import { PlayerLife, type Place } from "../src/sim/life/index.ts";
+import { PlayerLife, STARTER_PORTFOLIO, type Place } from "../src/sim/life/index.ts";
 import { MarketPath } from "../src/sim/market/index.ts";
 
 const TX: Place = { abbr: "TX", name: "Texas", rpp: { all: 97.4, goods: 97.0, housing: 88.6 } };
@@ -84,6 +84,15 @@ test("lifeFromIntake sets pay, job, rent, debt, and savings from the answers", (
   assert.equal(Math.round(life.totalDebt()), 20_000);
   assert.equal(life.ledger.get("savings").balance, 5_000);
   assert.equal(life.ledger.get("checking").balance, 0);
+});
+
+test("lifeFromIntake passes starting holdings through, leaving the stated savings alone", () => {
+  const life = lifeFromIntake(NURSE, { place: TX, day: 0, market: new MarketPath(), holdings: STARTER_PORTFOLIO });
+  const holdings = life.ledger.get("brokerage").holdings ?? {};
+  assert.deepEqual(Object.keys(holdings).sort(), Object.keys(STARTER_PORTFOLIO).sort());
+  assert.ok(life.investments() > 0);
+  assert.equal(life.ledger.get("savings").balance, 5_000);
+  assert.equal(Object.keys(lifeFor().ledger.get("brokerage").holdings ?? {}).length, 0);
 });
 
 test("a stated rent scales with housing costs after a move", () => {

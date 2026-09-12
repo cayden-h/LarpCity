@@ -57,10 +57,11 @@ const intake = await runIntake({ backdrop: `${import.meta.env.BASE_URL}cities/${
 
 // The player's money life: paychecks, rent for the current state, and the
 // debt engine run once per game day (research/07-debt-system-design.md);
-// investments (a starter portfolio from day one) move with the seeded market.
+// investments (a starter portfolio from day one, with or without the
+// interview) move with the seeded market.
 const market = new MarketPath(seed, clock.start);
 const player = intake
-  ? lifeFromIntake(intake, { place: state, day: clock.day, market })
+  ? lifeFromIntake(intake, { place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO })
   : new PlayerLife({ place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO });
 
 // The owl narrates the big moments from here on (narration/lines.ts).
