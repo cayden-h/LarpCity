@@ -15,7 +15,7 @@
   transition:
     transform 0.25s ease,
     opacity 0.25s ease;
-  font-family: "Fredoka", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Pixelify Sans", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
   pointer-events: none;
 }
 .nr.in {

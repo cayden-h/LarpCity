@@ -1,6 +1,6 @@
 /* The onboarding interview: the owl narrator's welcome card over a blurred
    plate of the starting city, in the HUD's look (blue card, white border,
-   yellow buttons, Fredoka), after reference/screenshots/02-onboarding-mayor.jpg. */
+   yellow buttons, Pixelify Sans), after reference/screenshots/02-onboarding-mayor.jpg. */
 
 .in-overlay {
   position: fixed;
@@ -11,7 +11,7 @@
   overflow: auto;
   padding: 44px 20px 24px;
   background: #24497f var(--backdrop, none) center / cover no-repeat;
-  font-family: "Fredoka", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Pixelify Sans", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 .in-overlay::before {
   content: "";

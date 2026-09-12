@@ -124,6 +124,24 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .st-sub, .st-name span { color: #4f6876; }
 .st-pill, .st-open, .st-back { border-radius: 0; }
 .st-open { border: 3px solid #10314b; background: var(--panel); box-shadow: inset 2px 2px #8bddff; }
+/* Stocks sections (HackRice sponsors, Markets): headers and dividers in the paper palette. */
+.st-sec {
+  padding: 4px 0 5px;
+  border-bottom: 2px solid #aac2c9;
+  color: #4f6876;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.st-item + .st-sec { margin-top: 12px; }
+.st-sec span + span { font-weight: 700; }
+.st-item + .st-item .st-row { border-top: 2px solid #c4d3c9; }
+/* The sponsor rows are buttons that open the stock in Money. */
+.st-row.link { border-top: 0; }
+.st-row.link:hover { background: #f5e9c3; }
+.st-row.link:hover .st-name b,
+.st-row.link:focus-visible .st-name b { color: var(--blue); }
+.st-row.link:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
 
 .map-card { position: relative; }
 .map-svg, .state-panel, .state-panel .thumb, #npc, .desk-window, .ff-window { border-radius: 0; border-color: var(--edge); }
@@ -132,6 +150,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .desk-bar, .ff-overlay { font-family: "Pixelify Sans", monospace; }
 .desk-window, .ff-window { box-shadow: var(--shadow); }
 .desk-bar, .ff-bar { background: var(--panel); }
+.desk-bar { border-bottom-color: var(--edge); }
 .ff-window button, .ff-window input, .ff-window select { border-radius: 0; }
 
 @media (max-width: 1200px) {
