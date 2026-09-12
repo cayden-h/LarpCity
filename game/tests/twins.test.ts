@@ -107,3 +107,23 @@ test("a sell and a buy-back leave held on the original buy", () => {
   const s = life.history.at(-1)!;
   assert.equal(s.you, s.brokerage);
 });
+
+test("a bear market fires once per drawdown and re-arms after a new high", () => {
+  const m = earlyMarket();
+  const life = new PlayerLife({ place: TX, day: 0, market: m });
+  life.buy("LTM", 1_000);
+  const events = live(life, 0, m.presets.popEndDay + 800).filter((e) => e.type === "bear_market" || e.type === "market_recovered");
+  assert.ok(events.some((e) => e.type === "bear_market" && e.day >= m.presets.popDay && e.day < m.presets.popEndDay), "the AI pop is a bear market");
+  // They alternate: bear, recovered, bear, recovered...
+  events.forEach((e, i) => assert.equal(e.type, i % 2 ? "market_recovered" : "bear_market"));
+  for (const e of events) if (e.type === "bear_market") assert.ok(e.drop >= 0.2 && e.stocks > 0);
+});
+
+test("no stocks, no bear-market decision", () => {
+  const m = earlyMarket();
+  const life = new PlayerLife({ place: TX, day: 0, market: m });
+  life.buy("BOND", 500);
+  const events = live(life, 0, m.presets.popEndDay);
+  assert.equal(events.filter((e) => e.type === "bear_market").length, 0);
+  assert.equal(life.needsDecision([{ type: "bear_market", day: 1, drop: 0.2, stocks: 1 }]), true);
+});

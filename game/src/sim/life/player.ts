@@ -22,7 +22,7 @@ import {
 import { MarketPath, type InstrumentId } from "../market/index.ts";
 import { Ledger } from "../money/accounts.ts";
 import type { Account, Holding } from "../money/types.ts";
-import { CrashWatch } from "../skip/crash.ts";
+import { CrashWatch, PANIC_DRAWDOWN } from "../skip/crash.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
 import { cashRateOn } from "./rates.ts";
 import { Twins } from "./twins.ts";
@@ -69,7 +69,9 @@ export type LifeEvent =
   | { type: "moved"; day: number; from: string; to: string; rent: number; living: number }
   | { type: "job"; day: number; employed: boolean }
   | { type: "trade"; day: number; id: InstrumentId; side: "buy" | "sell"; amount: number; units: number; price: number; recurring: boolean }
-  | { type: "trade_skipped"; day: number; id: InstrumentId; amount: number; reason: string };
+  | { type: "trade_skipped"; day: number; id: InstrumentId; amount: number; reason: string }
+  | { type: "bear_market"; day: number; drop: number; stocks: number }
+  | { type: "market_recovered"; day: number; you: number; held: number; autopilot: number };
 
 export interface LifeSnapshot {
   day: number;
@@ -174,6 +176,10 @@ export class PlayerLife {
   private lastFirst: { stock: number; bond: number } | null = null;
   private k401Year = -1;
   private k401Ytd = 0;
+  /** Highest LTM close seen, for the bear-market line. */
+  private ltmPeak: number;
+  /** A bear_market event fired and the market hasn't set a new high since. */
+  private inBear = false;
 
   constructor(o: LifeOptions) {
     this.place = o.place;
@@ -188,6 +194,7 @@ export class PlayerLife {
     this.book.monthlyTakeHome = this.monthlyTakeHome;
     this.ledger = new Ledger(o.accounts ?? defaultAccounts(o.day));
     this.market = o.market ?? new MarketPath();
+    this.ltmPeak = this.market.price("LTM", o.day);
     this.cashRate = o.cashRate ?? cashRateOn;
     this.twins = new Twins(this.market);
     this.record(o.day);
@@ -361,6 +368,7 @@ export class PlayerLife {
       if (interest > 0) events.push({ type: "savings_interest", day, amount: interest });
       if (this.orders) events.push(...this.onFirstOfMonth(day));
     }
+    events.push(...this.watchMarket(day));
     this.record(day);
     this.emit(events);
     return events;
@@ -389,9 +397,9 @@ export class PlayerLife {
     return events.some((e) => e.type === "bankruptcy_eligible");
   }
 
-  /** Events that should pause time for a decision once there is a UI for it. */
+  /** Events that pause time for a decision in the desk. */
   needsDecision(events: LifeEvent[]): boolean {
-    return events.some((e) => e.type === "cannot_cover" || e.type === "bankruptcy_eligible");
+    return events.some((e) => e.type === "cannot_cover" || e.type === "bankruptcy_eligible" || e.type === "bear_market");
   }
 
   setPlace(place: Place, day: number): LifeEvent {
@@ -472,6 +480,28 @@ export class PlayerLife {
       }
     }
     return [];
+  }
+
+  /**
+   * The desk's crash moment (research/03, event 1): the first close 20% below
+   * LTM's high while the player owns stocks. It fires once, then re-arms when
+   * LTM sets a new high, which also reports how each line came through.
+   */
+  private watchMarket(day: number): LifeEvent[] {
+    const price = this.market.price("LTM", day);
+    if (price >= this.ltmPeak) {
+      this.ltmPeak = price;
+      if (!this.inBear) return [];
+      this.inBear = false;
+      const snap = this.snapshot(day);
+      return [{ type: "market_recovered", day, you: snap.you, held: snap.held, autopilot: snap.autopilot }];
+    }
+    const drop = 1 - price / this.ltmPeak;
+    if (this.inBear || drop < PANIC_DRAWDOWN) return [];
+    const stocks = round2(this.positions(day).filter((p) => p.id !== "BOND").reduce((t, p) => t + p.value, 0));
+    if (stocks <= 0) return [];
+    this.inBear = true;
+    return [{ type: "bear_market", day, drop, stocks }];
   }
 
   /** The account with this id, opened now if a custom account list left it out. */

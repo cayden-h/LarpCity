@@ -32,6 +32,7 @@ export class Twins {
 
   buy(id: InstrumentId, dollars: number, day: number): void {
     // Sale proceeds go back in first: they are already on the player's line, and the twins never sold them.
+    // Any buy while cashOut is positive counts as a buy-back, even one funded by a paycheck: the sale cash is still in checking.
     const reinvested = Math.min(this.cashOut, dollars);
     this.cashOut = round2(this.cashOut - reinvested);
     const fresh = dollars - reinvested;
