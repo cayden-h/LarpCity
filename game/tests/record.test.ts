@@ -101,6 +101,18 @@ test("a decade-long fast-forward goes out in chunks the server accepts", async (
   assert.ok(server.calls.filter((c) => c.path.endsWith("/snapshot")).every((c) => c.rows <= MAX_BATCH));
 });
 
+test("snapshots carry the investing lines", () => {
+  const life = newLife();
+  life.buy("LTM", 500);
+  for (let day = 1; day <= 30; day++) life.onDay(day, dateOf(day));
+  const s = snapshotOf(life, 30);
+  const h = life.history.at(-1)!;
+  assert.equal(s.you, h.you);
+  assert.equal(s.held, h.held);
+  assert.equal(s.autopilot, h.autopilot);
+  assert.ok(s.held > 0);
+});
+
 test("with no server the recorder stays off and the game is unaffected", async () => {
   const fetchFn = (async () => {
     throw new TypeError("fetch failed");

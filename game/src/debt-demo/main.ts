@@ -15,6 +15,8 @@ import { MARKET } from "../data/market.ts";
 import { STATES } from "../data/states.ts";
 import { PlayerLife, seriesOn, type LifeEvent, type LifeSnapshot } from "../sim/life/index.ts";
 import { INSTRUMENTS, MarketPath, instrument, type InstrumentId } from "../sim/market/index.ts";
+import { fetchRecoveryLesson } from "../net/recap.ts";
+import { RunRecorder } from "../sim/record/index.ts";
 import {
   compareStrategies,
   enrollHardship,
@@ -101,6 +103,15 @@ const market = host?.life().market ?? new MarketPath();
 let rateShock = 0;
 let life = host ? host.life() : makeLife();
 if (host) life.onEvents(onLifeEvents);
+// Standalone, the desk records its own run in Tiger Data; inside the city, the city's recorder already records this life.
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api`;
+let recorder = host ? null : startRecorder();
+
+function startRecorder(): RunRecorder {
+  const r = new RunRecorder({ life, seed: market.seed, base: API_BASE });
+  void r.begin();
+  return r;
+}
 const feed: FeedItem[] = [];
 let decision: Decision | null = null;
 let resumeSpeed = 1;
@@ -219,6 +230,7 @@ function onLifeEvents(events: LifeEvent[]) {
         log(e.day, "Stocks are back at their high", "up");
         recovery = { day: e.day, you: e.you, held: e.held, autopilot: e.autopilot };
         recap = null;
+        void askRecap(e.day);
         break;
       default:
         break;
@@ -370,6 +382,26 @@ function askBearMarket(day: number, drop: number, stocks: number) {
       },
     });
   openDecision({ title: `Stocks are down ${pctOf(drop, 0)} from their high`, body: `Your stocks are worth ${usd(stocks)} now. This is a bear market. What do you do?`, options });
+}
+
+/**
+ * Asks the coach for the recovery lesson. The server reads the run from Tiger Data, so the day's
+ * events have to be there first: this desk hears market_recovered before the run recorder does
+ * (both listen to the same life), so wait a tick, then send everything, then ask.
+ * Inside the city, the city's recorder owns the run, so only the standalone desk asks.
+ */
+async function askRecap(day: number) {
+  const r = recorder;
+  if (!r?.runId) return;
+  await Promise.resolve();
+  await r.idle();
+  await r.tick(true);
+  const got = await fetchRecoveryLesson(r.runId, day);
+  // A newer recovery (or a reset) may have replaced this one while the request was out.
+  if (got && recovery?.day === day && recorder === r) {
+    recap = { headline: got.headline, lesson: got.tip };
+    scheduleRender();
+  }
 }
 
 // ---- Debt helpers ------------------------------------------------------------------
@@ -1000,6 +1032,7 @@ function skip(days: number) {
   clock.skipping = true;
   for (let i = 0; i < days && !decision; i++) clock.advanceDays(1);
   clock.skipping = false;
+  void recorder?.tick(true);
   render();
 }
 
@@ -1078,6 +1111,7 @@ app.addEventListener("click", (ev) => {
       feed.length = 0;
       rateShock = 0;
       life = makeLife();
+      recorder = startRecorder();
       crash = recovery = recap = null;
       menuOpen = false;
       shopShown = false;
@@ -1157,7 +1191,10 @@ if (host) {
   // reach onLifeEvents, which re-renders.
   render();
 } else {
-  clock.onDay((day) => life.onDay(day, clock.date));
+  clock.onDay((day) => {
+    life.onDay(day, clock.date);
+    void recorder?.tick();
+  });
   clock.speed = 1;
   let last = performance.now();
   const frame = (now: number) => {

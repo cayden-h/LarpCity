@@ -19,6 +19,12 @@ export interface SnapshotEntry {
   /** 401(k) and Roth IRA. */
   retirement: number;
   debt: number;
+  /** The player's investing line: brokerage plus cash sells took out (sim/life/twins.ts). */
+  you: number;
+  /** The same buys, never sold. */
+  held: number;
+  /** The same new money at 90/10 LTM/BOND, never sold. */
+  autopilot: number;
 }
 
 export interface EventEntry {
@@ -38,6 +44,8 @@ export function snapshotOf(life: PlayerLife, day: number): SnapshotEntry {
   const accounts = [...life.ledger.accounts.values()];
   const sum = (kinds: string[]) => accounts.filter((a) => kinds.includes(a.kind)).reduce((s, a) => s + a.balance, 0);
   const retirement = round2(sum(["k401", "roth_ira"]));
+  const last = life.history[life.history.length - 1];
+  const lines = last && last.day === day ? last : life.snapshot(day);
   return {
     day,
     netWorth: life.netWorth(),
@@ -46,6 +54,9 @@ export function snapshotOf(life: PlayerLife, day: number): SnapshotEntry {
     brokerage: round2(life.investments() - retirement),
     retirement,
     debt: life.totalDebt(),
+    you: lines.you,
+    held: lines.held,
+    autopilot: lines.autopilot,
   };
 }
 
