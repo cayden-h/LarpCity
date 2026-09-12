@@ -749,7 +749,7 @@ git commit -m "Money desk: three-line investing chart, crash decision, recovery 
 
 ---
 
-### Task 6: Server columns, schema, and upsert
+### Task 6: Server columns, schema, and upsert (superseded: see "Amendments" at the end)
 
 **Files:**
 - Modify: `server/src/migrations.sql`
@@ -1016,7 +1016,7 @@ git commit -m "Server: Gemini crash recap at POST /api/recap"
 
 ---
 
-### Task 8: Game-side sync and recap client
+### Task 8: Game-side sync and recap client (superseded: see "Amendments" at the end)
 
 **Files:**
 - Create: `game/src/net/runs.ts`
@@ -1330,3 +1330,299 @@ Expected: one run with a row per simulated day and non-null `held`.
 Run: `cd game && npm test && npx tsc --noEmit && cd ../server && npm test && npx tsc --noEmit -p tsconfig.json`
 Expected: all green.
 Stop both background servers and close the browser tab.
+
+---
+
+## Amendments (2026-09-12, after `origin/Tri` gained run recording)
+
+While Tasks 1-3 ran, `origin/Tri` (741db74) merged "Tiger Data run recording with weekly and monthly aggregates": the server's `/api/snapshot` already upserts through `server/src/store/runs.ts`, `/api/events` stores every `LifeEvent` once per key, and the game's `RunRecorder` (`game/src/sim/record/index.ts`) records the city's life.
+These amendments replace Tasks 6 and 8, adjust Task 7's route and Task 9's setup, and add a rebase before Task 4.
+The bear-market and recovery events need no extra work to persist: `RunRecorder` already sends every `LifeEvent` (kinds `bear_market`, `market_recovered` match the server's `^[a-z_]{1,40}$`).
+
+### Task 3.5: Rebase onto origin/Tri
+
+- [ ] Run `git fetch origin && git rebase origin/Tri`.
+  The branch only touches `game/src/sim/life/*`, `game/tests/twins.test.ts`, and `docs/`, none of which Tri's commits touch, so no conflicts are expected; stop and report if any appear.
+- [ ] Run `cd game && npm install && npm test && npx tsc --noEmit` and `cd server && npm install && npm test && npx tsc --noEmit -p tsconfig.json`; record the new baseline counts (Tri's branch adds tests).
+
+### Task 6 (amended): you, held, and autopilot in the run store
+
+**Files:**
+- Modify: `server/src/migrations.sql`, `server/src/routes/snapshot.ts`, `server/src/store/runs.ts`
+- Test: `server/src/routes/snapshot.test.ts`, `server/src/store/runs.db.test.ts`
+
+- [ ] **Step 1: Failing schema tests.** In `server/src/routes/snapshot.test.ts`, import `snapshotBody` from `./snapshot.js` alongside what it already imports, then append:
+
+```ts
+const RUN = "aaaaaaaa-0000-4000-8000-000000000001";
+const row = { day: 3, netWorth: 1, checking: 1, savings: 1, brokerage: 1, retirement: 0, debt: 0 };
+
+test("snapshot rows may carry the investing lines", () => {
+  assert.equal(snapshotBody.safeParse({ runId: RUN, entries: [row] }).success, true);
+  const parsed = snapshotBody.parse({ runId: RUN, entries: [{ ...row, you: 5, held: 6, autopilot: 7 }] });
+  assert.deepEqual(parsed.entries[0], { ...row, you: 5, held: 6, autopilot: 7 });
+});
+
+test("snapshot rows reject non-finite investing lines", () => {
+  assert.equal(snapshotBody.safeParse({ runId: RUN, entries: [{ ...row, held: Infinity }] }).success, false);
+  assert.equal(snapshotBody.safeParse({ runId: RUN, entries: [{ ...row, you: "5" }] }).success, false);
+});
+```
+
+In `server/src/store/runs.db.test.ts` (runs only with `TEST_DATABASE_URL`), add a test in the file's existing style: create a run, `insertSnapshots` two days (one with `you: 10, held: 12, autopilot: 11`, one without the three fields), then `history(db, run, "day", 0, 10)` returns the lines for the first day and `null` for the second.
+
+Run `cd server && npm test`; expected: the two schema tests FAIL (Zod strips unknown keys, so `deepEqual` fails; `Infinity` passes).
+
+- [ ] **Step 2: Implement.**
+
+Append to `server/src/migrations.sql`:
+
+```sql
+-- Investing lines (docs/superpowers/specs/2026-09-12-investing-twins-design.md): the player's
+-- brokerage plus cash sells took out, the same buys never sold, and a 90/10 autopilot. Daily rows only;
+-- the weekly and monthly aggregates above don't carry them.
+ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS you double precision;
+ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS held double precision;
+ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS autopilot double precision;
+```
+
+In `server/src/routes/snapshot.ts`, the `snapshotBody` entry object becomes:
+
+```ts
+    .array(
+      z.object({
+        day,
+        netWorth: money,
+        checking: money,
+        savings: money,
+        brokerage: money,
+        retirement: money,
+        debt: money,
+        you: money.optional(),
+        held: money.optional(),
+        autopilot: money.optional(),
+      }),
+    )
+```
+
+In `server/src/store/runs.ts`, add to `SnapshotRow`:
+
+```ts
+  /** Investing lines (game/src/sim/life/twins.ts); null on rows sent before they existed. */
+  you?: number | null;
+  held?: number | null;
+  autopilot?: number | null;
+```
+
+In `insertSnapshots`, add the three columns: `(ts, run_id, day, net_worth, checking, savings, brokerage, retirement, debt, you, held, autopilot)`, select `..., dt, yo, hd, ap`, unnest `$9::float8[], $10::float8[], $11::float8[]` as `t(d, nw, ch, sv, br, rt, dt, yo, hd, ap)`, add `you = EXCLUDED.you, held = EXCLUDED.held, autopilot = EXCLUDED.autopilot` to the `DO UPDATE SET`, and pass `rows.map((r) => r.you ?? null), rows.map((r) => r.held ?? null), rows.map((r) => r.autopilot ?? null)` after `col("debt")`.
+
+In `history`'s daily query, select `debt, you, held, autopilot`.
+
+- [ ] **Step 3: Verify.** `cd server && npm test && npx tsc --noEmit -p tsconfig.json` (the two new schema tests pass; the DB test is skipped without `TEST_DATABASE_URL`, or passes when the local Docker database from `server/README.md` is running).
+
+- [ ] **Step 4: Commit.** `git add server/src/migrations.sql server/src/routes/snapshot.ts server/src/store/runs.ts server/src/routes/snapshot.test.ts server/src/store/runs.db.test.ts && git commit -m "Server: you, held, and autopilot on daily snapshots"`
+
+### Task 7 (amendment): the route uses Tri's helpers
+
+Keep Task 7's adapter, tests, and `recapBody`, but write the route with `handle` and `parse` from `server/src/http.ts`, like `routes/snapshot.ts`:
+
+```ts
+aiRouter.post(
+  "/recap",
+  handle(async (req) => {
+    const f = parse(recapBody, req.body);
+    const key = [Math.round(f.drop * 100), f.choice, Math.round(f.you), Math.round(f.held), Math.round(f.autopilot), f.months].join("|");
+    let recap = recapCache.get(key);
+    if (!recap) {
+      try {
+        recap = await generateCrashRecap(f);
+      } catch (err) {
+        logger.error({ err }, "gemini recap failed");
+        throw new HttpError(502, "recap_unavailable");
+      }
+      recapCache.set(key, recap);
+    }
+    return recap;
+  }),
+);
+```
+
+### Task 8 (amended): lines in the run recorder, the recap client, and a recorder for the standalone desk
+
+**Files:**
+- Modify: `game/src/sim/record/index.ts`, `game/src/debt-demo/main.ts`
+- Create: `game/src/net/recap.ts`, `game/tests/recap.test.ts`
+- Test: `game/tests/record.test.ts`
+
+- [ ] **Step 1: Failing tests.** Append to `game/tests/record.test.ts`:
+
+```ts
+test("snapshots carry the investing lines", () => {
+  const life = newLife();
+  life.buy("LTM", 500);
+  for (let day = 1; day <= 30; day++) life.onDay(day, dateOf(day));
+  const s = snapshotOf(life, 30);
+  const h = life.history.at(-1)!;
+  assert.equal(s.you, h.you);
+  assert.equal(s.held, h.held);
+  assert.equal(s.autopilot, h.autopilot);
+  assert.ok(s.held > 0);
+});
+```
+
+Create `game/tests/recap.test.ts`:
+
+```ts
+// Crash recap client tests: the facts go to POST /recap, and a failing server means no recap.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { fetchRecap, type Api } from "../src/net/recap.ts";
+
+const facts = { drop: 0.27, choice: "sold everything", you: 800, held: 1400, autopilot: 1300, months: 20 };
+
+test("the recap client posts the facts and returns the server's recap", async () => {
+  let seen: { path: string; init?: RequestInit } | null = null;
+  const api: Api = async <T,>(path: string, init?: RequestInit) => {
+    seen = { path, init };
+    return { headline: "Selling cost you $600", lesson: "Holding got the rebound.", mood: "console" } as T;
+  };
+  const recap = await fetchRecap(facts, api);
+  assert.equal(recap?.mood, "console");
+  assert.equal(seen!.path, "/recap");
+  assert.equal(seen!.init?.method, "POST");
+  assert.deepEqual(JSON.parse(String(seen!.init?.body)), facts);
+});
+
+test("no server, no recap", async () => {
+  const api: Api = async () => {
+    throw new Error("offline");
+  };
+  assert.equal(await fetchRecap(facts, api), null);
+});
+```
+
+Run `cd game && npm test`; expected: FAIL (`s.you` undefined; `../src/net/recap.ts` missing).
+
+- [ ] **Step 2: Lines in the recorder.** In `game/src/sim/record/index.ts`, add to `SnapshotEntry`:
+
+```ts
+  /** The player's investing line: brokerage plus cash sells took out (sim/life/twins.ts). */
+  you: number;
+  /** The same buys, never sold. */
+  held: number;
+  /** The same new money at 90/10 LTM/BOND, never sold. */
+  autopilot: number;
+```
+
+and at the top of `snapshotOf`, reuse the day's history row when it's there (the recorder runs right after `onDay` records it):
+
+```ts
+  const last = life.history[life.history.length - 1];
+  const lines = last && last.day === day ? last : life.snapshot(day);
+```
+
+then add `you: lines.you, held: lines.held, autopilot: lines.autopilot,` to the returned object.
+
+- [ ] **Step 3: Recap client.** Create `game/src/net/recap.ts`:
+
+```ts
+// Asks the server for Gemini's crash recap (POST /api/recap, server/src/routes/ai.ts).
+// Null when the server or Gemini can't answer; the desk keeps its own lesson text.
+
+import { apiFetch } from "./api.ts";
+
+export type Api = <T>(path: string, init?: RequestInit) => Promise<T>;
+
+export interface RecapFacts {
+  /** How far stocks fell from their high (0.27 = 27%). */
+  drop: number;
+  /** What the player did, in words ("sold everything", "held"). */
+  choice: string;
+  you: number;
+  held: number;
+  autopilot: number;
+  /** Months from the crash to the recovery. */
+  months: number;
+}
+
+export interface Recap {
+  headline: string;
+  lesson: string;
+  mood: "cheer" | "warn" | "console";
+}
+
+export async function fetchRecap(facts: RecapFacts, api: Api = apiFetch): Promise<Recap | null> {
+  try {
+    return await api<Recap>("/recap", { method: "POST", body: JSON.stringify(facts) });
+  } catch {
+    return null;
+  }
+}
+```
+
+- [ ] **Step 4: Wire the desk** (`game/src/debt-demo/main.ts`).
+
+Imports:
+
+```ts
+import { fetchRecap } from "../net/recap.ts";
+import { RunRecorder } from "../sim/record/index.ts";
+```
+
+After `let life = host ? host.life() : makeLife();`:
+
+```ts
+// Standalone, the desk records its own run in Tiger Data; inside the city, the city's recorder already records this life.
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api`;
+let recorder = host ? null : startRecorder();
+
+function startRecorder(): RunRecorder {
+  const r = new RunRecorder({ life, seed: market.seed, base: API_BASE });
+  void r.begin();
+  return r;
+}
+```
+
+After `askBearMarket` (from Task 5), add:
+
+```ts
+function askRecap(r: { day: number; you: number; held: number; autopilot: number }) {
+  if (!crash) return;
+  const facts = { drop: crash.drop, choice: crash.choice, you: r.you, held: r.held, autopilot: r.autopilot, months: Math.max(0, Math.round((r.day - crash.day) / 30.44)) };
+  void fetchRecap(facts).then((got) => {
+    // A newer recovery may have replaced this one while the request was out.
+    if (got && recovery?.day === r.day) {
+      recap = { headline: got.headline, lesson: got.lesson };
+      scheduleRender();
+    }
+  });
+}
+```
+
+In the `market_recovered` case (Task 5), after `recap = null;` add `askRecap(recovery);`.
+In `skip`, after `clock.skipping = false;` add `void recorder?.tick(true);`.
+In the standalone start block, change `clock.onDay((day) => life.onDay(day, clock.date));` to:
+
+```ts
+  clock.onDay((day) => {
+    life.onDay(day, clock.date);
+    void recorder?.tick();
+  });
+```
+
+In the `reset` case, after `life = makeLife();` add:
+
+```ts
+      recorder = startRecorder();
+      crash = recovery = recap = null;
+```
+
+- [ ] **Step 5: Verify.** `cd game && npx tsc --noEmit && npm test` (3 more tests than the Task 3.5 baseline, all passing).
+
+- [ ] **Step 6: Commit.** `git add game/src/sim/record/index.ts game/src/net/recap.ts game/tests/recap.test.ts game/tests/record.test.ts game/src/debt-demo/main.ts && git commit -m "Money desk: investing lines in the run recorder and the crash recap"`
+
+### Task 9 (amendment): setup
+
+Step 1 is only `ln -s ../../.env .env` in the worktree root: the root `.env` already has `VITE_API_BASE_URL`, and `game/vite.config.ts` now reads `VITE_*` values from the repo root (`envDir`), so no `game/.env.local` is needed.
+In Step 4, if `psql` is missing, check the rows from the desk's browser console with `fetch(API_BASE + "/history/" + runId + "?bucket=day", { credentials: "include" })`, using the run id the desk's recorder logged or holds.
