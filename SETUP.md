@@ -443,43 +443,33 @@ CREATE TABLE market_prices (ts timestamptz NOT NULL, run_id uuid NOT NULL, symbo
 CREATE TABLE events (ts timestamptz NOT NULL, run_id uuid NOT NULL, kind text, payload jsonb)
   WITH (tsdb.hypertable, tsdb.partition_column='ts', tsdb.chunk_interval='1 year');
 
-CREATE MATERIALIZED VIEW snapshots_weekly WITH (timescaledb.continuous) AS
-  SELECT time_bucket('1 week', ts) AS bucket, run_id, last(net_worth, ts) AS net_worth, max(net_worth) AS peak
-  FROM player_snapshots GROUP BY bucket, run_id;
-SELECT add_continuous_aggregate_policy('snapshots_weekly', start_offset => NULL, end_offset => NULL, schedule_interval => INTERVAL '1 minute');
--- repeat as snapshots_monthly, and first/max/min/last(price) for market_prices
 ```
+
+The server adds what the run routes need at boot (`server/src/migrations.sql`, run one statement at a time because TimescaleDB won't create a continuous aggregate inside a transaction):
+
+- `events.key` plus a unique index on `(run_id, ts, key)`, so a retried batch never inserts an event twice.
+- Two real-time continuous aggregates over `player_snapshots`, `player_snapshots_weekly` (7-day buckets) and `player_snapshots_monthly`, each with `first_day`, `last_day`, and the bucket's last `net_worth`, `peak`, `low`, and account balances.
+  `materialized_only = false` makes the newest days show before the one-minute refresh policy materializes them, so no refresh call is needed after a fast-forward.
+  Week buckets start on Mondays and sim day 0 is a Saturday, so weeks run days 2-8, 9-15, and so on.
 
 ### 4. Server code
 
-```ts
-import pg from 'pg';
-export const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 10 });
+- `server/src/store/runs.ts` holds every query: runs, snapshot upserts (one row per day, latest wins), event inserts, history by day/week/month, events by day and kind, and the leaderboard.
+- `server/src/routes/snapshot.ts` validates and calls it: `POST /api/runs`, `/api/snapshot`, `/api/events`, `GET /api/history/:runId?bucket=day|week|month`, `/api/events/:runId`, `/api/leaderboard` (routes table in [server/README.md](server/README.md)).
+- The leaderboard shows every run while Persona is off and only verified players once `PERSONA_API_KEY` is set.
 
-// A headless skip produces thousands of days: insert them as one statement per ~5k rows.
-await pool.query(`INSERT INTO player_snapshots (ts, run_id, day, net_worth, checking, savings, brokerage, retirement, debt)
-  SELECT '2000-01-01'::timestamptz + d * interval '1 day', $1, d, nw, ch, sv, br, rt, dt
-  FROM unnest($2::int[], $3::numeric[], $4::numeric[], $5::numeric[], $6::numeric[], $7::numeric[], $8::numeric[]) AS t(d, nw, ch, sv, br, rt, dt)
-  ON CONFLICT DO NOTHING`, [runId, days, netWorth, checking, savings, brokerage, retirement, debt]);
-await pool.query(`CALL refresh_continuous_aggregate('snapshots_weekly', NULL, NULL)`); // after a skip
-```
+### 5. How it maps to Larp City (built 2026-09-12)
 
-Leaderboard: `SELECT DISTINCT ON (s.run_id) p.name, s.day, s.net_worth FROM player_snapshots s JOIN runs r ON r.id = s.run_id JOIN players p ON p.id = r.player_id ORDER BY s.run_id, s.ts DESC`, wrapped and sorted by net worth.
-Rewind and milestone replay: `WHERE run_id = $1 AND day <= $2`.
-
-### 5. How it maps to Larp City
-
-- The client posts end-of-day state to `/api/snapshot` (batched every in-game week at normal speed, and in bulk after skips).
-- Net-worth and portfolio charts read the weekly and monthly continuous aggregates.
-- The leaderboard (verified humans only, thanks to Persona) reads the latest snapshot per run.
-- Calendar rewind (restore the snapshot at that day, then re-run with the changed decision as a new branch), the ghost line of the old branch, the bankruptcy "look back", and the retirement milestone replay query by day.
+- `game/src/sim/record/` records the player's run from the first day: one snapshot per game day (net worth split into checking, savings, brokerage, retirement, and debt) and every life event, keyed `day:sequence`.
+  It sends about once a game month, a whole goal fast-forward right after it finishes (in 5,000-row chunks), and keeps everything buffered while the server is down.
+- Net-worth charts read the weekly and monthly aggregates (a 40-year run is about 2,100 weekly rows instead of 14,600 daily ones); the calendar and newspaper read events by day range and kind.
+- Still to come: the rewind branches (a new run per changed decision with the old path as a ghost line), `market_prices`, and `debt_daily`.
 
 ### 6. Test first
 
-- [ ] `psql "$DATABASE_URL" -c "select extversion from pg_extension where extname='timescaledb'"`.
-- [ ] Insert 3,650 days for one run in under a second.
-- [ ] `SELECT * FROM timescaledb_information.hypertables;` lists all three.
-- [ ] The weekly aggregate returns about 520 rows for 10 years.
+- [x] TimescaleDB 2.30.0 on the live service; the schema's hypertables, the reference data, and Tri's `players` columns are there.
+- [x] `cd server && TEST_DATABASE_URL=... npm test` runs the store against a throwaway database with the real schema and migrations: upserts, event keys, weekly and monthly buckets matching the raw days, and the leaderboard.
+- [x] End to end with the game (local TimescaleDB): the recorded days match the game's own net-worth history.
 
 ### 7. What judges want
 
@@ -703,7 +693,7 @@ All accounts are on sixtyfourandten@gmail.com (Nessie is on the `cayden-h` GitHu
 | Service | Status | What exists | Verified |
 | --- | --- | --- | --- |
 | ElevenLabs | Done | Key `larp-city` (unrestricted, auto-disable if leaked); agent "Larp City Intake Clerk" `agent_9101m29rg237f79b0rprqav18hxx` with the `submit_finances` client tool and auth on; mayor voice Bill `pqHfZKP75CvOlQylNhV4`, anchor voice Daniel `onwK4e9ZLuTAKqWW03F9` | `/v1/user` 200 (free tier, 0 / 10,000 credits); signed URL returns `wss://` |
-| Tiger Data | Done; schema applied and card data loaded (`game/db/load.py`, Sep 11) | Always-free Shared service `larp-city` in AWS us-east-1 (1 GiB, stays free after the trial), inside the 30-day Performance trial project | `psql` connects; TimescaleDB 2.30.0 |
+| Tiger Data | Done; schema applied and card data loaded (`game/db/load.py`, Sep 11); run recording and the weekly/monthly aggregates built (Sep 12, applied by the server at boot) | Always-free Shared service `larp-city` in AWS us-east-1 (1 GiB, stays free after the trial), inside the 30-day Performance trial project | `psql` connects; TimescaleDB 2.30.0 |
 | Backboard | Done, chat needs credits | Key; assistant "Larp City Coach" `fe3bc6b8-0c92-45a1-a0c4-d98d7dd2834a` with research 02, 03, 06 indexed; models `anthropic/claude-haiku-4-5-20251001` (small) and `anthropic/claude-sonnet-5` (large) | `billing/balance` 200; docs indexed. **The free $5 covers only memory and RAG, not LLM chat**, so the coach needs paid credits (or route the coach text through another model) |
 | Capital One Nessie | Done; API probed and bank mirror built (Sep 12) | Key from the `cayden-h` GitHub login; the 8 NPC customers, player customers per session, and two probe customers | Every endpoint we use (see the Nessie section); the mirror's statements matched the game's balances end to end |
 | Gemini | Done | Three keys in `GEMINI_API_KEYS`, rotated on 429 or 503; no OpenAI (we use Claude Code and ChatGPT in the browser for anything else) | All three: list models 200 (includes `gemini-3.8-flash` and `gemini-3.1-flash-image`), `gemini-3.8-flash` replies (key 2 needed one retry after a 503). Image generation billing not tested |

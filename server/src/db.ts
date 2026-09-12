@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { env } from "./env.js";
 import { logger } from "./logger.js";
+import { splitSql } from "./sql.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +25,7 @@ export const pool = new pg.Pool({
 
 export async function runMigrations(): Promise<void> {
   const sql = readFileSync(path.join(__dirname, "migrations.sql"), "utf8");
-  await pool.query(sql);
+  // One statement at a time: a continuous aggregate can't be created inside a transaction.
+  for (const statement of splitSql(sql)) await pool.query(statement);
   logger.info("server migrations applied");
 }

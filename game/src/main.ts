@@ -10,6 +10,7 @@ import { PlayerLife } from "./sim/life";
 import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
 import { NpcTown } from "./sim/npcs";
+import { RunRecorder } from "./sim/record";
 import { Hud } from "./ui/hud";
 import { NpcCard } from "./ui/npccard";
 import { Phone } from "./ui/phone";
@@ -46,10 +47,14 @@ const player = new PlayerLife({ place: state, day: clock.day, market: new Market
 // bank mirror posts the player's and theirs to Capital One Nessie through the
 // server, one statement per game month (off when the server isn't running).
 const town = new NpcTown({ place: state, day: clock.day, market: player.market, start: clock.start });
-const bank = new BankSync({ run: `${seed}-${Date.now().toString(36)}`, start: clock.start, base: `${import.meta.env.VITE_API_BASE_URL ?? ""}/api/bank` });
+const api = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api`;
+const bank = new BankSync({ run: `${seed}-${Date.now().toString(36)}`, start: clock.start, base: `${api}/bank` });
 bank.add("player", "Player", player);
 for (const [id, life] of town.lives) bank.add(id, town.profiles.get(id)!.first, life);
 void bank.begin();
+// The player's daily snapshots and life events, recorded in Tiger Data for charts, history, and the leaderboard.
+const recorder = new RunRecorder({ life: player, seed, base: api });
+void recorder.begin();
 
 let shownTier = -1;
 function syncHomeTier() {
@@ -69,6 +74,7 @@ clock.onDay((day) => {
   syncHomeTier();
   town.onDay(day);
   void bank.tick(day);
+  void recorder.tick();
 });
 
 async function open(next: StateInfo): Promise<void> {
@@ -128,6 +134,7 @@ const fastForward = new FastForward({
     // The fast-forward ran only the player; catch the NPCs up, then post the skipped months as one summary.
     town.catchUp(result.toDay);
     void bank.tick(result.toDay);
+    void recorder.tick(true);
   },
 });
 
@@ -172,4 +179,4 @@ async function visit(abbrOrCity: string, seconds = 3) {
 }
 
 // Handy for testing from the console.
-Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, town, bank, phone, fastForward } });
+Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, town, bank, recorder, phone, fastForward } });
