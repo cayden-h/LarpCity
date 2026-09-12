@@ -106,6 +106,11 @@ export class Narrator {
       else if (act === "close") this.dismiss();
     });
     document.body.appendChild(this.el);
+    // While the owl is up, the modal windows (map, Money, fast-forward) keep a band at the
+    // bottom clear for it (narrator.css); the band follows the owl's real height.
+    new ResizeObserver(() => {
+      if (this.el.offsetHeight) document.documentElement.style.setProperty("--nr-h", `${this.el.offsetHeight}px`);
+    }).observe(this.el);
     this.syncMute();
     // Every reaction, so the owl never pops in blank while a strip downloads.
     preloadOwl(["idle", "talk", ...new Set(Object.values(CUES).map((c) => c.anim))]);
@@ -140,6 +145,7 @@ export class Narrator {
     const moods = wordMoods(line, mood);
     this.renderWords(stripTags(line).split(" "));
     this.el.hidden = false;
+    document.documentElement.classList.add("nr-on");
     // Apply the hidden-state styles before sliding in (not on an animation frame, which background tabs skip).
     void this.el.offsetWidth;
     this.el.classList.add("in");
@@ -290,7 +296,9 @@ export class Narrator {
     this.el.classList.remove("in");
     this.owl.stop();
     window.setTimeout(() => {
-      if (!this.el.classList.contains("in")) this.el.hidden = true;
+      if (this.el.classList.contains("in")) return;
+      this.el.hidden = true;
+      document.documentElement.classList.remove("nr-on");
     }, 260);
   }
 }
