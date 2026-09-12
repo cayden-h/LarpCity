@@ -21,6 +21,7 @@ const { healthRouter } = await import("./routes/health.js");
 const { personaRouter, personaWebhookRouter } = await import("./routes/persona.js");
 const { nessieRouter } = await import("./routes/nessie.js");
 const { voiceRouter } = await import("./routes/voice.js");
+const { aiRouter } = await import("./routes/ai.js");
 const { runMigrations } = await import("./db.js");
 const { sessionMiddleware } = await import("./session.js");
 
@@ -40,6 +41,7 @@ app.use("/api", healthRouter);
 app.use("/api/persona", strictLimiter, personaRouter);
 app.use("/api/bank", nessieRouter);
 app.use("/api/voice", strictLimiter, voiceRouter);
+app.use("/api", aiRouter);
 
 app.use(errorHandler);
 
