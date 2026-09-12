@@ -47,6 +47,14 @@ export interface Debt {
   statementBalance?: number;
   /** Minimum due for the current statement. */
   minimumDue?: number;
+  /** Paid toward the card since the last statement closed; the statement is covered once this reaches its balance. */
+  statementPaid?: number;
+  /**
+   * The part of statementPaid that came from the payoff plan's monthly extra. A plan means
+   * "the minimum plus extra", so it doesn't count toward the minimum; the player's own early
+   * payments do, as they would with a real issuer.
+   */
+  planPaid?: number;
   /** Day index the current statement's payment is due. */
   statementDueDay?: number;
   /** True while the last statement was paid in full, so purchases don't accrue interest. */

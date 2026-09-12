@@ -70,12 +70,17 @@ function applyRapPayment(book: DebtBook, d: Debt, amount: number): number {
   return interest;
 }
 
+/** The player's own card payments since the statement; the plan's extra is on top of the minimum. */
+const paidTowardDue = (d: Debt) => Math.max(0, (d.statementPaid ?? 0) - (d.planPaid ?? 0));
+
 /** What is due today for this debt, or 0 if nothing falls due. */
 function dueToday(d: Debt, ctx: TickContext): number {
   if (isCard(d)) {
     if (d.statementDueDay !== ctx.day) return 0;
-    if (d.autopay === "statement") return d.statementBalance ?? 0;
-    if (d.autopay === "minimum") return d.minimumDue ?? 0;
+    // Autopay covers only what the player's payments since the statement haven't.
+    const paid = paidTowardDue(d);
+    if (d.autopay === "statement") return Math.max(0, (d.statementBalance ?? 0) - paid);
+    if (d.autopay === "minimum") return Math.max(0, (d.minimumDue ?? 0) - paid);
     return 0;
   }
   if (ctx.date.getDate() !== d.dueDayOfMonth) return 0;
@@ -85,7 +90,8 @@ function dueToday(d: Debt, ctx: TickContext): number {
 
 /** The contractual amount that must be paid today to stay current (independent of autopay). */
 function requiredToday(d: Debt, ctx: TickContext): number {
-  if (isCard(d)) return d.statementDueDay === ctx.day ? d.minimumDue ?? 0 : 0;
+  // Issuers count what the player paid since the statement toward the minimum.
+  if (isCard(d)) return d.statementDueDay === ctx.day ? Math.max(0, (d.minimumDue ?? 0) - paidTowardDue(d)) : 0;
   if (ctx.date.getDate() !== d.dueDayOfMonth) return 0;
   return Math.min(d.scheduledPayment ?? 0, owed(d));
 }
@@ -146,11 +152,16 @@ function walkLadder(book: DebtBook, d: Debt, day: number, events: DebtEvent[]) {
   }
 }
 
-function payDebt(book: DebtBook, d: Debt, amount: number, ctx: TickContext, events: DebtEvent[]) {
+/** `fromPlan` marks the payoff plan's monthly extra, which is paid on top of the minimum. */
+function payDebt(book: DebtBook, d: Debt, amount: number, ctx: TickContext, events: DebtEvent[], fromPlan = false) {
   if (amount <= EPS) return;
   const paid = ctx.wallet.withdraw(amount, `${d.name} payment`);
   if (paid <= EPS) return;
   const interest = d.plan === "rap" ? applyRapPayment(book, d, paid) : applyPayment(book, d, paid);
+  if (isCard(d)) {
+    d.statementPaid = (d.statementPaid ?? 0) + paid;
+    if (fromPlan) d.planPaid = (d.planPaid ?? 0) + paid;
+  }
   events.push({ type: "payment", day: ctx.day, debtId: d.id, amount: paid, interest });
 }
 
@@ -158,8 +169,14 @@ function payDebt(book: DebtBook, d: Debt, amount: number, ctx: TickContext, even
 function settleDue(book: DebtBook, d: Debt, ctx: TickContext, events: DebtEvent[]) {
   const required = requiredToday(d, ctx);
   const planned = dueToday(d, ctx);
-  if (required <= EPS && planned <= EPS) return;
+  if (required > EPS || planned > EPS) payDue(book, d, required, planned, ctx, events);
+  // Extra payments made before the due date count toward paying the statement in full.
+  if (isCard(d) && d.statementDueDay === ctx.day) {
+    d.inGrace = (d.statementPaid ?? 0) + EPS >= (d.statementBalance ?? 0);
+  }
+}
 
+function payDue(book: DebtBook, d: Debt, required: number, planned: number, ctx: TickContext, events: DebtEvent[]) {
   const want = Math.max(planned, required) + d.pastDue;
   const available = ctx.wallet.available();
   const pay = Math.min(want, available);
@@ -183,9 +200,6 @@ function settleDue(book: DebtBook, d: Debt, ctx: TickContext, events: DebtEvent[
     d.ladderStep = 0;
     if (d.status !== "collections" && d.status !== "default") d.status = "current";
   }
-  if (isCard(d) && d.statementDueDay === ctx.day) {
-    d.inGrace = pay + EPS >= (d.statementBalance ?? 0);
-  }
 }
 
 function closeStatement(d: Debt, ctx: TickContext, events: DebtEvent[]) {
@@ -193,6 +207,8 @@ function closeStatement(d: Debt, ctx: TickContext, events: DebtEvent[]) {
   d.balance += interest;
   d.accrued = 0;
   d.statementBalance = d.balance;
+  d.statementPaid = 0;
+  d.planPaid = 0;
   d.minimumDue = cardMinimum(d.balance - interest, interest);
   d.statementDueDay = ctx.day + GRACE_DAYS;
   events.push({ type: "statement", day: ctx.day, debtId: d.id, balance: d.balance, minimum: d.minimumDue, interest });
@@ -210,7 +226,7 @@ function monthly(book: DebtBook, ctx: TickContext, events: DebtEvent[]) {
     if (pool <= EPS) break;
     const take = Math.min(pool, owed(d), ctx.wallet.available());
     if (take <= EPS) break;
-    payDebt(book, d, take, ctx, events);
+    payDebt(book, d, take, ctx, events, true);
     pool -= take;
   }
 

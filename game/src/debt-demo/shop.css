@@ -15,7 +15,8 @@
   --bad-bg: #fff1e8;
   max-width: 1120px;
   margin: 0 auto;
-  padding: 0 24px 40px;
+  /* Room at the bottom for the time dock. */
+  padding: 0 24px 104px;
 }
 .shop h2 {
   margin: 0;
@@ -252,31 +253,44 @@
   }
 }
 
-/* Spending sliders -------------------------------------------------------------------- */
-.shop .sl {
+/* Spending: one bar split by category, then rows with click-to-edit amounts (Copilot's budget). */
+.shop .sp-bar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  margin: 10px 0 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--soft);
+}
+.shop .sp-bar span {
+  min-width: 0;
+  background: var(--c);
+  transition: width 0.25s ease;
+}
+.shop .sp-row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: baseline;
-  gap: 0 8px;
-  margin: 10px 0 0;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
   font-size: 14px;
+  cursor: text;
 }
-.shop .sl b {
-  font-weight: 600;
+.shop .sp-row i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
 }
-.shop .sl input {
-  grid-column: span 2;
-  width: 100%;
-  margin: 4px 0 0;
-  accent-color: var(--brand);
-}
-.shop .sl.carry {
+.shop .field {
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
 }
-.shop .sl.carry input {
-  accent-color: var(--down);
+.shop .field-head b {
+  font-size: 14px;
+  font-weight: 600;
 }
 
 /* Wallet ---------------------------------------------------------------------------- */
