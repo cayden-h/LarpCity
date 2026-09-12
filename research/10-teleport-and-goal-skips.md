@@ -644,6 +644,28 @@ For the demo, the teleport from the player's age to 60 should cross the preset A
 - Milestone replay at retirement.
 - Every test in Section 9.
 
+## 12. Build status (2026-09-12)
+
+The hackathon version is built on the `goal-fast-forward` branch, which isn't merged into `main` yet.
+
+- **Built:**
+  - The setup screen (`game/src/ui/skip-setup.ts`), opened from the phone's new Goals app, with four goals (an emergency fund, debt-free, a net worth, and buying a home under the 28/36 rule) and an age cap.
+  - Seven inputs, pre-filled with the player's current habits, plus a Recommended preset: the recurring deposit, 401(k) %, stocks vs bonds, the debt strategy plus an extra payment, emergency fund months, lifestyle, and the crash rule.
+  - A live preview across 100 other possible markets: the p10, p50, and p90 band, the typical and bad-luck goal dates, net worth at the cap, the debt-free date, and the preset AI Boom and AI Bubble Pop.
+    The futures are built once in a Web Worker, and the preview shows as soon as 20 of them exist.
+  - `runSkip` on the daily `PlayerLife.onDay`, stopping at the goal, bankruptcy, or the age cap, then `Clock.jumpTo` and a result card (time skipped, net worth, the lowest point, bear markets and the market's worst fall, and debts paid off).
+  - `game/tests/skip.test.ts` covers Section 9's tests 1, 5, 6, and 11, plus the crash rule, the 401(k) limit, the recurring split, and the preview.
+- **Different from this doc:**
+  - The age teleport is removed, so the target is always a goal with an age cap.
+  - The market is the shared `MarketPath` in `game/src/sim/market/`, not a separate model, and standing orders drive its recurring LTM and BOND buys.
+  - The crash rule sells once the total market is 20% below its peak and buys back three months after the market is back at that peak, rather than acting on named bear templates.
+  - The emergency fund goal counts cash beyond a month of bills, not only the emergency fund account.
+  - Recommended keeps at least the player's current extra debt payment before investing anything.
+  - Only bankruptcy interrupts a fast-forward so far, since the life events from Section 7 aren't in the simulation yet.
+- **Not built yet:** the newspaper digest, AI feedback at the stop, "redo this jump with a different plan", calendar circles for the skipped years, and the rest of "Later refinements".
+- **Known cost:** one 64-year preview path takes about 62 ms to build in Node and about 230 ms in the browser worker, so all 100 finish about 20 seconds after the game starts.
+  Most of that is `MarketPath`'s string-based hash, which its owner may replace.
+
 ## Sources
 
 - Vanguard: [retirement income calculator](https://investor.vanguard.com/tools-calculators/retirement-income-calculator), [How America Saves 2025](https://corporate.vanguard.com/content/corporatesite/us/en/corp/articles/how-america-saves-2025-key-trends-insights.html); nest egg calculator method via the [Bogleheads wiki](https://www.bogleheads.org/wiki/Retirement_calculators_and_spending).
