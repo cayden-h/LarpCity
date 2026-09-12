@@ -1,0 +1,16 @@
+# server/deploy/Caddyfile
+# Copy to /etc/caddy/Caddyfile on the Vultr box; replace {$DOMAIN} via an env var
+# or hardcode the real domain once registered (see SETUP.md > Domain).
+{$DOMAIN} {
+  encode gzip
+
+  handle /api/* {
+    reverse_proxy localhost:3000
+  }
+
+  handle {
+    root * /var/www/larp-city
+    try_files {path} /index.html
+    file_server
+  }
+}
