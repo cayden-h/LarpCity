@@ -36,7 +36,7 @@ import {
 
 type Tone = "up" | "down" | "flat" | "info";
 type CreditFilter = "all" | CuratedCard["creditNeeded"];
-type Sort = "value" | "apr" | "fee" | "bonus";
+type Sort = "match" | "value" | "apr" | "fee" | "bonus";
 type View = "featured" | "plans";
 
 export interface ShopHost {
@@ -113,7 +113,7 @@ export function mountShop(host: ShopHost): Shop {
   const histories = new WeakMap<PlayerLife, ApplicationRecord[]>();
   const state = {
     credit: "all" as CreditFilter,
-    sort: "value" as Sort,
+    sort: "match" as Sort,
     noFee: false,
     view: "featured" as View,
     spend: { ...BLS_MONTHLY_SPEND, travel: 125 } as Record<SpendCategory, number>,
@@ -164,12 +164,15 @@ export function mountShop(host: ShopHost): Shop {
   function visible(): CuratedCard[] {
     const list = CURATED.filter((c) => (state.credit === "all" || c.creditNeeded === state.credit) && (!state.noFee || c.annualFee === 0));
     const key: Record<Sort, (c: CuratedCard) => number> = {
+      // Year-one value weighted by the chance you'd actually get the card.
+      match: (c) => -value(c).net * (c.closed ? 0 : prequal(c).odds),
       value: (c) => -value(c).net,
       apr: (c) => yourApr(c.terms),
       fee: (c) => c.annualFee,
       bonus: (c) => -(c.welcomeOffer?.valueUsd ?? 0),
     };
-    return list.sort((a, b) => key[state.sort](a) - key[state.sort](b));
+    const k = new Map(list.map((c) => [c, key[state.sort](c)]));
+    return list.sort((a, b) => k.get(a)! - k.get(b)!);
   }
 
   // ---- Pieces ----
@@ -281,7 +284,7 @@ export function mountShop(host: ShopHost): Shop {
     <aside class="drawer" role="dialog" aria-modal="true" aria-label="${esc(card.name)}">
       <button class="x" data-shop-close aria-label="Close">×</button>
       <div class="d-hero">${cardArt(card, "hero")}</div>
-      <div class="d-title"><h3>${esc(card.name)}</h3><div class="t-sub">${esc(card.issuer)} · ${esc(card.network)} · ${CREDIT_LABEL[card.creditNeeded]} credit${card.student ? " · Student" : ""}</div></div>
+      <div class="d-title"><h3>${esc(card.name)}</h3><div class="t-sub">${esc(card.issuer)} · ${esc(card.network)} · ${card.creditNeeded === "none" ? "No credit needed" : `${CREDIT_LABEL[card.creditNeeded]} credit`}${card.student ? " · Student" : ""}</div></div>
       <div class="d-kpis">
         <div><span>Annual fee</span><b>${card.annualFee ? usd(card.annualFee) : "$0"}${card.firstYearFeeWaived && card.annualFee ? `<em>waived year one</em>` : ""}</b></div>
         <div><span>Your APR</span><b>${pct(apr)}</b><em>${esc(card.regularApr)}</em></div>
@@ -369,13 +372,8 @@ export function mountShop(host: ShopHost): Shop {
   function render(): void {
     const list = visible();
     root.innerHTML = `
-      <section class="shop-hero">
-        <div>
-          <h1>Card Shop</h1>
-          <p>Real cards and their real terms. Check your odds with a soft pull before a hard pull costs you points.</p>
-        </div>
-        <div class="shop-profile" data-s-profile>${profileHtml()}</div>
-      </section>
+      <div class="section shop-title"><h2>Card Shop</h2><span>Real cards, real terms. Check your odds with a soft pull before a hard pull costs you points.</span></div>
+      <div class="shop-profile" data-s-profile>${profileHtml()}</div>
       <div class="shop-bar">
         <div class="tabs" role="tablist">
           <button data-shop-view="featured" class="${state.view === "featured" ? "on" : ""}">Featured cards</button>
@@ -383,9 +381,11 @@ export function mountShop(host: ShopHost): Shop {
         </div>
         ${
           state.view === "featured"
-            ? `<div class="seg" role="group" aria-label="Credit needed">${(["all", "none", "fair", "good", "excellent"] as CreditFilter[]).map((c) => `<button data-shop-credit="${c}" class="${state.credit === c ? "on" : ""}">${c === "all" ? "All" : CREDIT_LABEL[c]}</button>`).join("")}</div>
-          <div class="seg" role="group" aria-label="Sort">${(
+            ? `<div class="seg" role="group" aria-label="Credit needed"><span class="seg-lbl" aria-hidden="true">Credit</span>${(["all", "none", "fair", "good", "excellent"] as CreditFilter[]).map((c) => `<button data-shop-credit="${c}" class="${state.credit === c ? "on" : ""}">${c === "all" ? "All" : CREDIT_LABEL[c]}</button>`).join("")}
+            <button data-shop-nofee class="${state.noFee ? "on" : ""}" aria-pressed="${state.noFee}">${state.noFee ? "✓ " : ""}No annual fee</button></div>
+          <div class="seg" role="group" aria-label="Sort"><span class="seg-lbl" aria-hidden="true">Sort</span>${(
             [
+              ["match", "Best match"],
               ["value", "Best value"],
               ["apr", "Lowest APR"],
               ["bonus", "Biggest offer"],
@@ -393,8 +393,7 @@ export function mountShop(host: ShopHost): Shop {
             ] as [Sort, string][]
           )
             .map(([k, l]) => `<button data-shop-sort="${k}" class="${state.sort === k ? "on" : ""}">${l}</button>`)
-            .join("")}</div>
-          <button class="btn tiny ${state.noFee ? "on" : ""}" data-shop-nofee>${state.noFee ? "✓ " : ""}No annual fee</button>`
+            .join("")}</div>`
             : ""
         }
       </div>
@@ -529,7 +528,7 @@ export function mountShop(host: ShopHost): Shop {
   // Re-sort tiles once a spending slider is released, not while dragging.
   root.addEventListener("change", (ev) => {
     const d = (ev.target as HTMLElement).dataset;
-    if ((d.spend || d.carry !== undefined) && state.sort === "value") render();
+    if ((d.spend || d.carry !== undefined) && (state.sort === "value" || state.sort === "match")) render();
   });
 
   root.addEventListener("keydown", (ev) => {
