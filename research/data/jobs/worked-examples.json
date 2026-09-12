@@ -1,0 +1,502 @@
+{
+ "params": {
+  "inflation": 0.025,
+  "meritReal": 0.008,
+  "perf": [
+   [
+    0.2,
+    1.7
+   ],
+   [
+    0.6,
+    1.0
+   ],
+   [
+    0.15,
+    0.5
+   ],
+   [
+    0.05,
+    0.0
+   ]
+  ],
+  "promoHazard": 0.1,
+  "promoRaise": [
+   0.06,
+   0.15
+  ],
+  "promoAgeMult": [
+   [
+    30,
+    1.5
+   ],
+   [
+    40,
+    1.0
+   ],
+   [
+    50,
+    0.6
+   ],
+   [
+    200,
+    0.3
+   ]
+  ],
+  "switchHazard": [
+   [
+    30,
+    0.18
+   ],
+   [
+    40,
+    0.12
+   ],
+   [
+    55,
+    0.07
+   ],
+   [
+    200,
+    0.04
+   ]
+  ],
+  "switchBump": [
+   0.03,
+   0.08
+  ],
+  "ageDrift": [
+   [
+    30,
+    0.0
+   ],
+   [
+    40,
+    -0.002
+   ],
+   [
+    50,
+    -0.008
+   ],
+   [
+    60,
+    -0.012
+   ],
+   [
+    200,
+    -0.015
+   ]
+  ],
+  "careerWeights": [
+   [
+    35,
+    1.0
+   ],
+   [
+    45,
+    0.5
+   ],
+   [
+    200,
+    0.0
+   ]
+  ],
+  "ceilingPct": 90,
+  "layoffBase": 0.0153,
+  "layoffLevelMult": {
+   "entry": 1.5,
+   "mid": 1.1,
+   "senior": 0.9,
+   "lead": 0.75,
+   "top": 0.6
+  },
+  "spellMedianWeeks": {
+   "bull": 11.4,
+   "bear": 25.2
+  },
+  "spellSigma": 1.29,
+  "reemployLog": {
+   "bull": [
+    -0.05,
+    0.25
+   ],
+   "bear": [
+    -0.15,
+    0.25
+   ]
+  },
+  "bearMarketRaiseCut": 0.5
+ },
+ "bearYears": [
+  3,
+  17,
+  18
+ ],
+ "players": [
+  {
+   "player": {
+    "name": "Software developer, 24, Texas",
+    "salary": 95000,
+    "age": 24,
+    "cat": "tech",
+    "state": "TX"
+   },
+   "stateWageIndex": 0.954,
+   "nationalEquivalent": 99581,
+   "percentile": 42.9,
+   "level": "mid",
+   "expectedPctForAge": 22.0,
+   "horizonYears": 40,
+   "finalRealSalary": {
+    "p10": 100395,
+    "p50": 152693,
+    "p90": 189043
+   },
+   "medianPeakAge": 50.0,
+   "shareEverLaidOff": 0.495,
+   "demoPathSeed7": [
+    {
+     "year": 0,
+     "age": 24,
+     "salaryReal": 95000,
+     "salaryNominal": 95000,
+     "pct": 42.9,
+     "level": "mid",
+     "events": []
+    },
+    {
+     "year": 2,
+     "age": 26,
+     "salaryReal": 97493,
+     "salaryNominal": 102429,
+     "pct": 44.9,
+     "level": "mid",
+     "events": [
+      "promoted +12%"
+     ]
+    },
+    {
+     "year": 5,
+     "age": 29,
+     "salaryReal": 113479,
+     "salaryNominal": 128391,
+     "pct": 56.0,
+     "level": "senior",
+     "events": [
+      "switched jobs -4%"
+     ]
+    },
+    {
+     "year": 7,
+     "age": 31,
+     "salaryReal": 117426,
+     "salaryNominal": 139582,
+     "pct": 58.4,
+     "level": "senior",
+     "events": [
+      "switched jobs -1%"
+     ]
+    },
+    {
+     "year": 9,
+     "age": 33,
+     "salaryReal": 122878,
+     "salaryNominal": 153458,
+     "pct": 61.6,
+     "level": "senior",
+     "events": [
+      "promoted +14%"
+     ]
+    },
+    {
+     "year": 10,
+     "age": 34,
+     "salaryReal": 141939,
+     "salaryNominal": 181694,
+     "pct": 71.7,
+     "level": "senior",
+     "events": [
+      "switched jobs -1%"
+     ]
+    },
+    {
+     "year": 12,
+     "age": 36,
+     "salaryReal": 141530,
+     "salaryNominal": 190343,
+     "pct": 71.5,
+     "level": "senior",
+     "events": [
+      "promoted +11%"
+     ]
+    },
+    {
+     "year": 15,
+     "age": 39,
+     "salaryReal": 166067,
+     "salaryNominal": 240514,
+     "pct": 83.1,
+     "level": "lead",
+     "events": []
+    },
+    {
+     "year": 20,
+     "age": 44,
+     "salaryReal": 169535,
+     "salaryNominal": 277803,
+     "pct": 84.6,
+     "level": "lead",
+     "events": []
+    },
+    {
+     "year": 25,
+     "age": 49,
+     "salaryReal": 171250,
+     "salaryNominal": 317488,
+     "pct": 85.3,
+     "level": "lead",
+     "events": []
+    },
+    {
+     "year": 30,
+     "age": 54,
+     "salaryReal": 166608,
+     "salaryNominal": 349472,
+     "pct": 83.3,
+     "level": "lead",
+     "events": []
+    },
+    {
+     "year": 33,
+     "age": 57,
+     "salaryReal": 171949,
+     "salaryNominal": 388408,
+     "pct": 85.6,
+     "level": "lead",
+     "events": [
+      "laid off (bull), 2 weeks out, new job pays -20%"
+     ],
+     "weeksUnemployed": 2
+    },
+    {
+     "year": 35,
+     "age": 59,
+     "salaryReal": 136874,
+     "salaryNominal": 324830,
+     "pct": 69.2,
+     "level": "senior",
+     "events": []
+    },
+    {
+     "year": 40,
+     "age": 64,
+     "salaryReal": 133213,
+     "salaryNominal": 357685,
+     "pct": 67.3,
+     "level": "senior",
+     "events": []
+    }
+   ]
+  },
+  {
+   "player": {
+    "name": "Registered nurse, 35, Ohio",
+    "salary": 88000,
+    "age": 35,
+    "cat": "healthcare_pro",
+    "state": "OH"
+   },
+   "stateWageIndex": 0.969,
+   "nationalEquivalent": 90815,
+   "percentile": 53.4,
+   "level": "senior",
+   "expectedPctForAge": 46.5,
+   "horizonYears": 31,
+   "finalRealSalary": {
+    "p10": 73973,
+    "p50": 94212,
+    "p90": 125677
+   },
+   "medianPeakAge": 50.0,
+   "shareEverLaidOff": 0.256,
+   "demoPathSeed7": [
+    {
+     "year": 0,
+     "age": 35,
+     "salaryReal": 88000,
+     "salaryNominal": 88000,
+     "pct": 53.4,
+     "level": "senior",
+     "events": []
+    },
+    {
+     "year": 5,
+     "age": 40,
+     "salaryReal": 89122,
+     "salaryNominal": 100833,
+     "pct": 54.3,
+     "level": "senior",
+     "events": []
+    },
+    {
+     "year": 6,
+     "age": 41,
+     "salaryReal": 89100,
+     "salaryNominal": 103328,
+     "pct": 54.3,
+     "level": "senior",
+     "events": [
+      "switched jobs +13%"
+     ]
+    },
+    {
+     "year": 10,
+     "age": 45,
+     "salaryReal": 101359,
+     "salaryNominal": 129748,
+     "pct": 63.3,
+     "level": "senior",
+     "events": []
+    },
+    {
+     "year": 12,
+     "age": 47,
+     "salaryReal": 101313,
+     "salaryNominal": 136255,
+     "pct": 63.3,
+     "level": "senior",
+     "events": [
+      "promoted +11%"
+     ]
+    },
+    {
+     "year": 13,
+     "age": 48,
+     "salaryReal": 111133,
+     "salaryNominal": 153198,
+     "pct": 69.8,
+     "level": "senior",
+     "events": [
+      "promoted +10%"
+     ]
+    },
+    {
+     "year": 15,
+     "age": 50,
+     "salaryReal": 120247,
+     "salaryNominal": 174154,
+     "pct": 75.2,
+     "level": "lead",
+     "events": []
+    },
+    {
+     "year": 20,
+     "age": 55,
+     "salaryReal": 112836,
+     "salaryNominal": 184895,
+     "pct": 70.8,
+     "level": "senior",
+     "events": []
+    },
+    {
+     "year": 25,
+     "age": 60,
+     "salaryReal": 115473,
+     "salaryNominal": 214081,
+     "pct": 72.5,
+     "level": "senior",
+     "events": []
+    },
+    {
+     "year": 27,
+     "age": 62,
+     "salaryReal": 113816,
+     "salaryNominal": 221692,
+     "pct": 71.5,
+     "level": "senior",
+     "events": [
+      "switched jobs +3%"
+     ]
+    },
+    {
+     "year": 30,
+     "age": 65,
+     "salaryReal": 114967,
+     "salaryNominal": 241152,
+     "pct": 72.2,
+     "level": "senior",
+     "events": []
+    }
+   ]
+  },
+  {
+   "player": {
+    "name": "Retail store manager, 45, Florida",
+    "salary": 58000,
+    "age": 45,
+    "cat": "sales_retail",
+    "state": "FL"
+   },
+   "stateWageIndex": 0.939,
+   "nationalEquivalent": 61768,
+   "percentile": 75.3,
+   "level": "lead",
+   "expectedPctForAge": 56.5,
+   "horizonYears": 21,
+   "finalRealSalary": {
+    "p10": 45095,
+    "p50": 55817,
+    "p90": 68323
+   },
+   "medianPeakAge": 52.0,
+   "shareEverLaidOff": 0.243,
+   "demoPathSeed7": [
+    {
+     "year": 0,
+     "age": 45,
+     "salaryReal": 58000,
+     "salaryNominal": 58000,
+     "pct": 75.3,
+     "level": "lead",
+     "events": []
+    },
+    {
+     "year": 5,
+     "age": 50,
+     "salaryReal": 55203,
+     "salaryNominal": 62457,
+     "pct": 72.9,
+     "level": "senior",
+     "events": []
+    },
+    {
+     "year": 10,
+     "age": 55,
+     "salaryReal": 53492,
+     "salaryNominal": 68474,
+     "pct": 71.2,
+     "level": "senior",
+     "events": []
+    },
+    {
+     "year": 15,
+     "age": 60,
+     "salaryReal": 52374,
+     "salaryNominal": 75853,
+     "pct": 70.1,
+     "level": "senior",
+     "events": []
+    },
+    {
+     "year": 20,
+     "age": 65,
+     "salaryReal": 48810,
+     "salaryNominal": 79981,
+     "pct": 66.2,
+     "level": "senior",
+     "events": []
+    }
+   ]
+  }
+ ]
+}
