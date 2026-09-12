@@ -222,5 +222,51 @@ class Outline(unittest.TestCase):
         self.assertTrue(lines[1, 0])
 
 
+class Shadow(unittest.TestCase):
+    def layers(self):
+        """A 1x3 strip: a building pixel, a cast shadow pixel (in the day render only), and empty ground."""
+        day = img(1, 3)
+        day[0, 0] = (200, 180, 160, 255)
+        day[0, 1] = (20, 20, 20, 175)
+        ids = img(1, 3)
+        ids[0, 0] = (1, 1, 1, 255)
+        return day, ids
+
+    def test_split_moves_the_cast_shadow_out_of_the_building(self):
+        day, ids = self.layers()
+        building, shadow = P.split_shadow(day, ids)
+        self.assertEqual(shadow.tolist(), [[False, True, False]])
+        self.assertEqual(tuple(building[0, 0]), (200, 180, 160, 255))
+        self.assertEqual(tuple(building[0, 1]), (0, 0, 0, 0))
+        self.assertEqual(tuple(day[0, 1]), (20, 20, 20, 175))  # the input is left alone
+
+    def test_faint_haze_is_cleared_but_is_not_shadow(self):
+        day, ids = self.layers()
+        day[0, 1, 3] = P.SHADOW_MIN_ALPHA
+        building, shadow = P.split_shadow(day, ids)
+        self.assertFalse(shadow[0, 1])
+        self.assertEqual(tuple(building[0, 1]), (0, 0, 0, 0))
+
+    def test_add_shadow_fills_only_transparent_pixels(self):
+        a = img(1, 2)
+        a[0, 1] = (9, 9, 9, 255)
+        out = P.add_shadow(a, np.array([[True, True]]))
+        self.assertEqual(tuple(out[0, 0]), P.SHADOW)
+        self.assertEqual(tuple(out[0, 1]), (9, 9, 9, 255))
+        self.assertEqual(tuple(a[0, 0]), (0, 0, 0, 0))  # the input is left alone
+
+    def test_shadow_is_the_ink_color(self):
+        self.assertEqual(P.SHADOW[:3], P.INK)
+
+    def test_mask_downsample_keeps_a_half_full_block(self):
+        m = np.zeros((4, 8), bool)
+        m[:2, :4] = True    # 8 of 16: kept
+        m[:1, 4:7] = True   # 3 of 16: dropped
+        self.assertEqual(P.downsample_mask(m).tolist(), [[True, False]])
+
+    def test_mask_downsample_crops_like_downsample(self):
+        self.assertEqual(P.downsample_mask(np.ones((9, 10), bool)).shape, (2, 2))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -15,6 +15,12 @@ SIGN_ID = (255, 0, 255)        # id color of image-mapped signs, which keep thei
 TONES = (0.72, 1.0, 1.18)      # shade, base, and light, as multiples of a region's median color
 DARK, LIGHT = 0.82, 1.14       # luminance ratios (to the median) below which a pixel is shade, above which light
 EDGE_DARKEN = 0.55             # an inner line is the face's color at this brightness
+# A cast shadow is one flat, unoutlined shape: the ink at a fixed alpha, so it darkens whatever ground
+# it lands on the same way everywhere, instead of the render's soft gradient.
+SHADOW = (*INK, 96)
+# The render's cast shadow sits near alpha 175, but the shadow catcher also leaves a faint haze (alpha under
+# 32) over the whole frame; only pixels above this alpha count as shadow, so the haze never becomes stray marks.
+SHADOW_MIN_ALPHA = 64
 
 
 def load(path) -> np.ndarray:
@@ -95,6 +101,30 @@ def downsample(img: np.ndarray, s: int = RAW_SCALE) -> np.ndarray:
     out[..., 1] = (best >> 8) & 255
     out[..., 2] = best & 255
     out[..., 3] = np.where(keep, 255, 0)
+    return out
+
+
+def split_shadow(day: np.ndarray, ids: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Separate the cast shadow from the building. Every pixel the day render covers but the ids render does
+    not (the ids render has no shadow catcher) is cleared to (0, 0, 0, 0), so it is never part of the building;
+    the shadow mask is the part of that above SHADOW_MIN_ALPHA. Returns the cleared day render and the mask."""
+    outside = (day[..., 3] > 0) & ~_opaque(ids)
+    building = day.copy()
+    building[outside] = 0
+    return building, outside & (day[..., 3] > SHADOW_MIN_ALPHA)
+
+
+def downsample_mask(mask: np.ndarray, s: int = RAW_SCALE) -> np.ndarray:
+    """Shrink a bool mask by s the way downsample() treats opacity: a block is set when at least half of it is."""
+    h, w = mask.shape[0] // s, mask.shape[1] // s
+    blocks = mask[: h * s, : w * s].reshape(h, s, w, s)
+    return blocks.sum(axis=(1, 3)) * 2 >= s * s
+
+
+def add_shadow(img: np.ndarray, shadow: np.ndarray) -> np.ndarray:
+    """Paint SHADOW where the mask is set and the image is transparent; building pixels are never overwritten."""
+    out = img.copy()
+    out[shadow & ~_opaque(img)] = SHADOW
     return out
 
 
