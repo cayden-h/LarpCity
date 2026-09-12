@@ -89,3 +89,24 @@ test("a graduated state (e.g. CA) has ascending bracket upTo values ending in In
     for (let i = 1; i < ca.brackets.length; i++) assert.ok(ca.brackets[i].upTo > ca.brackets[i - 1].upTo);
   }
 });
+
+import { stateTax } from "../src/sim/tax/state.ts";
+
+test("stateTax is 0 in a no-income-tax state regardless of income", () => {
+  assert.equal(stateTax("TX", 500_000), 0);
+});
+
+test("stateTax applies a flat rate directly to taxable income", () => {
+  assert.equal(stateTax("OH", 100_000), Math.round(100_000 * 0.0275 * 100) / 100);
+});
+
+test("stateTax applies graduated brackets like federalTax", () => {
+  const low = stateTax("CA", 5_000);
+  const high = stateTax("CA", 500_000);
+  assert.ok(low >= 0 && low < 5_000 * 0.05);
+  assert.ok(high > low);
+});
+
+test("stateTax throws on an unknown state abbreviation", () => {
+  assert.throws(() => stateTax("ZZ", 10_000));
+});
