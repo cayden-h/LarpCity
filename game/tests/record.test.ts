@@ -126,6 +126,31 @@ test("with no server the recorder stays off and the game is unaffected", async (
   assert.equal(rec.enabled, false);
 });
 
+test("a resumed recorder keeps its run and never starts a new one", async () => {
+  const life = newLife();
+  const server = fakeServer();
+  const recorder = new RunRecorder({ life, seed: 5, fetchFn: server.fetchFn, runId: "saved-run", log: () => undefined });
+  assert.equal(await recorder.begin(), true);
+  assert.equal(recorder.runId, "saved-run");
+  for (let day = 1; day <= 3; day++) life.onDay(day, dateOf(day));
+  await recorder.tick(true);
+  assert.ok(!server.calls.some((c) => c.path.endsWith("/runs")));
+  assert.ok(server.calls.some((c) => c.path.endsWith("/snapshot")));
+});
+
+test("a resumed recorder rewinds by forking from the run it was resumed with", async () => {
+  const life = newLife();
+  const timeline = new LifeTimeline(life, { start: START });
+  const server = fakeServer();
+  const recorder = new RunRecorder({ life, seed: 5, fetchFn: server.fetchFn, runId: "saved-run", log: () => undefined });
+  await recorder.begin();
+  for (let day = 1; day <= 5; day++) life.onDay(day, dateOf(day));
+  timeline.rewindTo(2);
+  await recorder.rewind(2);
+  await recorder.idle();
+  assert.ok(server.calls.some((c) => c.path.endsWith("/runs/saved-run/fork")));
+});
+
 /** A server that keeps each run apart and can fork one, like server/src/store/runs.ts. */
 function branchingServer() {
   const runs = new Map<string, { snaps: Map<number, SnapshotEntry>; events: Map<string, EventEntry> }>();

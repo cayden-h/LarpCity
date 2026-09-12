@@ -69,6 +69,8 @@ export interface RunRecorderOptions {
   flushDays?: number;
   fetchFn?: typeof fetch;
   log?: (message: string) => void;
+  /** A saved game's run: record into it instead of starting a new one. */
+  runId?: string;
 }
 
 export class RunRecorder {
@@ -94,6 +96,7 @@ export class RunRecorder {
     this.flushDays = o.flushDays ?? 30;
     this.fetchFn = o.fetchFn ?? ((...a) => fetch(...a));
     this.log = o.log ?? ((m) => console.info(m));
+    this.runId = o.runId ?? null;
     // Record from the start, so days played before the server answers aren't lost.
     this.snaps.set(o.life.today, snapshotOf(o.life, o.life.today));
     o.life.onEvents((events) => this.record(events));
@@ -110,6 +113,7 @@ export class RunRecorder {
 
   /** Starts a run on the server; the recorder stays off (and the game unaffected) if that fails. */
   async begin(): Promise<boolean> {
+    if (this.runId) return true;
     try {
       const r = await this.send("/runs", { seed: this.seed });
       if (r.ok) this.runId = ((await r.json()) as { runId: string }).runId;
