@@ -6,9 +6,11 @@ import { Clock } from "./engine/clock";
 import { CityScene } from "./engine/scene";
 import type { StateInfo } from "./engine/types";
 import { PlayerLife } from "./sim/life";
+import { createMarket } from "./sim/skip";
 import { Hud } from "./ui/hud";
 import { NpcCard } from "./ui/npccard";
 import { Phone } from "./ui/phone";
+import { FastForward } from "./ui/skip-setup";
 import { UsMap } from "./ui/usmap";
 
 // The world is big: skip drawing whatever is off-screen.
@@ -29,10 +31,21 @@ let scene: CityScene | null = null;
 let state: StateInfo = STATES.find((s) => s.abbr === "TX")!;
 let skipping = 0;
 
+// The run's seed: the market path and every random draw hang off it (?seed= to replay one).
+const seed = Number(new URLSearchParams(location.search).get("seed")) || 20260912;
+
 // The player's money life: paychecks, rent for the current state, and the
-// debt engine run once per game day (research/07-debt-system-design.md).
-const player = new PlayerLife({ place: state, day: clock.day });
+// debt engine run once per game day (research/07-debt-system-design.md);
+// investments move with the seeded market.
+const player = new PlayerLife({ place: state, day: clock.day, market: createMarket(seed, clock.date) });
 let shownTier = -1;
+function syncHomeTier() {
+  const tier = player.homeTier();
+  if (tier !== shownTier) {
+    shownTier = tier;
+    scene?.hero?.setTier(tier);
+  }
+}
 clock.onDay((day) => {
   const events = player.onDay(day, clock.date);
   if (player.stopsSkip(events)) {
@@ -40,11 +53,7 @@ clock.onDay((day) => {
     skipping = 0;
     clock.speed = 0;
   }
-  const tier = player.homeTier();
-  if (tier !== shownTier) {
-    shownTier = tier;
-    scene?.hero?.setTier(tier);
-  }
+  syncHomeTier();
 });
 
 async function open(next: StateInfo): Promise<void> {
@@ -92,8 +101,19 @@ const hud = new Hud(document.getElementById("hud")!, {
 
 const map = new UsMap(document.getElementById("map")!, STATES, (s) => void open(s));
 
-// The player's phone: the hub for the game's apps (Stocks opens the Credit Desk).
-const phone = new Phone({ clock, player });
+// Fast-forward to a goal: the setup screen runs the days headless, then the calendar jumps.
+const fastForward = new FastForward({
+  clock,
+  player,
+  seed,
+  onFinished: (result) => {
+    clock.jumpTo(result.toDay);
+    syncHomeTier();
+  },
+});
+
+// The player's phone: the hub for the game's apps (Stocks opens the Credit Desk; Goals opens the fast-forward).
+const phone = new Phone({ clock, player, openFastForward: () => fastForward.open() });
 
 app.renderer.on("resize", (w: number, h: number) => scene?.resize(w, h));
 app.ticker.add((ticker) => {
@@ -133,4 +153,4 @@ async function visit(abbrOrCity: string, seconds = 3) {
 }
 
 // Handy for testing from the console.
-Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, phone } });
+Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, phone, fastForward } });

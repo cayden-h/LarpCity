@@ -1,0 +1,546 @@
+/* The goal fast-forward setup screen: a window over the city in the HUD's
+   look (white borders, blue title bar, Fredoka), with three columns for the
+   goal, the plan, and the preview. */
+
+.ff-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(8, 16, 34, 0.55);
+  backdrop-filter: blur(4px);
+  font-family: "Fredoka", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--ink, #16233b);
+}
+.ff-overlay[hidden] {
+  display: none;
+}
+
+.ff-window {
+  display: flex;
+  flex-direction: column;
+  width: min(1240px, 100%);
+  height: min(800px, 100%);
+  overflow: hidden;
+  border: 3px solid #fff;
+  border-radius: 20px;
+  background: #e6f0fd;
+  box-shadow: 0 30px 80px rgba(10, 30, 70, 0.45);
+}
+
+.ff-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 8px 0 16px;
+  background: linear-gradient(180deg, #2d6fd6 0%, #1f4e9c 100%);
+  border-bottom: 3px solid #fff;
+  color: #fff;
+  font-size: 16px;
+}
+.ff-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.ff-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--yellow, #ffcf33);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+.ff-hint {
+  margin-left: auto;
+  font-size: 13px;
+  opacity: 0.85;
+}
+.ff-close {
+  width: 30px;
+  height: 30px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.ff-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.ff-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(250px, 0.85fr) minmax(300px, 1fr) minmax(340px, 1.2fr);
+  gap: 14px;
+  min-height: 0;
+  padding: 14px;
+}
+.ff-col {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 16px;
+  border: 3px solid #fff;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 3px 0 rgba(10, 30, 70, 0.1);
+}
+.ff-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.ff-step {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--blue, #1f4e9c);
+  color: #fff;
+  font-size: 13px;
+}
+
+.ff-overlay select,
+.ff-overlay input[type="number"] {
+  padding: 4px 8px;
+  border: 2px solid #cfdcf2;
+  border-radius: 9px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+.ff-overlay :focus-visible {
+  outline: 3px solid rgba(43, 102, 196, 0.45);
+  outline-offset: 2px;
+}
+
+/* Goals */
+.ff-goals {
+  display: grid;
+  gap: 8px;
+}
+.ff-goal {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 10px 12px;
+  border: 2px solid #dbe5f5;
+  border-radius: 14px;
+  background: #f6f9ff;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.ff-goal:hover {
+  border-color: #9dbcf0;
+}
+.ff-goal.on {
+  border-color: var(--blue-2, #2b66c4);
+  background: var(--blue-3, #dbe8ff);
+}
+.ff-goal[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.ff-goal-icon {
+  grid-row: span 2;
+  font-size: 22px;
+  text-align: center;
+}
+.ff-goal-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+.ff-goal select {
+  justify-self: start;
+}
+.ff-goal-sub {
+  font-size: 12px;
+  color: #5b6b85;
+}
+.ff-tag {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 2px solid #ffe7a3;
+  border-radius: 12px;
+  background: #fff8e1;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.ff-meter {
+  height: 8px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #f3e6bd;
+}
+.ff-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--yellow-2, #f2b200);
+}
+.ff-cap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  color: #44526b;
+  font-size: 13px;
+}
+.ff-cap input {
+  width: 58px;
+}
+
+/* Plan */
+.ff-presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.ff-presets button,
+.ff-seg button {
+  padding: 7px 8px;
+  border: 2px solid #cfdcf2;
+  border-radius: 10px;
+  background: #f6f9ff;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ff-presets button:hover,
+.ff-seg button:hover {
+  border-color: #9dbcf0;
+}
+.ff-presets button.on,
+.ff-seg button.on {
+  border-color: var(--blue-2, #2b66c4);
+  background: var(--blue-2, #2b66c4);
+  color: #fff;
+}
+.ff-row {
+  padding: 9px 0;
+  border-top: 1.5px solid #edf2fa;
+}
+.ff-row[hidden] {
+  display: none;
+}
+.ff-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.ff-row-top output {
+  color: var(--blue, #1f4e9c);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.ff-row input[type="range"] {
+  width: 100%;
+  margin: 6px 0 2px;
+  accent-color: var(--blue-2, #2b66c4);
+}
+.ff-pair {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.ff-pair input[type="range"] {
+  margin: 0;
+}
+.ff-seg {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: 4px;
+  margin: 6px 0 2px;
+}
+.ff-note {
+  color: #5b6b85;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.ff-note:empty {
+  display: none;
+}
+.ff-overlay .bad {
+  color: #c8362f;
+}
+/* Pinned to the bottom of the plan column so the monthly budget stays in view while sliding. */
+.ff-budget {
+  position: sticky;
+  bottom: -14px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  box-shadow: 0 -12px 10px -6px #fff;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.ff-budget.ok {
+  border: 2px solid #b9e3be;
+  background: #e8f7ea;
+}
+.ff-budget.bad {
+  border: 2px solid #f5c2bf;
+  background: #fdeceb;
+  color: #a52a24;
+}
+.ff-budget span {
+  display: block;
+  color: #4c5d78;
+  font-size: 12px;
+}
+
+/* Preview */
+.ff-col-preview {
+  display: flex;
+  flex-direction: column;
+}
+.ff-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.ff-chart text {
+  fill: #6a7890;
+  font-family: inherit;
+  font-size: 10px;
+}
+.ff-chart .grid {
+  stroke: #e9eff8;
+  stroke-width: 1;
+}
+.ff-chart .zero {
+  stroke: #b9c6db;
+  stroke-width: 1;
+}
+.ff-chart .band {
+  fill: rgba(43, 102, 196, 0.2);
+}
+.ff-chart .median {
+  fill: none;
+  stroke: var(--blue-2, #2b66c4);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.ff-chart .goal {
+  stroke: #1e9e52;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+.ff-chart .goal-label {
+  fill: #1e9e52;
+  font-weight: 600;
+}
+.ff-chart .marker {
+  stroke: #e8554e;
+  stroke-width: 1.2;
+  stroke-dasharray: 3 3;
+}
+.ff-chart .marker-label {
+  fill: #c8362f;
+  font-weight: 600;
+}
+.ff-chart .reach {
+  fill: var(--yellow, #ffcf33);
+  stroke: var(--ink, #16233b);
+  stroke-width: 1.5;
+}
+.ff-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 4px;
+  color: #5b6b85;
+  font-size: 11.5px;
+}
+.ff-legend .sw {
+  display: inline-block;
+  width: 14px;
+  height: 8px;
+  margin-right: 5px;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+.ff-legend .sw.band {
+  background: rgba(43, 102, 196, 0.22);
+}
+.ff-legend .sw.median {
+  height: 3px;
+  background: var(--blue-2, #2b66c4);
+}
+.ff-legend .sw.reach {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--ink, #16233b);
+  border-radius: 50%;
+  background: var(--yellow, #ffcf33);
+}
+.ff-stats {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ff-stats li {
+  padding: 8px 12px;
+  border: 2px solid #e3ecfa;
+  border-radius: 12px;
+  background: #f6f9ff;
+  font-size: 13px;
+}
+.ff-stats li.bad {
+  border-color: #f5c2bf;
+  background: #fdeceb;
+}
+.ff-stats .ff-k {
+  display: block;
+  color: #5b6b85;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ff-stats b {
+  font-size: 17px;
+  font-weight: 600;
+}
+.ff-stats small {
+  display: block;
+  margin-top: 2px;
+  color: #5b6b85;
+  font-size: 12px;
+}
+.ff-go {
+  margin-top: auto;
+  padding: 12px 16px;
+  border: 3px solid #fff;
+  border-radius: 14px;
+  background: var(--yellow, #ffcf33);
+  box-shadow: 0 4px 0 var(--yellow-2, #f2b200), 0 8px 18px rgba(10, 30, 70, 0.18);
+  color: var(--ink, #16233b);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+.ff-stats + .ff-go {
+  margin-top: max(14px, auto);
+}
+.ff-go:hover {
+  filter: brightness(1.04);
+}
+.ff-go:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--yellow-2, #f2b200);
+}
+.ff-go:disabled {
+  background: #e8eef8;
+  box-shadow: none;
+  color: #5b6b85;
+  cursor: default;
+  transform: none;
+}
+.ff-go.warn {
+  background: #ff7b6b;
+  box-shadow: 0 4px 0 #d9564a;
+  color: #fff;
+}
+.ff-fine {
+  margin: 8px 0 0;
+  color: #6a7890;
+  font-size: 11.5px;
+  text-align: center;
+}
+
+/* Result */
+.ff-result {
+  grid-column: 1 / -1;
+  align-self: center;
+  justify-self: center;
+  width: min(520px, 100%);
+  padding: 28px;
+  border: 3px solid #fff;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 3px 0 rgba(10, 30, 70, 0.1);
+  text-align: center;
+}
+.ff-result-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+.ff-result h2 {
+  margin: 10px 0 4px;
+  font-size: 26px;
+}
+.ff-result p {
+  margin: 0 0 18px;
+  color: #44526b;
+}
+.ff-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0 0 20px;
+  font-size: 14px;
+  text-align: left;
+}
+.ff-facts dt {
+  color: #5b6b85;
+}
+.ff-facts dd {
+  margin: 0;
+  font-weight: 600;
+}
+.ff-result .ff-go {
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .ff-body {
+    grid-template-columns: 1fr 1fr;
+    overflow: auto;
+  }
+  .ff-col {
+    overflow: visible;
+  }
+  .ff-col-preview {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 720px) {
+  .ff-overlay {
+    padding: 8px;
+  }
+  .ff-body {
+    grid-template-columns: 1fr;
+  }
+  .ff-hint {
+    display: none;
+  }
+}

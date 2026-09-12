@@ -62,6 +62,12 @@ export class Clock {
     }
   }
 
+  /** Sets the calendar to `day` without firing day listeners: a goal fast-forward already ran those days headless. */
+  jumpTo(day: number): void {
+    this.day = day;
+    this.dayFraction = 0;
+  }
+
   get date(): Date {
     const d = new Date(this.start);
     d.setDate(d.getDate() + this.day);

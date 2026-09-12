@@ -1,8 +1,9 @@
-// The player's phone: the hub where the game's "apps" live (Stocks now; News,
-// Mail, and Bank next). It docks on the left edge of the city and can be
-// tucked away. Stocks shows the market from the FRED snapshot (plus live
-// Alpha Vantage quotes when the dev server has a key) and opens the full
-// Credit Desk (/debt.html) in a window over the city.
+// The player's phone: the hub where the game's "apps" live (Stocks and Goals
+// now; News, Mail, and Bank next). It docks on the left edge of the city and
+// can be tucked away. Stocks shows the market from the FRED snapshot (plus
+// live Alpha Vantage quotes when the dev server has a key) and opens the full
+// Credit Desk (/debt.html) in a window over the city. Goals opens the
+// fast-forward setup screen (ui/skip-setup.ts).
 
 import "./phone.css";
 import type { Clock } from "../engine/clock";
@@ -10,7 +11,7 @@ import { MARKET, type SeriesId } from "../data/market";
 import { latest, type PlayerLife } from "../sim/life";
 
 interface AppDef {
-  id: "stocks" | "news" | "mail" | "bank";
+  id: "stocks" | "goals" | "news" | "mail" | "bank";
   name: string;
   icon: string;
   ready: boolean;
@@ -20,11 +21,13 @@ const ICONS = {
   stocks: `<svg viewBox="0 0 60 60" aria-hidden="true"><defs><linearGradient id="ph-st" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2c2e"/><stop offset="1" stop-color="#050505"/></linearGradient></defs><rect width="60" height="60" rx="14" fill="url(#ph-st)"/><path d="M10 40h40M10 30h40M10 20h40" stroke="#3a3a3c" stroke-width="1"/><polyline points="10,42 19,36 26,39 34,26 41,30 50,17" fill="none" stroke="#30d158" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   news: `<svg viewBox="0 0 60 60" aria-hidden="true"><rect width="60" height="60" rx="14" fill="#fff"/><rect x="13" y="14" width="34" height="32" rx="4" fill="#ff375f"/><rect x="17" y="18" width="12" height="10" rx="1.5" fill="#fff"/><path d="M32 19h11M32 24h11M17 32h26M17 37h26M17 42h18" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>`,
   mail: `<svg viewBox="0 0 60 60" aria-hidden="true"><defs><linearGradient id="ph-ml" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5ac8fa"/><stop offset="1" stop-color="#0a64d8"/></linearGradient></defs><rect width="60" height="60" rx="14" fill="url(#ph-ml)"/><rect x="11" y="18" width="38" height="25" rx="4" fill="#fff"/><path d="M12 20l18 13 18-13" fill="none" stroke="#1c7ce0" stroke-width="2.6" stroke-linejoin="round"/></svg>`,
+  goals: `<svg viewBox="0 0 60 60" aria-hidden="true"><defs><linearGradient id="ph-gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd84d"/><stop offset="1" stop-color="#f29a00"/></linearGradient></defs><rect width="60" height="60" rx="14" fill="url(#ph-gl)"/><path d="M19 12v36" stroke="#16233b" stroke-width="3.4" stroke-linecap="round"/><path d="M20.5 14h22l-5.5 7.5 5.5 7.5h-22z" fill="#fff"/><path d="M26 40l6 4-6 4zM34 40l6 4-6 4z" fill="#16233b"/></svg>`,
   bank: `<svg viewBox="0 0 60 60" aria-hidden="true"><defs><linearGradient id="ph-bk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4cd964"/><stop offset="1" stop-color="#1e8e3e"/></linearGradient></defs><rect width="60" height="60" rx="14" fill="url(#ph-bk)"/><path d="M30 11l19 10H11z" fill="#fff"/><path d="M15 25v14M23 25v14M37 25v14M45 25v14" stroke="#fff" stroke-width="4" stroke-linecap="round"/><rect x="11" y="42" width="38" height="5" rx="2" fill="#fff"/></svg>`,
 } as const;
 
 const APPS: AppDef[] = [
   { id: "stocks", name: "Stocks", icon: ICONS.stocks, ready: true },
+  { id: "goals", name: "Goals", icon: ICONS.goals, ready: true },
   { id: "news", name: "News", icon: ICONS.news, ready: false },
   { id: "mail", name: "Mail", icon: ICONS.mail, ready: false },
   { id: "bank", name: "Bank", icon: ICONS.bank, ready: false },
@@ -86,6 +89,8 @@ function timeLabel(t: number): string {
 export interface PhoneDeps {
   clock: Clock;
   player: PlayerLife;
+  /** Opens the goal fast-forward setup screen. */
+  openFastForward?: () => void;
 }
 
 export class Phone {
@@ -214,6 +219,7 @@ export class Phone {
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;
     if (!app.ready) return this.toast(`${app.name} is coming soon`);
+    if (id === "goals") return this.deps.openFastForward?.();
     this.show(id);
   }
 
