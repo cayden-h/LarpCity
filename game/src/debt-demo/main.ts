@@ -45,7 +45,8 @@ interface Decision {
 }
 interface ChartSpec {
   pts: ChartPt[];
-  ghost?: ChartPt[];
+  lines?: { pts: ChartPt[]; cls: string; label?: string }[];
+  zero?: boolean;
   baseline?: boolean;
   minSpan?: number;
   tone: Tone;
@@ -597,7 +598,7 @@ function debtPage(): Page {
     total > 0.5 && plan.length > 1
       ? {
           pts: plan,
-          ghost: s === "minimums" ? undefined : mins,
+          lines: s === "minimums" ? undefined : [{ pts: mins, cls: "bc-ghost", label: "Minimums only" }],
           baseline: false,
           tone: p.stuck ? "down" : "up",
           rest: plan[0],
@@ -811,7 +812,8 @@ function wireChart(c: ChartSpec) {
   show(c.rest, false);
   mountBigChart(q("[data-chart]"), {
     pts: c.pts,
-    ghost: c.ghost,
+    lines: c.lines,
+    zero: c.zero,
     baseline: c.baseline,
     minSpan: c.minSpan,
     label: c.label,

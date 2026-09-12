@@ -11,8 +11,10 @@ export interface ChartPt {
 
 export interface BigChartOpts {
   pts: ChartPt[];
-  /** A second, dashed comparison line (for example, paying only minimums). */
-  ghost?: ChartPt[];
+  /** Extra comparison lines, drawn under the main line and labeled at their right end. */
+  lines?: { pts: ChartPt[]; cls: string; label?: string }[];
+  /** Include $0 in the range (money charts start at zero, research/12). */
+  zero?: boolean;
   /** Draw the dotted baseline at the first point's value. */
   baseline?: boolean;
   /** Smallest y span to draw, so a 1-point score change doesn't fill the chart. */
@@ -28,7 +30,8 @@ const H = 240;
 const PAD = 14;
 
 export function mountBigChart(el: HTMLElement, o: BigChartOpts): void {
-  const all = o.ghost ? o.pts.concat(o.ghost) : o.pts;
+  const extra = (o.lines ?? []).filter((l) => l.pts.length > 1);
+  const all = o.pts.concat(...extra.map((l) => l.pts));
   if (o.pts.length < 2) {
     // A day-0 run has one snapshot; show a flat line instead of an empty box.
     el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}" class="bc-line" vector-effect="non-scaling-stroke"/></svg><div class="bc-empty">Press play or skip ahead to build your history</div>`;
@@ -36,8 +39,8 @@ export function mountBigChart(el: HTMLElement, o: BigChartOpts): void {
     return;
   }
   const ys = all.map((p) => p.y);
-  const lo = Math.min(...ys);
-  const hi = Math.max(...ys);
+  const lo = o.zero ? Math.min(0, ...ys) : Math.min(...ys);
+  const hi = o.zero ? Math.max(0, ...ys) : Math.max(...ys);
   const mid = (lo + hi) / 2;
   const half = Math.max((hi - lo) / 2, (o.minSpan ?? 0) / 2, Math.abs(mid) * 1e-4, 1e-6);
   const x0 = Math.min(...all.map((p) => p.x));
@@ -46,11 +49,11 @@ export function mountBigChart(el: HTMLElement, o: BigChartOpts): void {
   const Y = (y: number) => PAD + (1 - (y - (mid - half)) / (half * 2)) * (H - PAD * 2);
   const path = (arr: ChartPt[]) => arr.map((p, i) => `${i ? "L" : "M"}${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join("");
   const base = o.baseline === false ? "" : `<line x1="0" x2="${W}" y1="${Y(o.pts[0].y).toFixed(1)}" y2="${Y(o.pts[0].y).toFixed(1)}" class="bc-base" vector-effect="non-scaling-stroke"/>`;
-  const ghost = o.ghost?.length ? `<path d="${path(o.ghost)}" class="bc-ghost" vector-effect="non-scaling-stroke"/>` : "";
+  const extraPaths = extra.map((l) => `<path d="${path(l.pts)}" class="${l.cls}" vector-effect="non-scaling-stroke"/>`).join("");
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Chart">
-      ${base}${ghost}<path d="${path(o.pts)}" class="bc-line" vector-effect="non-scaling-stroke"/>
+      ${base}${extraPaths}<path d="${path(o.pts)}" class="bc-line" vector-effect="non-scaling-stroke"/>
       <line class="bc-cursor" x1="0" x2="0" y1="0" y2="${H}" vector-effect="non-scaling-stroke" visibility="hidden"/>
-    </svg><div class="bc-when" hidden></div><span class="bc-dot" hidden></span>`;
+    </svg>${tagsHtml(extra, Y)}<div class="bc-when" hidden></div><span class="bc-dot" hidden></span>`;
   const svg = el.querySelector("svg")!;
   const cursor = el.querySelector<SVGLineElement>(".bc-cursor")!;
   const when = el.querySelector<HTMLElement>(".bc-when")!;
@@ -79,6 +82,17 @@ export function mountBigChart(el: HTMLElement, o: BigChartOpts): void {
     dot.hidden = true;
     o.onScrub(null);
   };
+}
+
+/** Direct labels at each extra line's right end, nudged apart so they never overlap. */
+function tagsHtml(lines: { pts: ChartPt[]; label?: string }[], Y: (y: number) => number): string {
+  const MIN_GAP = 16;
+  const tags = lines
+    .filter((l) => l.label)
+    .map((l) => ({ label: l.label!, y: Y(l.pts[l.pts.length - 1].y) }))
+    .sort((a, b) => a.y - b.y);
+  for (let i = 1; i < tags.length; i++) tags[i].y = Math.max(tags[i].y, tags[i - 1].y + MIN_GAP);
+  return tags.map((t) => `<span class="bc-tag" style="top:${((t.y / H) * 100).toFixed(2)}%">${t.label}</span>`).join("");
 }
 
 /** A row-sized line; `tone` picks the color class. */
