@@ -114,4 +114,9 @@ test("listNewsStories only returns this run's own stories, and only within the d
   const inRange = await listNewsStories(db, runA, runA, 0, 10);
   assert.equal(inRange.length, 1);
   assert.equal(inRange[0].day, 5);
+  // Discriminates run_id specifically, not just branch_id: runB's row must genuinely carry
+  // run_id = runB (not runA) for this to find it at all.
+  const runBOwn = await listNewsStories(db, runB, runB, 0, 10);
+  assert.equal(runBOwn.length, 1);
+  assert.equal(runBOwn[0].runId, runB);
 });
