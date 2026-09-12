@@ -1,0 +1,771 @@
+{
+ "source": "BEA Regional Price Parities by state, 2024 (SARPP, released 2026-02-19)",
+ "tier_rule": "all items < 95 LCOL, 95-105 MCOL, > 105 HCOL",
+ "states": [
+  {
+   "abbr": "AL",
+   "name": "Alabama",
+   "fips": "01",
+   "city": "Montgomery",
+   "cityId": "southeast",
+   "rpp": {
+    "all": 88.823,
+    "goods": 96.399,
+    "housing": 61.785,
+    "utilities": 84.643,
+    "other": 96.711
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "AK",
+   "name": "Alaska",
+   "fips": "02",
+   "city": "Juneau",
+   "cityId": "pacific-coast",
+   "rpp": {
+    "all": 102.359,
+    "goods": 106.319,
+    "housing": 93.784,
+    "utilities": 119.021,
+    "other": 102.208
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "AZ",
+   "name": "Arizona",
+   "fips": "04",
+   "city": "Phoenix",
+   "cityId": "desert-southwest",
+   "rpp": {
+    "all": 100.677,
+    "goods": 95.361,
+    "housing": 106.804,
+    "utilities": 92.317,
+    "other": 102.808
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "AR",
+   "name": "Arkansas",
+   "fips": "05",
+   "city": "Little Rock",
+   "cityId": "southeast",
+   "rpp": {
+    "all": 86.937,
+    "goods": 93.597,
+    "housing": 58.203,
+    "utilities": 74.731,
+    "other": 95.312
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "CA",
+   "name": "California",
+   "fips": "06",
+   "city": "San Francisco",
+   "cityId": "san-francisco",
+   "rpp": {
+    "all": 110.72,
+    "goods": 106.098,
+    "housing": 154.346,
+    "utilities": 158.899,
+    "other": 102.591
+   },
+   "tier": "HCOL"
+  },
+  {
+   "abbr": "CO",
+   "name": "Colorado",
+   "fips": "08",
+   "city": "Denver",
+   "cityId": "mountain-west",
+   "rpp": {
+    "all": 103.052,
+    "goods": 98.727,
+    "housing": 127.359,
+    "utilities": 84.971,
+    "other": 99.613
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "CT",
+   "name": "Connecticut",
+   "fips": "09",
+   "city": "Hartford",
+   "cityId": "northeast",
+   "rpp": {
+    "all": 103.61,
+    "goods": 97.33,
+    "housing": 117.048,
+    "utilities": 146.495,
+    "other": 102.658
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "DE",
+   "name": "Delaware",
+   "fips": "10",
+   "city": "Dover",
+   "cityId": "northeast",
+   "rpp": {
+    "all": 99.808,
+    "goods": 96.155,
+    "housing": 102.015,
+    "utilities": 103.81,
+    "other": 101.235
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "DC",
+   "name": "District of Columbia",
+   "fips": "11",
+   "city": "Washington",
+   "cityId": "northeast",
+   "rpp": {
+    "all": 109.901,
+    "goods": 106.502,
+    "housing": 154.984,
+    "utilities": 112.821,
+    "other": 102.964
+   },
+   "tier": "HCOL"
+  },
+  {
+   "abbr": "FL",
+   "name": "Florida",
+   "fips": "12",
+   "city": "Miami",
+   "cityId": "miami",
+   "rpp": {
+    "all": 103.414,
+    "goods": 98.059,
+    "housing": 122.107,
+    "utilities": 90.074,
+    "other": 101.324
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "GA",
+   "name": "Georgia",
+   "fips": "13",
+   "city": "Atlanta",
+   "cityId": "southeast",
+   "rpp": {
+    "all": 96.293,
+    "goods": 98.929,
+    "housing": 88.694,
+    "utilities": 92.814,
+    "other": 97.343
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "HI",
+   "name": "Hawaii",
+   "fips": "15",
+   "city": "Honolulu",
+   "cityId": "island",
+   "rpp": {
+    "all": 109.951,
+    "goods": 111.562,
+    "housing": 125.304,
+    "utilities": 190.178,
+    "other": 102.898
+   },
+   "tier": "HCOL"
+  },
+  {
+   "abbr": "ID",
+   "name": "Idaho",
+   "fips": "16",
+   "city": "Boise",
+   "cityId": "mountain-west",
+   "rpp": {
+    "all": 95.494,
+    "goods": 96.311,
+    "housing": 90.027,
+    "utilities": 70.444,
+    "other": 99.015
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "IL",
+   "name": "Illinois",
+   "fips": "17",
+   "city": "Springfield",
+   "cityId": "great-lakes",
+   "rpp": {
+    "all": 99.958,
+    "goods": 103.832,
+    "housing": 93.944,
+    "utilities": 84.952,
+    "other": 100.156
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "IN",
+   "name": "Indiana",
+   "fips": "18",
+   "city": "Indianapolis",
+   "cityId": "great-lakes",
+   "rpp": {
+    "all": 93.329,
+    "goods": 95.509,
+    "housing": 73.926,
+    "utilities": 85.545,
+    "other": 99.145
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "IA",
+   "name": "Iowa",
+   "fips": "19",
+   "city": "Des Moines",
+   "cityId": "great-lakes",
+   "rpp": {
+    "all": 87.762,
+    "goods": 93.73,
+    "housing": 65.322,
+    "utilities": 83.274,
+    "other": 92.927
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "KS",
+   "name": "Kansas",
+   "fips": "20",
+   "city": "Topeka",
+   "cityId": "great-plains",
+   "rpp": {
+    "all": 90.068,
+    "goods": 94.027,
+    "housing": 71.156,
+    "utilities": 88.438,
+    "other": 93.816
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "KY",
+   "name": "Kentucky",
+   "fips": "21",
+   "city": "Frankfort",
+   "cityId": "southeast",
+   "rpp": {
+    "all": 90.159,
+    "goods": 95.967,
+    "housing": 64.313,
+    "utilities": 75.313,
+    "other": 97.25
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "LA",
+   "name": "Louisiana",
+   "fips": "22",
+   "city": "Baton Rouge",
+   "cityId": "southeast",
+   "rpp": {
+    "all": 88.207,
+    "goods": 93.7,
+    "housing": 63.104,
+    "utilities": 71.463,
+    "other": 95.706
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "ME",
+   "name": "Maine",
+   "fips": "23",
+   "city": "Augusta",
+   "cityId": "northeast",
+   "rpp": {
+    "all": 97.05,
+    "goods": 97.171,
+    "housing": 78.94,
+    "utilities": 135.189,
+    "other": 103.191
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "MD",
+   "name": "Maryland",
+   "fips": "24",
+   "city": "Annapolis",
+   "cityId": "northeast",
+   "rpp": {
+    "all": 104.959,
+    "goods": 102.524,
+    "housing": 121.079,
+    "utilities": 110.86,
+    "other": 101.596
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "MA",
+   "name": "Massachusetts",
+   "fips": "25",
+   "city": "Boston",
+   "cityId": "northeast",
+   "rpp": {
+    "all": 105.757,
+    "goods": 98.82,
+    "housing": 128.068,
+    "utilities": 152.07,
+    "other": 102.852
+   },
+   "tier": "HCOL"
+  },
+  {
+   "abbr": "MI",
+   "name": "Michigan",
+   "fips": "26",
+   "city": "Lansing",
+   "cityId": "great-lakes",
+   "rpp": {
+    "all": 96.217,
+    "goods": 95.993,
+    "housing": 82.332,
+    "utilities": 100.15,
+    "other": 100.933
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "MN",
+   "name": "Minnesota",
+   "fips": "27",
+   "city": "Saint Paul",
+   "cityId": "great-lakes",
+   "rpp": {
+    "all": 98.621,
+    "goods": 100.519,
+    "housing": 91.281,
+    "utilities": 90.836,
+    "other": 100.213
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "MS",
+   "name": "Mississippi",
+   "fips": "28",
+   "city": "Jackson",
+   "cityId": "southeast",
+   "rpp": {
+    "all": 86.953,
+    "goods": 96.219,
+    "housing": 56.456,
+    "utilities": 78.415,
+    "other": 96.09
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "MO",
+   "name": "Missouri",
+   "fips": "29",
+   "city": "Jefferson City",
+   "cityId": "great-lakes",
+   "rpp": {
+    "all": 90.817,
+    "goods": 96.299,
+    "housing": 69.88,
+    "utilities": 79.406,
+    "other": 95.169
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "MT",
+   "name": "Montana",
+   "fips": "30",
+   "city": "Helena",
+   "cityId": "mountain-west",
+   "rpp": {
+    "all": 94.645,
+    "goods": 96.006,
+    "housing": 84.648,
+    "utilities": 72.254,
+    "other": 98.715
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "NE",
+   "name": "Nebraska",
+   "fips": "31",
+   "city": "Lincoln",
+   "cityId": "great-plains",
+   "rpp": {
+    "all": 90.103,
+    "goods": 94.101,
+    "housing": 75.174,
+    "utilities": 75.604,
+    "other": 92.98
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "NV",
+   "name": "Nevada",
+   "fips": "32",
+   "city": "Las Vegas",
+   "cityId": "desert-southwest",
+   "rpp": {
+    "all": 99.979,
+    "goods": 96.271,
+    "housing": 114.135,
+    "utilities": 90.51,
+    "other": 98.744
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "NH",
+   "name": "New Hampshire",
+   "fips": "33",
+   "city": "Concord",
+   "cityId": "northeast",
+   "rpp": {
+    "all": 104.165,
+    "goods": 98.578,
+    "housing": 114.947,
+    "utilities": 133.663,
+    "other": 103.879
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "NJ",
+   "name": "New Jersey",
+   "fips": "34",
+   "city": "Trenton",
+   "cityId": "northeast",
+   "rpp": {
+    "all": 108.805,
+    "goods": 107.066,
+    "housing": 134.292,
+    "utilities": 114.187,
+    "other": 103.529
+   },
+   "tier": "HCOL"
+  },
+  {
+   "abbr": "NM",
+   "name": "New Mexico",
+   "fips": "35",
+   "city": "Santa Fe",
+   "cityId": "desert-southwest",
+   "rpp": {
+    "all": 92.212,
+    "goods": 96.144,
+    "housing": 73.611,
+    "utilities": 77.895,
+    "other": 98.54
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "NY",
+   "name": "New York",
+   "fips": "36",
+   "city": "New York City",
+   "cityId": "new-york",
+   "rpp": {
+    "all": 107.921,
+    "goods": 107.254,
+    "housing": 122.168,
+    "utilities": 134.37,
+    "other": 104.067
+   },
+   "tier": "HCOL"
+  },
+  {
+   "abbr": "NC",
+   "name": "North Carolina",
+   "fips": "37",
+   "city": "Raleigh",
+   "cityId": "southeast",
+   "rpp": {
+    "all": 94.326,
+    "goods": 96.621,
+    "housing": 81.364,
+    "utilities": 88.619,
+    "other": 98.186
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "ND",
+   "name": "North Dakota",
+   "fips": "38",
+   "city": "Bismarck",
+   "cityId": "great-plains",
+   "rpp": {
+    "all": 88.959,
+    "goods": 95.701,
+    "housing": 71.421,
+    "utilities": 73.669,
+    "other": 91.158
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "OH",
+   "name": "Ohio",
+   "fips": "39",
+   "city": "Columbus",
+   "cityId": "great-lakes",
+   "rpp": {
+    "all": 92.774,
+    "goods": 93.67,
+    "housing": 73.012,
+    "utilities": 95.823,
+    "other": 98.947
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "OK",
+   "name": "Oklahoma",
+   "fips": "40",
+   "city": "Oklahoma City",
+   "cityId": "great-plains",
+   "rpp": {
+    "all": 87.843,
+    "goods": 93.778,
+    "housing": 62.763,
+    "utilities": 73.882,
+    "other": 95.458
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "OR",
+   "name": "Oregon",
+   "fips": "41",
+   "city": "Salem",
+   "cityId": "pacific-coast",
+   "rpp": {
+    "all": 103.361,
+    "goods": 105.261,
+    "housing": 108.628,
+    "utilities": 107.046,
+    "other": 100.298
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "PA",
+   "name": "Pennsylvania",
+   "fips": "42",
+   "city": "Harrisburg",
+   "cityId": "northeast",
+   "rpp": {
+    "all": 97.572,
+    "goods": 99.357,
+    "housing": 85.068,
+    "utilities": 109.321,
+    "other": 99.762
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "RI",
+   "name": "Rhode Island",
+   "fips": "44",
+   "city": "Providence",
+   "cityId": "northeast",
+   "rpp": {
+    "all": 102.28,
+    "goods": 97.165,
+    "housing": 105.62,
+    "utilities": 146.653,
+    "other": 102.84
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "SC",
+   "name": "South Carolina",
+   "fips": "45",
+   "city": "Columbia",
+   "cityId": "southeast",
+   "rpp": {
+    "all": 93.749,
+    "goods": 96.339,
+    "housing": 80.49,
+    "utilities": 88.303,
+    "other": 98.284
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "SD",
+   "name": "South Dakota",
+   "fips": "46",
+   "city": "Pierre",
+   "cityId": "great-plains",
+   "rpp": {
+    "all": 88.586,
+    "goods": 95.473,
+    "housing": 67.642,
+    "utilities": 79.651,
+    "other": 91.899
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "TN",
+   "name": "Tennessee",
+   "fips": "47",
+   "city": "Nashville",
+   "cityId": "southeast",
+   "rpp": {
+    "all": 91.87,
+    "goods": 96.247,
+    "housing": 79.07,
+    "utilities": 72.137,
+    "other": 95.142
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "TX",
+   "name": "Texas",
+   "fips": "48",
+   "city": "Houston",
+   "cityId": "houston",
+   "rpp": {
+    "all": 97.057,
+    "goods": 98.083,
+    "housing": 96.503,
+    "utilities": 87.512,
+    "other": 97.081
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "UT",
+   "name": "Utah",
+   "fips": "49",
+   "city": "Salt Lake City",
+   "cityId": "desert-southwest",
+   "rpp": {
+    "all": 98.864,
+    "goods": 96.446,
+    "housing": 107.814,
+    "utilities": 78.739,
+    "other": 98.959
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "VT",
+   "name": "Vermont",
+   "fips": "50",
+   "city": "Montpelier",
+   "cityId": "northeast",
+   "rpp": {
+    "all": 97.958,
+    "goods": 97.274,
+    "housing": 86.502,
+    "utilities": 125.833,
+    "other": 101.586
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "VA",
+   "name": "Virginia",
+   "fips": "51",
+   "city": "Richmond",
+   "cityId": "southeast",
+   "rpp": {
+    "all": 101.104,
+    "goods": 100.368,
+    "housing": 106.799,
+    "utilities": 92.185,
+    "other": 100.233
+   },
+   "tier": "MCOL"
+  },
+  {
+   "abbr": "WA",
+   "name": "Washington",
+   "fips": "53",
+   "city": "Olympia",
+   "cityId": "pacific-coast",
+   "rpp": {
+    "all": 107.013,
+    "goods": 104.359,
+    "housing": 125.979,
+    "utilities": 92.86,
+    "other": 103.873
+   },
+   "tier": "HCOL"
+  },
+  {
+   "abbr": "WV",
+   "name": "West Virginia",
+   "fips": "54",
+   "city": "Charleston",
+   "cityId": "southeast",
+   "rpp": {
+    "all": 89.497,
+    "goods": 96.539,
+    "housing": 54.241,
+    "utilities": 92.242,
+    "other": 99.94
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "WI",
+   "name": "Wisconsin",
+   "fips": "55",
+   "city": "Madison",
+   "cityId": "great-lakes",
+   "rpp": {
+    "all": 94.095,
+    "goods": 94.31,
+    "housing": 79.312,
+    "utilities": 89.906,
+    "other": 99.501
+   },
+   "tier": "LCOL"
+  },
+  {
+   "abbr": "WY",
+   "name": "Wyoming",
+   "fips": "56",
+   "city": "Cheyenne",
+   "cityId": "mountain-west",
+   "rpp": {
+    "all": 92.691,
+    "goods": 95.368,
+    "housing": 71.127,
+    "utilities": 78.422,
+    "other": 100.428
+   },
+   "tier": "LCOL"
+  }
+ ]
+}

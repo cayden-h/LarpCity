@@ -1,0 +1,94 @@
+{
+  "master": "Wide 16:9 panoramic background for an isometric toy city-builder game. Style: bright, clean, stylized plastic toy-brick world, soft gradients, gentle ambient occlusion, cheerful saturated colors, like a premium kids' building-toy game backdrop. Not photorealistic. No text, no logos, no brand marks, no people. Scene: the view beyond the edge of {CITY}: {BACKDROP}. Composition: sky fills the top half. A thin horizon band at 45-60% height shows {SKYLINE}, small and slightly hazy with atmospheric perspective. The lower 40% is {FOREGROUND}, calm, fading to a soft out-of-focus blur at the bottom center (a game board will sit there). Keep 10% empty margin at the left and right edges. Time: clear midday, soft white clouds.",
+  "edits": {
+    "golden": "Edit the attached image. Keep the composition, camera, and every shape exactly identical, with the skyline in the same place. Change only the lighting to golden hour: a low warm sun near the horizon, an orange-pink sky, long soft shadows, and windows catching the light.",
+    "night": "Edit the attached image. Keep the composition, camera, and every shape exactly identical, with the skyline in the same place. Change it to night: a deep blue-violet sky with a few stars and a crescent moon, the distant skyline windows lit warm yellow, and the water reflecting the lights. Keep it cheerful, not scary.",
+    "overcast": "Edit the attached image. Keep the composition, camera, and every shape exactly identical, with the skyline in the same place. Change it to an overcast day: flat soft grey clouds covering the whole sky, no sun, muted colors, slightly lower contrast, and wet-looking water. No rain streaks (the game adds weather itself)."
+  },
+  "cities": {
+    "houston": {
+      "city": "Houston, Texas",
+      "backdrop": "flat Gulf Coast prairie with bayous and live oak trees under a huge sky",
+      "skyline": "a distant downtown cluster of glass skyscrapers and the silhouette of refinery stacks by the ship channel",
+      "foreground": "calm bayou water with reeds"
+    },
+    "san-francisco": {
+      "city": "San Francisco, California",
+      "backdrop": "a hilly peninsula with fog banks rolling in over the Pacific side",
+      "skyline": "distant hills, a red suspension bridge silhouette half in the fog, and the East Bay hills",
+      "foreground": "blue bay water with a few small sailboats"
+    },
+    "new-york": {
+      "city": "New York City",
+      "backdrop": "a wide harbor mouth with open water",
+      "skyline": "a dense skyline of Art Deco spires and modern glass towers across the river, and a small green copper statue on a little island",
+      "foreground": "grey-blue harbor water with ferry wakes"
+    },
+    "dallas": {
+      "city": "Dallas, Texas",
+      "backdrop": "flat North Texas plains with big cumulus clouds",
+      "skyline": "a spread-out skyline with a tall tower topped by a round lit sphere, and a white arched bridge",
+      "foreground": "dry golden grass beside a slow river"
+    },
+    "austin": {
+      "city": "Austin, Texas",
+      "backdrop": "green Texas Hill Country with limestone bluffs",
+      "skyline": "a mid-size skyline with a pink granite capitol dome and a slim university clock tower",
+      "foreground": "a calm lake with a few kayaks"
+    },
+    "miami": {
+      "city": "Miami, Florida",
+      "backdrop": "a tropical coast with turquoise water",
+      "skyline": "pastel Art Deco hotels, palm trees, and white high-rise condos along a barrier island, with a cruise ship at port",
+      "foreground": "turquoise shallow water with a sandbar"
+    },
+    "pacific-coast": {
+      "city": "a Pacific Northwest state capital",
+      "backdrop": "evergreen hills, a rocky coast, and misty mountains",
+      "skyline": "a small capitol dome, pine-covered ridges, and a distant snowy volcano",
+      "foreground": "a cold green inlet with a small ferry"
+    },
+    "desert-southwest": {
+      "city": "a desert Southwest city",
+      "backdrop": "red sandstone mesas, saguaro cacti, and a huge blue sky",
+      "skyline": "a low adobe-toned skyline and distant purple mountains",
+      "foreground": "sandy desert ground with scrub brush"
+    },
+    "mountain-west": {
+      "city": "a Rocky Mountain city",
+      "backdrop": "snowy mountain peaks above pine forest",
+      "skyline": "a small skyline with a golden capitol dome at the foot of the mountains",
+      "foreground": "a clear mountain lake"
+    },
+    "great-plains": {
+      "city": "a Great Plains prairie town",
+      "backdrop": "endless wheat fields under towering thunderhead clouds",
+      "skyline": "grain elevators, a water tower, and a small capitol building",
+      "foreground": "golden wheat fields"
+    },
+    "great-lakes": {
+      "city": "a Great Lakes Midwest city",
+      "backdrop": "a wide lake shore with maple trees and red-brick towns",
+      "skyline": "a mid-size skyline of brick and glass buildings and a capitol dome",
+      "foreground": "blue lake water with a lighthouse"
+    },
+    "northeast": {
+      "city": "a New England town",
+      "backdrop": "rolling green hills with fall-colored trees and white church steeples",
+      "skyline": "colonial brick buildings, a white steeple, and a gold-domed statehouse",
+      "foreground": "a calm river"
+    },
+    "southeast": {
+      "city": "a Southern capital city",
+      "backdrop": "pine forests, slow rivers, and live oaks draped in Spanish moss",
+      "skyline": "a small skyline with a white capitol dome",
+      "foreground": "a slow brown river with a riverboat"
+    },
+    "island": {
+      "city": "Honolulu, Hawaii",
+      "backdrop": "a tropical island with green volcanic ridges and a white-sand beach",
+      "skyline": "a small row of white hotel towers along the beach and a green volcanic crater headland",
+      "foreground": "clear turquoise ocean with gentle surf and an outrigger canoe"
+    }
+  }
+}

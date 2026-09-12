@@ -1,0 +1,1223 @@
+[
+ {
+  "slug": "chase-sapphire-preferred",
+  "name": "Chase Sapphire Preferred",
+  "issuer": "Chase",
+  "network": "Visa",
+  "annualFee": 95,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "good",
+  "rewardsCurrency": "Chase Ultimate Rewards",
+  "centsPerPointCashOut": 1.0,
+  "earn": [
+   {
+    "category": "travel_portal",
+    "rate": 5,
+    "unit": "x",
+    "note": "Chase Travel"
+   },
+   {
+    "category": "dining",
+    "rate": 3,
+    "unit": "x"
+   },
+   {
+    "category": "gas",
+    "rate": 3,
+    "unit": "x",
+    "note": "gas stations and EV charging (new 2026)"
+   },
+   {
+    "category": "streaming",
+    "rate": 3,
+    "unit": "x",
+    "note": "select streaming services"
+   },
+   {
+    "category": "groceries",
+    "rate": 3,
+    "unit": "x",
+    "note": "online grocery only, excl. Target/Walmart/wholesale clubs"
+   },
+   {
+    "category": "travel",
+    "rate": 2,
+    "unit": "x",
+    "note": "other travel"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "x"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn 75,000 bonus points after you spend $5,000 on purchases in the first 3 months",
+   "value": "75,000 points",
+   "spend": 5000,
+   "months": 3
+  },
+  "introApr": null,
+  "regularApr": "19.24%-27.49% Variable",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "$100 annual Chase Travel hotel credit",
+   "Up to $120 Global Entry/TSA PreCheck/NEXUS credit every 4 years",
+   "Complimentary DashPass plus $10/month DoorDash promo",
+   "Purchase protection (120 days, $500/item)",
+   "Points worth up to 1.5x via Points Boost on Chase Travel"
+  ],
+  "sourceUrl": "https://creditcards.chase.com/rewards-credit-cards/sapphire/preferred",
+  "source": "issuer",
+  "checked": "2026-09-11",
+  "notes": "2026 refresh added 3x on gas, EV charging and vacation homes at top brands."
+ },
+ {
+  "slug": "chase-sapphire-reserve",
+  "name": "Chase Sapphire Reserve",
+  "issuer": "Chase",
+  "network": "Visa",
+  "annualFee": 795,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "excellent",
+  "rewardsCurrency": "Chase Ultimate Rewards",
+  "centsPerPointCashOut": 1.0,
+  "earn": [
+   {
+    "category": "travel_portal",
+    "rate": 8,
+    "unit": "x",
+    "note": "Chase Travel"
+   },
+   {
+    "category": "travel",
+    "rate": 4,
+    "unit": "x",
+    "note": "flights and hotels booked direct"
+   },
+   {
+    "category": "dining",
+    "rate": 3,
+    "unit": "x"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "x"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn 100,000 bonus points after you spend $6,000 on purchases in the first 3 months",
+   "value": "100,000 points",
+   "spend": 6000,
+   "months": 3
+  },
+  "introApr": null,
+  "regularApr": "19.49%-27.99% Variable",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "$300 annual travel credit",
+   "Priority Pass + Chase Sapphire Lounges (1,300+ lounges)",
+   "$500/yr The Edit hotel credit",
+   "$300 dining credit and $300 StubHub credit",
+   "Points worth up to 2x via Points Boost"
+  ],
+  "sourceUrl": "https://creditcards.chase.com/rewards-credit-cards/sapphire/reserve",
+  "source": "issuer",
+  "checked": "2026-09-11",
+  "notes": "2025 revamp: annual fee raised to $795 ($195 per authorized user), earn changed to 8x/4x/3x/1x."
+ },
+ {
+  "slug": "chase-freedom-unlimited",
+  "name": "Chase Freedom Unlimited",
+  "issuer": "Chase",
+  "network": "Visa",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "good",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "travel_portal",
+    "rate": 5,
+    "unit": "percent",
+    "note": "Chase Travel"
+   },
+   {
+    "category": "dining",
+    "rate": 3,
+    "unit": "percent"
+   },
+   {
+    "category": "drugstores",
+    "rate": 3,
+    "unit": "percent"
+   },
+   {
+    "category": "everything",
+    "rate": 1.5,
+    "unit": "percent"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn a $200 bonus after you spend $500 on purchases in the first 3 months",
+   "value": "$200",
+   "spend": 500,
+   "months": 3
+  },
+  "introApr": {
+   "purchases": "0% for 15 months",
+   "balanceTransfers": "0% for 15 months",
+   "btFee": "balance transfer fee applies (see pricing and terms)"
+  },
+  "regularApr": "18.24%-27.74% Variable",
+  "foreignTransactionFee": "3%",
+  "topPerks": [
+   "Unlimited 1.5% on everything",
+   "6 months complimentary DashPass",
+   "Purchase protection (120 days, $500/item)",
+   "Rewards tracked as Ultimate Rewards points (1 cent each)"
+  ],
+  "sourceUrl": "https://creditcards.chase.com/cash-back-credit-cards/freedom/unlimited",
+  "source": "issuer",
+  "checked": "2026-09-11",
+  "unverified": true,
+  "unverifiedFields": [
+   "introApr.btFee"
+  ]
+ },
+ {
+  "slug": "chase-freedom-flex",
+  "name": "Chase Freedom Flex",
+  "issuer": "Chase",
+  "network": "Mastercard",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "good",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "rotating",
+    "rate": 5,
+    "unit": "percent",
+    "cap": "$1,500 combined per quarter, activation required",
+    "note": "quarterly categories e.g. gas, grocery, select merchants"
+   },
+   {
+    "category": "travel_portal",
+    "rate": 5,
+    "unit": "percent",
+    "note": "Chase Travel"
+   },
+   {
+    "category": "dining",
+    "rate": 3,
+    "unit": "percent"
+   },
+   {
+    "category": "drugstores",
+    "rate": 3,
+    "unit": "percent"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "percent"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn a $200 bonus after you spend $500 on purchases in the first 3 months",
+   "value": "$200",
+   "spend": 500,
+   "months": 3
+  },
+  "introApr": {
+   "purchases": "0% for 15 months",
+   "balanceTransfers": "0% for 15 months",
+   "btFee": "balance transfer fee applies (see pricing and terms)"
+  },
+  "regularApr": "18.24%-27.74% Variable",
+  "foreignTransactionFee": "3% (Chase eliminating it on Sept 20, 2026)",
+  "topPerks": [
+   "5% quarterly rotating categories",
+   "6 months complimentary DashPass",
+   "Purchase protection (120 days, $500/item)",
+   "Cell phone protection (World Elite Mastercard)"
+  ],
+  "sourceUrl": "https://creditcards.chase.com/cash-back-credit-cards/freedom/flex",
+  "source": "issuer",
+  "checked": "2026-09-11",
+  "unverified": true,
+  "unverifiedFields": [
+   "introApr.btFee",
+   "topPerks: cell phone protection"
+  ]
+ },
+ {
+  "slug": "amex-platinum",
+  "name": "The Platinum Card from American Express",
+  "issuer": "American Express",
+  "network": "Amex",
+  "annualFee": 895,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "excellent",
+  "rewardsCurrency": "Amex Membership Rewards",
+  "centsPerPointCashOut": 0.6,
+  "earn": [
+   {
+    "category": "travel",
+    "rate": 5,
+    "unit": "x",
+    "cap": "$500,000 per calendar year",
+    "note": "flights booked direct with airlines or via Amex Travel"
+   },
+   {
+    "category": "travel_portal",
+    "rate": 5,
+    "unit": "x",
+    "note": "prepaid hotels on Amex Travel"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "x"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn 100,000 points after you spend $6,000 in the first 6 months (offers vary by applicant)",
+   "value": "100,000 points",
+   "spend": 6000,
+   "months": 6
+  },
+  "introApr": null,
+  "regularApr": "19.49%-28.49% Variable (Pay Over Time)",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "Global Lounge Collection: 1,550+ lounges incl. Centurion",
+   "$600 hotel credit (FHR/Hotel Collection)",
+   "$400 Resy credit and $300 digital entertainment credit",
+   "$200 Uber Cash + $200 airline fee credit",
+   "Cell phone protection (up to $800/claim)"
+  ],
+  "sourceUrl": "https://www.americanexpress.com/us/credit-cards/card/platinum/",
+  "source": "issuer; welcome offer from CNBC Select",
+  "checked": "2026-09-11",
+  "unverified": true,
+  "unverifiedFields": [
+   "welcomeOffer"
+  ],
+  "notes": "2025 refresh raised fee to $895 and added Resy, lululemon, Oura, Uber One credits. Amex personalizes welcome offers.",
+  "welcomeOfferSource": "CNBC Select, Aug 2026 (Amex personalizes offers)"
+ },
+ {
+  "slug": "amex-gold",
+  "name": "American Express Gold Card",
+  "issuer": "American Express",
+  "network": "Amex",
+  "annualFee": 325,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "good",
+  "rewardsCurrency": "Amex Membership Rewards",
+  "centsPerPointCashOut": 0.6,
+  "earn": [
+   {
+    "category": "dining",
+    "rate": 4,
+    "unit": "x",
+    "cap": "$50,000/yr then 1x",
+    "note": "restaurants worldwide"
+   },
+   {
+    "category": "groceries",
+    "rate": 4,
+    "unit": "x",
+    "cap": "$25,000/yr then 1x",
+    "note": "U.S. supermarkets"
+   },
+   {
+    "category": "travel_portal",
+    "rate": 5,
+    "unit": "x",
+    "note": "prepaid hotels via Amex Travel"
+   },
+   {
+    "category": "travel",
+    "rate": 3,
+    "unit": "x",
+    "note": "flights direct or via Amex Travel"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "x"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn up to 100,000 points after you spend $8,000 in the first 6 months (offers vary by applicant)",
+   "value": "up to 100,000 points",
+   "spend": 8000,
+   "months": 6
+  },
+  "introApr": null,
+  "regularApr": "19.49%-28.49% Variable (Pay Over Time)",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "$120 Uber Cash ($10/month)",
+   "$120 dining credit ($10/month)",
+   "$100 Resy credit",
+   "$84 Dunkin' credit",
+   "Purchase protection"
+  ],
+  "sourceUrl": "https://www.americanexpress.com/us/credit-cards/card/gold-card/",
+  "source": "issuer; welcome offer from CNBC Select",
+  "checked": "2026-09-11",
+  "unverified": true,
+  "unverifiedFields": [
+   "welcomeOffer"
+  ],
+  "welcomeOfferSource": "CNBC Select, Aug 2026 (Amex personalizes offers)"
+ },
+ {
+  "slug": "amex-blue-cash-everyday",
+  "name": "Blue Cash Everyday Card from American Express",
+  "issuer": "American Express",
+  "network": "Amex",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "good",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "groceries",
+    "rate": 3,
+    "unit": "percent",
+    "cap": "$6,000/yr then 1%",
+    "note": "U.S. supermarkets"
+   },
+   {
+    "category": "gas",
+    "rate": 3,
+    "unit": "percent",
+    "cap": "$6,000/yr then 1%",
+    "note": "U.S. gas stations"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "percent",
+    "note": "also 3% on U.S. online retail, $6,000/yr cap"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn $200 back after you spend $1,000 in the first 3 months (offers vary by applicant)",
+   "value": "$200",
+   "spend": 1000,
+   "months": 3
+  },
+  "introApr": {
+   "purchases": "0% for 15 months",
+   "balanceTransfers": "0% for 15 months (request within 60 days)"
+  },
+  "regularApr": "19.49%-28.49% Variable",
+  "foreignTransactionFee": "2.7%",
+  "topPerks": [
+   "$84/yr Disney streaming credit",
+   "3% at U.S. supermarkets, gas and online retail",
+   "Purchase protection (90 days)",
+   "Cash back redeemable as statement credit"
+  ],
+  "sourceUrl": "https://www.americanexpress.com/us/credit-cards/card/blue-cash-everyday/",
+  "source": "issuer; offer and APRs from CNBC Select / WalletHub",
+  "checked": "2026-09-11",
+  "unverified": true,
+  "unverifiedFields": [
+   "welcomeOffer",
+   "introApr",
+   "regularApr"
+  ],
+  "welcomeOfferSource": "CNBC Select, Aug 2026 (Amex personalizes offers)"
+ },
+ {
+  "slug": "amex-blue-cash-preferred",
+  "name": "Blue Cash Preferred Card from American Express",
+  "issuer": "American Express",
+  "network": "Amex",
+  "annualFee": 95,
+  "firstYearFeeWaived": true,
+  "creditNeeded": "good",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "groceries",
+    "rate": 6,
+    "unit": "percent",
+    "cap": "$6,000/yr then 1%",
+    "note": "U.S. supermarkets"
+   },
+   {
+    "category": "streaming",
+    "rate": 6,
+    "unit": "percent",
+    "note": "select U.S. streaming subscriptions"
+   },
+   {
+    "category": "gas",
+    "rate": 3,
+    "unit": "percent",
+    "note": "U.S. gas stations"
+   },
+   {
+    "category": "transit",
+    "rate": 3,
+    "unit": "percent",
+    "note": "taxis, rideshare, parking, tolls, trains, buses"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "percent"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn a $300 statement credit after you spend $3,000 in the first 6 months (offers vary by applicant)",
+   "value": "$300",
+   "spend": 3000,
+   "months": 6
+  },
+  "introApr": {
+   "purchases": "0% for 12 months",
+   "balanceTransfers": "0% for 12 months (request within 60 days)"
+  },
+  "regularApr": "19.49%-28.49% Variable",
+  "foreignTransactionFee": "2.7%",
+  "topPerks": [
+   "$0 intro annual fee first year, then $95",
+   "6% groceries and streaming",
+   "Return protection (90 days)",
+   "Purchase protection"
+  ],
+  "sourceUrl": "https://www.americanexpress.com/us/credit-cards/card/blue-cash-preferred/",
+  "source": "issuer; offer and APRs from CNBC Select / WalletHub",
+  "checked": "2026-09-11",
+  "unverified": true,
+  "unverifiedFields": [
+   "welcomeOffer",
+   "introApr",
+   "regularApr"
+  ],
+  "welcomeOfferSource": "CNBC Select, Aug 2026 (Amex personalizes offers)"
+ },
+ {
+  "slug": "capital-one-venture-x",
+  "name": "Capital One Venture X Rewards",
+  "issuer": "Capital One",
+  "network": "Visa",
+  "annualFee": 395,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "excellent",
+  "rewardsCurrency": "Capital One miles",
+  "centsPerPointCashOut": 1.0,
+  "earn": [
+   {
+    "category": "travel_portal",
+    "rate": 10,
+    "unit": "x",
+    "note": "hotels and rental cars via Capital One Travel; 5x flights and vacation rentals"
+   },
+   {
+    "category": "entertainment",
+    "rate": 5,
+    "unit": "x",
+    "note": "Capital One Entertainment"
+   },
+   {
+    "category": "everything",
+    "rate": 2,
+    "unit": "x"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn 75,000 bonus miles after spending $4,000 in the first 3 months",
+   "value": "75,000 miles",
+   "spend": 4000,
+   "months": 3
+  },
+  "introApr": null,
+  "regularApr": "19.49%-28.49% Variable",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "$300 annual Capital One Travel credit",
+   "10,000 bonus miles every anniversary",
+   "Capital One Lounges + 1,300+ Priority Pass lounges",
+   "Transfer to 15+ travel partners"
+  ],
+  "sourceUrl": "https://www.capitalone.com/credit-cards/venture-x/",
+  "source": "issuer; bonus spend from CNBC Select",
+  "checked": "2026-09-11"
+ },
+ {
+  "slug": "capital-one-venture",
+  "name": "Capital One Venture Rewards",
+  "issuer": "Capital One",
+  "network": "Visa",
+  "annualFee": 95,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "good",
+  "rewardsCurrency": "Capital One miles",
+  "centsPerPointCashOut": 1.0,
+  "earn": [
+   {
+    "category": "travel_portal",
+    "rate": 5,
+    "unit": "x",
+    "note": "hotels, vacation rentals and rental cars via Capital One Travel"
+   },
+   {
+    "category": "entertainment",
+    "rate": 5,
+    "unit": "x",
+    "note": "Capital One Entertainment"
+   },
+   {
+    "category": "everything",
+    "rate": 2,
+    "unit": "x"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn 75,000 bonus miles once you spend $4,000 on purchases in the first 3 months",
+   "value": "75,000 miles",
+   "spend": 4000,
+   "months": 3
+  },
+  "introApr": null,
+  "regularApr": "19.49%-28.49% Variable",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "Up to $120 Global Entry/TSA PreCheck credit",
+   "One-time $300 Capital One Travel stays credit",
+   "$50 Lifestyle Collection experience credit",
+   "Transfer miles to 15+ partners"
+  ],
+  "sourceUrl": "https://www.capitalone.com/credit-cards/venture/",
+  "source": "issuer",
+  "checked": "2026-09-11"
+ },
+ {
+  "slug": "capital-one-savor",
+  "name": "Capital One Savor Cash Rewards",
+  "issuer": "Capital One",
+  "network": "Mastercard",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "excellent",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "travel_portal",
+    "rate": 5,
+    "unit": "percent",
+    "note": "hotels, vacation rentals, rental cars via Capital One Travel"
+   },
+   {
+    "category": "dining",
+    "rate": 3,
+    "unit": "percent"
+   },
+   {
+    "category": "groceries",
+    "rate": 3,
+    "unit": "percent",
+    "note": "excl. superstores like Walmart and Target"
+   },
+   {
+    "category": "entertainment",
+    "rate": 3,
+    "unit": "percent"
+   },
+   {
+    "category": "streaming",
+    "rate": 3,
+    "unit": "percent"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "percent"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn a one-time $200 cash bonus once you spend $500 in the first 3 months",
+   "value": "$200",
+   "spend": 500,
+   "months": 3
+  },
+  "introApr": {
+   "purchases": "0% for 12 months",
+   "balanceTransfers": "0% for 12 months",
+   "btFee": "balance transfer fee applies"
+  },
+  "regularApr": "18.49%-28.49% Variable",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "No annual fee (former $95 Savor merged into no-fee Savor)",
+   "3% dining, grocery, entertainment, streaming",
+   "No foreign transaction fees",
+   "Rewards don't expire"
+  ],
+  "sourceUrl": "https://www.capitalone.com/credit-cards/savor/",
+  "source": "issuer",
+  "checked": "2026-09-11",
+  "notes": "SavorOne and Savor merged into a single $0-fee Savor card in 2024."
+ },
+ {
+  "slug": "capital-one-quicksilver",
+  "name": "Capital One Quicksilver Cash Rewards",
+  "issuer": "Capital One",
+  "network": "Mastercard",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "excellent",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "travel_portal",
+    "rate": 5,
+    "unit": "percent",
+    "note": "hotels and rental cars via Capital One Travel"
+   },
+   {
+    "category": "everything",
+    "rate": 1.5,
+    "unit": "percent"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn a one-time $200 cash bonus after spending $500 in the first 3 months",
+   "value": "$200",
+   "spend": 500,
+   "months": 3
+  },
+  "introApr": {
+   "purchases": "0% for 15 months",
+   "balanceTransfers": "0% for 15 months",
+   "btFee": "3%"
+  },
+  "regularApr": "18.49%-28.49% Variable",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "Unlimited 1.5% on everything",
+   "No foreign transaction fees",
+   "Redeem cash back for any amount",
+   "Rewards don't expire"
+  ],
+  "sourceUrl": "https://www.capitalone.com/credit-cards/quicksilver/",
+  "source": "issuer; APR, intro APR and bonus spend from U.S. News / WalletHub",
+  "checked": "2026-09-11",
+  "unverified": true,
+  "unverifiedFields": [
+   "introApr",
+   "regularApr",
+   "welcomeOffer.spend",
+   "earn.travel_portal"
+  ]
+ },
+ {
+  "slug": "capital-one-platinum",
+  "name": "Capital One Platinum",
+  "issuer": "Capital One",
+  "network": "Mastercard",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "fair",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "everything",
+    "rate": 0,
+    "unit": "percent",
+    "note": "no rewards"
+   }
+  ],
+  "welcomeOffer": null,
+  "introApr": null,
+  "regularApr": "28.99% Variable",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "No annual fee",
+   "Automatic credit line reviews in as little as 6 months",
+   "Free CreditWise credit monitoring",
+   "No foreign transaction fees"
+  ],
+  "sourceUrl": "https://www.capitalone.com/credit-cards/platinum/",
+  "source": "issuer",
+  "checked": "2026-09-11"
+ },
+ {
+  "slug": "capital-one-platinum-secured",
+  "name": "Capital One Platinum Secured",
+  "issuer": "Capital One",
+  "network": "Mastercard",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "none",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "everything",
+    "rate": 0,
+    "unit": "percent",
+    "note": "no rewards"
+   }
+  ],
+  "welcomeOffer": null,
+  "introApr": null,
+  "regularApr": "28.99% Variable",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "Refundable deposit of $49, $99 or $200 for a $200+ line",
+   "Deposit more to raise line up to $1,000",
+   "Can graduate to unsecured Platinum with responsible use",
+   "No foreign transaction fees"
+  ],
+  "sourceUrl": "https://www.capitalone.com/credit-cards/platinum-secured/",
+  "source": "issuer",
+  "checked": "2026-09-11"
+ },
+ {
+  "slug": "capital-one-savor-student",
+  "name": "Capital One Savor Student Cash Rewards",
+  "issuer": "Capital One",
+  "network": "Mastercard",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "fair",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "dining",
+    "rate": 3,
+    "unit": "percent"
+   },
+   {
+    "category": "groceries",
+    "rate": 3,
+    "unit": "percent",
+    "note": "excl. superstores"
+   },
+   {
+    "category": "entertainment",
+    "rate": 3,
+    "unit": "percent"
+   },
+   {
+    "category": "streaming",
+    "rate": 3,
+    "unit": "percent"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "percent"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn a one-time $50 cash bonus once you spend $100 in the first 3 months",
+   "value": "$50",
+   "spend": 100,
+   "months": 3
+  },
+  "introApr": null,
+  "regularApr": "18.49%-28.49% Variable",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "For college students with limited credit",
+   "3% dining, grocery, entertainment, streaming",
+   "No annual fee",
+   "No foreign transaction fees"
+  ],
+  "sourceUrl": "https://www.capitalone.com/credit-cards/savor-student/",
+  "source": "issuer",
+  "checked": "2026-09-11"
+ },
+ {
+  "slug": "discover-it-cash-back",
+  "name": "Discover it Cash Back",
+  "issuer": "Discover (Capital One)",
+  "network": "Discover",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "good",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "rotating",
+    "rate": 5,
+    "unit": "percent",
+    "cap": "up to quarterly maximum ($1,500) when activated",
+    "note": "e.g. grocery, restaurants, gas"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "percent"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Cashback Match: all cash back earned in the first year matched dollar-for-dollar",
+   "value": "match of first-year cash back",
+   "spend": null,
+   "months": 12
+  },
+  "introApr": {
+   "purchases": "0% for 15 months",
+   "balanceTransfers": "0% for 15 months",
+   "btFee": "balance transfer fee applies"
+  },
+  "regularApr": "17.49%-26.49% Variable",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "Unlimited first-year Cashback Match",
+   "5% rotating quarterly categories",
+   "No annual fee",
+   "Free FICO score via CreditWise"
+  ],
+  "sourceUrl": "https://www.discover.com/credit-cards/cash-back/it-card.html",
+  "source": "issuer",
+  "checked": "2026-09-11",
+  "unverified": true,
+  "unverifiedFields": [
+   "earn.rotating.cap"
+  ],
+  "notes": "Discover was acquired by Capital One in May 2025; pages now use Capital One CreditWise."
+ },
+ {
+  "slug": "discover-it-student",
+  "name": "Discover it Student Cash Back",
+  "issuer": "Discover (Capital One)",
+  "network": "Discover",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "none",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "rotating",
+    "rate": 5,
+    "unit": "percent",
+    "cap": "up to quarterly maximum when activated"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "percent"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Limited time: $100 statement credit after $300 in the first 3 months, plus first-year Cashback Match",
+   "value": "$100",
+   "spend": 300,
+   "months": 3
+  },
+  "introApr": {
+   "purchases": "0% for 6 months"
+  },
+  "regularApr": "16.49%-25.49% Variable",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "No credit score required to apply",
+   "First-year Cashback Match",
+   "5% rotating categories",
+   "No annual fee"
+  ],
+  "sourceUrl": "https://www.discover.com/credit-cards/student/it-card.html",
+  "source": "issuer",
+  "checked": "2026-09-11"
+ },
+ {
+  "slug": "discover-it-secured",
+  "name": "Discover it Secured Credit Card",
+  "issuer": "Discover (Capital One)",
+  "network": "Discover",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "none",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "rotating",
+    "rate": 5,
+    "unit": "percent",
+    "cap": "up to quarterly maximum when activated"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "percent"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Cashback Match: all cash back earned in the first year matched",
+   "value": "match of first-year cash back",
+   "spend": null,
+   "months": 12
+  },
+  "introApr": null,
+  "regularApr": "27.24% Variable",
+  "foreignTransactionFee": "None",
+  "topPerks": [
+   "Refundable deposit $49, $99 or $200 for a $200+ line",
+   "Earn deposit back and upgrade to Discover it Cash Back",
+   "First-year Cashback Match",
+   "No credit score required to apply"
+  ],
+  "sourceUrl": "https://www.discover.com/credit-cards/secured/",
+  "source": "issuer; APR from secondary (Money Atlas/WealthSpott)",
+  "checked": "2026-09-11",
+  "unverified": true,
+  "unverifiedFields": [
+   "regularApr"
+  ],
+  "notes": "Now earns 5% rotating (previously 2% gas/restaurants)."
+ },
+ {
+  "slug": "citi-double-cash",
+  "name": "Citi Double Cash Card",
+  "issuer": "Citi",
+  "network": "Mastercard",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "good",
+  "rewardsCurrency": "Citi ThankYou",
+  "centsPerPointCashOut": 1.0,
+  "earn": [
+   {
+    "category": "travel_portal",
+    "rate": 5,
+    "unit": "percent",
+    "note": "hotels, car rentals, attractions via Citi Travel"
+   },
+   {
+    "category": "everything",
+    "rate": 2,
+    "unit": "percent",
+    "note": "1% when you buy + 1% when you pay"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn $200 cash back after spending $1,500 in the first 6 months",
+   "value": "$200",
+   "spend": 1500,
+   "months": 6
+  },
+  "introApr": {
+   "balanceTransfers": "0% for 18 months",
+   "btFee": "3% intro (first 4 months) then 5%"
+  },
+  "regularApr": "18.24%-28.49% Variable",
+  "foreignTransactionFee": "3%",
+  "topPerks": [
+   "Unlimited 2% on everything",
+   "No annual fee",
+   "Redeem as statement credit, check or direct deposit",
+   "Citi Entertainment access"
+  ],
+  "sourceUrl": "https://www.cnbc.com/select/citi-double-cash-card-review/",
+  "source": "CNBC Select (updated 2026-09-01); Citi page renders rates client-side",
+  "checked": "2026-09-11",
+  "unverified": true,
+  "unverifiedFields": [
+   "all terms from secondary source"
+  ]
+ },
+ {
+  "slug": "citi-custom-cash",
+  "name": "Citi Custom Cash Card",
+  "issuer": "Citi",
+  "network": "Mastercard",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "good",
+  "rewardsCurrency": "Citi ThankYou",
+  "centsPerPointCashOut": 1.0,
+  "earn": [
+   {
+    "category": "top_category",
+    "rate": 5,
+    "unit": "percent",
+    "cap": "$500 per billing cycle, then 1%",
+    "note": "auto-applies to your top eligible category"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "percent"
+   }
+  ],
+  "welcomeOffer": null,
+  "introApr": null,
+  "regularApr": "unverified",
+  "foreignTransactionFee": "3%",
+  "topPerks": [
+   "5% on top spend category each cycle",
+   "No annual fee",
+   "Closed to new applicants since May 28, 2026",
+   "Existing cardholders keep benefits"
+  ],
+  "sourceUrl": "https://www.citi.com/credit-cards/citi-custom-cash-credit-card",
+  "source": "issuer (closure notice); terms from NerdWallet / U.S. News",
+  "checked": "2026-09-11",
+  "status": "closed to new applications (May 28, 2026)",
+  "unverified": true,
+  "unverifiedFields": [
+   "regularApr",
+   "foreignTransactionFee"
+  ]
+ },
+ {
+  "slug": "wells-fargo-active-cash",
+  "name": "Wells Fargo Active Cash Card",
+  "issuer": "Wells Fargo",
+  "network": "Visa",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "good",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "everything",
+    "rate": 2,
+    "unit": "percent"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "Earn a $100 cash rewards bonus when you spend $500 in purchases in the first 3 months",
+   "value": "$100",
+   "spend": 500,
+   "months": 3
+  },
+  "introApr": {
+   "purchases": "0% for 12 months",
+   "balanceTransfers": "0% for 12 months (within 120 days)",
+   "btFee": "see terms"
+  },
+  "regularApr": "18.49%, 24.49% or 28.49% Variable",
+  "foreignTransactionFee": "3%",
+  "topPerks": [
+   "Unlimited 2% cash rewards",
+   "Cell phone protection up to $600 ($25 deductible)",
+   "Visa Signature Hotel Collection",
+   "Rewards don't expire"
+  ],
+  "sourceUrl": "https://creditcards.wellsfargo.com/active-cash-credit-card/",
+  "source": "issuer",
+  "checked": "2026-09-11"
+ },
+ {
+  "slug": "wells-fargo-reflect",
+  "name": "Wells Fargo Reflect Card",
+  "issuer": "Wells Fargo",
+  "network": "Visa",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "good",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "everything",
+    "rate": 0,
+    "unit": "percent",
+    "note": "no rewards; built for intro APR"
+   }
+  ],
+  "welcomeOffer": null,
+  "introApr": {
+   "purchases": "0% for 21 months",
+   "balanceTransfers": "0% for 21 months (within 120 days)",
+   "btFee": "see terms"
+  },
+  "regularApr": "17.49%, 23.99% or 28.24% Variable",
+  "foreignTransactionFee": "3%",
+  "topPerks": [
+   "21-month 0% intro APR on purchases and balance transfers",
+   "Cell phone protection up to $600 ($25 deductible)",
+   "Roadside Dispatch",
+   "No annual fee"
+  ],
+  "sourceUrl": "https://creditcards.wellsfargo.com/reflect-visa-credit-card/",
+  "source": "issuer",
+  "checked": "2026-09-11"
+ },
+ {
+  "slug": "bofa-customized-cash",
+  "name": "Bank of America Customized Cash Rewards",
+  "issuer": "Bank of America",
+  "network": "Visa",
+  "annualFee": 0,
+  "firstYearFeeWaived": false,
+  "creditNeeded": "good",
+  "rewardsCurrency": "cash",
+  "centsPerPointCashOut": null,
+  "earn": [
+   {
+    "category": "top_category",
+    "rate": 6,
+    "unit": "percent",
+    "cap": "$2,500 combined 6%/2% per quarter, then 1%",
+    "note": "choice category 6% first year then 3%: gas/EV, online shopping, dining, travel, drugstores, home improvement"
+   },
+   {
+    "category": "groceries",
+    "rate": 2,
+    "unit": "percent",
+    "cap": "shares $2,500 quarterly cap",
+    "note": "grocery stores and wholesale clubs"
+   },
+   {
+    "category": "everything",
+    "rate": 1,
+    "unit": "percent"
+   }
+  ],
+  "welcomeOffer": {
+   "text": "$200 cash rewards bonus after $1,000 in purchases in the first 90 days",
+   "value": "$200",
+   "spend": 1000,
+   "months": 3
+  },
+  "introApr": {
+   "purchases": "0% for 15 billing cycles",
+   "balanceTransfers": "0% for 15 billing cycles (within 60 days)",
+   "btFee": "3% for first 60 days, then 5%"
+  },
+  "regularApr": "17.49%-27.49% Variable",
+  "foreignTransactionFee": "3%",
+  "topPerks": [
+   "Choose your 3% category, changeable monthly",
+   "6% choice category in year one",
+   "Preferred Rewards members earn 25%-75% more",
+   "No annual fee"
+  ],
+  "sourceUrl": "https://www.bankofamerica.com/credit-cards/products/cash-back-credit-card/",
+  "source": "issuer",
+  "checked": "2026-09-11",
+  "unverified": true,
+  "unverifiedFields": [
+   "foreignTransactionFee"
+  ]
+ }
+]

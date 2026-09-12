@@ -1,0 +1,530 @@
+/* The player's phone: docked on the left edge of the city, between the city
+   card and the home card. The bezel matches the HUD's white borders; the
+   screen inside uses the system font so it reads as a real phone. */
+
+.phone {
+  --phone-w: 236px;
+  --phone-h: min(500px, calc(100vh - 262px));
+  position: fixed;
+  left: 14px;
+  top: 136px;
+  z-index: 4;
+  font-family: -apple-system, "SF Pro Text", "Inter", system-ui, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.phone [hidden] {
+  display: none !important;
+}
+
+.phone-body {
+  position: relative;
+  width: var(--phone-w);
+  height: var(--phone-h);
+  padding: 7px;
+  border-radius: 40px;
+  background: linear-gradient(145deg, #3a3f4a, #11141a 45%, #0b0d12);
+  border: 3px solid var(--white, #fff);
+  box-shadow: var(--shadow, 0 4px 0 rgba(10, 30, 70, 0.35), 0 10px 24px rgba(10, 30, 70, 0.25));
+  transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.25s ease;
+}
+
+/* Side buttons */
+.phone-body::before,
+.phone-body::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: #d9dee8;
+}
+.phone-body::before {
+  top: 96px;
+  height: 44px;
+}
+.phone-body::after {
+  top: 150px;
+  height: 28px;
+}
+
+.phone-screen {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 32px;
+  color: #fff;
+  background:
+    radial-gradient(120% 70% at 20% 0%, rgba(120, 180, 255, 0.55), transparent 60%),
+    radial-gradient(90% 60% at 100% 100%, rgba(255, 207, 51, 0.28), transparent 60%),
+    linear-gradient(165deg, #3a7be0 0%, #1f4e9c 48%, #122a55 100%);
+}
+
+.island {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 74px;
+  height: 21px;
+  transform: translateX(-50%);
+  border-radius: 12px;
+  background: #000;
+  z-index: 3;
+}
+
+.status {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 36px;
+  padding: 0 20px 0 24px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.status-icons {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.view {
+  position: absolute;
+  inset: 36px 0 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Home screen ----------------------------------------------------------------- */
+.view-home {
+  padding: 8px 14px 30px;
+  gap: 14px;
+}
+.home-clock {
+  text-align: center;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
+}
+.hc-day {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+.hc-date {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.widget {
+  display: block;
+  width: 100%;
+  padding: 11px 12px 9px;
+  text-align: left;
+  color: #fff;
+  border: 0;
+  border-radius: 18px;
+  background: rgba(8, 14, 28, 0.55);
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+.widget:hover {
+  background: rgba(8, 14, 28, 0.68);
+}
+.w-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.w-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+.w-chg {
+  font-size: 11px;
+  font-weight: 600;
+}
+.w-chg.up {
+  color: #30d158;
+}
+.w-chg.down {
+  color: #ff453a;
+}
+.w-value {
+  margin: 2px 0 4px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.widget .spark {
+  display: block;
+}
+.w-foot {
+  margin-top: 4px;
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+/* The apps sit in a frosted dock at the bottom, like a real home screen. */
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-top: auto;
+  padding: 12px 6px 8px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(12px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.app {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  cursor: pointer;
+}
+.app-icon {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.28);
+  transition: transform 0.12s ease;
+}
+.app-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.app:hover .app-icon {
+  transform: translateY(-1px) scale(1.04);
+}
+.app:active .app-icon {
+  transform: scale(0.94);
+}
+.app-name {
+  font-size: 10.5px;
+  font-weight: 500;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.app.soon .app-icon {
+  filter: saturate(0.55) brightness(0.9);
+  opacity: 0.75;
+}
+.app-badge {
+  position: absolute;
+  top: -5px;
+  right: 2px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--blue, #1f4e9c);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.toast {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 30px;
+  padding: 9px 12px;
+  border-radius: 14px;
+  background: rgba(8, 14, 28, 0.82);
+  backdrop-filter: blur(10px);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Stocks app ------------------------------------------------------------------ */
+.view-stocks {
+  background: #000;
+  inset: 0;
+  padding-top: 36px;
+}
+.st-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px 10px 8px;
+}
+.st-back {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: #0a84ff;
+  cursor: pointer;
+}
+.st-back:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.st-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.st-sub {
+  font-size: 11px;
+  color: #8e8e93;
+}
+.st-list {
+  flex: 1;
+  margin: 0;
+  padding: 0 12px;
+  list-style: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.st-list::-webkit-scrollbar {
+  display: none;
+}
+.st-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 0;
+  border-top: 1px solid #1c1c1e;
+}
+.st-row:first-child {
+  border-top: 0;
+}
+.st-name {
+  min-width: 0;
+}
+.st-name b {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+}
+.st-name span {
+  display: block;
+  overflow: hidden;
+  font-size: 10px;
+  color: #8e8e93;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.st-right {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+}
+.st-px {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.st-pill {
+  min-width: 56px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.st-pill.up {
+  background: #30d158;
+  color: #002b0c;
+}
+.st-pill.down {
+  background: #ff453a;
+  color: #2b0300;
+}
+.st-open {
+  margin: 8px 12px 28px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: #0a84ff;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.st-open:hover {
+  background: #2f95ff;
+}
+
+.home-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 7px;
+  z-index: 4;
+  width: 86px;
+  height: 5px;
+  padding: 0;
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+}
+
+/* Put away / take out ------------------------------------------------------------ */
+.phone-hide {
+  position: absolute;
+  top: 50%;
+  right: -25px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 44px;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 2px solid var(--white, #fff);
+  border-radius: 0 10px 10px 0;
+  background: var(--blue-2, #2b66c4);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+  z-index: -1;
+}
+.phone-hide:hover {
+  background: #3a7be0;
+}
+
+.phone-tab {
+  position: absolute;
+  top: 0;
+  left: -14px;
+  display: none;
+  place-items: center;
+  width: 46px;
+  height: 64px;
+  padding: 0 0 0 10px;
+  border: 3px solid var(--white, #fff);
+  border-left: 0;
+  border-radius: 0 16px 16px 0;
+  background: linear-gradient(180deg, #2d6fd6 0%, var(--blue, #1f4e9c) 100%);
+  box-shadow: var(--shadow, 0 4px 0 rgba(10, 30, 70, 0.35));
+  cursor: pointer;
+}
+.phone-tab-icon {
+  width: 18px;
+  height: 30px;
+  border: 2.5px solid #fff;
+  border-radius: 6px;
+  position: relative;
+}
+.phone-tab-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 7px;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 1px;
+  background: #fff;
+}
+.phone.closed .phone-body {
+  transform: translateX(calc(-100% - 30px));
+  opacity: 0;
+  pointer-events: none;
+}
+.phone.closed .phone-tab {
+  display: grid;
+}
+
+/* Credit Desk window ------------------------------------------------------------- */
+.desk-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(8, 16, 34, 0.55);
+  backdrop-filter: blur(4px);
+}
+.desk-overlay[hidden] {
+  display: none;
+}
+.desk-window {
+  display: flex;
+  flex-direction: column;
+  width: min(1480px, 100%);
+  height: min(920px, 100%);
+  overflow: hidden;
+  border: 3px solid #fff;
+  border-radius: 20px;
+  background: #9fd0f5;
+  box-shadow: 0 30px 80px rgba(10, 30, 70, 0.45);
+}
+.desk-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 42px;
+  padding: 0 8px 0 16px;
+  background: linear-gradient(180deg, #2d6fd6 0%, #1f4e9c 100%);
+  border-bottom: 3px solid #fff;
+  color: #fff;
+  font-family: "Fredoka", "Nunito", system-ui, sans-serif;
+  font-size: 15px;
+}
+.desk-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.desk-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #19c37d;
+}
+.desk-hint {
+  opacity: 0.8;
+  font-size: 13px;
+}
+.desk-close {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #2b66c4;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+}
+.desk-close:hover {
+  background: #3a7be0;
+}
+.desk-window iframe {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #9fd0f5;
+}
+
+@media (max-height: 600px) {
+  .phone {
+    top: 124px;
+  }
+}

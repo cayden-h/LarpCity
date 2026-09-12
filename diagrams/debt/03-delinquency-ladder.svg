@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 860" width="1600" height="860" role="img" aria-label="The delinquency ladder: a missed payment moves from late to reported at 30 days, penalty APR at 60, serious at 90, and collections at 180, with a way back to current at every step: pay what is past due, a hardship plan, switching a student loan to RAP, or bankruptcy as the last resort.">
+  <defs>
+    <linearGradient id="heat" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#237841"/>
+      <stop offset="0.3" stop-color="#F5CD2F"/>
+      <stop offset="0.6" stop-color="#F57D20"/>
+      <stop offset="1" stop-color="#8E0A0B"/>
+    </linearGradient>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1B2A34"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#237841"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="860" fill="#FFFFFF"/>
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" fill="#1B2A34">
+    <text x="60" y="78" font-size="40" font-weight="700">How going broke really happens</text>
+    <text x="60" y="116" font-size="22" fill="#5B6B76">Every step is a lesson, and every step has a way back</text>
+
+    <!-- heat bar -->
+    <rect x="60" y="150" width="1480" height="14" rx="7" fill="url(#heat)"/>
+    <text x="1540" y="196" font-size="18" fill="#5B6B76" text-anchor="end">days past due →</text>
+
+    <!-- columns: x = 60 + i*252, width 224 -->
+    <g font-size="18">
+      <!-- 0 -->
+      <rect x="60" y="214" width="224" height="330" rx="18" fill="#EAF6EE" stroke="#237841" stroke-width="2.5"/>
+      <text x="172" y="262" font-size="34" font-weight="800" text-anchor="middle" fill="#237841">0</text>
+      <text x="172" y="292" font-size="21" font-weight="700" text-anchor="middle">Current</text>
+      <text x="84" y="340">Paid on time</text>
+      <text x="84" y="368">Card stays in grace:</text>
+      <text x="84" y="392">no interest</text>
+      <text x="84" y="500" fill="#5B6B76">Map: tower intact</text>
+
+      <!-- 1-29 -->
+      <rect x="312" y="214" width="224" height="330" rx="18" fill="#FFF9E0" stroke="#E4B400" stroke-width="2.5"/>
+      <text x="424" y="262" font-size="34" font-weight="800" text-anchor="middle" fill="#A07F00">1–29</text>
+      <text x="424" y="292" font-size="21" font-weight="700" text-anchor="middle">Late</text>
+      <text x="336" y="340">Late fee: $32 card,</text>
+      <text x="336" y="364">5% of a loan payment</text>
+      <text x="336" y="398">Not reported yet</text>
+      <text x="336" y="500" fill="#5B6B76">Map: warning badge</text>
+
+      <!-- 30 -->
+      <rect x="564" y="214" width="224" height="330" rx="18" fill="#FFF1E3" stroke="#F57D20" stroke-width="2.5"/>
+      <text x="676" y="262" font-size="34" font-weight="800" text-anchor="middle" fill="#C55A00">30</text>
+      <text x="676" y="292" font-size="21" font-weight="700" text-anchor="middle">Reported</text>
+      <text x="588" y="340">First late mark on</text>
+      <text x="588" y="364">the credit report</text>
+      <text x="588" y="398">Score falls sharply</text>
+      <text x="588" y="422">(payment history 35%)</text>
+      <text x="588" y="500" fill="#5B6B76">Map: smoke</text>
+
+      <!-- 60 -->
+      <rect x="816" y="214" width="224" height="330" rx="18" fill="#FFE8E0" stroke="#E0531E" stroke-width="2.5"/>
+      <text x="928" y="262" font-size="34" font-weight="800" text-anchor="middle" fill="#B23A0E">60</text>
+      <text x="928" y="292" font-size="21" font-weight="700" text-anchor="middle">Penalty APR</text>
+      <text x="840" y="340">Card APR jumps</text>
+      <text x="840" y="364">to 29.99%</text>
+      <text x="840" y="398">Second late mark</text>
+      <text x="840" y="500" fill="#5B6B76">Map: flames</text>
+
+      <!-- 90 -->
+      <rect x="1068" y="214" width="224" height="330" rx="18" fill="#FDE2E2" stroke="#D01012" stroke-width="2.5"/>
+      <text x="1180" y="262" font-size="34" font-weight="800" text-anchor="middle" fill="#D01012">90</text>
+      <text x="1180" y="292" font-size="21" font-weight="700" text-anchor="middle">Serious</text>
+      <text x="1092" y="340">Car repossessed;</text>
+      <text x="1092" y="364">the gap is still owed</text>
+      <text x="1092" y="398">Collector voicemail</text>
+      <text x="1092" y="422">(ElevenLabs)</text>
+      <text x="1092" y="500" fill="#5B6B76">Map: blaze</text>
+
+      <!-- 180+ -->
+      <rect x="1320" y="214" width="220" height="330" rx="18" fill="#3A0708" stroke="#3A0708" stroke-width="2.5"/>
+      <text x="1430" y="262" font-size="34" font-weight="800" text-anchor="middle" fill="#FFB3B3">180+</text>
+      <text x="1430" y="292" font-size="21" font-weight="700" text-anchor="middle" fill="#FFFFFF">Collections</text>
+      <text x="1342" y="340" fill="#FFFFFF">Charged off and sold</text>
+      <text x="1342" y="374" fill="#FFFFFF">Student loan at 270:</text>
+      <text x="1342" y="398" fill="#FFFFFF">default, 15% of pay</text>
+      <text x="1342" y="422" fill="#FFFFFF">garnished</text>
+      <text x="1342" y="500" fill="#FFB3B3">Map: burnt lot</text>
+    </g>
+
+    <!-- forward arrows between columns -->
+    <g stroke="#1B2A34" stroke-width="2.5" marker-end="url(#a)">
+      <line x1="286" y1="380" x2="308" y2="380"/>
+      <line x1="538" y1="380" x2="560" y2="380"/>
+      <line x1="790" y1="380" x2="812" y2="380"/>
+      <line x1="1042" y1="380" x2="1064" y2="380"/>
+      <line x1="1294" y1="380" x2="1316" y2="380"/>
+    </g>
+
+    <!-- way back: each recovery drops into one return lane that ends at Current -->
+    <g stroke="#237841" stroke-width="3" fill="none">
+      <line x1="424" y1="544" x2="424" y2="576"/>
+      <line x1="928" y1="544" x2="928" y2="576"/>
+      <line x1="1430" y1="544" x2="1430" y2="576"/>
+      <line x1="424" y1="624" x2="424" y2="668"/>
+      <line x1="928" y1="624" x2="928" y2="668"/>
+      <line x1="1430" y1="624" x2="1430" y2="668"/>
+      <polyline points="1430,668 172,668 172,552" marker-end="url(#ag)"/>
+    </g>
+    <line x1="676" y1="544" x2="676" y2="576" stroke="#237841" stroke-width="3" stroke-dasharray="2 6" stroke-linecap="round"/>
+    <line x1="1180" y1="544" x2="1180" y2="576" stroke="#237841" stroke-width="3" stroke-dasharray="2 6" stroke-linecap="round"/>
+    <g font-size="19" text-anchor="middle">
+      <rect x="316" y="576" width="216" height="48" rx="24" fill="#FFFFFF" stroke="#237841" stroke-width="2.5"/>
+      <text x="424" y="607">Pay it now: no mark</text>
+      <rect x="600" y="576" width="656" height="48" rx="24" fill="#FFFFFF" stroke="#237841" stroke-width="2.5"/>
+      <text x="928" y="607">Call the lender: hardship plan re-ages the account to current</text>
+      <rect x="1292" y="576" width="248" height="48" rx="24" fill="#FFFFFF" stroke="#237841" stroke-width="2.5"/>
+      <text x="1416" y="607">Student loan: RAP ($10+)</text>
+    </g>
+    <text x="196" y="700" font-size="17" font-weight="700" fill="#237841" letter-spacing="2">THE WAY BACK TO CURRENT</text>
+
+    <!-- bankruptcy -->
+    <rect x="60" y="736" width="1480" height="80" rx="18" fill="#F4F6F8" stroke="#1B2A34" stroke-width="2"/>
+    <text x="90" y="784" font-size="21" font-weight="700">Last resort: bankruptcy stops the skip</text>
+    <text x="520" y="784" font-size="20"><tspan font-weight="700">Ch. 7</tspan> wipes cards in ~4 months, 10 yrs on report  ·  <tspan font-weight="700">Ch. 13</tspan> 5-yr plan, 7 yrs  ·  student loans stay</text>
+  </g>
+</svg>

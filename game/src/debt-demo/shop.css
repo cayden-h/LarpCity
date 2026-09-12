@@ -1,0 +1,939 @@
+/* Card Shop (shop.ts), in the city game's look (src/style.css): Fredoka, sky
+   ground, blue HUD cards with white borders and chunky shadows, yellow
+   buttons. Everything is scoped under .shop and carries its own tokens, so it
+   matches the game whatever the surrounding Credit Desk stylesheet is. */
+
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap");
+
+[hidden] {
+  display: none !important;
+}
+
+/* The Desk / Card Shop switch in the top bar, styled like the game's .seg. */
+.views {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+}
+.views button {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  padding: 5px 12px;
+  border-radius: 9px;
+  font: 700 13px/1.2 "Fredoka", "Nunito", system-ui, sans-serif;
+  cursor: pointer;
+}
+.views button.on {
+  background: #ffcf33;
+  color: #16233b;
+}
+
+.shop {
+  --g-blue: #1f4e9c;
+  --g-blue-2: #2b66c4;
+  --g-blue-top: #2d6fd6;
+  --g-yellow: #ffcf33;
+  --g-yellow-2: #f2b200;
+  --g-ink: #16233b;
+  --g-white: #fff;
+  --g-green: #5dbb63;
+  --g-amber: #f6b73c;
+  --g-red: #e8554e;
+  --g-good: #9ff0b0;
+  --g-bad: #ffc2bd;
+  --g-radius: 16px;
+  --g-shadow: 0 4px 0 rgba(10, 30, 70, 0.35), 0 10px 24px rgba(10, 30, 70, 0.25);
+  --g-card: linear-gradient(180deg, var(--g-blue-top) 0%, var(--g-blue) 100%);
+  min-height: calc(100vh - 60px);
+  padding: 22px 24px 8px;
+  font-family: "Fredoka", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--g-white);
+  background:
+    radial-gradient(900px 300px at 12% 0%, rgba(255, 255, 255, 0.55), transparent 60%),
+    radial-gradient(700px 260px at 95% 10%, rgba(255, 255, 255, 0.4), transparent 60%),
+    linear-gradient(180deg, #9fd0f5 0%, #bfe0fa 55%, #d7ecfc 100%);
+  -webkit-font-smoothing: antialiased;
+}
+.shop > * {
+  max-width: 1560px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.shop h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+/* The Credit Desk's stylesheet colors these gray and sets a mono font; reset them for the game look. */
+.shop .muted,
+.shop .note,
+.shop .k-label,
+.shop .k-sub,
+.shop .dim {
+  color: var(--g-white);
+  font-family: inherit;
+}
+.shop .muted {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.shop .dim {
+  opacity: 0.8;
+}
+.shop .up {
+  color: var(--g-good);
+}
+.shop .down {
+  color: var(--g-bad);
+}
+.shop .flat {
+  color: inherit;
+  opacity: 0.8;
+}
+.shop .info {
+  color: #cfe3ff;
+}
+.shop .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.shop .note {
+  margin: 10px 2px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  opacity: 0.85;
+}
+
+/* Game HUD card: every panel, tile, and KPI box. */
+.shop .panel,
+.shop .sp-k,
+.shop .tile,
+.shop .shop-bar {
+  background: var(--g-card);
+  border: 3px solid var(--g-white);
+  border-radius: var(--g-radius);
+  box-shadow: var(--g-shadow);
+  min-width: 0;
+}
+.shop .panel {
+  padding: 14px 16px 16px;
+}
+.shop .panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  min-height: 28px;
+}
+
+/* Buttons: the game's yellow button, and a glassy secondary. */
+.shop .btn {
+  font: 700 14px/1.2 "Fredoka", "Nunito", system-ui, sans-serif;
+  color: var(--g-white);
+  background: rgba(255, 255, 255, 0.16);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 14px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+.shop .btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.26);
+  transform: translateY(-1px);
+}
+.shop .btn.primary,
+.shop .btn.on {
+  color: var(--g-ink);
+  background: linear-gradient(180deg, #ffe066 0%, var(--g-yellow) 60%, var(--g-yellow-2) 100%);
+  border: 3px solid var(--g-white);
+  box-shadow: 0 3px 0 #b88400;
+}
+.shop .btn.primary:hover:not(:disabled),
+.shop .btn.on:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ffe680 0%, #ffd54d 60%, #f5bd1a 100%);
+}
+.shop .btn.primary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #b88400;
+}
+.shop .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+.shop .btn.block {
+  display: block;
+  width: 100%;
+}
+.shop .btn.tiny {
+  padding: 5px 11px;
+  font-size: 13px;
+}
+.shop .seg,
+.shop .tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+}
+.shop .seg button,
+.shop .tabs button {
+  border: 0;
+  background: transparent;
+  color: var(--g-white);
+  font: 700 13px/1.2 "Fredoka", "Nunito", system-ui, sans-serif;
+  padding: 6px 11px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.shop .seg button:hover:not(.on),
+.shop .tabs button:hover:not(.on) {
+  background: rgba(255, 255, 255, 0.12);
+}
+.shop .seg button.on,
+.shop .tabs button.on {
+  background: var(--g-yellow);
+  color: var(--g-ink);
+}
+
+/* Pill tags, like the city card's cost-of-living tier. */
+.shop .chip {
+  display: inline-block;
+  flex: none;
+  padding: 2px 9px;
+  border: 2px solid var(--g-white);
+  border-radius: 999px;
+  background: var(--g-white);
+  color: var(--g-ink);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.shop .chip.up {
+  background: var(--g-green);
+  color: var(--g-ink);
+}
+.shop .chip.info {
+  background: var(--g-blue-3, #dbe8ff);
+  color: var(--g-ink);
+}
+
+/* Hero and profile ------------------------------------------------------------ */
+.shop-hero {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(0, 2.3fr);
+  gap: 22px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+.shop-hero h1 {
+  margin: 0;
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--g-ink);
+  letter-spacing: -0.01em;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.8);
+}
+.shop-hero p {
+  margin: 6px 0 0;
+  max-width: 440px;
+  color: var(--g-ink);
+  font-size: 15px;
+  line-height: 1.45;
+  opacity: 0.85;
+}
+.shop-profile {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.shop .sp-k {
+  padding: 10px 14px 12px;
+}
+.shop .k-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.shop .sp-v {
+  margin-top: 2px;
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.shop .k-sub.up {
+  color: var(--g-good);
+}
+.shop .k-sub.down {
+  color: var(--g-bad);
+}
+.shop .k-sub {
+  margin-top: 2px;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Toolbar --------------------------------------------------------------------- */
+.shop .shop-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 8px 10px;
+}
+.shop .shop-bar .tabs {
+  margin-right: auto;
+}
+
+/* Layout ---------------------------------------------------------------------- */
+.shop-grid {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.shop-side {
+  display: grid;
+  gap: 16px;
+  position: sticky;
+  top: 74px;
+}
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+@media (max-width: 1180px) {
+  .shop-hero {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 860px) {
+  .shop-grid {
+    grid-template-columns: 1fr;
+  }
+  .shop-side {
+    position: static;
+  }
+  .shop-profile {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Spending sliders ---------------------------------------------------------------- */
+.shop .sl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0 8px;
+  margin: 10px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+.shop .sl b {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.shop .sl input {
+  grid-column: span 2;
+  width: 100%;
+  margin: 5px 0 0;
+  accent-color: var(--g-yellow);
+}
+.shop .sl.carry {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 2px solid rgba(255, 255, 255, 0.25);
+}
+.shop .sl.carry input {
+  accent-color: var(--g-red);
+}
+
+/* Wallet ------------------------------------------------------------------------ */
+.shop .w-row {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.18);
+}
+.shop .w-row:last-child {
+  border-bottom: 0;
+}
+.shop .w-row.closed {
+  opacity: 0.5;
+}
+.shop .pos-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.shop .pos-sub {
+  margin-top: 1px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* Card art ------------------------------------------------------------------------ */
+.shop .cc {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 30%;
+  perspective: 900px;
+}
+.shop .cc-body {
+  position: relative;
+  aspect-ratio: 1.586;
+  border-radius: 4.6% / 7.3%;
+  overflow: hidden;
+  transform: rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 12px 22px -10px rgba(5, 20, 50, 0.7),
+    0 3px 6px rgba(5, 20, 50, 0.3);
+  background: #0f2a57;
+}
+.shop .cc:hover .cc-body {
+  transition-duration: 0.08s;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.45),
+    0 20px 32px -12px rgba(5, 20, 50, 0.8),
+    0 5px 10px rgba(5, 20, 50, 0.35);
+}
+.shop .cc-body img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+}
+.shop .cc-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at var(--mx) var(--my), rgba(255, 255, 255, 0.28), transparent 55%);
+  mix-blend-mode: soft-light;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.shop .cc:hover .cc-sheen {
+  opacity: 1;
+}
+.shop .cc-hero {
+  width: min(400px, 100%);
+  margin: 0 auto;
+}
+.shop .cc-drawn {
+  position: absolute;
+  inset: 0;
+  padding: 8% 7%;
+  background:
+    radial-gradient(120% 90% at 85% 0%, rgba(255, 255, 255, 0.16), transparent 50%),
+    linear-gradient(135deg, var(--a), var(--b));
+  color: #fff;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  container-type: inline-size;
+  font-family: -apple-system, "Inter", system-ui, sans-serif;
+  font-size: clamp(6px, 7cqw, 16px);
+}
+.shop .cc-issuer {
+  font-weight: 700;
+}
+.shop .cc-chip {
+  width: 17%;
+  align-self: center;
+}
+.shop .cc-name {
+  font-weight: 600;
+  opacity: 0.9;
+  font-size: 0.85em;
+}
+.shop .cc-net {
+  position: absolute;
+  right: 7%;
+  bottom: 8%;
+  font-weight: 800;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+/* Tiles ------------------------------------------------------------------------- */
+.shop .tile {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.shop .tile:hover {
+  transform: translateY(-2px);
+}
+.shop .tile.sel {
+  border-color: var(--g-yellow);
+}
+.shop .t-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+.shop .t-head > div {
+  min-height: 48px;
+}
+.shop .t-name {
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.shop .t-sub {
+  margin-top: 2px;
+  font-size: 12.5px;
+  opacity: 0.85;
+}
+.shop .t-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+}
+.shop .t-stats span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.shop .t-stats b {
+  display: block;
+  margin-top: 1px;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.shop .t-offer {
+  font-size: 13px;
+  line-height: 1.4;
+  min-height: 36px;
+  opacity: 0.95;
+}
+.shop .om-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+}
+.shop .om-bar {
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+.shop .om-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.shop .om-bar .up {
+  background: var(--g-green);
+}
+.shop .om-bar .info {
+  background: var(--g-yellow);
+}
+.shop .om-bar .down {
+  background: var(--g-red);
+}
+
+/* Drawer: a tall game card sliding in from the right. ---------------------------- */
+.shop .drawer-back {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  background: rgba(10, 25, 55, 0.55);
+  backdrop-filter: blur(3px);
+  animation: shop-fade 0.18s ease;
+}
+.shop .drawer {
+  position: fixed;
+  z-index: 9;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: min(520px, calc(100% - 24px));
+  overflow-y: auto;
+  padding: 24px 24px 0;
+  background: var(--g-card);
+  border: 4px solid var(--g-white);
+  border-radius: 22px;
+  box-shadow: var(--g-shadow);
+  animation: shop-slide 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes shop-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes shop-slide {
+  from {
+    transform: translateX(40px);
+    opacity: 0;
+  }
+}
+.shop .drawer .x {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--g-white);
+  border-radius: 50%;
+  background: var(--g-blue-2);
+  color: var(--g-white);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.shop .drawer .x:hover {
+  background: #3a7be0;
+}
+.shop .d-hero {
+  padding: 12px 8px 20px;
+}
+.shop .d-title h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+.shop .d-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0;
+}
+.shop .d-kpis > div {
+  padding: 9px 11px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+}
+.shop .d-kpis span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.shop .d-kpis b {
+  display: block;
+  margin-top: 2px;
+  font-size: 19px;
+  font-weight: 700;
+}
+.shop .d-kpis em {
+  display: block;
+  margin-top: 1px;
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.shop .d-offer {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #2e9e57;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.shop .d-offer b {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.shop .d-offer .down {
+  color: #ffe0dc;
+}
+.shop .drawer h4 {
+  margin: 20px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.shop .drawer h4 .dim {
+  margin-left: 6px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+.shop .earn,
+.shop .perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shop .earn li {
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.14);
+  font-size: 14px;
+}
+.shop .earn b {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--g-yellow);
+}
+.shop .earn em {
+  display: block;
+  font-style: normal;
+  font-size: 12px;
+  opacity: 0.8;
+}
+.shop .perks li {
+  position: relative;
+  padding: 4px 0 4px 20px;
+  font-size: 14px;
+}
+.shop .perks li::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 11px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--g-yellow);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+.shop table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.shop .val td,
+.shop .terms td {
+  padding: 6px 4px;
+  font-size: 13.5px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.12);
+}
+.shop .val td .dim {
+  margin-left: 6px;
+  font-size: 12px;
+}
+.shop .val tr.tot td {
+  border-bottom: 0;
+  border-top: 2px solid rgba(255, 255, 255, 0.5);
+  font-size: 17px;
+  font-weight: 700;
+}
+.shop .terms tr:last-child td {
+  border-bottom: 0;
+}
+.shop .d-warn,
+.shop .d-ok {
+  margin: 14px 0 0;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.shop .d-warn {
+  background: #d9443d;
+}
+.shop .d-ok {
+  background: #2e9e57;
+}
+.shop .d-actions {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 16px -24px 0;
+  padding: 14px 24px 16px;
+  background: linear-gradient(180deg, rgba(31, 78, 156, 0), var(--g-blue) 35%);
+}
+.shop .d-actions .btn {
+  padding: 11px 12px;
+  font-size: 15px;
+}
+.shop .src {
+  margin: 0 0 18px;
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0.8;
+}
+.shop .src a {
+  color: var(--g-white);
+}
+
+/* Result modal: the game's map card. --------------------------------------------- */
+.shop .modal-back {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(10, 25, 55, 0.55);
+  backdrop-filter: blur(3px);
+}
+.shop .modal {
+  width: min(520px, 100%);
+  padding: 18px 20px 16px;
+  background: var(--g-card);
+  border: 4px solid var(--g-white);
+  border-radius: 22px;
+  box-shadow: var(--g-shadow);
+  color: var(--g-white);
+  animation: shop-pop 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes shop-pop {
+  from {
+    transform: scale(0.94);
+    opacity: 0;
+  }
+}
+.shop .modal-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border: 2px solid var(--g-white);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--g-ink);
+  background: var(--g-white);
+}
+.shop .modal-tag.up {
+  background: var(--g-green);
+}
+.shop .modal-tag.warn {
+  background: var(--g-amber);
+}
+.shop .modal-tag.down {
+  background: var(--g-red);
+  color: var(--g-white);
+}
+.shop .r-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 16px;
+  align-items: center;
+  margin-top: 12px;
+}
+.shop .r-row h3 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+.shop .r-lines {
+  margin: 14px 0 16px;
+  padding-left: 18px;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.shop .options {
+  display: grid;
+}
+
+/* All plans ----------------------------------------------------------------------- */
+.shop .plans .search {
+  width: min(320px, 100%);
+  padding: 8px 12px;
+  border: 2px solid var(--g-white);
+  border-radius: 12px;
+  background: var(--g-white);
+  color: var(--g-ink);
+  font: 500 14px/1.2 "Fredoka", "Nunito", system-ui, sans-serif;
+}
+.shop .table-wrap {
+  overflow-x: auto;
+  margin-top: 8px;
+  background: var(--g-white);
+  border-radius: 12px;
+  color: var(--g-ink);
+}
+.shop .table-wrap th {
+  position: sticky;
+  top: 0;
+  padding: 10px;
+  background: #dbe8ff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+}
+.shop .table-wrap th.num {
+  text-align: right;
+}
+.shop .table-wrap td {
+  padding: 9px 10px;
+  font-size: 14px;
+  border-bottom: 1px solid #e3ebf7;
+}
+.shop .table-wrap tbody tr:hover {
+  background: #f3f7fe;
+}
+.shop .table-wrap td.muted {
+  font-size: 13px;
+  color: #4a5a74;
+  opacity: 1;
+}
+.shop .table-wrap .pos-name {
+  font-size: 14px;
+}
+.shop .chart-empty {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  height: 200px;
+  color: var(--g-ink);
+  font-size: 16px;
+  border: 3px dashed rgba(22, 35, 59, 0.3);
+  border-radius: var(--g-radius);
+}
+.shop .foot {
+  padding: 18px 0 26px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--g-ink);
+  opacity: 0.75;
+}

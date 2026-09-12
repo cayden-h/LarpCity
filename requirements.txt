@@ -1,0 +1,16 @@
+# Python tools for Larp City's data and asset scripts (the game itself is Node: see game/package.json).
+# Install: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+
+# research/data/cards/build_cards.py: reads the CFPB card survey (XLSX)
+openpyxl>=3.1
+
+# game/db/load.py: applies the schema and loads data into Tiger Data (Postgres + TimescaleDB)
+psycopg[binary]>=3.2
+
+# research/data/cards/upscale_art.py: crops and upscales the official card art (Real-ESRGAN)
+Pillow>=11
+numpy>=2
+torch>=2.5
+spandrel>=0.4
+
+# research/data/build_states_*.py and game/scripts/gen_plates.py use the standard library only.

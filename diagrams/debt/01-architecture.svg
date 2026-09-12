@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 960" width="1600" height="960" role="img" aria-label="The debt system is one seeded daily engine: player debts, the market's cash rate, the calendar, and the wallet feed it; it emits events to the HUD, the city map, decision prompts, the newspaper, and AI feedback; skips, the age teleport, and ghost lines run the same engine headless.">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1B2A34"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="960" fill="#FFFFFF"/>
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" fill="#1B2A34">
+    <text x="60" y="78" font-size="40" font-weight="700">Debt system: one engine, every screen</text>
+    <text x="60" y="116" font-size="22" fill="#5B6B76">A seeded daily tick that runs live at 1 week per 10 s, and headless for skips</text>
+
+    <!-- column labels -->
+    <text x="60" y="168" font-size="17" font-weight="700" fill="#5B6B76" letter-spacing="2">INPUTS</text>
+    <text x="520" y="168" font-size="17" font-weight="700" fill="#5B6B76" letter-spacing="2">DEBT ENGINE</text>
+    <text x="1200" y="168" font-size="17" font-weight="700" fill="#5B6B76" letter-spacing="2">WHAT THE PLAYER SEES</text>
+
+    <!-- inputs -->
+    <g>
+      <rect x="60" y="190" width="340" height="104" rx="16" fill="#F4F6F8" stroke="#CBD5DC" stroke-width="2"/>
+      <text x="84" y="232" font-size="24" font-weight="700">Player's real debts</text>
+      <text x="84" y="266" font-size="19" fill="#5B6B76">onboarding + voice interview</text>
+
+      <rect x="60" y="318" width="340" height="104" rx="16" fill="#F4F6F8" stroke="#CBD5DC" stroke-width="2"/>
+      <text x="84" y="360" font-size="24" font-weight="700">Seeded market path</text>
+      <text x="84" y="394" font-size="19" fill="#5B6B76">cash rate → prime → APRs</text>
+
+      <rect x="60" y="446" width="340" height="104" rx="16" fill="#F4F6F8" stroke="#CBD5DC" stroke-width="2"/>
+      <text x="84" y="488" font-size="24" font-weight="700">Game calendar</text>
+      <text x="84" y="522" font-size="19" fill="#5B6B76">1 tick = 1 game day</text>
+
+      <rect x="60" y="574" width="340" height="104" rx="16" fill="#F4F6F8" stroke="#CBD5DC" stroke-width="2"/>
+      <text x="84" y="616" font-size="24" font-weight="700">Wallet waterfall</text>
+      <text x="84" y="650" font-size="19" fill="#5B6B76">checking → savings → EF</text>
+    </g>
+
+    <!-- input arrows -->
+    <g stroke="#1B2A34" stroke-width="2.5" fill="none" marker-end="url(#arr)">
+      <line x1="400" y1="242" x2="516" y2="242"/>
+      <line x1="400" y1="370" x2="516" y2="370"/>
+      <line x1="400" y1="498" x2="516" y2="498"/>
+      <line x1="400" y1="626" x2="516" y2="626"/>
+    </g>
+    <g font-size="16" fill="#5B6B76" text-anchor="middle">
+      <text x="458" y="232">balances</text>
+      <text x="458" y="360">rates</text>
+      <text x="458" y="488">tick</text>
+      <text x="458" y="616">pays</text>
+    </g>
+
+    <!-- engine -->
+    <rect x="520" y="190" width="560" height="488" rx="24" fill="#FFF6D1" stroke="#F5CD2F" stroke-width="3"/>
+    <text x="548" y="232" font-size="17" font-weight="700" fill="#8A6D00" letter-spacing="2">EVERY DAY, PER DEBT</text>
+    <g>
+      <rect x="548" y="250" width="504" height="74" rx="14" fill="#FFFFFF" stroke="#E4C347" stroke-width="2"/>
+      <circle cx="584" cy="287" r="18" fill="#1B2A34"/><text x="584" y="294" font-size="19" font-weight="700" fill="#FFFFFF" text-anchor="middle">1</text>
+      <text x="616" y="282" font-size="22" font-weight="700">Accrue interest</text>
+      <text x="616" y="308" font-size="17" fill="#5B6B76">APR ÷ 365; cards skip it while in grace</text>
+
+      <rect x="548" y="340" width="504" height="74" rx="14" fill="#FFFFFF" stroke="#E4C347" stroke-width="2"/>
+      <circle cx="584" cy="377" r="18" fill="#1B2A34"/><text x="584" y="384" font-size="19" font-weight="700" fill="#FFFFFF" text-anchor="middle">2</text>
+      <text x="616" y="372" font-size="22" font-weight="700">Statements and due dates</text>
+      <text x="616" y="398" font-size="17" fill="#5B6B76">card minimum: $25 or 1% + interest</text>
+
+      <rect x="548" y="430" width="504" height="74" rx="14" fill="#FFFFFF" stroke="#E4C347" stroke-width="2"/>
+      <circle cx="584" cy="467" r="18" fill="#1B2A34"/><text x="584" y="474" font-size="19" font-weight="700" fill="#FFFFFF" text-anchor="middle">3</text>
+      <text x="616" y="462" font-size="22" font-weight="700">Pay from the wallet</text>
+      <text x="616" y="488" font-size="17" fill="#5B6B76">shortfall → past due + late fee</text>
+
+      <rect x="548" y="520" width="504" height="74" rx="14" fill="#FFFFFF" stroke="#E4C347" stroke-width="2"/>
+      <circle cx="584" cy="557" r="18" fill="#D01012"/><text x="584" y="564" font-size="19" font-weight="700" fill="#FFFFFF" text-anchor="middle">4</text>
+      <text x="616" y="552" font-size="22" font-weight="700">Walk the delinquency ladder</text>
+      <text x="616" y="578" font-size="17" fill="#5B6B76">30 / 60 / 90 / 180 days past due</text>
+    </g>
+    <g stroke="#8A6D00" stroke-width="2" marker-end="url(#arr)">
+      <line x1="584" y1="324" x2="584" y2="336"/>
+      <line x1="584" y1="414" x2="584" y2="426"/>
+      <line x1="584" y1="504" x2="584" y2="516"/>
+    </g>
+    <text x="548" y="632" font-size="17" font-weight="700" fill="#8A6D00" letter-spacing="2">ON THE 1ST</text>
+    <text x="548" y="660" font-size="19" fill="#1B2A34">reset APRs · route strategy extra · recompute score</text>
+
+    <!-- output arrows -->
+    <g stroke="#1B2A34" stroke-width="2.5" fill="none" marker-end="url(#arr)">
+      <path d="M1080,434 C1140,434 1140,242 1196,242"/>
+      <path d="M1080,434 C1140,434 1150,346 1196,346"/>
+      <line x1="1080" y1="434" x2="1196" y2="450"/>
+      <path d="M1080,434 C1140,434 1150,554 1196,554"/>
+      <path d="M1080,434 C1140,434 1140,658 1196,658"/>
+    </g>
+    <rect x="1098" y="416" width="72" height="30" rx="15" fill="#1B2A34"/>
+    <text x="1134" y="437" font-size="16" font-weight="700" fill="#FFFFFF" text-anchor="middle">events</text>
+
+    <!-- outputs -->
+    <g>
+      <rect x="1200" y="198" width="340" height="88" rx="16" fill="#FFFFFF" stroke="#1B2A34" stroke-width="2"/>
+      <text x="1224" y="234" font-size="23" font-weight="700">HUD</text>
+      <text x="1224" y="264" font-size="18" fill="#5B6B76">credit score · debt-free date</text>
+
+      <rect x="1200" y="302" width="340" height="88" rx="16" fill="#FFFFFF" stroke="#1B2A34" stroke-width="2"/>
+      <text x="1224" y="338" font-size="23" font-weight="700">Debt District map</text>
+      <text x="1224" y="368" font-size="18" fill="#5B6B76">towers shrink · fire when late</text>
+
+      <rect x="1200" y="406" width="340" height="88" rx="16" fill="#FFF0F0" stroke="#D01012" stroke-width="2.5"/>
+      <text x="1224" y="442" font-size="23" font-weight="700">Decision prompt</text>
+      <text x="1224" y="472" font-size="18" fill="#5B6B76">pauses time; hardship, RAP</text>
+
+      <rect x="1200" y="510" width="340" height="88" rx="16" fill="#FFFFFF" stroke="#1B2A34" stroke-width="2"/>
+      <text x="1224" y="546" font-size="23" font-weight="700">Newspaper</text>
+      <text x="1224" y="576" font-size="18" fill="#5B6B76">what, where, how it hits you</text>
+
+      <rect x="1200" y="614" width="340" height="88" rx="16" fill="#FFFFFF" stroke="#1B2A34" stroke-width="2"/>
+      <text x="1224" y="650" font-size="23" font-weight="700">AI feedback</text>
+      <text x="1224" y="680" font-size="18" fill="#5B6B76">at bankruptcy and goals</text>
+    </g>
+
+    <!-- headless band -->
+    <rect x="60" y="740" width="1480" height="82" rx="18" fill="#EAF2FB" stroke="#0A5EB0" stroke-width="2"/>
+    <text x="88" y="790" font-size="20" font-weight="700" fill="#0A5EB0">Same engine, headless:</text>
+    <g font-size="19">
+      <rect x="342" y="762" width="210" height="40" rx="20" fill="#FFFFFF" stroke="#0A5EB0" stroke-width="1.5"/>
+      <text x="447" y="789" text-anchor="middle">Skip to next event</text>
+      <rect x="568" y="762" width="170" height="40" rx="20" fill="#FFFFFF" stroke="#0A5EB0" stroke-width="1.5"/>
+      <text x="653" y="789" text-anchor="middle">Age teleport</text>
+      <rect x="754" y="762" width="470" height="40" rx="20" fill="#FFFFFF" stroke="#0A5EB0" stroke-width="1.5"/>
+      <text x="989" y="789" text-anchor="middle">Ghost lines: minimums · snowball · avalanche</text>
+      <rect x="1240" y="762" width="280" height="40" rx="20" fill="#FFFFFF" stroke="#0A5EB0" stroke-width="1.5"/>
+      <text x="1380" y="789" text-anchor="middle">Rewind: seed + decisions</text>
+    </g>
+
+    <!-- sponsor band -->
+    <rect x="60" y="842" width="1480" height="82" rx="18" fill="#F4F6F8" stroke="#CBD5DC" stroke-width="2"/>
+    <text x="88" y="892" font-size="20" font-weight="700" fill="#5B6B76">Sponsor hooks:</text>
+    <g font-size="19">
+      <text x="266" y="892"><tspan font-weight="700">Nessie</tspan> card, loans, bills</text>
+      <text x="566" y="892"><tspan font-weight="700">Tiger Data</tspan> debt_daily</text>
+      <text x="846" y="892"><tspan font-weight="700">ElevenLabs</tspan> collector call</text>
+      <text x="1146" y="892"><tspan font-weight="700">Gemini</tspan> post-mortem, real plan</text>
+    </g>
+  </g>
+</svg>

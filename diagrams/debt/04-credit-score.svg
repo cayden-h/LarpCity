@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 860" width="1600" height="860" role="img" aria-label="The credit score model: FICO's five real factors and weights (payment history 35%, amounts owed 30%, length of history 15%, new credit 10%, credit mix 10%) produce a 300 to 850 score, and the score sets the price of every new loan.">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1B2A34"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="860" fill="#FFFFFF"/>
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" fill="#1B2A34">
+    <text x="60" y="78" font-size="40" font-weight="700">Credit score: FICO's five factors, our formula</text>
+    <text x="60" y="116" font-size="22" fill="#5B6B76">What the player learns in the game is what moves a real score</text>
+
+    <text x="60" y="176" font-size="17" font-weight="700" fill="#5B6B76" letter-spacing="2">FACTOR · WEIGHT · WHAT FEEDS IT</text>
+
+    <!-- bars: full width 420 = 35% -->
+    <g font-size="20">
+      <text x="60" y="226" font-weight="700">Payment history</text>
+      <rect x="300" y="204" width="420" height="30" rx="8" fill="#D01012"/>
+      <text x="734" y="227" font-weight="700">35%</text>
+      <text x="300" y="262" font-size="17" fill="#5B6B76">late marks fade over 7 years</text>
+
+      <text x="60" y="318" font-weight="700">Amounts owed</text>
+      <rect x="300" y="296" width="360" height="30" rx="8" fill="#F57D20"/>
+      <text x="674" y="319" font-weight="700">30%</text>
+      <text x="300" y="354" font-size="17" fill="#5B6B76">card utilization: under 10% is best</text>
+
+      <text x="60" y="410" font-weight="700">Length of history</text>
+      <rect x="300" y="388" width="180" height="30" rx="8" fill="#0A5EB0"/>
+      <text x="494" y="411" font-weight="700">15%</text>
+      <text x="300" y="446" font-size="17" fill="#5B6B76">closing an old card shortens it</text>
+
+      <text x="60" y="502" font-weight="700">New credit</text>
+      <rect x="300" y="480" width="120" height="30" rx="8" fill="#237841"/>
+      <text x="434" y="503" font-weight="700">10%</text>
+      <text x="300" y="538" font-size="17" fill="#5B6B76">each hard inquiry costs a little</text>
+
+      <text x="60" y="594" font-weight="700">Credit mix</text>
+      <rect x="300" y="572" width="120" height="30" rx="8" fill="#6C4AB6"/>
+      <text x="434" y="595" font-weight="700">10%</text>
+      <text x="300" y="630" font-size="17" fill="#5B6B76">cards plus installment loans</text>
+    </g>
+
+    <!-- formula -->
+    <rect x="60" y="672" width="700" height="64" rx="14" fill="#F4F6F8" stroke="#CBD5DC" stroke-width="2"/>
+    <text x="90" y="712" font-size="22" font-family="Menlo, Consolas, monospace">score = 300 + 550 × weighted sum</text>
+
+    <line x1="800" y1="420" x2="866" y2="420" stroke="#1B2A34" stroke-width="3" marker-end="url(#a)"/>
+
+    <!-- gauge centered at 1060, 470, r 170 -->
+    <g fill="none" stroke-width="34">
+      <path d="M890,470 A170,170 0 0 1 925.8,366.2" stroke="#D01012"/>
+      <path d="M925.8,366.2 A170,170 0 0 1 1009.1,307.8" stroke="#F57D20"/>
+      <path d="M1009.1,307.8 A170,170 0 0 1 1103.4,305.6" stroke="#F5CD2F"/>
+      <path d="M1103.4,305.6 A170,170 0 0 1 1180.2,349.8" stroke="#8BC34A"/>
+      <path d="M1180.2,349.8 A170,170 0 0 1 1230,470" stroke="#237841"/>
+    </g>
+    <!-- needle at 712: angle = 180 - (712-300)/550*180 = 45.2 deg -->
+    <line x1="1060" y1="470" x2="1162" y2="367" stroke="#1B2A34" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="1060" cy="470" r="14" fill="#1B2A34"/>
+    <text x="1060" y="548" font-size="56" font-weight="800" text-anchor="middle">712</text>
+    <text x="1060" y="582" font-size="21" fill="#5B6B76" text-anchor="middle">Good</text>
+    <text x="872" y="508" font-size="17" fill="#5B6B76" text-anchor="middle">300</text>
+    <text x="1248" y="508" font-size="17" fill="#5B6B76" text-anchor="middle">850</text>
+
+    <!-- prices -->
+    <line x1="1060" y1="610" x2="1060" y2="660" stroke="#1B2A34" stroke-width="3" marker-end="url(#a)"/>
+    <text x="1060" y="646" font-size="0"> </text>
+    <rect x="820" y="668" width="720" height="164" rx="18" fill="#FFF6D1" stroke="#F5CD2F" stroke-width="3"/>
+    <text x="848" y="706" font-size="17" font-weight="700" fill="#8A6D00" letter-spacing="2">IT SETS THE PRICE OF THE NEXT LOAN</text>
+    <g font-size="20">
+      <text x="848" y="744" font-weight="700">Auto loan</text>
+      <text x="1060" y="744">4.41% at 781+  →  16.11% at 500</text>
+      <text x="848" y="776" font-weight="700">Credit card</text>
+      <text x="1060" y="776">prime + 10  →  prime + 20 points</text>
+      <text x="848" y="808" font-weight="700">Approval</text>
+      <text x="1060" y="808">card 580+ · mortgage 620+</text>
+    </g>
+
+    <text x="1540" y="176" font-size="17" fill="#5B6B76" text-anchor="end">Weights: myFICO. Auto rates: Bankrate, Q2 2026.</text>
+  </g>
+</svg>

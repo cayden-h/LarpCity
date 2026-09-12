@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 800" width="1600" height="800" role="img" aria-label="One game day for one debt: accrue interest, close a statement or reach a due date, and pay from the wallet; if the wallet can't cover it the debt goes past due with a late fee and time pauses for a decision, then the delinquency ladder advances by days past due.">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1B2A34"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#237841"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#D01012"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="800" fill="#FFFFFF"/>
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" fill="#1B2A34">
+    <text x="60" y="78" font-size="40" font-weight="700">One game day, one debt</text>
+    <text x="60" y="116" font-size="22" fill="#5B6B76">About 1.4 real seconds at normal speed; thousands per second when skipping</text>
+
+    <!-- main row -->
+    <g>
+      <rect x="60" y="190" width="220" height="110" rx="18" fill="#F4F6F8" stroke="#CBD5DC" stroke-width="2"/>
+      <text x="170" y="238" font-size="24" font-weight="700" text-anchor="middle">New day</text>
+      <text x="170" y="270" font-size="18" fill="#5B6B76" text-anchor="middle">calendar tick</text>
+
+      <rect x="340" y="190" width="220" height="110" rx="18" fill="#FFFFFF" stroke="#1B2A34" stroke-width="2"/>
+      <text x="450" y="238" font-size="24" font-weight="700" text-anchor="middle">Accrue interest</text>
+      <text x="450" y="270" font-size="18" fill="#5B6B76" text-anchor="middle">balance × APR ÷ 365</text>
+
+      <rect x="620" y="190" width="220" height="110" rx="18" fill="#FFFFFF" stroke="#1B2A34" stroke-width="2"/>
+      <text x="730" y="232" font-size="24" font-weight="700" text-anchor="middle">Statement or</text>
+      <text x="730" y="262" font-size="24" font-weight="700" text-anchor="middle">due date?</text>
+      <text x="730" y="288" font-size="17" fill="#5B6B76" text-anchor="middle">cards: 25-day grace</text>
+
+      <rect x="900" y="190" width="240" height="110" rx="18" fill="#FFF6D1" stroke="#F5CD2F" stroke-width="3"/>
+      <text x="1020" y="238" font-size="24" font-weight="700" text-anchor="middle">Wallet covers it?</text>
+      <text x="1020" y="270" font-size="18" fill="#5B6B76" text-anchor="middle">checking → savings</text>
+
+      <rect x="1220" y="190" width="320" height="110" rx="18" fill="#EAF6EE" stroke="#237841" stroke-width="2.5"/>
+      <text x="1380" y="238" font-size="24" font-weight="700" text-anchor="middle">Paid on time</text>
+      <text x="1380" y="270" font-size="18" fill="#5B6B76" text-anchor="middle">interest first, then principal</text>
+    </g>
+    <g stroke="#1B2A34" stroke-width="2.5" marker-end="url(#a)">
+      <line x1="280" y1="245" x2="336" y2="245"/>
+      <line x1="560" y1="245" x2="616" y2="245"/>
+      <line x1="840" y1="245" x2="896" y2="245"/>
+    </g>
+    <line x1="1140" y1="245" x2="1216" y2="245" stroke="#237841" stroke-width="3" marker-end="url(#ag)"/>
+    <text x="1178" y="232" font-size="18" font-weight="700" fill="#237841" text-anchor="middle">yes</text>
+
+    <!-- skip path when nothing is due -->
+    <path d="M730,190 C730,146 1380,146 1380,186" fill="none" stroke="#8A99A4" stroke-width="2" stroke-dasharray="7 7" marker-end="url(#a)"/>
+    <text x="1055" y="148" font-size="17" fill="#5B6B76" text-anchor="middle">nothing due today: stays current</text>
+
+    <!-- no branch -->
+    <line x1="1020" y1="300" x2="1020" y2="396" stroke="#D01012" stroke-width="3" marker-end="url(#ar)"/>
+    <text x="1036" y="354" font-size="18" font-weight="700" fill="#D01012">no</text>
+
+    <rect x="880" y="400" width="280" height="110" rx="18" fill="#FFF0F0" stroke="#D01012" stroke-width="2.5"/>
+    <text x="1020" y="448" font-size="24" font-weight="700" text-anchor="middle">Past due + late fee</text>
+    <text x="1020" y="480" font-size="18" fill="#5B6B76" text-anchor="middle">$32 card · 5% on loans</text>
+
+    <line x1="880" y1="455" x2="636" y2="455" stroke="#D01012" stroke-width="2.5" marker-end="url(#ar)"/>
+    <rect x="300" y="400" width="332" height="110" rx="18" fill="#1B2A34"/>
+    <text x="466" y="448" font-size="24" font-weight="700" fill="#FFFFFF" text-anchor="middle">Time pauses: decide</text>
+    <text x="466" y="480" font-size="18" fill="#C9D3DA" text-anchor="middle">the moment the lesson lands</text>
+
+    <!-- options -->
+    <g font-size="19" text-anchor="middle">
+      <rect x="60" y="566" width="250" height="56" rx="28" fill="#FFFFFF" stroke="#1B2A34" stroke-width="2"/>
+      <text x="185" y="601">Move money from savings</text>
+      <rect x="326" y="566" width="220" height="56" rx="28" fill="#FFFFFF" stroke="#1B2A34" stroke-width="2"/>
+      <text x="436" y="601">Call: hardship plan</text>
+      <rect x="562" y="566" width="244" height="56" rx="28" fill="#FFFFFF" stroke="#1B2A34" stroke-width="2"/>
+      <text x="684" y="601">Student loan → RAP</text>
+      <rect x="822" y="566" width="224" height="56" rx="28" fill="#FFFFFF" stroke="#D01012" stroke-width="2"/>
+      <text x="934" y="601">Skip it, take the mark</text>
+    </g>
+    <g stroke="#1B2A34" stroke-width="2" marker-end="url(#a)">
+      <line x1="400" y1="510" x2="220" y2="562"/>
+      <line x1="436" y1="510" x2="436" y2="562"/>
+      <line x1="500" y1="510" x2="660" y2="562"/>
+      <line x1="560" y1="510" x2="900" y2="562"/>
+    </g>
+
+    <!-- ladder -->
+    <rect x="1220" y="400" width="320" height="222" rx="18" fill="#FFFFFF" stroke="#D01012" stroke-width="2.5"/>
+    <text x="1380" y="446" font-size="24" font-weight="700" text-anchor="middle">Walk the ladder</text>
+    <g font-size="18">
+      <text x="1250" y="486"><tspan font-weight="700">30 d</tspan>  reported, score drops</text>
+      <text x="1250" y="518"><tspan font-weight="700">60 d</tspan>  card penalty APR 29.99%</text>
+      <text x="1250" y="550"><tspan font-weight="700">90 d</tspan>  car repossessed</text>
+      <text x="1250" y="582"><tspan font-weight="700">180 d</tspan>  collections</text>
+      <text x="1250" y="610" fill="#5B6B76">270 d  student default</text>
+    </g>
+    <line x1="1160" y1="455" x2="1216" y2="455" stroke="#D01012" stroke-width="2.5" marker-end="url(#ar)"/>
+
+    <!-- monthly band -->
+    <rect x="60" y="672" width="1480" height="86" rx="18" fill="#EAF2FB" stroke="#0A5EB0" stroke-width="2"/>
+    <text x="90" y="724" font-size="21" font-weight="700" fill="#0A5EB0">On the 1st of each month</text>
+    <text x="400" y="724" font-size="21">reset variable APRs from the market · pay the strategy's extra · recompute the credit score</text>
+  </g>
+</svg>

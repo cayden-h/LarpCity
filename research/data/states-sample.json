@@ -1,0 +1,439 @@
+{
+  "version": "sample-2026-09-11",
+  "units": "USD; rents/utilities/healthcare monthly, groceries/fuel weekly, wages annual",
+  "federal": {
+    "year": 2026,
+    "brackets_single": [
+      [
+        0,
+        0.1
+      ],
+      [
+        12400,
+        0.12
+      ],
+      [
+        50400,
+        0.22
+      ],
+      [
+        105700,
+        0.24
+      ],
+      [
+        201775,
+        0.32
+      ],
+      [
+        256225,
+        0.35
+      ],
+      [
+        640600,
+        0.37
+      ]
+    ],
+    "standard_deduction_single": 16100,
+    "standard_deduction_mfj": 32200,
+    "social_security_rate": 0.062,
+    "social_security_wage_base": 184500,
+    "medicare_rate": 0.0145,
+    "additional_medicare_rate": 0.009,
+    "additional_medicare_threshold_single": 200000
+  },
+  "national": {
+    "groceries_weekly_single_thrifty": 76,
+    "gallons_per_week": 9.23,
+    "acs_median_household_income": 81604,
+    "acs_median_gross_rent": 1487,
+    "acs_median_home_value": 360600,
+    "zori_us_typical_rent": 1962,
+    "eia_avg_electric_bill_2024": 142.26,
+    "kff_benchmark_premium_40yo_2026": 625,
+    "aaa_gas_regular": 4.295,
+    "oews_annual_mean": {
+      "software_developer": 148100,
+      "registered_nurse": 101420,
+      "elementary_teacher": 72650,
+      "accountant": 94750,
+      "retail_salesperson": 37310,
+      "fast_food_cook": 32150
+    }
+  },
+  "sources": {
+    "rpp": "BEA Regional Price Parities 2024 (released 2026-02-19), via FRED series {ST}RPPALL/{ST}RPPGOOD/{ST}RPPSERVERENT/{ST}RPPSERVEOTH - https://www.bea.gov/data/prices-inflation/regional-price-parities-state-and-metro-area",
+    "rent_median, rent_1br, rent_2br, home_price_median, median_household, property_tax": "Census ACS 2024 1-year, tables B25064, B25031, B25077, B19013, B25103, via https://api.censusreporter.org (property_tax_effective_rate = B25103 median taxes / B25077 median value)",
+    "rent_metro_typical": "Zillow ZORI (all homes, smoothed), July 2026, representative metro - https://www.zillow.com/research/data/",
+    "home_value_typical_zhvi": "Zillow ZHVI state, mid-tier, July 2026 - https://www.zillow.com/research/data/",
+    "income_tax": "Tax Foundation 2026 state income tax rates and brackets (single) - https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/",
+    "sales_tax_pct": "Tax Foundation state and local sales tax rates, midyear (July 1) 2026 - https://taxfoundation.org/data/all/state/2026-sales-tax-rates-midyear/",
+    "annual_mean_wage": "BLS OEWS May 2025, series OEUS{FIPS}00000000000{SOC}04 - https://www.bls.gov/oes/current/oessrcst.htm",
+    "utilities_monthly_electric": "EIA 2024 average monthly residential bill, Table 5A - https://www.eia.gov/electricity/sales_revenue_price/pdf/table_5A.pdf",
+    "gas_price_per_gallon": "AAA state averages, 2026-09-11 - https://gasprices.aaa.com/state-gas-price-averages/",
+    "healthcare_monthly_unsubsidized": "KFF 2026 average benchmark (second-lowest silver) premium, age 40 - https://www.kff.org/affordable-care-act/state-indicator/marketplace-average-benchmark-premiums/",
+    "groceries_weekly": "USDA Thrifty Food Plan 2026 single-adult average (~$327/mo) scaled by BEA goods RPP (derived)",
+    "fuel_weekly": "Derived: 12,000 mi/yr at 25 mpg x AAA state gas price"
+  },
+  "states": {
+    "CA": {
+      "abbr": "CA",
+      "name": "California",
+      "fips": "06",
+      "representative_metro": "Los Angeles, CA",
+      "rpp": {
+        "all_items": 110.72,
+        "goods": 106.098,
+        "rents": 154.346,
+        "other_services": 102.591
+      },
+      "housing": {
+        "rent_median": 2104,
+        "rent_1br": 1835,
+        "rent_2br": 2179,
+        "rent_metro_typical": 2944,
+        "home_price_median": 759500,
+        "home_value_typical_zhvi": 773735,
+        "property_tax_effective_rate": 0.0071,
+        "property_tax_median_annual": 5369
+      },
+      "living": {
+        "groceries_weekly": 81,
+        "fuel_weekly": 55,
+        "gas_price_per_gallon": 5.927,
+        "utilities_monthly_electric": 160.86,
+        "healthcare_monthly_unsubsidized": 570
+      },
+      "taxes": {
+        "income_tax": {
+          "type": "graduated",
+          "std_deduction": 5540,
+          "personal_credit": 153,
+          "brackets": [
+            [
+              0,
+              0.01
+            ],
+            [
+              11079,
+              0.02
+            ],
+            [
+              26264,
+              0.04
+            ],
+            [
+              41452,
+              0.06
+            ],
+            [
+              57542,
+              0.08
+            ],
+            [
+              72724,
+              0.093
+            ],
+            [
+              371479,
+              0.103
+            ],
+            [
+              445771,
+              0.113
+            ],
+            [
+              742953,
+              0.123
+            ],
+            [
+              1000000,
+              0.133
+            ]
+          ]
+        },
+        "sales_tax_pct": {
+          "state": 7.25,
+          "local_avg": 1.78,
+          "combined": 9.03
+        }
+      },
+      "income": {
+        "median_household": 100149,
+        "annual_mean_wage": {
+          "software_developer": 186770,
+          "registered_nurse": 150280,
+          "elementary_teacher": 95670,
+          "accountant": 103760,
+          "retail_salesperson": 42950,
+          "fast_food_cook": 41680
+        }
+      },
+      "notes": [
+        "CA also withholds State Disability Insurance (SDI) on all wages - not modeled here."
+      ]
+    },
+    "TX": {
+      "abbr": "TX",
+      "name": "Texas",
+      "fips": "48",
+      "representative_metro": "Houston, TX",
+      "rpp": {
+        "all_items": 97.057,
+        "goods": 98.083,
+        "rents": 96.503,
+        "other_services": 97.081
+      },
+      "housing": {
+        "rent_median": 1475,
+        "rent_1br": 1307,
+        "rent_2br": 1475,
+        "rent_metro_typical": 1654,
+        "home_price_median": 313200,
+        "home_value_typical_zhvi": 301806,
+        "property_tax_effective_rate": 0.0131,
+        "property_tax_median_annual": 4108
+      },
+      "living": {
+        "groceries_weekly": 75,
+        "fuel_weekly": 36,
+        "gas_price_per_gallon": 3.847,
+        "utilities_monthly_electric": 163.72,
+        "healthcare_monthly_unsubsidized": 661
+      },
+      "taxes": {
+        "income_tax": {
+          "type": "none"
+        },
+        "sales_tax_pct": {
+          "state": 6.25,
+          "local_avg": 1.95,
+          "combined": 8.2
+        }
+      },
+      "income": {
+        "median_household": 79721,
+        "annual_mean_wage": {
+          "software_developer": 136450,
+          "registered_nurse": 95380,
+          "elementary_teacher": 61890,
+          "accountant": 90370,
+          "retail_salesperson": 34050,
+          "fast_food_cook": 27750
+        }
+      },
+      "notes": [
+        "No income tax, but property tax is high (about 1.31% effective)."
+      ]
+    },
+    "NY": {
+      "abbr": "NY",
+      "name": "New York",
+      "fips": "36",
+      "representative_metro": "New York, NY",
+      "rpp": {
+        "all_items": 107.921,
+        "goods": 107.254,
+        "rents": 122.168,
+        "other_services": 104.067
+      },
+      "housing": {
+        "rent_median": 1634,
+        "rent_1br": 1530,
+        "rent_2br": 1634,
+        "rent_metro_typical": 3627,
+        "home_price_median": 449800,
+        "home_value_typical_zhvi": 527312,
+        "property_tax_effective_rate": 0.0145,
+        "property_tax_median_annual": 6542
+      },
+      "living": {
+        "groceries_weekly": 82,
+        "fuel_weekly": 40,
+        "gas_price_per_gallon": 4.362,
+        "utilities_monthly_electric": 139.53,
+        "healthcare_monthly_unsubsidized": 817
+      },
+      "taxes": {
+        "income_tax": {
+          "type": "graduated",
+          "std_deduction": 8000,
+          "brackets": [
+            [
+              0,
+              0.039
+            ],
+            [
+              8500,
+              0.044
+            ],
+            [
+              11700,
+              0.0515
+            ],
+            [
+              13900,
+              0.054
+            ],
+            [
+              80650,
+              0.059
+            ],
+            [
+              215400,
+              0.0685
+            ],
+            [
+              1077550,
+              0.0965
+            ],
+            [
+              5000000,
+              0.103
+            ],
+            [
+              25000000,
+              0.109
+            ]
+          ]
+        },
+        "sales_tax_pct": {
+          "state": 4.0,
+          "local_avg": 4.54,
+          "combined": 8.54
+        }
+      },
+      "income": {
+        "median_household": 85820,
+        "annual_mean_wage": {
+          "software_developer": 163820,
+          "registered_nurse": 113440,
+          "elementary_teacher": 93400,
+          "accountant": 114070,
+          "retail_salesperson": 42580,
+          "fast_food_cook": 36920
+        }
+      },
+      "notes": [
+        "State averages hide NYC: metro ZORI rent is ~$3,627 vs $1,634 state median.",
+        "NYC residents also pay NYC income tax (not modeled)."
+      ]
+    },
+    "FL": {
+      "abbr": "FL",
+      "name": "Florida",
+      "fips": "12",
+      "representative_metro": "Miami, FL",
+      "rpp": {
+        "all_items": 103.414,
+        "goods": 98.059,
+        "rents": 122.107,
+        "other_services": 101.324
+      },
+      "housing": {
+        "rent_median": 1812,
+        "rent_1br": 1589,
+        "rent_2br": 1812,
+        "rent_metro_typical": 2677,
+        "home_price_median": 396900,
+        "home_value_typical_zhvi": 378167,
+        "property_tax_effective_rate": 0.0075,
+        "property_tax_median_annual": 2993
+      },
+      "living": {
+        "groceries_weekly": 75,
+        "fuel_weekly": 38,
+        "gas_price_per_gallon": 4.155,
+        "utilities_monthly_electric": 156.09,
+        "healthcare_monthly_unsubsidized": 683
+      },
+      "taxes": {
+        "income_tax": {
+          "type": "none"
+        },
+        "sales_tax_pct": {
+          "state": 6.0,
+          "local_avg": 0.98,
+          "combined": 6.98
+        }
+      },
+      "income": {
+        "median_household": 77735,
+        "annual_mean_wage": {
+          "software_developer": 137010,
+          "registered_nurse": 90650,
+          "elementary_teacher": 59530,
+          "accountant": 88210,
+          "retail_salesperson": 36000,
+          "fast_food_cook": 30940
+        }
+      },
+      "notes": [
+        "No income tax, but rents are 22% above the national level (RPP rents 122.1)."
+      ]
+    },
+    "OH": {
+      "abbr": "OH",
+      "name": "Ohio",
+      "fips": "39",
+      "representative_metro": "Columbus, OH",
+      "rpp": {
+        "all_items": 92.774,
+        "goods": 93.67,
+        "rents": 73.012,
+        "other_services": 98.947
+      },
+      "housing": {
+        "rent_median": 1090,
+        "rent_1br": 878,
+        "rent_2br": 1122,
+        "rent_metro_typical": 1519,
+        "home_price_median": 239800,
+        "home_value_typical_zhvi": 249941,
+        "property_tax_effective_rate": 0.0122,
+        "property_tax_median_annual": 2937
+      },
+      "living": {
+        "groceries_weekly": 71,
+        "fuel_weekly": 39,
+        "gas_price_per_gallon": 4.188,
+        "utilities_monthly_electric": 135.16,
+        "healthcare_monthly_unsubsidized": 513
+      },
+      "taxes": {
+        "income_tax": {
+          "type": "flat_above_threshold",
+          "personal_exemption": 2400,
+          "brackets": [
+            [
+              0,
+              0.0
+            ],
+            [
+              26050,
+              0.0275
+            ]
+          ]
+        },
+        "sales_tax_pct": {
+          "state": 5.75,
+          "local_avg": 1.54,
+          "combined": 7.29
+        }
+      },
+      "income": {
+        "median_household": 72212,
+        "annual_mean_wage": {
+          "software_developer": 119860,
+          "registered_nurse": 87730,
+          "elementary_teacher": 72740,
+          "accountant": 88280,
+          "retail_salesperson": 34580,
+          "fast_food_cook": 28900
+        }
+      },
+      "notes": [
+        "Most Ohio cities levy a municipal income tax (~2-2.5%), not modeled here."
+      ]
+    }
+  }
+}

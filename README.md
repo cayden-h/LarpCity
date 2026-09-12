@@ -1,0 +1,163 @@
+# Larp City
+
+A financial-life city sim for HackRice 2026 (Finance track).
+We copy the core loop of LEGO City Adventures: Build and Protect, then reskin it so the "fires and criminals" are financial disasters and the "buildings" are your savings, investments, and home.
+Build your wealth, protect yourself from going broke, and make it to retirement.
+
+## Vision (updated 2026-09-11, after the game design meeting)
+
+Larp City is built for learning, with real impact as the goal.
+It teaches people to make better financial decisions by letting them live out how those decisions affect their lives.
+The player lives their own financial life, from today to retirement.
+
+- **Retirement is the end goal.**
+- **Personalized:** The player enters their real finances, so the challenge scales to them (no preset jobs or salaries); anyone who just wants to play can make up a scenario.
+- **Avatar onboarding:** The player takes a selfie, which is verified through Persona (sponsor), and gets a game avatar that resembles them (3D or Pixi game-style).
+- **Daily calendar:** Time advances day by day, Stardew Valley style, at 1 in-game week every 10 real seconds, with fast-forward to the next day, week, or month and a "Skip to next event" button.
+- **Detailed news:** Each story says what happened, where (state, city, or sector), and what it affects for the player; after a skip, the paper is a digest of what was skipped.
+- **Age teleport:** Jump ahead to a future age (for example 24 to 60) using an annual contribution, return rate, and bond allocation.
+  A bankruptcy along the way stops the jump and shows why.
+- **Goals and milestones:** Goals like buying a house or moving states; skip until one is met and see the year and why.
+  At retirement, look back through the milestones (stretch).
+- **Big events slow time down:** Major events (market crash, layoff, AI bubble pop) and life events (layoff, marriage, divorce with a prenup option, kids) pause the simulation and ask the player to decide.
+- **AI feedback** at goals, at bankruptcy, and on big portfolio swings; a newspaper sums up recent days.
+- **Multi-state map:** The player can move between US states, each in a low, medium, or high cost-of-living tier.
+- **Stock market:** The core system, which needs heavy design work around how the simulation runs.
+
+Meeting decisions and next steps: [meeting-2026-09-11-game-design.md](meeting-2026-09-11-game-design.md).
+Research for each area lives in [research/](research/); where it conflicts with the meeting, the meeting wins.
+City art direction (backgrounds with day/night/weather, landmarks, traffic, the states map) is in [research/05-city-visuals-and-art-pipeline.md](research/05-city-visuals-and-art-pipeline.md).
+The playable city prototype (every state, 6 hand-made cities, generated backgrounds, weather, traffic) is in [game/](game/): `cd game && npm install && npm run dev`.
+Debt and credit (card, student, auto, mortgage, BNPL, payday loans, credit score, delinquency, bankruptcy) is in [research/06-debt-and-credit.md](research/06-debt-and-credit.md), mirrored to Notion as the "💳 Debt & Credit" section and research sub-page.
+The debt engine is built and wired into the city: design in [research/07-debt-system-design.md](research/07-debt-system-design.md), engine in `game/src/sim/debt/`, the player's money life (paychecks, state rent, accounts, debt) in `game/src/sim/life/` running on every game day, a markets-terminal Credit Desk at `/debt.html` in the city game's look (opened from the phone's Stocks app) (real FRED rates and index history, optional live Alpha Vantage quotes via `ALPHAVANTAGE_API_KEY` in `game/.env.local`), tests via `npm test`, and pitch-deck diagrams in [diagrams/debt/](diagrams/debt/).
+Card applications, perks, loans, and moving money between accounts are in [research/08-cards-loans-accounts.md](research/08-cards-loans-accounts.md), with a real card catalog (663 CFPB plans, 175 bonus offers, FRED rates) in Tiger Data (`game/db/`) and the engine in `game/src/sim/money/`, mirrored to Notion as the "🏦 Cards, Loans & Accounts" section.
+The Card Shop is playable in the Credit Desk (`/debt.html`, **Card Shop** in the top bar): 23 real cards with official art, issuer-page earn rates and offers, CFPB terms, year-one value on your spending, and soft-pull odds before a hard-pull application that opens the card as a real debt.
+How to set up Persona and every other API (keys, env vars, the backend we need, signup checklist) is in [SETUP.md](SETUP.md), mirrored to Notion as the "🔌 Setup & API Keys" section.
+
+The player's phone (the hub for the game's apps: Stocks now, News, Mail, and Bank next) docks on the left edge of the city; see `game/src/ui/phone.ts`.
+
+## Repository layout
+
+Everything for Larp City lives in this folder, so it can become a GitHub repository as is.
+
+| Path | What it is |
+| --- | --- |
+| `game/` | The playable app (Vite + PixiJS + TypeScript): the city at `/`, the Credit Desk at `/debt.html`, the simulation in `game/src/sim/`, tests in `game/tests/`, and build scripts in `game/scripts/`. See [game/README.md](game/README.md). `game/plates-src/` (95 MB of regenerable plate sources) is gitignored. |
+| `research/` | Research and design docs (start with [research/SUMMARY.md](research/SUMMARY.md)), plus the data builders and their raw inputs in `research/data/` (the card-art upscaler weights go in the gitignored `research/data/cards/models/`). |
+| `requirements.txt` | Python dependencies for the data builders and loaders (the game itself is Node: `cd game && npm install`). |
+| `diagrams/` | Pitch-deck diagrams (SVG sources and PNG exports), currently for the debt system. |
+| `reference/` | Screenshots of the LEGO reference game. |
+| `SETUP.md`, `.env.example` | API keys and integrations; copy `.env.example` to `.env` (never committed). |
+| `meeting-*.md`, `notion-*.md` | Meeting decisions and backups of the team Notion page before each automated edit. |
+
+Team Notion page (organized, the live source of truth): https://app.notion.com/p/Larp-City-3d846cd8aa24804a9c63c8bfc95a5e6b
+Backup of the team's original Notion notes, before reorganizing: [notion-notes.md](notion-notes.md).
+Reference screenshots: [reference/screenshots/](reference/screenshots/).
+
+## The reference game
+
+LEGO City Adventures: Build and Protect (Nickelodeon), playable at https://plays.org/game/lego-city-adventures-build-and-protect/.
+
+What we confirmed by loading it and reading its shipped JS bundles:
+
+- **Engine:** PixiJS (`pixi.js-legacy` is bundled in `vendor.js`), with Howler.js for audio.
+  It is a single full-screen canvas, isometric 2D, no 3D engine.
+- **View:** Isometric tile map of city blocks, roads, and a fenced-off locked district.
+  Small cars drive the roads.
+  Zoom in/out buttons on the right.
+- **HUD:** Coin counter bottom-left (starts at 1,000), dig button bottom-right (costs 300), police and fire alert badges top-left, pause and inventory top-right.
+- **Onboarding:** Mayor Solomon Fleck pops up in a modal and walks you through the first actions (collect coins, pick a dig site, place police and fire stations, first build, then free build).
+- **Core loop** (from the game's own string keys):
+  1. Buildings generate coins over time up to a cap (`coin_ready`, `coinCap`).
+  2. Spend coins to dig up LEGO bricks at dig sites (`dig_minigame`, `digPrices`).
+  3. Spend bricks on blueprints to build buildings (`blueprints_build`, `quick_build`).
+  4. Fires and crimes break out as random events; dispatch the Fire Chief or Police Sergeant, or the building burns and loses value (`burntBuildingCoinValue`).
+  5. Build 25 buildings in a district to unlock the next district, working toward a full metropolis.
+
+| # | Screenshot |
+| --- | --- |
+| 1 | [Title screen](reference/screenshots/01-title-screen.jpg) |
+| 2 | [Mayor onboarding](reference/screenshots/02-onboarding-mayor.jpg) |
+| 3 | [City map + HUD](reference/screenshots/03-city-map-hud.jpg) |
+
+## Our twist: LEGO mechanic to Larp City mechanic
+
+| LEGO City | Larp City |
+| --- | --- |
+| Mayor onboarding modal | Voice bot (ElevenLabs) interviews you for your real finances: job, salary, rent, debt |
+| Coin income from buildings | Paychecks hitting your checking account |
+| Dig for bricks, spend on blueprints | Allocate money into Emergency Fund, Roth IRA, 401k, brokerage, savings |
+| Buildings on the map | Each NPC's home and assets; they visibly upgrade or decay with net worth |
+| Fires and crimes | Financial events: layoff, medical bill, car breakdown, rent hike, market crash |
+| Dispatch police/fire | Player makes a decision at that moment (dip into emergency fund, take a loan, sell stocks) |
+| Burnt building loses value | Bankruptcy or homelessness, followed by a "what went wrong" breakdown |
+| Unlock next district at 25 buildings | Reach a goal (buy a house, move states), which becomes a milestone on the way to retirement |
+| Day/night, city growth | A daily calendar, with seasons and map changes as months and years pass |
+
+Events are probabilistic, each with its own likelihood and timing.
+Some are one-offs, like the AI bubble pop, which can only happen once per run.
+Replay/rewind lets the player go back to a decision point and try the other choice.
+
+## Tech plan
+
+- **Rendering: PixiJS (v8) over Phaser.**
+  The game we are copying is itself built on PixiJS, so the art style and isometric feel map one-to-one.
+  We need a sprite renderer plus our own simulation, not a physics or scene engine, which is Phaser's main value-add.
+- **App:** Vite + TypeScript.
+  The HUD and modals (bank dashboard, decision prompts, "what went wrong") can be DOM/React overlaid on the canvas, which is faster to build than Pixi UI.
+- **Simulation:** A deterministic, seeded daily tick engine for the player's life, with preloaded persistent data and a reset option.
+  Seeded RNG gives us replay/rewind for free: store the seed plus the player's decisions and re-simulate.
+  The same engine run headless powers the time skips, the age teleport, and goal skips.
+  Built so far: the debt engine (`game/src/sim/debt/`), accounts, cards, and loans (`game/src/sim/money/`), and the player's daily money life that ties them to the city clock (`game/src/sim/life/`).
+- **Market data:** a year of real FRED rates and index levels ships with the game (`game/src/data/market.ts`); live Alpha Vantage quotes are optional through the dev server.
+- **Backend:** A small Node server holds every API key; the browser only calls our own `/api/*` routes (see [SETUP.md](SETUP.md)).
+  Persona's template and environment ids are the only provider values that are safe in the browser.
+- **Bank data:** Capital One Nessie as the fake bank API (the "fake nestlie api" in the notes), with Plaid Sandbox as a stretch "connect your real bank" idea.
+- **Voice:** ElevenLabs for the onboarding interview.
+- **Feedback:** An LLM turns the event log into the "what went wrong" post-mortem when an NPC goes broke.
+- **Database:** Tiger Data (Postgres with TimescaleDB) stores every week of NPC finances, market prices, events, and current city data.
+- **Hosting:** Vultr runs the game and backend at a public URL, with a GoDaddy Registry domain pointing at it.
+- **AI memory:** Backboard remembers each player's past decisions and answers questions from our research docs.
+
+## Sponsor prize plan (MLH)
+
+From the [MLH HackRice prizes page](https://www.mlh.com/events/hackrice-71/prizes).
+All of these stack on one Devpost submission, on top of the track, Capital One, and Persona.
+
+| Prize | Reward | How Larp City uses it |
+| --- | --- | --- |
+| Best Use of Gemini API | Google swag kits | Avatar creation from the verified selfie, the aged "future you" avatar, "what went wrong" recaps, and "Your Real Plan" text |
+| Best Use of ElevenLabs | Wireless earbuds | The game's narrator: mayor onboarding, news-anchor alerts for crashes and disasters, and big life moments (bankruptcy, eviction, an NPC's death), plus sound effects and captions |
+| Best Use of Tiger Data | Stream Deck Mini | Time-series database for weekly NPC finances, market, events, and current city data, powering live charts, the leaderboard, and rewind (free tier, 750 MB) |
+| Best Use of Vultr | Portable screens | Hosts the game and backend with API keys server-side ($100 MLH credits); stretch: GPU or serverless inference for NPC dialogue |
+| Best Use of Backboard | Tile Essentials Pack | Player memory across sessions, RAG over our research and 2026 rules, and routing between small and large models |
+| Best Domain Name (GoDaddy Registry) | Digital gift card | A domain like larpcity.xyz for the Vultr server |
+| Solana, Presage | Various | Low fit; skip |
+
+NPC deaths should be handled as a respectful lesson about life insurance, emergency funds, and wills, not a shock moment.
+- **Art:** Isometric tile and building sprites; a free isometric city asset pack gets us close to the LEGO look without their IP.
+
+## 24-hour MVP
+
+1. Onboarding where the player enters their real finances (or a made-up scenario).
+2. Isometric map of one district, pan and zoom.
+3. Daily tick engine with paychecks, bills, and the five account types from the notes.
+4. Random event system with per-event probabilities, at least one one-off (AI bubble pop), and life events (layoff, marriage, divorce).
+5. HUD: net worth, date, next day/week/month and "Skip to next event", event alerts like the LEGO police and fire badges.
+6. Decision modal when an event hits the player.
+7. Age teleport with bankruptcy stopping the jump, and the "what went wrong" breakdown.
+8. AI feedback at goals, bankruptcy, and big portfolio swings.
+
+Stretch: voice onboarding, Nessie/Plaid integration, seasons, a second district, rewind, milestone replay at retirement.
+
+Status (2026-09-11 night): 2 is built for every state; 3 exists as `PlayerLife` (paychecks, bills, checking, savings, emergency fund, brokerage, and debts) running on the city clock; 6 exists in the Credit Desk; the HUD for money, the event system, the age teleport, and AI feedback are next.
+
+## Open questions
+
+Answered in the 2026-09-11 meeting: time runs daily with skips, the goal is retirement, and the player lives their own life.
+Still open:
+
+- How the event system (gacha/random events) works with time skips, the age teleport, and goal skips.
+- Whether the ~50 NPCs stay as a city backdrop.
+- How much of the milestone replay to build.
+- Whether to frame it as a finance game or a finance LARP.

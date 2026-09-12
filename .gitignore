@@ -1,0 +1,28 @@
+# Real API keys live in .env, which must never be committed.
+.env
+.env.*
+!.env.example
+
+# OS and editors
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Model weights for the card-art upscaler (download command in research/data/cards/upscale_art.py)
+research/data/cards/models/
+*.pth
+
+# Regenerable plate sources: full-size PNGs and Codex logs, about 95 MB (see game/README.md)
+game/plates-src/
+
+# Logs
+*.log
+
+# game/ has its own .gitignore for node_modules, dist, .cache, and *.local
