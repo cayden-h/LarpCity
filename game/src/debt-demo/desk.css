@@ -1036,13 +1036,16 @@ button:disabled {
 }
 
 /* Decision sheet ------------------------------------------------------------- */
+/* Above everything on the page, the time dock (z-index 7) included, so the dock dims with the rest;
+   the bottom padding keeps a tall sheet clear of the dock, and a sheet taller than the window scrolls. */
 .sheet-back {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 30;
   display: grid;
-  place-items: center;
-  padding: 20px;
+  place-items: safe center;
+  overflow-y: auto;
+  padding: 20px 20px 76px;
   background: rgba(11, 11, 12, 0.45);
 }
 .sheet {

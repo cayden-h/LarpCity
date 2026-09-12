@@ -460,14 +460,14 @@ function askBearMarket(day: number, drop: number, stocks: number) {
   ];
   if (more >= 1)
     options.push({
-      label: `Buy ${usd(more)} more`,
+      label: `Buy ${usd(more, 0)} more`,
       lesson: "Stocks are on sale. It works if you won't need this money for years.",
       act: () => {
         const r = life.buy("LTM", more);
-        choose(r.ok ? `bought ${usd(more)} more` : "held");
+        choose(r.ok ? `bought ${usd(more, 0)} more` : "held");
       },
     });
-  openDecision({ title: `Stocks are down ${pctOf(drop, 0)} from their high`, body: `Your stocks are worth ${usd(stocks)} now. This is a bear market. What do you do?`, options });
+  openDecision({ title: `Stocks are down ${pctOf(drop, 0)} from their high`, body: `Your stocks are worth ${usd(stocks, 0)} now. This is a bear market. What do you do?`, options });
 }
 
 /**
@@ -714,7 +714,7 @@ function cashPage(): Page {
         <button class="cta plain" data-go="debt">Pay a card or loan</button>
       </div>
       ${xferOpen ? transferHtml() : ""}
-      ${nextCard(`Direct deposit of about ${usd(payAmt)} on ${monthDay(dateOf(next))}`, `${life.employed ? "Your paycheck lands" : "Unemployment benefits land"} in checking. Rent of ${usd(life.rent)} comes out on the 1st and living costs of ${usd(life.living)} on the 15th.`)}
+      ${nextCard(`Direct deposit of about ${usd(payAmt, 0)} on ${monthDay(dateOf(next))}`, `${life.employed ? "Your paycheck lands" : "Unemployment benefits land"} in checking. Rent of ${usd(life.rent)} comes out on the 1st and living costs of ${usd(life.living)} on the 15th.`)}
       <div class="section"><h2>Accounts</h2><span>Interest earned ${usd(earned(false), 2)} this month · ${usd(earned(true), 2)} this year</span></div>
       ${accountRow("checking", "Checking", "Available to spend · paychecks land here")}
       ${accountRow("savings", "High-yield savings", "Interest is paid on the 1st of each month")}
