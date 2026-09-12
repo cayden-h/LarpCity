@@ -72,7 +72,10 @@ export async function ownsRun(db: Db, playerId: string, runId: string): Promise<
   return rows.length > 0;
 }
 
-/** Upserts one row per day: a day the game records again (a trade after the day's tick) keeps its latest numbers. */
+/**
+ * Upserts one row per day: a day the game records again (a trade after the day's tick) keeps its latest numbers.
+ * The investing lines (you, held, autopilot) keep their stored values when a resend omits them.
+ */
 export async function insertSnapshots(db: Db, runId: string, entries: SnapshotRow[]): Promise<number> {
   const byDay = new Map(entries.map((e) => [e.day, e])); // ON CONFLICT can't touch one row twice in a statement
   const rows = [...byDay.values()];
@@ -85,7 +88,9 @@ export async function insertSnapshots(db: Db, runId: string, entries: SnapshotRo
      ON CONFLICT (run_id, ts) DO UPDATE SET
        net_worth = EXCLUDED.net_worth, checking = EXCLUDED.checking, savings = EXCLUDED.savings,
        brokerage = EXCLUDED.brokerage, retirement = EXCLUDED.retirement, debt = EXCLUDED.debt,
-       you = EXCLUDED.you, held = EXCLUDED.held, autopilot = EXCLUDED.autopilot`,
+       you = COALESCE(EXCLUDED.you, player_snapshots.you),
+       held = COALESCE(EXCLUDED.held, player_snapshots.held),
+       autopilot = COALESCE(EXCLUDED.autopilot, player_snapshots.autopilot)`,
     [
       runId,
       col("day"),
