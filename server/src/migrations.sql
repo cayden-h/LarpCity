@@ -103,3 +103,29 @@ CREATE TABLE IF NOT EXISTS voice_interviews (
 ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS you double precision;
 ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS held double precision;
 ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS autopilot double precision;
+
+-- News Progression Engine (docs/superpowers/specs/2026-09-12-news-progression-engine-design.md):
+-- events that clear the newsworthiness score, branch-scoped for calendar rewind. branch_id defaults
+-- to run_id (the root branch) until server-side branching exists; facts is stored verbatim so every
+-- story is auditable and regeneratable, same discipline as ai/facts.ts.
+
+CREATE TABLE IF NOT EXISTS news_stories (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id       uuid NOT NULL REFERENCES runs(id),
+  branch_id    uuid NOT NULL,
+  day          int  NOT NULL,
+  event_key    text NOT NULL,
+  kind         text NOT NULL,
+  category     text NOT NULL,
+  score        real NOT NULL,
+  prominence   text NOT NULL,
+  facts        jsonb NOT NULL,
+  headline     text,
+  blurb        text,
+  impact       text,
+  source       text,
+  written_at   timestamptz,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (run_id, branch_id, event_key)
+);
+CREATE INDEX IF NOT EXISTS news_stories_run_branch_day ON news_stories (run_id, branch_id, day);
