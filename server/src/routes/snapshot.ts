@@ -1,9 +1,18 @@
 // server/src/routes/snapshot.ts
-import { Router } from "express";
+// The player's run in Tiger Data (src/store/runs.ts):
+//
+//   POST /api/runs               { seed }                -> 201 { runId }
+//   POST /api/snapshot           { runId, entries }      -> { stored }   one row per game day, latest wins
+//   POST /api/events             { runId, events }       -> { stored }   once per event key
+//   GET  /api/history/:runId     ?bucket=day|week|month&from&to   (week and month come from continuous aggregates)
+//   GET  /api/events/:runId      ?from&to&kinds=a,b
+//   GET  /api/leaderboard        each run's latest net worth
+import { Router, type Request } from "express";
 import { z } from "zod";
-import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
-import { logger } from "../logger.js";
+import { env } from "../env.js";
+import { handle, HttpError, parse, Reply } from "../http.js";
+import { createRun, history, insertEvents, insertSnapshots, leaderboard, listEvents, ownsRun } from "../store/runs.js";
 
 export const snapshotRouter = Router();
 
@@ -13,110 +22,96 @@ export function dayToTimestamp(day: number): string {
   return new Date(DAY_ZERO_MS + day * 86_400_000).toISOString();
 }
 
-const startRunBody = z.object({ seed: z.number().int() });
+const MAX_DAY = 100_000;
+const day = z.number().int().min(0).max(MAX_DAY);
+const money = z.number().finite();
+const runId = z.string().uuid();
 
-snapshotRouter.post("/runs", async (req, res) => {
-  const parsed = startRunBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "invalid body" });
-    return;
-  }
-  const runId = randomUUID();
-  try {
-    await pool.query(`INSERT INTO runs (id, player_id, seed) VALUES ($1, $2, $3)`, [
-      runId,
-      req.playerId,
-      parsed.data.seed,
-    ]);
-    res.status(201).json({ runId });
-  } catch (err) {
-    logger.error({ err }, "run creation failed");
-    res.status(500).json({ error: "run_creation_failed" });
-  }
+const startRunBody = z.object({ seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER) });
+
+export const snapshotBody = z.object({
+  runId,
+  entries: z
+    .array(z.object({ day, netWorth: money, checking: money, savings: money, brokerage: money, retirement: money, debt: money }))
+    .min(1)
+    .max(5000),
 });
 
-async function ownsRun(playerId: string, runId: string): Promise<boolean> {
-  const { rows } = await pool.query(`SELECT 1 FROM runs WHERE id = $1 AND player_id = $2`, [runId, playerId]);
-  return rows.length > 0;
+export const eventsBody = z.object({
+  runId,
+  events: z
+    .array(
+      z.object({
+        key: z.string().regex(/^\d{1,6}:\d{1,4}$/),
+        day,
+        kind: z.string().regex(/^[a-z_]{1,40}$/),
+        payload: z.record(z.unknown()),
+      }),
+    )
+    .min(1)
+    .max(5000),
+});
+
+export const historyQuery = z.object({
+  bucket: z.enum(["day", "week", "month"]).default("week"),
+  from: z.coerce.number().int().min(0).max(MAX_DAY).default(0),
+  to: z.coerce.number().int().min(0).max(MAX_DAY).default(MAX_DAY),
+});
+
+const eventsQuery = z.object({
+  from: z.coerce.number().int().min(0).max(MAX_DAY).default(0),
+  to: z.coerce.number().int().min(0).max(MAX_DAY).default(MAX_DAY),
+  kinds: z
+    .string()
+    .regex(/^[a-z_]{1,40}(,[a-z_]{1,40})*$/)
+    .transform((s) => s.split(","))
+    .optional(),
+});
+
+/** The run id from the URL or body, after checking it belongs to this session's player. */
+async function ownRun(req: Request, id: unknown): Promise<string> {
+  const r = runId.safeParse(id);
+  if (!r.success) throw new HttpError(400, "invalid run id");
+  if (!(await ownsRun(pool, req.playerId, r.data))) throw new HttpError(403, "forbidden");
+  return r.data;
 }
 
-const snapshotEntry = z.object({
-  day: z.number().int().min(0).max(100_000),
-  netWorth: z.number().finite(),
-  checking: z.number().finite(),
-  savings: z.number().finite(),
-  brokerage: z.number().finite(),
-  retirement: z.number().finite(),
-  debt: z.number().finite(),
-});
+snapshotRouter.post(
+  "/runs",
+  handle(async (req) => new Reply(201, { runId: await createRun(pool, req.playerId, parse(startRunBody, req.body).seed) })),
+);
 
-const snapshotBody = z.object({
-  runId: z.string().uuid(),
-  entries: z.array(snapshotEntry).min(1).max(5000),
-});
+snapshotRouter.post(
+  "/snapshot",
+  handle(async (req) => {
+    const body = parse(snapshotBody, req.body);
+    return { stored: await insertSnapshots(pool, await ownRun(req, body.runId), body.entries) };
+  }),
+);
 
-snapshotRouter.post("/snapshot", async (req, res) => {
-  const parsed = snapshotBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "invalid body" });
-    return;
-  }
-  const { runId, entries } = parsed.data;
-  if (!(await ownsRun(req.playerId, runId))) {
-    res.status(403).json({ error: "forbidden" });
-    return;
-  }
+snapshotRouter.post(
+  "/events",
+  handle(async (req) => {
+    const body = parse(eventsBody, req.body);
+    return { stored: await insertEvents(pool, await ownRun(req, body.runId), body.events) };
+  }),
+);
 
-  try {
-    await pool.query(
-      `INSERT INTO player_snapshots (ts, run_id, day, net_worth, checking, savings, brokerage, retirement, debt)
-       SELECT '2000-01-01'::timestamptz + d * interval '1 day', $1, d, nw, ch, sv, br, rt, dt
-       FROM unnest($2::int[], $3::float8[], $4::float8[], $5::float8[], $6::float8[], $7::float8[], $8::float8[])
-         AS t(d, nw, ch, sv, br, rt, dt)
-       ON CONFLICT DO NOTHING`,
-      [
-        runId,
-        entries.map((e) => e.day),
-        entries.map((e) => e.netWorth),
-        entries.map((e) => e.checking),
-        entries.map((e) => e.savings),
-        entries.map((e) => e.brokerage),
-        entries.map((e) => e.retirement),
-        entries.map((e) => e.debt),
-      ],
-    );
-    res.status(204).end();
-  } catch (err) {
-    logger.error({ err }, "snapshot insert failed");
-    res.status(500).json({ error: "snapshot_failed" });
-  }
-});
+snapshotRouter.get(
+  "/history/:runId",
+  handle(async (req) => {
+    const q = parse(historyQuery, req.query);
+    return history(pool, await ownRun(req, req.params.runId), q.bucket, q.from, q.to);
+  }),
+);
 
-snapshotRouter.get("/history/:runId", async (req, res) => {
-  if (!(await ownsRun(req.playerId, req.params.runId))) {
-    res.status(403).json({ error: "forbidden" });
-    return;
-  }
-  const { rows } = await pool.query(
-    `SELECT day, net_worth, checking, savings, brokerage, retirement, debt
-     FROM player_snapshots WHERE run_id = $1 ORDER BY day ASC`,
-    [req.params.runId],
-  );
-  res.json(rows);
-});
+snapshotRouter.get(
+  "/events/:runId",
+  handle(async (req) => {
+    const q = parse(eventsQuery, req.query);
+    return listEvents(pool, await ownRun(req, req.params.runId), q);
+  }),
+);
 
-snapshotRouter.get("/leaderboard", async (_req, res) => {
-  const { rows } = await pool.query(`
-    SELECT p.name, s.day, s.net_worth
-    FROM (
-      SELECT DISTINCT ON (run_id) run_id, day, net_worth
-      FROM player_snapshots ORDER BY run_id, ts DESC
-    ) s
-    JOIN runs r ON r.id = s.run_id
-    JOIN players p ON p.id = r.player_id
-    WHERE p.verified = true
-    ORDER BY s.net_worth DESC
-    LIMIT 50
-  `);
-  res.json(rows);
-});
+// Only verified players rank once the Persona gate is live; until then everyone does.
+snapshotRouter.get("/leaderboard", handle(async () => leaderboard(pool, Boolean(env.PERSONA_API_KEY))));

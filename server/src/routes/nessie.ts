@@ -11,47 +11,26 @@
 //   GET  /api/bank/:entity           this session's statement
 //
 // `:entity` is "player" or a named NPC ("npc-maya").
-import { Router, type Request, type Response } from "express";
-import type { z } from "zod";
+import { Router, type Request } from "express";
 import { Nessie, NessieError } from "../adapters/nessie.js";
 import { env } from "../env.js";
-import { logger } from "../logger.js";
-import { ENTITY, entriesBody, MirrorError, MirrorService, openBody } from "../mirror.js";
+import { handle, HttpError, parse, type ErrorMap } from "../http.js";
+import { ENTITY, entriesBody, MirrorService, openBody } from "../mirror.js";
 
 export const nessieRouter = Router();
 
 export const mirror = new MirrorService(new Nessie({ baseUrl: env.NESSIE_BASE_URL, apiKey: env.NESSIE_API_KEY }), env.NESSIE_TAG);
 
-/** Runs a handler and turns every failure into a JSON reply (Express 4 doesn't catch rejected promises). */
-function handle(fn: (req: Request) => Promise<unknown>) {
-  return (req: Request, res: Response) => {
-    fn(req)
-      .then((body) => res.json(body))
-      .catch((err: unknown) => {
-        if (err instanceof MirrorError) return res.status(err.status).json({ error: err.message });
-        if (err instanceof NessieError) {
-          logger.error({ status: err.status, message: err.message }, "nessie request failed");
-          return res.status(502).json({ error: "nessie_unavailable" });
-        }
-        logger.error({ err }, "bank route failed");
-        return res.status(500).json({ error: "internal_error" });
-      });
-  };
-}
+/** A Nessie failure is a 502 to the game, never its message (which names Nessie's paths). */
+const nessieDown: ErrorMap = (err) => (err instanceof NessieError ? new HttpError(502, "nessie_unavailable") : undefined);
 
 function entityOf(req: Request): string {
   const entity = req.params.entity;
-  if (!ENTITY.test(entity)) throw new MirrorError(404, "Unknown account holder.");
+  if (!ENTITY.test(entity)) throw new HttpError(404, "Unknown account holder.");
   return entity;
 }
 
-function parse<T>(schema: z.ZodType<T>, body: unknown): T {
-  const r = schema.safeParse(body);
-  if (!r.success) throw new MirrorError(400, "invalid body");
-  return r.data;
-}
-
-nessieRouter.get("/status", handle(async () => ({ ok: true, ...(await mirror.status()) })));
-nessieRouter.post("/:entity/open", handle(async (req) => mirror.open(req.playerId, entityOf(req), parse(openBody, req.body))));
-nessieRouter.post("/:entity/entries", handle(async (req) => mirror.post(req.playerId, entityOf(req), parse(entriesBody, req.body))));
-nessieRouter.get("/:entity", handle(async (req) => mirror.statement(req.playerId, entityOf(req))));
+nessieRouter.get("/status", handle(async () => ({ ok: true, ...(await mirror.status()) }), nessieDown));
+nessieRouter.post("/:entity/open", handle(async (req) => mirror.open(req.playerId, entityOf(req), parse(openBody, req.body)), nessieDown));
+nessieRouter.post("/:entity/entries", handle(async (req) => mirror.post(req.playerId, entityOf(req), parse(entriesBody, req.body)), nessieDown));
+nessieRouter.get("/:entity", handle(async (req) => mirror.statement(req.playerId, entityOf(req)), nessieDown));

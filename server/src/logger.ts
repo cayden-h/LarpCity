@@ -2,7 +2,8 @@ import pino from "pino";
 import { env } from "./env.js";
 
 export const logger = pino({
-  level: env.NODE_ENV === "production" ? "info" : "debug",
+  // Tests assert on responses; the error logs they trigger on purpose would only be noise.
+  level: env.NODE_ENV === "production" ? "info" : env.NODE_ENV === "test" ? "silent" : "debug",
   redact: {
     paths: [
       "req.headers.authorization",

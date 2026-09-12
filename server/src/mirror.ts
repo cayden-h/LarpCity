@@ -16,6 +16,7 @@
 
 import { z } from "zod";
 import type { Account, AccountType, Customer, MoneyTx, Nessie } from "./adapters/nessie.js";
+import { HttpError } from "./http.js";
 
 export type MirrorAccount = "checking" | "savings" | "credit";
 export const MIRROR_ACCOUNTS: readonly MirrorAccount[] = ["checking", "savings", "credit"];
@@ -78,13 +79,8 @@ export interface Statement {
   accounts: StatementAccount[];
 }
 
-export class MirrorError extends Error {
-  readonly status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
+/** A mirror rule the request broke (409 run not open, 404 unknown, 429 NPC cap); the routes answer with its status. */
+export class MirrorError extends HttpError {}
 
 interface Live {
   run: string;

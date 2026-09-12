@@ -23,6 +23,31 @@ PGPASSWORD=larp psql -h 127.0.0.1 -p 5433 -U postgres -f ../game/db/schema.sql
 DATABASE_URL='postgres://postgres:larp@127.0.0.1:5433/postgres?sslmode=disable' npm run dev
 ```
 
+## Run data (Tiger Data)
+
+The game records the player's run (`game/src/sim/record/`): one snapshot per game day and every life
+event, sent about once a game month and in 5,000-row chunks after a fast-forward. Queries live in
+`src/store/runs.ts`; sim day N is stored at `2000-01-01 + N days`.
+
+| Route | Body or query | Returns |
+| --- | --- | --- |
+| `POST /api/runs` | `{ seed }` | `201 { runId }` |
+| `POST /api/snapshot` | `{ runId, entries }` (up to 5,000 days) | `{ stored }`; a re-sent day keeps its latest numbers |
+| `POST /api/events` | `{ runId, events }` (up to 5,000, keyed `day:sequence`) | `{ stored }`; a retried batch adds nothing |
+| `GET /api/history/:runId` | `?bucket=day\|week\|month&from&to` | daily rows, or weekly/monthly buckets (`firstDay`, `lastDay`, `netWorth`, `peak`, `low`, ...) |
+| `GET /api/events/:runId` | `?from&to&kinds=a,b` | events oldest first |
+| `GET /api/leaderboard` | | each run's latest net worth; verified players only once `PERSONA_API_KEY` is set |
+
+Weekly and monthly history come from two real-time continuous aggregates over `player_snapshots`
+(`player_snapshots_weekly`, `player_snapshots_monthly`, created in `src/migrations.sql` with a
+one-minute refresh policy), so a 40-year run charts from about 2,100 weekly rows instead of 14,600
+daily ones, and the newest days show before they're materialized. Migrations run one statement at a
+time (`src/sql.ts`), because TimescaleDB won't create a continuous aggregate inside a transaction.
+
+`npm test` skips the database tests unless `TEST_DATABASE_URL` points at a TimescaleDB where they may
+create a throwaway database (the local Docker one above works):
+`TEST_DATABASE_URL='postgres://postgres:larp@127.0.0.1:5433/postgres' npm test`.
+
 ## Bank mirror (Capital One Nessie)
 
 The player and the game's named NPCs (`game/src/data/npcs.ts`) each have a Nessie bank statement.
