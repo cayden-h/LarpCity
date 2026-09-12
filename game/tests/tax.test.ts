@@ -59,3 +59,33 @@ test("childlessEic is 0 at zero income, positive mid-range, 0 at/above the incom
 test("childlessEic never exceeds the 2026 maximum of $664", () => {
   for (const income of [1_000, 5_000, 8_490, 12_000, 19_000]) assert.ok(childlessEic(income) <= 664);
 });
+
+import { STATE_TAX } from "../src/data/state-tax.ts";
+import { STATES } from "../src/data/states.ts";
+
+test("STATE_TAX has exactly one entry per state in STATES (51 with DC)", () => {
+  assert.equal(Object.keys(STATE_TAX).length, STATES.length);
+  for (const s of STATES) assert.ok(STATE_TAX[s.abbr], `missing state tax entry for ${s.abbr}`);
+});
+
+test("the 9 no-wage-income-tax states are typed none (research/02)", () => {
+  for (const abbr of ["AK", "FL", "NV", "NH", "SD", "TN", "TX", "WA", "WY"]) {
+    assert.equal(STATE_TAX[abbr].type, "none", `${abbr} should be none`);
+  }
+});
+
+test("a flat state (e.g. OH, 2026 flat 2.75% per research/02) has a single positive rate", () => {
+  const oh = STATE_TAX.OH;
+  assert.equal(oh.type, "flat");
+  if (oh.type === "flat") assert.equal(oh.rate, 0.0275);
+});
+
+test("a graduated state (e.g. CA) has ascending bracket upTo values ending in Infinity", () => {
+  const ca = STATE_TAX.CA;
+  assert.equal(ca.type, "graduated");
+  if (ca.type === "graduated") {
+    assert.ok(ca.brackets.length > 1);
+    assert.equal(ca.brackets[ca.brackets.length - 1].upTo, Infinity);
+    for (let i = 1; i < ca.brackets.length; i++) assert.ok(ca.brackets[i].upTo > ca.brackets[i - 1].upTo);
+  }
+});
