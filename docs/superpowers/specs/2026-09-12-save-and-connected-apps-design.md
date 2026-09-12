@@ -56,7 +56,8 @@ Everything keys on `players.id`, which today comes from the `larp_session` cooki
 | `version` | int, the save format version |
 | `game_day` | int |
 | `state` | jsonb |
-| `updated_at` | timestamptz |
+| `rev` | int, bumped on every write |
+| `updated_at` | timestamptz, informational |
 
 Primary key `(player_id, slot)`.
 The server treats `state` as opaque: it checks only a size cap and that `version` is an integer.
@@ -71,8 +72,9 @@ New `server/src/routes/save.ts`, using `handle`, `parse`, and `HttpError`, keyed
 
 - `GET /api/me` returns `{ player, profile, save }` (profile and save may be null).
 - `PUT /api/profile` upserts the confirmed intake.
-- `PUT /api/save` takes `{ runId, seed, version, gameDay, state, baseUpdatedAt }` and returns the new `updatedAt`.
-  If the stored `updated_at` is newer than `baseUpdatedAt`, it returns 409 so a second tab (or, later, a second device) cannot silently overwrite progress.
+- `PUT /api/save` takes `{ runId, seed, version, gameDay, state, baseRev }` and returns the new `rev`.
+  `baseRev` is null for a new life's first save.
+  If the stored `rev` is not `baseRev` (or a save already exists when `baseRev` is null), it returns 409 so a second tab (or, later, a second device) cannot silently overwrite progress.
   The `runId` must belong to the player.
 - `DELETE /api/save` removes the save and the profile, for "New life".
 
@@ -85,6 +87,8 @@ New `server/src/routes/save.ts`, using `handle`, `parse`, and `HttpError`, keyed
 - The clock day, the Money desk's local state (feed, bank statement, crash, recovery), and the Mail inbox are part of `SaveState`.
 - `MarketPath` is not stored; it is rebuilt from the seed.
 - An unknown `version` decodes to an error the boot flow handles, never a crash.
+- Saved `history` is compacted: every day in the last 400 days, and every 7th day before that; NPC lives keep their last 30 days.
+  The server caps `state` at 1.5 MB.
 
 ## Game: boot flow
 
@@ -112,6 +116,7 @@ A `SaveManager` in `game/src/sim/save/manager.ts` saves:
 
 Writes are debounced so a burst of decisions sends one request.
 The Money desk calls the same manager through `window.larpMoney`, so decisions made in the desk window save too.
+The `pagehide` save uses `keepalive` only when the body is under the browser's 64 KB keepalive limit; otherwise the last decision or month save stands.
 
 ## Failure handling
 

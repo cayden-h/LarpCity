@@ -103,3 +103,34 @@ CREATE TABLE IF NOT EXISTS voice_interviews (
 ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS you double precision;
 ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS held double precision;
 ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS autopilot double precision;
+
+-- The player's confirmed intake (docs/superpowers/specs/2026-09-12-save-and-connected-apps-design.md).
+-- Numbers are null when the player skipped to the sample household.
+CREATE TABLE IF NOT EXISTS profiles (
+  player_id    uuid PRIMARY KEY REFERENCES players ON DELETE CASCADE,
+  display_name text,
+  job          text,
+  salary       numeric,
+  rent         numeric,
+  debt         numeric,
+  savings      numeric,
+  state        text NOT NULL,
+  source       text NOT NULL CHECK (source IN ('voice','typed','skipped')),
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+
+-- The player's saved game: one opaque JSON document per player and slot. `rev` guards
+-- against two tabs (later, two devices) overwriting each other.
+CREATE TABLE IF NOT EXISTS saves (
+  player_id  uuid NOT NULL REFERENCES players ON DELETE CASCADE,
+  slot       text NOT NULL DEFAULT 'main',
+  run_id     uuid NOT NULL REFERENCES runs,
+  seed       bigint NOT NULL,
+  version    int NOT NULL,
+  game_day   int NOT NULL,
+  state      jsonb NOT NULL,
+  rev        int NOT NULL DEFAULT 1,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (player_id, slot)
+);
