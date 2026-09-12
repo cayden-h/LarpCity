@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PlayerLife, STARTER_PORTFOLIO, cashRateOn, seriesOn, US_MEDIAN_RENT, type Place } from "../src/sim/life/index.ts";
 import { MARKET } from "../src/data/market.ts";
+import { fileReturn } from "../src/sim/tax/filing.ts";
 
 const TX: Place = { abbr: "TX", name: "Texas", rpp: { all: 97.4, goods: 97.0, housing: 88.6 } };
 const CA: Place = { abbr: "CA", name: "California", rpp: { all: 110.72, goods: 106.098, housing: 154.346 } };
@@ -252,6 +253,68 @@ function moveToCARightBeforeDeadline(life: PlayerLife): number {
   }
   return day;
 }
+
+test("a second year's shortfall filed inside the 180-day conversion window merges into the still-unresolved first year's unpaidTax", () => {
+  // This is the merge branch in fileTaxes() (`if (this.unpaidTax) { ...merge... }`,
+  // as opposed to the `else` that starts a fresh unpaidTax): it only runs when
+  // a prior year's balance is filed on top of ANOTHER still-unresolved,
+  // not-yet-converted balance. Two *real* consecutive tax years are always
+  // ~365 days apart (April 15 to April 15, hardcoded in onDay()), which is
+  // well past the 180ish-day threshold that turns an unresolved unpaidTax
+  // into a real "IRS balance" Debt - confirmed empirically: with the
+  // moveToCARightBeforeDeadline trick, day 1's balance converts to a Debt
+  // ~200 days after its due day, long before a second real April 15 could
+  // ever roll around. So the merge branch can no longer be reached by
+  // advancing the clock through two genuine tax years; this test manufactures
+  // year 2's return the same way onDay() would (via the same fileReturn()
+  // used internally) but attaches it directly, well inside the 180-day
+  // window, instead of waiting a full calendar year for a second one to
+  // become ready.
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 2_000_000 });
+  const checking = life.ledger.get("checking");
+  const day = moveToCARightBeforeDeadline(life);
+  const ret1 = life.pendingTaxReturn();
+  assert.ok(ret1 !== null);
+  const year1Unpaid = round2(-(ret1!.federalRefundOrOwed + ret1!.stateRefundOrOwed));
+  assert.ok(year1Unpaid > 0, `expected year 1 to owe money, got ${year1Unpaid}`);
+
+  checking.balance = 0; // drain checking so none of the shortfall gets paid
+  life.fileTaxes(day + 1);
+  const afterYear1 = life.unpaidTaxBalance();
+  assert.ok(afterYear1 !== null);
+  assert.equal(afterYear1!.amount, year1Unpaid);
+  assert.equal(afterYear1!.originalOwed, year1Unpaid);
+
+  // Year 2's return, built the same way the April 15 tick would build it,
+  // reusing year 1's own wages/withholding so it reliably owes too - but
+  // attached only 60 days after year 1's filing (well under the ~180-200 day
+  // conversion window), not a full calendar year later.
+  const ret2 = fileReturn({
+    year: 2028,
+    state: "CA",
+    wagesYtd: ret1!.wages,
+    federalWithheldYtd: ret1!.federalWithheld,
+    stateWithheldYtd: ret1!.stateWithheld,
+  });
+  const year2Unpaid = round2(-(ret2.federalRefundOrOwed + ret2.stateRefundOrOwed));
+  assert.ok(year2Unpaid > 0, `expected year 2 to owe money, got ${year2Unpaid}`);
+  const day2 = day + 61; // 60 days after year 1's filing: still inside the window
+  (life as unknown as { pendingReturn: unknown }).pendingReturn = ret2;
+  (life as unknown as { taxReadyDay: number }).taxReadyDay = day2 - 1;
+
+  // Sanity: year 1's balance must still be a live unpaidTax, not yet a Debt,
+  // or this test would not actually be exercising the merge branch.
+  assert.ok(life.unpaidTaxBalance() !== null);
+  assert.ok(!life.book.debts.some((d) => d.name === "IRS balance"));
+
+  checking.balance = 0; // drain checking again before the second filing
+  life.fileTaxes(day2);
+  const afterYear2 = life.unpaidTaxBalance();
+  assert.ok(afterYear2 !== null);
+  assert.equal(afterYear2!.amount, round2(year1Unpaid + year2Unpaid));
+  assert.equal(afterYear2!.originalOwed, round2(year1Unpaid + year2Unpaid));
+  assert.equal(afterYear2!.filedDay, day2);
+});
 
 test("an unpaid tax balance accrues failure-to-file penalties if the deadline passes with no filing", () => {
   const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 2_000_000 });

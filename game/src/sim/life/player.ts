@@ -623,7 +623,13 @@ export class PlayerLife {
    * only that month's new increment instead of re-adding the running total.
    */
   private tickTaxPenalty(day: number, events: LifeEvent[]): void {
-    if (!this.unpaidTax && this.pendingReturn && this.taxReadyDay !== null && day > this.taxReadyDay) {
+    if (
+      !this.unpaidTax &&
+      this.pendingReturn &&
+      this.taxReadyDay !== null &&
+      day > this.taxReadyDay &&
+      !this.book.debts.some((d) => d.name === "IRS balance")
+    ) {
       const owed = round2(-(this.pendingReturn.federalRefundOrOwed + this.pendingReturn.stateRefundOrOwed));
       if (owed > 0) this.unpaidTax = { originalOwed: owed, amount: owed, dueDay: this.taxReadyDay, filedDay: null, penaltyCharged: 0 };
     }
