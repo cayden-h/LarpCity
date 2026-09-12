@@ -71,8 +71,10 @@ export interface SkipResult {
   low: LifeSnapshot;
   high: LifeSnapshot;
   ageAtEnd: number;
-  /** Named market crashes the fast-forward lived through. */
-  crashes: string[];
+  /** Bear markets that started during the fast-forward. */
+  bearMarkets: number;
+  /** The total market's worst fall from a peak during the fast-forward (0.34 = 34%). */
+  worstDrop: number;
   /** How many of each life event happened (paycheck, paid_off, ...). */
   counts: Record<string, number>;
 }

@@ -7,6 +7,8 @@ import { shade } from "./color";
 import type { CityGrid } from "./grid";
 import { depthOf, iso } from "./iso";
 import { pick, range, rngFor, type Rng } from "./rng";
+import { pickSprite } from "./sprite-pick";
+import { buildSprite, type SpriteSet } from "./sprites";
 import type { CityDef, ZoneKind } from "./types";
 
 export interface Placed {
@@ -36,8 +38,14 @@ export function zoneAt(city: CityDef, x: number, y: number): ZoneKind {
   return bestScore <= 1.35 ? best : "residential";
 }
 
-export function populate(grid: CityGrid, city: CityDef, seed: number): { buildings: Placed[] } {
+/** In the inner part of a zone of this kind: where a branded building is seen from the default camera. */
+function nearZoneCore(city: CityDef, kind: ZoneKind, x: number, y: number): boolean {
+  return city.zones.some((z) => z.kind === kind && Math.hypot(x - z.x, y - z.y) <= z.r * 0.6);
+}
+
+export function populate(grid: CityGrid, city: CityDef, seed: number, sprites: SpriteSet | null = null): { buildings: Placed[] } {
   const rng = rngFor(seed, city.id, "populate");
+  const used = new Set<string>();
   const taken = new Set<string>();
   const key = (x: number, y: number) => `${x},${y}`;
   const free = (x: number, y: number, w: number, d: number) => {
@@ -59,8 +67,11 @@ export function populate(grid: CityGrid, city: CityDef, seed: number): { buildin
       const [w, d] = sizes.find(([sw, sd]) => free(x, y, sw, sd) && (sw * sd === 1 || rng() < 0.7)) ?? [1, 1];
       for (let j = y; j < y + d; j++) for (let i = x; i < x + w; i++) taken.add(key(i, j));
       const spec = styleFor(zone, city, rng, x, y, w, d, seed);
-      spec.floors = Math.max(1, Math.min(spec.floors, sightlineCap(city, x, y, w, d)));
-      const built = buildBrick(spec);
+      const cap = sightlineCap(city, x, y, w, d);
+      spec.floors = Math.max(1, Math.min(spec.floors, cap));
+      const heroSpot = nearZoneCore(city, zone, x + w / 2, y + d / 2);
+      const entry = sprites ? pickSprite(sprites.manifest, { zone, w, d, maxFloors: spec.floors + 3, cap, heroSpot }, used, rng) : null;
+      const built = entry && sprites ? buildSprite(sprites, entry, x, y) : buildBrick(spec);
       buildings.push({ built, x, y, w, d });
     }
   return { buildings };

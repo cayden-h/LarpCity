@@ -1,12 +1,15 @@
 // San Francisco's landmarks, drawn as toy-brick models with animated lights.
-// Stylized shapes only: no logos or real signage.
+// Stylized shapes only: no logos or real signage. When the city's Blender
+// sprite set has a landmark sprite, that sprite replaces the model.
 
-import { Container, Graphics } from "pixi.js";
+import { Container, Graphics, Sprite, Texture } from "pixi.js";
 import { shade } from "../engine/color";
 import { BRIDGE_Z, WATER_Z } from "../engine/ground";
 import { depthOf, iso } from "../engine/iso";
 import { box, cone, cylinder, layer, line3 } from "../engine/shapes";
-import type { LandmarkFactory } from "../engine/types";
+import { spriteOrigin, type SpriteEntry } from "../engine/sprite-pick";
+import { buildSpriteView, spriteLandmark, type SpriteSet } from "../engine/sprites";
+import type { LandmarkContext, LandmarkFactory, LandmarkInstance, LandmarkPlacement } from "../engine/types";
 
 type P3 = [number, number, number];
 
@@ -203,8 +206,141 @@ export const pyramidTower: LandmarkFactory = ({ x, y, w, d }, ctx) => {
   };
 };
 
-/** The tallest tower: a rounded glass column with an open lattice crown that shimmers at night. */
-export const glassTower: LandmarkFactory = ({ x, y, w, d }, ctx) => {
+/** A landmark drawn from its sprite: the day pass takes the hour's tint, the night pass fades in. */
+function fromSprite(set: SpriteSet, e: SpriteEntry, { x, y, w, d }: LandmarkPlacement, ctx: LandmarkContext): LandmarkInstance & { view: Container } {
+  const built = buildSpriteView(set, e, x, y);
+  built.view.zIndex = depthOf(x + w - 1, y + d - 1, 60);
+  return {
+    view: built.view,
+    views: [built.view],
+    tintables: [built.view.children[0] as Container],
+    update: () => (built.lights.alpha = ctx.night()),
+  };
+}
+
+const CELLS_W = 16, CELLS_H = 24;
+const LED_HZ = 5;
+
+/** Opaque bounds of an image, in its own pixels, or null if it is blank or unreadable. */
+function opaqueBounds(tex: Texture): { x: number; y: number; w: number; h: number; img: HTMLCanvasElement } | null {
+  const w = tex.source.pixelWidth, h = tex.source.pixelHeight;
+  const img = document.createElement("canvas");
+  img.width = w;
+  img.height = h;
+  const g = img.getContext("2d", { willReadFrequently: true });
+  if (!g) return null;
+  try {
+    g.drawImage(tex.source.resource as CanvasImageSource, 0, 0);
+    const a = g.getImageData(0, 0, w, h).data;
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let j = 0; j < h; j++)
+      for (let i = 0; i < w; i++)
+        if (a[(j * w + i) * 4 + 3] > 8) {
+          x0 = Math.min(x0, i);
+          x1 = Math.max(x1, i);
+          y0 = Math.min(y0, j);
+          y1 = Math.max(y1, j);
+        }
+    return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1, img };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The "Day for Night" LED crown: a 16 x 24 field of soft colored cells, slow
+ * blurry waves cross-fading with warm drifting shapes like faces, stretched
+ * (smoothly) over the crown and cut to the crown image. The cut is done on
+ * the canvas, so the result is one additive sprite with no Pixi mask pass.
+ * Redrawn a few times a second, not every frame.
+ */
+function ledCrown(set: SpriteSet, e: SpriteEntry, x: number, y: number): { view: Sprite; update: (dt: number, alpha: number) => void } | null {
+  const crownTex = e.crown ? set.textures.get(e.crown) : undefined;
+  const bounds = crownTex && opaqueBounds(crownTex);
+  if (!bounds) return null;
+  const field = document.createElement("canvas");
+  field.width = CELLS_W;
+  field.height = CELLS_H;
+  const out = document.createElement("canvas");
+  out.width = bounds.w;
+  out.height = bounds.h;
+  const fg = field.getContext("2d"), og = out.getContext("2d");
+  if (!fg || !og) return null;
+  const cells = fg.createImageData(CELLS_W, CELLS_H);
+  const tex = Texture.from(out);
+  const view = new Sprite(tex);
+  const k = 1 / set.manifest.scale;
+  const o = spriteOrigin(e, x, y);
+  view.position.set(o.x + bounds.x * k, o.y + bounds.y * k);
+  view.scale.set(k);
+  view.blendMode = "add";
+  view.alpha = 0;
+
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+  const draw = (t: number) => {
+    // Which "clip" is showing: waves and faces take turns, cross-fading over a few seconds.
+    const s = Math.min(1, Math.max(0, 0.5 + 0.9 * Math.sin((t * Math.PI * 2) / 24)));
+    for (let j = 0; j < CELLS_H; j++)
+      for (let i = 0; i < CELLS_W; i++) {
+        const wave = 0.5 + 0.5 * Math.sin(j * 0.55 - t * 0.9 + Math.sin(i * 0.45 + t * 0.35) * 1.6);
+        const v = wave * wave;
+        let warm = 0;
+        for (let b = 0; b < 3; b++) {
+          const bx = CELLS_W / 2 + Math.sin(t * 0.13 + b * 2.1) * 5, by = CELLS_H / 2 + Math.sin(t * 0.09 + b * 1.7) * 8;
+          warm += Math.exp(-((i - bx) ** 2 + (j - by) ** 2) / 22);
+        }
+        warm = Math.min(1, warm);
+        const p = (j * CELLS_W + i) * 4;
+        cells.data[p] = lerp(lerp(18, 150, v), lerp(70, 255, warm), s);
+        cells.data[p + 1] = lerp(lerp(60, 225, v), lerp(22, 176, warm), s);
+        cells.data[p + 2] = lerp(lerp(140, 255, v), lerp(40, 130, warm), s);
+        cells.data[p + 3] = 255;
+      }
+    fg.putImageData(cells, 0, 0);
+    og.globalCompositeOperation = "source-over";
+    og.clearRect(0, 0, out.width, out.height);
+    og.imageSmoothingEnabled = true;
+    og.drawImage(field, 0, 0, out.width, out.height);
+    og.globalCompositeOperation = "destination-in";
+    og.drawImage(bounds.img, bounds.x, bounds.y, bounds.w, bounds.h, 0, 0, bounds.w, bounds.h);
+    tex.source.update();
+  };
+
+  let t = 0;
+  let since = Infinity;
+  return {
+    view,
+    update: (dt, alpha) => {
+      t += dt;
+      since += dt;
+      view.alpha = alpha;
+      if (alpha < 0.01 || since < 1 / LED_HZ) return;
+      since = 0;
+      draw(t);
+    },
+  };
+}
+
+/** The tallest tower: the Blender sprite with its LED crown when there is one, else the model. */
+export const glassTower: LandmarkFactory = (place, ctx) => {
+  const e = spriteLandmark(ctx.sprites, "sf-glass-tower");
+  if (!e || !ctx.sprites) return glassTowerModel(place, ctx);
+  const inst = fromSprite(ctx.sprites, e, place, ctx);
+  const crown = ledCrown(ctx.sprites, e, place.x, place.y);
+  if (!crown) return inst;
+  inst.view.addChild(crown.view);
+  return {
+    ...inst,
+    update: (dt) => {
+      inst.update?.(dt);
+      // A faint glow by day; the full show at night.
+      crown.update(dt, 0.15 + 0.85 * ctx.night());
+    },
+  };
+};
+
+/** The procedural tallest tower: a rounded glass column with an open lattice crown that shimmers at night. */
+const glassTowerModel: LandmarkFactory = ({ x, y, w, d }, ctx) => {
   const g = new Graphics();
   const lit = new Graphics();
   const crown = new Graphics();
@@ -488,6 +624,52 @@ export const coitTower: LandmarkFactory = ({ x, y, w, d }, ctx) => {
   return { views: [view], tintables: [g], update: () => (lit.alpha = ctx.night()) };
 };
 
+/** The Ferry Building: the Blender sprite (its red sign glows in the night pass), else a cream hall with a clock tower. */
+export const ferryBuilding: LandmarkFactory = (place, ctx) => {
+  const e = spriteLandmark(ctx.sprites, "sf-ferry-building");
+  return e && ctx.sprites ? fromSprite(ctx.sprites, e, place, ctx) : ferryBuildingModel(place, ctx);
+};
+
+const ferryBuildingModel: LandmarkFactory = ({ x, y, w, d }, ctx) => {
+  const g = new Graphics();
+  const lit = new Graphics();
+  const cream = 0xeadfc6, roof = 0x8f9499, dark = 0x55606a;
+  const y0 = y + 0.18, y1 = y + d - 0.12, zt = 34;
+  box(g, x + 0.06, y0, w - 0.12, y1 - y0, 0, zt, cream, roof);
+  // Arched arcade along the Embarcadero front, lit from inside at night.
+  const arches = Math.round(w * 4);
+  for (let i = 0; i < arches; i++) {
+    const a = x + 0.16 + (i * (w - 0.32)) / arches, b = a + ((w - 0.32) / arches) * 0.6;
+    for (const [z0, z1] of [[3, 14], [19, 29]]) {
+      const win: P3[] = [[a, y1 + 0.005, z0], [b, y1 + 0.005, z0], [b, y1 + 0.005, z1], [a, y1 + 0.005, z1]];
+      poly3(g, win, dark);
+      if (on(i, z0, 0.6)) poly3(lit, win, LIT);
+    }
+  }
+  line3(g, [x + 0.06, y1 + 0.01, zt], [x + w - 0.06, y1 + 0.01, zt], 2, 0xfaf6ec);
+  // Clock tower over the middle: a square shaft, a clock stage, and a pyramid cap.
+  const cx = x + w / 2, cy = (y0 + y1) / 2, s = 0.2;
+  const zc = 118, zcap = 140;
+  box(g, cx - s, cy - s, s * 2, s * 2, zt, zc, shade(cream, 1.02));
+  for (let z = zt + 14; z < zc - 16; z += 14) {
+    line3(g, [cx - s * 0.5, cy + s + 0.005, z], [cx - s * 0.5, cy + s + 0.005, z + 8], 2, dark);
+    line3(g, [cx + s * 0.5, cy + s + 0.005, z], [cx + s * 0.5, cy + s + 0.005, z + 8], 2, dark);
+  }
+  box(g, cx - s * 1.15, cy - s * 1.15, s * 2.3, s * 2.3, zc, zc + 4, shade(cream, 0.95));
+  poly3(g, [[cx - s, cy + s, zc + 4], [cx + s, cy + s, zc + 4], [cx, cy, zcap]], shade(roof, 1.1));
+  poly3(g, [[cx + s, cy + s, zc + 4], [cx + s, cy - s, zc + 4], [cx, cy, zcap]], shade(roof, 0.8));
+  line3(g, [cx, cy, zcap], [cx, cy, zcap + 8], 1.2, 0xdfe6ea);
+  for (const p of [iso(cx, cy + s + 0.01, zc - 9), iso(cx + s + 0.01, cy, zc - 9)]) {
+    g.circle(p.x, p.y, 4.2).fill(0xfaf6ec);
+    g.circle(p.x, p.y, 4.2).stroke({ width: 1, color: dark });
+    lit.circle(p.x, p.y, 3.6).fill(0xfff1c4);
+  }
+  lit.alpha = 0;
+  lit.blendMode = "add";
+  const view = layer(depthOf(x + w - 1, y + d - 1, 60), g, lit);
+  return { views: [view], tintables: [g], update: () => (lit.alpha = ctx.night()) };
+};
+
 export const SF_LANDMARKS: Record<string, LandmarkFactory> = {
   "sf-golden-gate": goldenGate,
   "sf-pyramid-tower": pyramidTower,
@@ -495,4 +677,5 @@ export const SF_LANDMARKS: Record<string, LandmarkFactory> = {
   "sf-painted-ladies": paintedLadies,
   "sf-island-prison": islandPrison,
   "sf-coit-tower": coitTower,
+  "sf-ferry-building": ferryBuilding,
 };

@@ -1,20 +1,37 @@
 // Standing orders for a goal fast-forward: what the player does now (the
 // setup screen's pre-fill, decided 2026-09-12), a recommended plan to compare
-// against, and the monthly budget both are checked against.
+// against, and the monthly budget both are checked against. Applying a plan
+// sets the life's recurring buys (sim/market's LTM and BOND funds, split by the
+// stock/bond mix), so the Money desk and the fast-forward share one setting.
 
-import { DEFAULT_STOCK_PCT, K401_LIMIT, K401_TAX_SAVING, MATCH_RATE, MATCH_UP_TO, type PlayerLife } from "../life/player.ts";
+import { K401_LIMIT, K401_TAX_SAVING, MATCH_RATE, MATCH_UP_TO, MIN_TRADE, type PlayerLife, type RecurringBuy } from "../life/player.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "./types.ts";
+
+/** Stock share when the player hasn't chosen one (research/10: 90/10). */
+export const DEFAULT_STOCK_PCT = 0.9;
 
 const roundTo = (x: number, step: number) => Math.round(x / step) * step;
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
-/** The plan in force, or the player's habits if they have never set one. */
+/** The stock share of what the player owns now, or null with nothing invested. */
+function holdingsMix(life: PlayerLife): number | null {
+  let stocks = 0;
+  let total = 0;
+  for (const p of life.positions()) {
+    total += p.value;
+    if (p.id !== "BOND") stocks += p.value;
+  }
+  return total > 0 ? stocks / total : null;
+}
+
+/** The plan in force, read back from the life so changes made elsewhere (the Money desk) show up. */
 export function currentOrders(life: PlayerLife): StandingOrders {
-  if (life.orders) return { ...life.orders };
+  const perPayday = life.recurring.reduce((s, r) => s + r.amount, 0);
+  const stocksPerPayday = life.recurring.filter((r) => r.id !== "BOND").reduce((s, r) => s + r.amount, 0);
   const expenses = life.monthlyExpenses();
   const emergency = life.ledger.accounts.get("emergency")?.balance ?? 0;
-  return {
+  const habits: StandingOrders = {
     depositMonthly: 0,
     k401Pct: 0,
     stockPct: DEFAULT_STOCK_PCT,
@@ -23,6 +40,13 @@ export function currentOrders(life: PlayerLife): StandingOrders {
     emergencyMonths: expenses > 0 ? roundTo(emergency / expenses, 0.5) : 0,
     lifestyle: "normal",
     crashRule: "hold",
+  };
+  return {
+    ...(life.orders ?? habits),
+    depositMonthly: round2(perPayday * 2),
+    stockPct: perPayday > 0 ? stocksPerPayday / perPayday : (holdingsMix(life) ?? life.orders?.stockPct ?? DEFAULT_STOCK_PCT),
+    debtStrategy: life.book.strategy,
+    extraMonthly: life.book.extraMonthly,
   };
 }
 
@@ -104,10 +128,21 @@ export function clampOrders(o: StandingOrders): StandingOrders {
   };
 }
 
+/** The payday buys for a plan: half the monthly deposit each payday, split between the total market and bonds. */
+export function recurringFor(o: StandingOrders): RecurringBuy[] {
+  const perPayday = o.depositMonthly / 2;
+  const buys: RecurringBuy[] = [
+    { id: "LTM", amount: round2(perPayday * o.stockPct) },
+    { id: "BOND", amount: round2(perPayday * (1 - o.stockPct)) },
+  ];
+  return buys.filter((b) => b.amount >= MIN_TRADE);
+}
+
 /** Puts the plan in force from today, for live play and fast-forwards alike. */
 export function applyOrders(life: PlayerLife, o: StandingOrders): void {
   const orders = clampOrders(o);
   life.orders = orders;
+  life.recurring = recurringFor(orders);
   life.book.strategy = orders.debtStrategy;
   life.book.extraMonthly = orders.extraMonthly;
 }

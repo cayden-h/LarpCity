@@ -4,9 +4,10 @@ import { cityFor, LANDMARKS, stateForPin } from "./cities";
 import { STATES } from "./data/states";
 import { Clock } from "./engine/clock";
 import { CityScene } from "./engine/scene";
+import { loadSpriteSet } from "./engine/sprites";
 import type { StateInfo } from "./engine/types";
 import { PlayerLife } from "./sim/life";
-import { createMarket } from "./sim/skip";
+import { MarketPath } from "./sim/market";
 import { Hud } from "./ui/hud";
 import { NpcCard } from "./ui/npccard";
 import { Phone } from "./ui/phone";
@@ -37,7 +38,7 @@ const seed = Number(new URLSearchParams(location.search).get("seed")) || 2026091
 // The player's money life: paychecks, rent for the current state, and the
 // debt engine run once per game day (research/07-debt-system-design.md);
 // investments move with the seeded market.
-const player = new PlayerLife({ place: state, day: clock.day, market: createMarket(seed, clock.date) });
+const player = new PlayerLife({ place: state, day: clock.day, market: new MarketPath(seed, clock.start) });
 let shownTier = -1;
 function syncHomeTier() {
   const tier = player.homeTier();
@@ -62,7 +63,8 @@ async function open(next: StateInfo): Promise<void> {
   if (next.abbr !== state.abbr) player.setPlace(next, clock.day);
   state = next;
   const city = cityFor(next);
-  scene = new CityScene(app, city, clock, LANDMARKS);
+  const sprites = await loadSpriteSet(city.id);
+  scene = new CityScene(app, city, clock, LANDMARKS, sprites);
   if (tier !== undefined) scene.hero?.setTier(tier);
   scene.onPick = (npc, sx, sy) => npcCard.show(npc, sx, sy);
   app.stage.addChild(scene.root);

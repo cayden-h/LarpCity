@@ -1,11 +1,12 @@
 // The procedural brick builder. A building is a handful of numbers (footprint,
-// floors, colors, roof type); this draws it as a toy-brick model in isometric
-// view: lit top, shaded side faces, brick courses, windows, studs, and a
-// separate light layer whose windows glow at night.
+// floors, colors, roof type); this draws it in isometric view: lit top,
+// shaded side faces, brick courses, windows, and a separate light layer whose
+// windows glow at night. Cities with pre-rendered sprites (sprites.ts) use
+// this only for lots no sprite fits.
 
 import { Container, Graphics } from "pixi.js";
 import { mix, shade } from "./color";
-import { drawStuds, face, lerp } from "./ground";
+import { face, lerp } from "./ground";
 import { iso, flat, footprintCorners } from "./iso";
 import { rngFor } from "./rng";
 import type { RoofType } from "./types";
@@ -39,7 +40,8 @@ export interface BrickSpec {
 
 export interface Built {
   view: Container;
-  lights: Graphics;
+  /** Faded in at night (scene.ts sets its alpha). */
+  lights: Container;
   blinkers: Graphics[];
   topZ: number;
 }
@@ -161,7 +163,6 @@ function drawRoof(
   const [T, R, B, L] = footprintCorners(x, y, w, d, topZ);
   const flatTop = () => {
     g.poly(flat([T, R, B, L])).fill(shade(roof, 1.08));
-    for (let i = 0; i < w; i++) for (let j = 0; j < d; j++) drawStuds(g, x + i, y + j, roof, w * d > 2 ? 1 : 2, topZ);
   };
   switch (spec.roofType) {
     case "flat":

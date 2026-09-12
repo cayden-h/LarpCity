@@ -1,17 +1,16 @@
 // The live preview on the setup screen: the plan run month by month across
-// 100 other possible markets, summarized as a net-worth band and when the goal
-// is reached. It never uses the run's own seed, so moving a slider can't reveal
-// the real future (research/10, "The live preview").
+// 100 other possible markets (futures.ts), summarized as a net-worth band and
+// when the goal is reached (research/10, "The live preview").
 
-import { hashKeys } from "../../engine/rng.ts";
 import { project } from "../debt/index.ts";
 import { K401_LIMIT, K401_TAX_SAVING, MATCH_RATE, MATCH_UP_TO, type PlayerLife } from "../life/player.ts";
+import { CrashWatch } from "./crash.ts";
+import type { Future } from "./futures.ts";
 import { homePrice, isMet } from "./goals.ts";
-import { createMarket, monthIndex, portfolioReturn } from "./market.ts";
 import { LIFESTYLE_FACTOR, type Goal, type StandingOrders } from "./types.ts";
 
 export interface Preview {
-  /** Months from today to the age cap. */
+  /** Months from today to the age cap (or to the end of the futures). */
   months: number;
   /** Net worth at the end of each month (index 0 is today): 10th, 50th, and 90th percentile. */
   p10: number[];
@@ -29,17 +28,21 @@ export interface Preview {
   debtFreeMonth: number | null;
 }
 
-export function previewSeed(seed: number, i: number): number {
-  return hashKeys(seed, "preview", i);
+export interface PreviewOptions {
+  futures: Future[];
+  /** Today's month offset into the futures (futureMonth). */
+  month: number;
+  capAge: number;
 }
 
 function quantile(sorted: number[], p: number): number {
   return sorted[Math.min(sorted.length - 1, Math.max(0, Math.round(p * (sorted.length - 1))))];
 }
 
-export function runPreview(life: PlayerLife, orders: StandingOrders, goal: Goal, opts: { seed: number; startDate: Date; capAge: number; runs?: number }): Preview {
-  const runs = opts.runs ?? 100;
-  const horizon = Math.max(12, Math.min(600, Math.round((opts.capAge - life.age) * 12)));
+export function runPreview(life: PlayerLife, orders: StandingOrders, goal: Goal, opts: PreviewOptions): Preview {
+  const runs = opts.futures.length;
+  const available = opts.futures[0].stock.length - 1 - opts.month;
+  const horizon = Math.max(1, Math.min(available, Math.round((opts.capAge - life.age) * 12)));
   const gross = life.grossAnnual / 12;
   const k401 = life.employed ? Math.min(orders.k401Pct * gross, K401_LIMIT / 12) : 0;
   const match = k401 > 0 ? Math.min(orders.k401Pct, MATCH_UP_TO) * MATCH_RATE * gross : 0;
@@ -54,24 +57,25 @@ export function runPreview(life: PlayerLife, orders: StandingOrders, goal: Goal,
   const debtMonths = plan.stuck ? Number.POSITIVE_INFINITY : plan.months;
   const debtAt = (mo: number) => plan.series[Math.min(mo, plan.series.length - 1)] ?? 0;
 
-  const balances = { cash: 0, emergency: 0, brokerage: 0, retirement: 0 };
+  const start = { cash: 0, emergency: 0, brokerage: 0, retirement: 0 };
   for (const a of life.ledger.accounts.values()) {
-    if (a.kind === "checking" || a.kind === "savings") balances.cash += a.balance;
-    else if (a.kind === "emergency") balances.emergency += a.balance;
-    else if (a.kind === "brokerage") balances.brokerage += a.balance;
-    else balances.retirement += a.balance;
+    if (a.kind === "checking" || a.kind === "savings") start.cash += a.balance;
+    else if (a.kind === "emergency") start.emergency += a.balance;
+    else if (a.kind === "brokerage") start.brokerage += a.balance;
+    else start.retirement += a.balance;
   }
+  for (const p of life.positions()) start.brokerage += p.value;
 
   const cols = horizon + 1;
   const worth = new Float64Array(runs * cols);
   const reachMonths: number[] = [];
   let broke = 0;
-  const years = Math.ceil(horizon / 12) + 2;
 
   for (let i = 0; i < runs; i++) {
-    const market = createMarket(previewSeed(opts.seed, i), opts.startDate, years);
-    const m0 = monthIndex(market, opts.startDate);
-    let { cash, emergency, brokerage, retirement } = balances;
+    const f = opts.futures[i];
+    const watch = new CrashWatch();
+    watch.peak = f.stock[opts.month];
+    let { cash, emergency, brokerage, retirement } = start;
     let reachedAt = -1;
     let out = false;
     for (let mo = 0; mo <= horizon; mo++) {
@@ -101,9 +105,13 @@ export function runPreview(life: PlayerLife, orders: StandingOrders, goal: Goal,
           brokerage += deposit;
           cash -= deposit;
         }
-        const r = portfolioReturn(market, m0 + mo - 1, orders.stockPct, orders.crashRule);
+        const k = opts.month + mo - 1;
+        // Stocks sold in a panic sit in cash, earning nothing, until the rule buys back.
+        const held = orders.stockPct * watch.held(orders.crashRule);
+        const r = held * (f.stock[k + 1] / f.stock[k] - 1) + (1 - orders.stockPct) * (f.bond[k + 1] / f.bond[k] - 1);
         brokerage *= 1 + r;
         retirement *= 1 + r;
+        watch.update(f.stock[k + 1], orders.crashRule);
       }
       const debt = debtAt(mo);
       worth[i * cols + mo] = cash + emergency + brokerage + retirement - debt;

@@ -1,11 +1,10 @@
 // Fast-forward to a goal: the same PlayerLife.onDay the city runs every game
 // day, run headless until the goal is met, bankruptcy (the meeting's rule), or
-// the age cap. The market comes from the seeded path, so the result depends
-// only on the seed, the life, and the plan.
+// the age cap. The market comes from the life's seeded MarketPath, so the
+// result depends only on the seed, the life, and the plan.
 
 import type { LifeSnapshot, PlayerLife } from "../life/player.ts";
 import { isMet, viewOf } from "./goals.ts";
-import { episodesBetween, monthIndex } from "./market.ts";
 import type { Goal, SkipResult, StopReason } from "./types.ts";
 
 export interface SkipOptions {
@@ -52,7 +51,20 @@ export function runSkip(life: PlayerLife, o: SkipOptions): SkipResult {
     }
   }
 
-  const crashes = life.market ? episodesBetween(life.market, monthIndex(life.market, o.startDate), monthIndex(life.market, date)).map((e) => e.name) : [];
+  // For the result card: bear markets the fast-forward lived through, and the total market's worst fall.
+  let bearMarkets = 0;
+  let worstDrop = 0;
+  let prev = life.market.regime(o.fromDay);
+  let peak = life.market.price("LTM", o.fromDay);
+  for (let d = o.fromDay + 1; d <= o.fromDay + days; d++) {
+    const regime = life.market.regime(d);
+    if (regime === "bear" && prev !== "bear") bearMarkets++;
+    prev = regime;
+    const p = life.market.price("LTM", d);
+    if (p > peak) peak = p;
+    else worstDrop = Math.max(worstDrop, 1 - p / peak);
+  }
+
   return {
     fromDay: o.fromDay,
     toDay: o.fromDay + days,
@@ -63,7 +75,8 @@ export function runSkip(life: PlayerLife, o: SkipOptions): SkipResult {
     low,
     high,
     ageAtEnd: life.age,
-    crashes,
+    bearMarkets,
+    worstDrop,
     counts,
   };
 }

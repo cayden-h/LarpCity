@@ -54,27 +54,6 @@ function archQuad(side: "y" | "x", plane: number, c: number, half: number, z0: n
   return pts;
 }
 
-/** One toy stud, a little smaller than the ground studs. */
-function stud(g: Graphics, tx: number, ty: number, z: number, base: number, r = 4.4): void {
-  const p = iso(tx, ty, z);
-  g.ellipse(p.x, p.y + 1.4, r, r / 2).fill(shade(base, 0.72));
-  g.rect(p.x - r, p.y - 0.4, r * 2, 1.8).fill(shade(base, 0.82));
-  g.ellipse(p.x, p.y - 0.4, r, r / 2).fill(shade(base, 1.12));
-}
-
-/** Studs on a tier's top, skipping the area covered by the next tier up. */
-function studTier(g: Graphics, t: Tier, base: number, cover?: Tier, step = 0.5): void {
-  const nx = Math.max(1, Math.round((t.x1 - t.x0) / step));
-  const ny = Math.max(1, Math.round((t.y1 - t.y0) / step));
-  for (let i = 0; i < nx; i++)
-    for (let j = 0; j < ny; j++) {
-      const tx = t.x0 + ((i + 0.5) * (t.x1 - t.x0)) / nx;
-      const ty = t.y0 + ((j + 0.5) * (t.y1 - t.y0)) / ny;
-      if (cover && tx > cover.x0 - 0.12 && tx < cover.x1 + 0.12 && ty > cover.y0 - 0.12 && ty < cover.y1 + 0.12) continue;
-      stud(g, tx, ty, t.z1, base);
-    }
-}
-
 function tierBox(g: Graphics, t: Tier, side: number, top: number): void {
   box(g, t.x0, t.y0, t.x1 - t.x0, t.y1 - t.y0, t.z0, t.z1, side, top);
 }
@@ -204,7 +183,6 @@ export const mountain: LandmarkFactory = ({ x, y, w, d }, ctx) => {
     // A few darker cracks on the lit face.
     const cx = t.x0 + (t.x1 - t.x0) * (0.2 + rng() * 0.6);
     line3(g, [cx, t.y1, t.z0 + 2], [cx + 0.05, t.y1, t.z1 - 3], 1, shade(side, 0.7), 0.6);
-    studTier(g, t, top, tiers[k + 1]);
   });
 
   // Pines on the exposed front and right ledges of the two lowest tiers.
@@ -232,7 +210,6 @@ export const mountain: LandmarkFactory = ({ x, y, w, d }, ctx) => {
       const lowest = k === levels - n;
       const cap: Tier = lowest ? { ...t, z0: t.z1 - 5 } : t;
       tierBox(snow, cap, 0xe3edf5, 0xffffff);
-      studTier(snow, cap, 0xf4f8fb, tiers[k + 1]);
       if (lowest) {
         // Drips down the faces below the snow line.
         const r = rngFor(x, y, "drip", k);
@@ -284,7 +261,6 @@ export const skiLift: LandmarkFactory = ({ x, y, w, d }, ctx) => {
   const SIDE = 0xc3ccd6, TOP = 0xf7fbff;
   tiers.forEach((t, k) => {
     tierBox(g, t, k % 2 ? shade(SIDE, 1.04) : SIDE, TOP);
-    studTier(g, t, 0xf2f6fa, tiers[k + 1]);
   });
 
   // Pines along the left edge of each ledge.
@@ -540,7 +516,6 @@ export const saguaroGarden: LandmarkFactory = ({ x, y, w, d }) => {
   const SAND = 0xe8c98c;
   const bed: Tier = { x0: x + 0.06, y0: y + 0.06, x1: x + w - 0.06, y1: y + d - 0.06, z0: 0, z1: 2 };
   tierBox(g, bed, SAND, shade(SAND, 1.05));
-  studTier(g, bed, SAND, undefined, 0.7);
 
   type Item = { tx: number; ty: number; draw: () => void };
   const items: Item[] = [];
@@ -592,7 +567,6 @@ export const volcano: LandmarkFactory = ({ x, y, w, d }, ctx) => {
     const side = green ? (k === 0 ? 0x4f8f3a : 0x5a7f3c) : k % 2 ? 0x4a403d : 0x3f3634;
     const topC = green ? 0x69b04c : shade(side, 1.25);
     tierBox(g, t, side, topC);
-    studTier(g, t, topC, tiers[k + 1]);
   });
   // Lava streaks down the upper faces.
   const topT = tiers[levels - 1];
@@ -681,7 +655,6 @@ export const glacierHarbor: LandmarkFactory = ({ x, y, w, d }, ctx) => {
   const shoreX = x + w * 0.5;
   const shore: Tier = { x0: x + 0.03, y0: y + 0.03, x1: shoreX, y1: y + d - 0.03, z0: 0, z1: 3 };
   tierBox(base, shore, 0xd9e4ec, 0xf2f7fa);
-  studTier(base, shore, 0xf2f7fa, undefined, 0.6);
   const WATER = 0x2f86c8;
   poly3(base, [[shoreX, y + 0.03, 0], [x + w - 0.03, y + 0.03, 0], [x + w - 0.03, y + d - 0.03, 0], [shoreX, y + d - 0.03, 0]], WATER);
   for (let i = 0; i < 10; i++) {
@@ -709,7 +682,6 @@ export const glacierHarbor: LandmarkFactory = ({ x, y, w, d }, ctx) => {
     poly3(ice, faceQuad("y", t.y1, t.x0, t.x1, t.z0 + 2, t.z0 + 4), 0x6fb6de, 0.7);
     poly3(ice, faceQuad("x", t.x1, t.y0, t.y1, t.z0 + 2, t.z0 + 4), 0x5aa2cc, 0.7);
     poly3(ice, faceQuad("y", t.y1, t.x0 + 0.05, t.x0 + 0.2, t.z0 + 5, t.z1 - 2), 0xffffff, 0.35);
-    studTier(ice, t, 0xeaf6ff, tiers[k + 1]);
     const c = t.x0 + (t.x1 - t.x0) * (0.3 + rng() * 0.4);
     line3(ice, [c, t.y0 + 0.1, t.z1], [c + 0.25, t.y0 + 0.35, t.z1], 1, 0x6fb6de, 0.7);
   });

@@ -1,11 +1,10 @@
 // Rural "state signature" landmarks: wind farm, oil pumpjacks, farmstead,
-// power plant, and racetrack. Built once as toy-brick models; animation only
+// power plant, and racetrack. Built once as static models; animation only
 // moves, rotates, or fades small child objects so many can be on screen.
 // Stylized shapes only: no logos or real signage.
 
 import { Container, Graphics } from "pixi.js";
 import { shade } from "../../engine/color";
-import { drawStuds } from "../../engine/ground";
 import { depthOf, HALF_H, HALF_W, iso } from "../../engine/iso";
 import { rngFor } from "../../engine/rng";
 import { box, cylinder, line3 } from "../../engine/shapes";
@@ -42,22 +41,9 @@ function planeOffset(lx: number, ly: number, a: number): { x: number; y: number 
   return { x: rx * COS, y: rx * SIN + ry };
 }
 
-/** A base plate with full-size studs on each whole tile of the footprint. */
+/** A low base slab under the footprint. */
 function plate(g: Graphics, x: number, y: number, w: number, d: number, z: number, color: number): void {
   box(g, x + 0.04, y + 0.04, w - 0.08, d - 0.08, 0, z, color);
-  for (let ty = 0; ty < Math.floor(d); ty++) for (let tx = 0; tx < Math.floor(w); tx++) drawStuds(g, x + tx, y + ty, color, 1, z);
-}
-
-/** Small studs on a flat top that is smaller than a tile. */
-function miniStuds(g: Graphics, x0: number, y0: number, w: number, d: number, z: number, color: number, step = 0.25): void {
-  const nx = Math.max(1, Math.round(w / step)), ny = Math.max(1, Math.round(d / step));
-  for (let j = 0; j < ny; j++)
-    for (let i = 0; i < nx; i++) {
-      const p = iso(x0 + ((i + 0.5) * w) / nx, y0 + ((j + 0.5) * d) / ny, z);
-      g.ellipse(p.x, p.y + 0.8, 3, 1.5).fill(shade(color, 0.72));
-      g.rect(p.x - 3, p.y - 0.6, 6, 1.4).fill(shade(color, 0.82));
-      g.ellipse(p.x, p.y - 0.6, 3, 1.5).fill(shade(color, 1.14));
-    }
 }
 
 /** A tapered vertical mast with a lit left half and a shaded right half. */
@@ -518,7 +504,6 @@ export const powerPlant: LandmarkFactory = ({ x, y, w, d }, ctx) => {
   const hallH = 36 * hs, hall = 0x3f78c2;
   box(fg, hx0, hy0, hx1 - hx0, hy1 - hy0, 4, hallH, hall);
   box(fg, hx0, hy0, hx1 - hx0, hy1 - hy0, hallH - 3, hallH, 0xf2f2f2);
-  miniStuds(fg, hx0, hy0, hx1 - hx0, hy1 - hy0, hallH, 0xf2f2f2, 0.28);
   box(fg, hx0 + 0.15, hy0 + 0.12, 0.3, 0.2, hallH, hallH + 9, 0x9aa4ae);
   // Window bands on both visible faces: dark glass by day, warm light at night.
   const wz0 = hallH * 0.55, wz1 = hallH * 0.72;
@@ -610,7 +595,6 @@ export const racetrack: LandmarkFactory = ({ x, y, w, d }, ctx) => {
   const roofY = gy0 + gd * 0.6, roofZ = 36 * hs;
   for (const px of [gx0 + 0.04, gx0 + gw / 2, gx1 - 0.04]) line3(g, [px, roofY, 4 + 7 * hs], [px, roofY, roofZ], 1.8, 0xd0d4d8);
   box(g, gx0 - 0.04, gy0 - 0.02, gw + 0.08, roofY - gy0 + 0.06, roofZ, roofZ + 4, 0xe53935);
-  miniStuds(g, gx0 - 0.04, gy0 - 0.02, gw + 0.08, roofY - gy0 + 0.06, roofZ + 4, 0xe53935, 0.3);
 
   // Light poles: the back one sits behind everything, the rest are drawn in front of the cars.
   const front = new Graphics();

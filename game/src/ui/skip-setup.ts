@@ -9,19 +9,23 @@ import type { Clock } from "../engine/clock";
 import { project, type Strategy } from "../sim/debt";
 import type { PlayerLife } from "../sim/life";
 import {
-  AI_BOOM_START,
-  AI_BUBBLE_POP_START,
   applyOrders,
   budget,
+  buildFuture,
   currentOrders,
+  futureMonth,
   isMet,
   missedMatch,
+  PREVIEW_RUNS,
+  PREVIEW_YEARS,
+  previewSeed,
   priceTag,
   recommendedOrders,
   runPreview,
   runSkip,
   viewOf,
   type CrashRule,
+  type Future,
   type Goal,
   type Lifestyle,
   type Preview,
@@ -81,10 +85,6 @@ function monthLabel(d: Date): string {
   return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 
-function monthsBetween(a: Date, b: Date): number {
-  return (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
-}
-
 function duration(days: number): string {
   const months = Math.round(days / 30.44);
   if (months < 1) return days <= 1 ? "1 day" : `${days} days`;
@@ -131,6 +131,9 @@ export class FastForward {
   private armed = false;
   private resumeSpeed = 1;
   private timer = 0;
+  /** The preview's other possible markets, built once in the background; null until ready. */
+  private futures: Future[] | null = null;
+  private built = 0;
 
   constructor(deps: FastForwardDeps) {
     this.deps = deps;
@@ -138,6 +141,7 @@ export class FastForward {
     this.el.className = "ff-overlay";
     this.el.hidden = true;
     document.body.appendChild(this.el);
+    this.warm();
     this.el.addEventListener("click", (ev) => this.onClick(ev));
     this.el.addEventListener("input", (ev) => this.onInput(ev));
     window.addEventListener("keydown", (ev) => {
@@ -174,6 +178,44 @@ export class FastForward {
     this.el.hidden = true;
     clearTimeout(this.timer);
     this.deps.clock.speed = this.resumeSpeed;
+  }
+
+  /** Builds the preview's futures in a worker at game start, so the preview is ready when the screen opens. */
+  private warm(): void {
+    const got: Future[] = new Array(PREVIEW_RUNS);
+    const done = () => {
+      this.futures = got;
+      if (!this.el.hidden) this.renderPreview();
+    };
+    try {
+      const worker = new Worker(new URL("../sim/skip/futures.worker.ts", import.meta.url), { type: "module" });
+      worker.onmessage = (ev: MessageEvent<{ i: number; stock: Float64Array; bond: Float64Array }>) => {
+        got[ev.data.i] = { stock: ev.data.stock, bond: ev.data.bond };
+        this.built++;
+        if (this.built === PREVIEW_RUNS) {
+          worker.terminate();
+          done();
+        } else if (!this.el.hidden && this.built % 10 === 0) this.renderPreview();
+      };
+      worker.onerror = () => {
+        worker.terminate();
+        this.warmHere(got, done);
+      };
+      worker.postMessage({ seed: this.deps.seed, runs: PREVIEW_RUNS, years: PREVIEW_YEARS });
+    } catch {
+      this.warmHere(got, done);
+    }
+  }
+
+  /** Fallback without workers: a couple of futures per task on the main thread. */
+  private warmHere(got: Future[], done: () => void): void {
+    this.built = 0;
+    const step = () => {
+      for (let n = 0; n < 2 && this.built < PREVIEW_RUNS; n++, this.built++) got[this.built] = buildFuture(previewSeed(this.deps.seed, this.built), PREVIEW_YEARS);
+      if (this.built < PREVIEW_RUNS) setTimeout(step, 0);
+      else done();
+    };
+    step();
   }
 
   private q<T extends HTMLElement = HTMLElement>(sel: string): T {
@@ -455,8 +497,13 @@ export class FastForward {
   }
 
   private renderPreview(): void {
-    const { player, clock, seed } = this.deps;
-    const p = runPreview(player, this.orders, this.goal(), { seed, startDate: clock.date, capAge: this.capAge });
+    const { player, clock } = this.deps;
+    if (!this.futures) {
+      this.q("[data-chart]").innerHTML = `<div class="ff-loading">Simulating ${PREVIEW_RUNS} possible futures… ${this.built} of ${PREVIEW_RUNS}</div>`;
+      this.q("[data-stats]").innerHTML = "";
+      return;
+    }
+    const p = runPreview(player, this.orders, this.goal(), { futures: this.futures, month: futureMonth(player.market.start, clock.date), capAge: this.capAge });
     this.q("[data-chart]").innerHTML = this.chart(p);
     this.q("[data-stats]").innerHTML = this.stats(p);
   }
@@ -465,17 +512,18 @@ export class FastForward {
     const { player, clock } = this.deps;
     const start = clock.date;
     const when = (m: number) => `${monthLabel(monthDate(start, m))} (age ${Math.floor(player.age + m / 12)})`;
+    const endAge = Math.floor(player.age + p.months / 12);
     const rows: string[] = [];
     if (p.reachTypical === 0) rows.push(`<li><span class="ff-k">Goal</span><b>Already reached</b></li>`);
     else if (p.reached === 0 || p.reachTypical === null)
-      rows.push(`<li class="bad"><span class="ff-k">Goal</span><b>Not reached before age ${this.capAge}</b><small>in any of ${p.runs} futures. Try saving more, or a smaller goal.</small></li>`);
+      rows.push(`<li class="bad"><span class="ff-k">Goal</span><b>Not reached before age ${endAge}</b><small>in any of ${p.runs} futures. Try saving more, or a smaller goal.</small></li>`);
     else
       rows.push(
         `<li><span class="ff-k">Goal reached, typically</span><b>${when(p.reachTypical)}</b><small>Bad luck (1 in 10): ${monthLabel(monthDate(start, p.reachBadLuck ?? p.reachTypical))} · reached in ${p.reached} of ${p.runs} futures</small></li>`,
       );
     const end = p.months;
     rows.push(
-      `<li><span class="ff-k">Net worth at ${this.capAge}</span><b>${compact(p.p50[end])}</b><small>${
+      `<li><span class="ff-k">Net worth at ${endAge}</span><b>${compact(p.p50[end])}</b><small>${
         this.isFlat(p) ? "The same in every future, because none of it is invested." : `Bad luck ${compact(p.p10[end])} · good luck ${compact(p.p90[end])}`
       }</small></li>`,
     );
@@ -528,20 +576,6 @@ export class FastForward {
       const year = start.getFullYear() + Math.round((start.getMonth() + m) / 12);
       if (year % tickEvery === 0) grid.push(`<text x="${x(m).toFixed(1)}" y="${H - 6}" text-anchor="middle">${year}</text>`);
     }
-    const markers = (
-      [
-        [AI_BOOM_START, "AI Boom", 0],
-        [AI_BUBBLE_POP_START, "AI Bubble Pop", 1],
-      ] as const
-    )
-      .map(([date, label, row]) => {
-        const m = monthsBetween(start, date);
-        if (m < 0 || m > n) return "";
-        const mx = x(m).toFixed(1);
-        const anchor = m / n > 0.7 ? "end" : "start";
-        return `<line x1="${mx}" x2="${mx}" y1="${T - 12 + row * 9}" y2="${H - B}" class="marker"/><text x="${mx}" y="${T - 14 + row * 9}" dx="${anchor === "start" ? 3 : -3}" text-anchor="${anchor}" class="marker-label">${label}</text>`;
-      })
-      .join("");
     const goal =
       goalLine === null
         ? ""
@@ -552,7 +586,7 @@ export class FastForward {
       ${grid.join("")}
       ${flat ? "" : `<path d="${band}" class="band"/>`}
       <path d="${median}" class="median"/>
-      ${goal}${markers}${reach}
+      ${goal}${reach}
     </svg>
     <div class="ff-legend">${
       flat
@@ -602,7 +636,7 @@ export class FastForward {
       ["Time skipped", duration(r.daysRun)],
       ["Net worth", `${dollars(r.start.netWorth)} → ${dollars(r.end.netWorth)}`],
       ["Lowest point", `${dollars(r.low.netWorth)} in ${monthLabel(dateOf(r.low.day))}`],
-      ["Market crashes", r.crashes.length ? r.crashes.join(", ") : "None"],
+      ["Bear markets", r.bearMarkets ? `${r.bearMarkets} (the market's worst fall was ${Math.round(r.worstDrop * 100)}%)` : "None"],
     ];
     const paid = r.counts.paid_off ?? 0;
     if (paid) facts.push(["Debts paid off", String(paid)]);

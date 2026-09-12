@@ -324,6 +324,15 @@
   height: auto;
   overflow: visible;
 }
+.ff-loading {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 460 / 214;
+  border-radius: 12px;
+  background: #f6f9ff;
+  color: #5b6b85;
+  font-size: 13px;
+}
 .ff-chart text {
   fill: #6a7890;
   font-family: inherit;

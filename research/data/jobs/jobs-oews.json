@@ -1,0 +1,872 @@
+{
+ "source": "BLS OEWS May 2025 national and state estimates, via BLS Public API v1 (keyless)",
+ "released": "2026-05-15",
+ "units": "annual wages in USD; employment in jobs",
+ "topCode": "OEWS does not publish wages at or above $239,200/yr; those cells are stored as 239200",
+ "allOccupations": {
+  "p10": 31200.0,
+  "p25": 37590.0,
+  "p50": 50980.0,
+  "p75": 80520.0,
+  "p90": 128560.0,
+  "employment": 155495730.0
+ },
+ "categories": [
+  {
+   "id": "management",
+   "label": "Management and executive",
+   "soc": "11-0000",
+   "examples": "Operations manager, director, store GM",
+   "joltsIndustry": "total_private",
+   "wages": {
+    "p10": 60130.0,
+    "p25": 82970.0,
+    "p50": 126520.0,
+    "p75": 176280.0,
+    "p90": 257310.0,
+    "employment": 11132700.0
+   },
+   "anchors": [
+    {
+     "soc": "11-1021",
+     "title": "General and operations managers",
+     "wages": {
+      "p10": 50090.0,
+      "p25": 72320.0,
+      "p50": 105770.0,
+      "p75": 167280.0,
+      "p90": 253390.0,
+      "employment": 3503020.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "business_finance",
+   "label": "Business and finance",
+   "soc": "13-0000",
+   "examples": "Accountant, analyst, HR specialist",
+   "joltsIndustry": "financial_activities",
+   "wages": {
+    "p10": 48820.0,
+    "p25": 62940.0,
+    "p50": 82660.0,
+    "p75": 114820.0,
+    "p90": 153990.0,
+    "employment": 10537240.0
+   },
+   "anchors": [
+    {
+     "soc": "13-2011",
+     "title": "Accountants and auditors",
+     "wages": {
+      "p10": 56020.0,
+      "p25": 67020.0,
+      "p50": 83680.0,
+      "p75": 109810.0,
+      "p90": 144090.0,
+      "employment": 1449500.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "tech",
+   "label": "Software, IT, and data",
+   "soc": "15-0000",
+   "examples": "Software developer, IT support, data scientist",
+   "joltsIndustry": "information",
+   "wages": {
+    "p10": 58200.0,
+    "p25": 78820.0,
+    "p50": 109280.0,
+    "p75": 155830.0,
+    "p90": 191450.0,
+    "employment": 5260110.0
+   },
+   "anchors": [
+    {
+     "soc": "15-1252",
+     "title": "Software developers",
+     "wages": {
+      "p10": 82460.0,
+      "p25": 105210.0,
+      "p50": 135980.0,
+      "p75": 171980.0,
+      "p90": 214670.0,
+      "employment": 1687890.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "engineering",
+   "label": "Engineering and architecture",
+   "soc": "17-0000",
+   "examples": "Engineer, architect, drafter",
+   "joltsIndustry": "professional_business",
+   "wages": {
+    "p10": 58670.0,
+    "p25": 76560.0,
+    "p50": 99520.0,
+    "p75": 130240.0,
+    "p90": 166490.0,
+    "employment": 2617130.0
+   },
+   "anchors": [
+    {
+     "soc": "17-2141",
+     "title": "Mechanical engineers",
+     "wages": {
+      "p10": 73990.0,
+      "p25": 84130.0,
+      "p50": 104110.0,
+      "p75": 132590.0,
+      "p90": 164340.0,
+      "employment": 296810.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "science",
+   "label": "Science and research",
+   "soc": "19-0000",
+   "examples": "Lab scientist, chemist, environmental tech",
+   "joltsIndustry": "professional_business",
+   "wages": {
+    "p10": 48420.0,
+    "p25": 62380.0,
+    "p50": 82530.0,
+    "p75": 114460.0,
+    "p90": 155830.0,
+    "employment": 1473260.0
+   },
+   "anchors": [
+    {
+     "soc": "19-2031",
+     "title": "Chemists",
+     "wages": {
+      "p10": 58460.0,
+      "p25": 69460.0,
+      "p50": 91240.0,
+      "p75": 125550.0,
+      "p90": 160830.0,
+      "employment": 82770.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "social_services",
+   "label": "Community and social services",
+   "soc": "21-0000",
+   "examples": "Social worker, counselor",
+   "joltsIndustry": "government",
+   "wages": {
+    "p10": 37970.0,
+    "p25": 46370.0,
+    "p50": 58300.0,
+    "p75": 75910.0,
+    "p90": 97630.0,
+    "employment": 2668680.0
+   },
+   "anchors": [
+    {
+     "soc": "21-1021",
+     "title": "Child, family, and school social workers",
+     "wages": {
+      "p10": 42280.0,
+      "p25": 48270.0,
+      "p50": 59550.0,
+      "p75": 76070.0,
+      "p90": 95530.0,
+      "employment": 392550.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "legal",
+   "label": "Legal",
+   "soc": "23-0000",
+   "examples": "Lawyer, paralegal",
+   "joltsIndustry": "professional_business",
+   "wages": {
+    "p10": 49400.0,
+    "p25": 64800.0,
+    "p50": 102500.0,
+    "p75": 174620.0,
+    "p90": 287070.0,
+    "employment": 1305620.0
+   },
+   "anchors": [
+    {
+     "soc": "23-1011",
+     "title": "Lawyers",
+     "wages": {
+      "p10": 78360.0,
+      "p25": 102990.0,
+      "p50": 159670.0,
+      "p75": 221370.0,
+      "p90": 351600.0,
+      "employment": 754500.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "education",
+   "label": "Education and library",
+   "soc": "25-0000",
+   "examples": "Teacher, professor, teaching assistant",
+   "joltsIndustry": "government",
+   "wages": {
+    "p10": 32990.0,
+    "p25": 43900.0,
+    "p50": 60570.0,
+    "p75": 79470.0,
+    "p90": 105240.0,
+    "employment": 9100570.0
+   },
+   "anchors": [
+    {
+     "soc": "25-2021",
+     "title": "Elementary school teachers",
+     "wages": {
+      "p10": 47960.0,
+      "p25": 57710.0,
+      "p50": 63970.0,
+      "p75": 81450.0,
+      "p90": 104340.0,
+      "employment": 1388390.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "arts_media",
+   "label": "Arts, design, and media",
+   "soc": "27-0000",
+   "examples": "Designer, writer, producer, athlete",
+   "joltsIndustry": "information",
+   "wages": {
+    "p10": 34700.0,
+    "p25": 44720.0,
+    "p50": 62750.0,
+    "p75": 94530.0,
+    "p90": 134900.0,
+    "employment": 2046290.0
+   },
+   "anchors": [
+    {
+     "soc": "27-1024",
+     "title": "Graphic designers",
+     "wages": {
+      "p10": 39520.0,
+      "p25": 49040.0,
+      "p50": 62960.0,
+      "p75": 81830.0,
+      "p90": 104910.0,
+      "employment": 197830.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "healthcare_pro",
+   "label": "Healthcare professional",
+   "soc": "29-0000",
+   "examples": "Nurse, pharmacist, physician, technician",
+   "joltsIndustry": "health_care",
+   "wages": {
+    "p10": 46270.0,
+    "p25": 63860.0,
+    "p50": 86530.0,
+    "p75": 123540.0,
+    "p90": 171790.0,
+    "employment": 9823860.0
+   },
+   "anchors": [
+    {
+     "soc": "29-1141",
+     "title": "Registered nurses",
+     "wages": {
+      "p10": 68940.0,
+      "p25": 80330.0,
+      "p50": 97550.0,
+      "p75": 112350.0,
+      "p90": 137470.0,
+      "employment": 3379720.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "healthcare_support",
+   "label": "Healthcare support",
+   "soc": "31-0000",
+   "examples": "Nursing assistant, medical assistant, home health aide",
+   "joltsIndustry": "health_care",
+   "wages": {
+    "p10": 28980.0,
+    "p25": 34320.0,
+    "p50": 38340.0,
+    "p75": 45930.0,
+    "p90": 54230.0,
+    "employment": 7901670.0
+   },
+   "anchors": [
+    {
+     "soc": "31-1131",
+     "title": "Nursing assistants",
+     "wages": {
+      "p10": 33940.0,
+      "p25": 37260.0,
+      "p50": 42260.0,
+      "p75": 47220.0,
+      "p90": 51980.0,
+      "employment": 1448910.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "protective",
+   "label": "Protective services",
+   "soc": "33-0000",
+   "examples": "Police officer, firefighter, security guard",
+   "joltsIndustry": "government",
+   "wages": {
+    "p10": 32850.0,
+    "p25": 37350.0,
+    "p50": 50080.0,
+    "p75": 75990.0,
+    "p90": 102470.0,
+    "employment": 3776610.0
+   },
+   "anchors": [
+    {
+     "soc": "33-3051",
+     "title": "Police and sheriff's patrol officers",
+     "wages": {
+      "p10": 47510.0,
+      "p25": 59290.0,
+      "p50": 76210.0,
+      "p75": 97600.0,
+      "p90": 115120.0,
+      "employment": 670520.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "food_service",
+   "label": "Food service and hospitality",
+   "soc": "35-0000",
+   "examples": "Cook, server, bartender, barista",
+   "joltsIndustry": "leisure_hospitality",
+   "wages": {
+    "p10": 23120.0,
+    "p25": 28760.0,
+    "p50": 35050.0,
+    "p75": 41860.0,
+    "p90": 51340.0,
+    "employment": 13680750.0
+   },
+   "anchors": [
+    {
+     "soc": "35-2014",
+     "title": "Cooks, restaurant",
+     "wages": {
+      "p10": 28700.0,
+      "p25": 34010.0,
+      "p50": 37390.0,
+      "p75": 44620.0,
+      "p90": 47900.0,
+      "employment": 1409890.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "cleaning_grounds",
+   "label": "Cleaning and grounds",
+   "soc": "37-0000",
+   "examples": "Janitor, housekeeper, landscaper",
+   "joltsIndustry": "professional_business",
+   "wages": {
+    "p10": 29010.0,
+    "p25": 33930.0,
+    "p50": 37680.0,
+    "p75": 46170.0,
+    "p90": 57420.0,
+    "employment": 4548260.0
+   },
+   "anchors": [
+    {
+     "soc": "37-2011",
+     "title": "Janitors and cleaners",
+     "wages": {
+      "p10": 28640.0,
+      "p25": 32240.0,
+      "p50": 36840.0,
+      "p75": 44060.0,
+      "p90": 50270.0,
+      "employment": 2209760.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "personal_care",
+   "label": "Personal care and service",
+   "soc": "39-0000",
+   "examples": "Hairstylist, childcare worker, fitness trainer",
+   "joltsIndustry": "leisure_hospitality",
+   "wages": {
+    "p10": 26430.0,
+    "p25": 30820.0,
+    "p50": 36410.0,
+    "p75": 46060.0,
+    "p90": 61020.0,
+    "employment": 3255790.0
+   },
+   "anchors": [
+    {
+     "soc": "39-5012",
+     "title": "Hairdressers, hairstylists, and cosmetologists",
+     "wages": {
+      "p10": 27040.0,
+      "p25": 30120.0,
+      "p50": 35790.0,
+      "p75": 48830.0,
+      "p90": 71190.0,
+      "employment": 305710.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "sales_retail",
+   "label": "Sales and retail",
+   "soc": "41-0000",
+   "examples": "Retail associate or manager, sales rep, real estate agent",
+   "joltsIndustry": "retail_trade",
+   "wages": {
+    "p10": 28080.0,
+    "p25": 32440.0,
+    "p50": 38530.0,
+    "p75": 61100.0,
+    "p90": 99850.0,
+    "employment": 13424300.0
+   },
+   "anchors": [
+    {
+     "soc": "41-1011",
+     "title": "First-line supervisors of retail sales workers",
+     "wages": {
+      "p10": 33120.0,
+      "p25": 38590.0,
+      "p50": 48520.0,
+      "p75": 62130.0,
+      "p90": 77080.0,
+      "employment": 1121800.0
+     }
+    },
+    {
+     "soc": "41-2031",
+     "title": "Retail salespersons",
+     "wages": {
+      "p10": 27210.0,
+      "p25": 29900.0,
+      "p50": 35410.0,
+      "p75": 38670.0,
+      "p90": 47890.0,
+      "employment": 3897860.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "office_admin",
+   "label": "Office and administrative support",
+   "soc": "43-0000",
+   "examples": "Admin assistant, customer service, bookkeeper",
+   "joltsIndustry": "total_private",
+   "wages": {
+    "p10": 33530.0,
+    "p25": 38540.0,
+    "p50": 47450.0,
+    "p75": 60060.0,
+    "p90": 76170.0,
+    "employment": 17753430.0
+   },
+   "anchors": [
+    {
+     "soc": "43-4051",
+     "title": "Customer service representatives",
+     "wages": {
+      "p10": 31750.0,
+      "p25": 36870.0,
+      "p50": 44770.0,
+      "p75": 51780.0,
+      "p90": 63590.0,
+      "employment": 2595750.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "farming",
+   "label": "Farming, fishing, and forestry",
+   "soc": "45-0000",
+   "examples": "Farmworker, fisher, logger",
+   "joltsIndustry": "total_private",
+   "wages": {
+    "p10": 31760.0,
+    "p25": 34540.0,
+    "p50": 36630.0,
+    "p75": 44990.0,
+    "p90": 58220.0,
+    "employment": 435200.0
+   },
+   "anchors": [
+    {
+     "soc": "45-2092",
+     "title": "Farmworkers and laborers, crop, nursery, and greenhouse",
+     "wages": {
+      "p10": 32900.0,
+      "p25": 34320.0,
+      "p50": 35660.0,
+      "p75": 38840.0,
+      "p90": 45690.0,
+      "employment": 265500.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "construction",
+   "label": "Construction and extraction trades",
+   "soc": "47-0000",
+   "examples": "Electrician, carpenter, plumber, laborer",
+   "joltsIndustry": "construction",
+   "wages": {
+    "p10": 38100.0,
+    "p25": 46880.0,
+    "p50": 59540.0,
+    "p75": 77970.0,
+    "p90": 101650.0,
+    "employment": 6425160.0
+   },
+   "anchors": [
+    {
+     "soc": "47-2111",
+     "title": "Electricians",
+     "wages": {
+      "p10": 42640.0,
+      "p25": 49430.0,
+      "p50": 63190.0,
+      "p75": 83940.0,
+      "p90": 108510.0,
+      "employment": 757220.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "repair",
+   "label": "Installation, maintenance, and repair",
+   "soc": "49-0000",
+   "examples": "Mechanic, HVAC tech, maintenance worker",
+   "joltsIndustry": "total_private",
+   "wages": {
+    "p10": 37000.0,
+    "p25": 46110.0,
+    "p50": 59620.0,
+    "p75": 76670.0,
+    "p90": 96540.0,
+    "employment": 6086190.0
+   },
+   "anchors": [
+    {
+     "soc": "49-3023",
+     "title": "Automotive service technicians and mechanics",
+     "wages": {
+      "p10": 34660.0,
+      "p25": 38900.0,
+      "p50": 50620.0,
+      "p75": 70430.0,
+      "p90": 81790.0,
+      "employment": 704640.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "production",
+   "label": "Production and manufacturing",
+   "soc": "51-0000",
+   "examples": "Assembler, machinist, welder, plant operator",
+   "joltsIndustry": "manufacturing",
+   "wages": {
+    "p10": 34240.0,
+    "p25": 38130.0,
+    "p50": 46990.0,
+    "p75": 59920.0,
+    "p90": 76990.0,
+    "employment": 8565760.0
+   },
+   "anchors": [
+    {
+     "soc": "51-4121",
+     "title": "Welders, cutters, solderers, and brazers",
+     "wages": {
+      "p10": 39240.0,
+      "p25": 46790.0,
+      "p50": 53750.0,
+      "p75": 63010.0,
+      "p90": 77530.0,
+      "employment": 416210.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "transport",
+   "label": "Transportation and logistics",
+   "soc": "53-0000",
+   "examples": "Truck driver, warehouse worker, pilot",
+   "joltsIndustry": "transportation_warehousing",
+   "wages": {
+    "p10": 31060.0,
+    "p25": 36290.0,
+    "p50": 44350.0,
+    "p75": 55990.0,
+    "p90": 72440.0,
+    "employment": 13677150.0
+   },
+   "anchors": [
+    {
+     "soc": "53-3032",
+     "title": "Heavy and tractor-trailer truck drivers",
+     "wages": {
+      "p10": 40140.0,
+      "p25": 47960.0,
+      "p50": 58640.0,
+      "p75": 69120.0,
+      "p90": 79380.0,
+      "employment": 2062040.0
+     }
+    }
+   ]
+  }
+ ],
+ "stateWageIndex": {
+  "AL": {
+   "median": 45670.0,
+   "wageIndex": 0.896
+  },
+  "AK": {
+   "median": 61000.0,
+   "wageIndex": 1.197
+  },
+  "AZ": {
+   "median": 50060.0,
+   "wageIndex": 0.982
+  },
+  "AR": {
+   "median": 43630.0,
+   "wageIndex": 0.856
+  },
+  "CA": {
+   "median": 58240.0,
+   "wageIndex": 1.142
+  },
+  "CO": {
+   "median": 59800.0,
+   "wageIndex": 1.173
+  },
+  "CT": {
+   "median": 59690.0,
+   "wageIndex": 1.171
+  },
+  "DE": {
+   "median": 52190.0,
+   "wageIndex": 1.024
+  },
+  "DC": {
+   "median": 91540.0,
+   "wageIndex": 1.796
+  },
+  "FL": {
+   "median": 47880.0,
+   "wageIndex": 0.939
+  },
+  "GA": {
+   "median": 48170.0,
+   "wageIndex": 0.945
+  },
+  "HI": {
+   "median": 56320.0,
+   "wageIndex": 1.105
+  },
+  "ID": {
+   "median": 47970.0,
+   "wageIndex": 0.941
+  },
+  "IL": {
+   "median": 51960.0,
+   "wageIndex": 1.019
+  },
+  "IN": {
+   "median": 47860.0,
+   "wageIndex": 0.939
+  },
+  "IA": {
+   "median": 48540.0,
+   "wageIndex": 0.952
+  },
+  "KS": {
+   "median": 48010.0,
+   "wageIndex": 0.942
+  },
+  "KY": {
+   "median": 46920.0,
+   "wageIndex": 0.92
+  },
+  "LA": {
+   "median": 45520.0,
+   "wageIndex": 0.893
+  },
+  "ME": {
+   "median": 51430.0,
+   "wageIndex": 1.009
+  },
+  "MD": {
+   "median": 59510.0,
+   "wageIndex": 1.167
+  },
+  "MA": {
+   "median": 63590.0,
+   "wageIndex": 1.247
+  },
+  "MI": {
+   "median": 49270.0,
+   "wageIndex": 0.966
+  },
+  "MN": {
+   "median": 56920.0,
+   "wageIndex": 1.117
+  },
+  "MS": {
+   "median": 40120.0,
+   "wageIndex": 0.787
+  },
+  "MO": {
+   "median": 47800.0,
+   "wageIndex": 0.938
+  },
+  "MT": {
+   "median": 48740.0,
+   "wageIndex": 0.956
+  },
+  "NE": {
+   "median": 48980.0,
+   "wageIndex": 0.961
+  },
+  "NV": {
+   "median": 47660.0,
+   "wageIndex": 0.935
+  },
+  "NH": {
+   "median": 55880.0,
+   "wageIndex": 1.096
+  },
+  "NJ": {
+   "median": 58570.0,
+   "wageIndex": 1.149
+  },
+  "NM": {
+   "median": 47210.0,
+   "wageIndex": 0.926
+  },
+  "NY": {
+   "median": 59670.0,
+   "wageIndex": 1.17
+  },
+  "NC": {
+   "median": 47970.0,
+   "wageIndex": 0.941
+  },
+  "ND": {
+   "median": 52480.0,
+   "wageIndex": 1.029
+  },
+  "OH": {
+   "median": 49380.0,
+   "wageIndex": 0.969
+  },
+  "OK": {
+   "median": 45600.0,
+   "wageIndex": 0.894
+  },
+  "OR": {
+   "median": 57000.0,
+   "wageIndex": 1.118
+  },
+  "PA": {
+   "median": 49690.0,
+   "wageIndex": 0.975
+  },
+  "RI": {
+   "median": 56780.0,
+   "wageIndex": 1.114
+  },
+  "SC": {
+   "median": 46490.0,
+   "wageIndex": 0.912
+  },
+  "SD": {
+   "median": 47080.0,
+   "wageIndex": 0.923
+  },
+  "TN": {
+   "median": 47380.0,
+   "wageIndex": 0.929
+  },
+  "TX": {
+   "median": 48620.0,
+   "wageIndex": 0.954
+  },
+  "UT": {
+   "median": 50110.0,
+   "wageIndex": 0.983
+  },
+  "VT": {
+   "median": 56390.0,
+   "wageIndex": 1.106
+  },
+  "VA": {
+   "median": 55690.0,
+   "wageIndex": 1.092
+  },
+  "WA": {
+   "median": 62990.0,
+   "wageIndex": 1.236
+  },
+  "WV": {
+   "median": 45300.0,
+   "wageIndex": 0.889
+  },
+  "WI": {
+   "median": 50270.0,
+   "wageIndex": 0.986
+  },
+  "WY": {
+   "median": 50270.0,
+   "wageIndex": 0.986
+  }
+ }
+}

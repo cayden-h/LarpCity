@@ -15,6 +15,7 @@ Full details and sources are in the research files next to this one:
 - [09-wellbeing-meter.md](09-wellbeing-meter.md) (a data-backed wellbeing meter and how it combines with retirement readiness into the final score)
 - [10-teleport-and-goal-skips.md](10-teleport-and-goal-skips.md) (the setup screen before a goal fast-forward, what makes decisions while skipping, what interrupts a skip, rewind branches, and the hackathon-sized version; the age teleport parts are superseded)
 - [11-jobs-and-salary-progression.md](11-jobs-and-salary-progression.md) (job categories, level inference from salary, and the salary progression model; in progress)
+- [12-credit-desk-ui.md](12-credit-desk-ui.md) (simplifying the Credit Desk and market views: what's wrong today, patterns from finance apps, three mockups, and the recommended Money screen)
 
 ## 1. What Larp City is
 
