@@ -1,0 +1,139 @@
+{
+ "animations": {
+  "idle": {
+   "frameWidth": 240,
+   "frameHeight": 285,
+   "frames": 16,
+   "anchorX": 120.4,
+   "anchorY": 277.5,
+   "owlHeight": 271.0,
+   "file": "idle.webp"
+  },
+  "talk": {
+   "frameWidth": 283,
+   "frameHeight": 275,
+   "frames": 16,
+   "anchorX": 147.6,
+   "anchorY": 272.0,
+   "owlHeight": 268.0,
+   "file": "talk.webp"
+  },
+  "wave": {
+   "frameWidth": 249,
+   "frameHeight": 283,
+   "frames": 16,
+   "anchorX": 133.3,
+   "anchorY": 277.0,
+   "owlHeight": 270.0,
+   "file": "wave.webp"
+  },
+  "think": {
+   "frameWidth": 242,
+   "frameHeight": 294,
+   "frames": 16,
+   "anchorX": 111.2,
+   "anchorY": 288.0,
+   "owlHeight": 279.0,
+   "file": "think.webp"
+  },
+  "cheer": {
+   "frameWidth": 296,
+   "frameHeight": 313,
+   "frames": 16,
+   "anchorX": 146.8,
+   "anchorY": 292.0,
+   "owlHeight": 268.5,
+   "file": "cheer.webp"
+  },
+  "magic": {
+   "frameWidth": 345,
+   "frameHeight": 298,
+   "frames": 16,
+   "anchorX": 152.2,
+   "anchorY": 294.0,
+   "owlHeight": 270.0,
+   "file": "magic.webp"
+  },
+  "step": {
+   "frameWidth": 241,
+   "frameHeight": 321,
+   "frames": 16,
+   "anchorX": 113.9,
+   "anchorY": 299.5,
+   "owlHeight": 277.0,
+   "file": "step.webp"
+  },
+  "run": {
+   "frameWidth": 248,
+   "frameHeight": 305,
+   "frames": 16,
+   "anchorX": 129.4,
+   "anchorY": 294.0,
+   "owlHeight": 281.5,
+   "file": "run.webp"
+  },
+  "fly": {
+   "frameWidth": 295,
+   "frameHeight": 301,
+   "frames": 16,
+   "anchorX": 147.8,
+   "anchorY": 275.5,
+   "owlHeight": 248.0,
+   "file": "fly.webp"
+  },
+  "hop": {
+   "frameWidth": 279,
+   "frameHeight": 306,
+   "frames": 16,
+   "anchorX": 134.6,
+   "anchorY": 275.0,
+   "owlHeight": 259.0,
+   "file": "hop.webp"
+  },
+  "tip-hat": {
+   "frameWidth": 298,
+   "frameHeight": 307,
+   "frames": 16,
+   "anchorX": 136.9,
+   "anchorY": 291.0,
+   "owlHeight": 273.0,
+   "file": "tip-hat.webp"
+  },
+  "proud": {
+   "frameWidth": 243,
+   "frameHeight": 312,
+   "frames": 16,
+   "anchorX": 99.1,
+   "anchorY": 299.0,
+   "owlHeight": 285.5,
+   "file": "proud.webp"
+  },
+  "read": {
+   "frameWidth": 251,
+   "frameHeight": 309,
+   "frames": 16,
+   "anchorX": 115.6,
+   "anchorY": 300.0,
+   "owlHeight": 282.5,
+   "file": "read.webp"
+  },
+  "type": {
+   "frameWidth": 263,
+   "frameHeight": 312,
+   "frames": 16,
+   "anchorX": 124.9,
+   "anchorY": 296.0,
+   "owlHeight": 277.5,
+   "file": "type.webp"
+  },
+  "sleep": {
+   "frameWidth": 278,
+   "frameHeight": 260,
+   "frames": 16,
+   "anchorX": 95.4,
+   "anchorY": 255.0,
+   "owlHeight": 211.5,
+   "file": "sleep.webp"
+  }
+ }
+}

@@ -6,12 +6,16 @@ import { Clock } from "./engine/clock";
 import { CityScene } from "./engine/scene";
 import { loadSpriteSet } from "./engine/sprites";
 import type { StateInfo } from "./engine/types";
+import { cueForEvents } from "./narration/lines";
 import { PlayerLife, STARTER_PORTFOLIO } from "./sim/life";
+import { lifeFromIntake } from "./sim/life/intake";
 import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
 import { NpcTown } from "./sim/npcs";
 import { RunRecorder } from "./sim/record";
 import { Hud } from "./ui/hud";
+import { runIntake } from "./ui/intake";
+import { Narrator } from "./ui/narrator";
 import { NpcCard } from "./ui/npccard";
 import { Phone } from "./ui/phone";
 import { FastForward } from "./ui/skip-setup";
@@ -38,10 +42,29 @@ let skipping = 0;
 // The run's seed: the market path and every random draw hang off it (?seed= to replay one).
 const seed = Number(new URLSearchParams(location.search).get("seed")) || 20260912;
 
+// The hash is a state (#CA) or a specialized city (#dallas).
+const fromHash = () => {
+  const h = location.hash.slice(1);
+  return STATES.find((s) => s.abbr === h.toUpperCase()) ?? stateForPin(h.toLowerCase(), STATES);
+};
+// Start where the link points, so the rent the player states belongs to that state.
+state = fromHash() ?? state;
+
+// Onboarding: the owl's voice interview (or the typed form) sets the player's
+// job, pay, rent, debt, and savings before the first day runs; skipping it
+// keeps the sample household.
+const intake = await runIntake({ backdrop: `${import.meta.env.BASE_URL}cities/${state.cityId}/plates/day.jpg` });
+
 // The player's money life: paychecks, rent for the current state, and the
 // debt engine run once per game day (research/07-debt-system-design.md);
 // investments (a starter portfolio from day one) move with the seeded market.
-const player = new PlayerLife({ place: state, day: clock.day, market: new MarketPath(seed, clock.start), holdings: STARTER_PORTFOLIO });
+const market = new MarketPath(seed, clock.start);
+const player = intake
+  ? lifeFromIntake(intake, { place: state, day: clock.day, market })
+  : new PlayerLife({ place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO });
+
+// The owl narrates the big moments from here on (narration/lines.ts).
+const narrator = new Narrator();
 
 // The named NPCs' money lives on the same market (src/data/npcs.ts), and the
 // bank mirror posts the player's and theirs to Capital One Nessie through the
@@ -60,6 +83,7 @@ let shownTier = -1;
 function syncHomeTier() {
   const tier = player.homeTier();
   if (tier !== shownTier) {
+    if (shownTier !== -1) narrator.cue(tier > shownTier ? "home_up" : "home_down");
     shownTier = tier;
     scene?.hero?.setTier(tier);
   }
@@ -71,6 +95,8 @@ clock.onDay((day) => {
     skipping = 0;
     clock.speed = 0;
   }
+  const cue = cueForEvents(events);
+  if (cue) narrator.cue(cue);
   syncHomeTier();
   town.onDay(day);
   void bank.tick(day);
@@ -80,7 +106,10 @@ clock.onDay((day) => {
 async function open(next: StateInfo): Promise<void> {
   const tier = scene?.hero?.tier;
   scene?.destroy();
-  if (next.abbr !== state.abbr) player.setPlace(next, clock.day);
+  if (next.abbr !== state.abbr) {
+    player.setPlace(next, clock.day);
+    narrator.cue("moved");
+  }
   state = next;
   const city = cityFor(next);
   const sprites = await loadSpriteSet(city.id);
@@ -114,7 +143,11 @@ const hud = new Hud(document.getElementById("hud")!, {
     }, step);
   },
   tier: (delta) => scene?.hero?.setTier(scene.hero.tier + delta),
-  event: (id) => scene?.trigger(id),
+  event: (id) => {
+    scene?.trigger(id);
+    if (id === "crash" || id === "boom") narrator.cue(id);
+    else if (id !== "clear") narrator.cue("disaster");
+  },
   sky: (v) => (clock.pinnedTimeOfDay = v),
   zoom: (f) => (f === "reset" ? scene?.resetCamera() : scene?.zoomBy(f)),
   openMap: () => map.open(state),
@@ -130,6 +163,7 @@ const fastForward = new FastForward({
   seed,
   onFinished: (result) => {
     clock.jumpTo(result.toDay);
+    narrator.cue("fast_forward");
     syncHomeTier();
     // The fast-forward ran only the player; catch the NPCs up, then post the skipped months as one summary.
     town.catchUp(result.toDay);
@@ -149,17 +183,24 @@ app.ticker.add((ticker) => {
 });
 setInterval(() => hud.render(clock, scene?.status() ?? null, scene?.hero?.tier ?? null), 200);
 
-// The hash is a state (#CA) or a specialized city (#dallas).
-const fromHash = () => {
-  const h = location.hash.slice(1);
-  return STATES.find((s) => s.abbr === h.toUpperCase()) ?? stateForPin(h.toLowerCase(), STATES);
-};
 // Shared links and back/forward change only the hash, so follow it.
 window.addEventListener("hashchange", () => {
   const s = fromHash();
   if (s && s.cityId !== state.cityId) void open(s);
 });
-await open(fromHash() ?? state);
+await open(state);
+// Show the player's real home from the first frame, not the hero's default tier.
+syncHomeTier();
+
+// The owl opens the story once per browser tab.
+try {
+  if (!sessionStorage.getItem("larp.narrator.arrived")) {
+    sessionStorage.setItem("larp.narrator.arrived", "1");
+    narrator.cue("arrival");
+  }
+} catch {
+  narrator.cue("arrival");
+}
 
 /** Advance the game by `seconds` of simulated frames and render once. Background tabs throttle rAF, so tests use this. */
 function step(seconds: number) {
@@ -179,4 +220,4 @@ async function visit(abbrOrCity: string, seconds = 3) {
 }
 
 // Handy for testing from the console.
-Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, town, bank, recorder, phone, fastForward } });
+Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, town, bank, recorder, phone, fastForward, narrator } });

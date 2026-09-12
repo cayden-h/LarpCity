@@ -91,7 +91,7 @@ What we confirmed by loading it and reading its shipped JS bundles:
 
 | LEGO City | Larp City |
 | --- | --- |
-| Mayor onboarding modal | Voice bot (ElevenLabs) interviews you for your real finances: job, salary, rent, debt |
+| Mayor onboarding modal | The owl narrator (ElevenLabs voice agent) interviews you for your real finances: job, salary, rent, debt, savings |
 | Coin income from buildings | Paychecks hitting your checking account |
 | Dig for bricks, spend on blueprints | Allocate money into Emergency Fund, Roth IRA, 401k, brokerage, savings |
 | Buildings on the map | Each NPC's home and assets; they visibly upgrade or decay with net worth |
@@ -120,7 +120,7 @@ The calendar lets the player review any past event or decision, change it, and s
 - **Backend:** A small Node server holds every API key; the browser only calls our own `/api/*` routes (see [SETUP.md](SETUP.md)).
   Persona's template and environment ids are the only provider values that are safe in the browser.
 - **Bank data:** Capital One Nessie as the fake bank API (the "fake nestlie api" in the notes), with Plaid Sandbox as a stretch "connect your real bank" idea.
-- **Voice:** ElevenLabs for the onboarding interview.
+- **Voice:** ElevenLabs for the owl narrator: the onboarding interview (a voice agent) and the voiced lines for big moments (text to speech with word timings).
 - **Feedback:** An LLM turns the event log into the "what went wrong" post-mortem when an NPC goes broke.
 - **Database:** Tiger Data (Postgres with TimescaleDB) stores every week of NPC finances, market prices, events, and current city data.
 - **Hosting:** Vultr runs the game and backend at a public URL, with a GoDaddy Registry domain pointing at it.
@@ -134,7 +134,7 @@ All of these stack on one Devpost submission, on top of the track, Capital One, 
 | Prize | Reward | How Larp City uses it |
 | --- | --- | --- |
 | Best Use of Gemini API | Google swag kits | Avatar creation from the verified selfie, the aged "future you" avatar, "what went wrong" recaps, and "Your Real Plan" text |
-| Best Use of ElevenLabs | Wireless earbuds | The game's narrator: mayor onboarding, news-anchor alerts for crashes and disasters, and big life moments (bankruptcy, eviction, an NPC's death), plus sound effects and captions |
+| Best Use of ElevenLabs | Wireless earbuds | The owl narrator: a voice-agent onboarding interview, then expressive voiced lines with live captions for big life moments (a debt paid off, collections, bankruptcy, a move, a crash), plus news-anchor alerts and sound effects |
 | Best Use of Tiger Data | Stream Deck Mini | Time-series database for weekly NPC finances, market, events, and current city data, powering live charts, the leaderboard, and calendar rewind (free tier, 750 MB) |
 | Best Use of Vultr | Portable screens | Hosts the game and backend with API keys server-side ($100 MLH credits); stretch: GPU or serverless inference for NPC dialogue |
 | Best Use of Backboard | Tile Essentials Pack | Player memory across sessions, RAG over our research and 2026 rules, and routing between small and large models |

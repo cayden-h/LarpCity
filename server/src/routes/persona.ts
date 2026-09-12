@@ -5,6 +5,7 @@ import { getInquiry, redactInquiry, verifyWebhookSignature } from "../adapters/p
 import { env } from "../env.js";
 import { pool } from "../db.js";
 import { logger } from "../logger.js";
+import { webhookLimiter } from "../middleware/rateLimit.js";
 
 export const personaRouter = Router();
 
@@ -39,7 +40,7 @@ const seenEventIds = new Set<string>();
 
 export const personaWebhookRouter = Router();
 
-personaWebhookRouter.post("/webhook", raw({ type: "*/*" }), (req, res) => {
+personaWebhookRouter.post("/webhook", webhookLimiter, raw({ type: "*/*" }), (req, res) => {
   const secret = env.PERSONA_WEBHOOK_SECRET;
   if (!secret) {
     res.status(503).end();

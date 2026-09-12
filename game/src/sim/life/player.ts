@@ -88,6 +88,10 @@ export interface LifeOptions {
   age?: number;
   /** Gross yearly pay; estimated from take-home until onboarding asks for it. */
   grossAnnual?: number;
+  /** Job title from onboarding. */
+  job?: string;
+  /** Monthly rent the player stated in onboarding; after a move it scales with the new state's housing costs. */
+  rent?: number;
   book?: DebtBook;
   accounts?: Account[];
   /** Cash rate for a date; defaults to the FRED Fed funds snapshot. */
@@ -151,6 +155,8 @@ export class PlayerLife {
   monthlyTakeHome: number;
   /** Gross yearly pay, for the 401(k), its match, and the mortgage test. */
   grossAnnual: number;
+  /** Job title from onboarding; empty for the sample household. */
+  job: string;
   /** The plan from the fast-forward setup screen (sim/skip), in force from the day it was set. */
   orders: StandingOrders | null = null;
   /**
@@ -163,6 +169,8 @@ export class PlayerLife {
   readonly history: LifeSnapshot[] = [];
   private readonly startDay: number;
   private readonly startAge: number;
+  /** The stated rent and the housing price parity it was stated at; null means the state's median rent. */
+  private readonly rentAnchor: { amount: number; housing: number } | null;
   private readonly cashRate: (date: Date) => number;
   private readonly listeners: ((events: LifeEvent[], life: PlayerLife) => void)[] = [];
   private readonly crash = new CrashWatch();
@@ -186,6 +194,8 @@ export class PlayerLife {
     this.book = o.book ?? sampleHousehold(o.day, "avalanche", 300);
     this.monthlyTakeHome = o.monthlyTakeHome ?? this.book.monthlyTakeHome;
     this.grossAnnual = o.grossAnnual ?? Math.round((this.monthlyTakeHome * 12) / TAKE_HOME_SHARE);
+    this.job = o.job ?? "";
+    this.rentAnchor = o.rent === undefined ? null : { amount: o.rent, housing: o.place.rpp.housing };
     // The engine's bankruptcy test compares minimums with the book's take-home, so keep them in sync.
     this.book.monthlyTakeHome = this.monthlyTakeHome;
     this.ledger = new Ledger(o.accounts ?? defaultAccounts(o.day));
@@ -213,8 +223,9 @@ export class PlayerLife {
     return out;
   }
 
-  /** Monthly rent for the current state. */
+  /** Monthly rent for the current state: the stated rent (rescaled after a move), or the state's median. */
   get rent(): number {
+    if (this.rentAnchor) return Math.round((this.rentAnchor.amount * this.place.rpp.housing) / this.rentAnchor.housing);
     return Math.round((US_MEDIAN_RENT * this.place.rpp.housing) / 100);
   }
 
