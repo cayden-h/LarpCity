@@ -18,7 +18,7 @@ import { INSTRUMENTS } from "../sim/market";
 import type { RunRecorder } from "../sim/record";
 
 interface AppDef {
-  id: "stocks" | "goals" | "map" | "weather" | "timeline" | "news" | "mail" | "bank";
+  id: "stocks" | "goals" | "taxes" | "map" | "weather" | "timeline" | "news" | "mail" | "bank";
   name: string;
   icon: string;
   ready: boolean;
@@ -27,6 +27,7 @@ interface AppDef {
 const APPS: AppDef[] = [
   { id: "stocks", name: "Stocks", icon: pixelIcon("stocks"), ready: true },
   { id: "goals", name: "Goals", icon: pixelIcon("goals"), ready: true },
+  { id: "taxes", name: "Taxes", icon: pixelIcon("taxes"), ready: true },
   { id: "map", name: "Map", icon: pixelIcon("map"), ready: true },
   { id: "weather", name: "Weather", icon: pixelIcon("weather"), ready: true },
   { id: "timeline", name: "Timeline", icon: pixelIcon("calendar"), ready: true },
@@ -238,14 +239,8 @@ export class Phone {
               ${sparkline(pts, up).replace('width="56" height="22"', 'width="100%" height="34" preserveAspectRatio="none"')}
               <div class="w-foot">Stocks · as of ${new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
             </button>
-            <div class="app-grid">
-              ${APPS.map(
-                (a) => `<button class="app${a.ready ? "" : " soon"}" data-app="${a.id}" aria-label="${a.name}${a.ready ? "" : " (coming soon)"}">
-                  <span class="app-icon">${a.icon}</span>
-                  <span class="app-name">${a.name}</span>
-                  ${a.ready ? "" : `<span class="app-badge">Soon</span>`}
-                </button>`,
-              ).join("")}
+            <div class="app-grid" data-app-grid>
+              ${this.renderApps()}
             </div>
             <div class="toast" data-toast hidden></div>
           </section>
@@ -324,6 +319,18 @@ export class Phone {
       <button class="phone-toggle-zone" data-toggle aria-label="Put the phone away"></button>`;
   }
 
+  /** The home screen's app grid, redrawn from `markup()` and again from `renderStatus()` so the Taxes badge tracks `pendingTaxReturn()` live. */
+  private renderApps(): string {
+    return APPS.map(
+      (a) => `<button class="app${a.ready ? "" : " soon"}" data-app="${a.id}" aria-label="${a.name}${a.ready ? "" : " (coming soon)"}">
+        <span class="app-icon">${a.icon}</span>
+        <span class="app-name">${a.name}</span>
+        ${a.ready ? "" : `<span class="app-badge">Soon</span>`}
+        ${a.id === "taxes" && this.deps.player.pendingTaxReturn() ? `<span class="app-badge app-badge-alert">File</span>` : ""}
+      </button>`,
+    ).join("");
+  }
+
   private q<T extends HTMLElement = HTMLElement>(sel: string): T {
     return this.el.querySelector(sel) as T;
   }
@@ -373,6 +380,7 @@ export class Phone {
     const app = APPS.find((a) => a.id === id)!;
     if (!app.ready) return this.toast(`${app.name} is coming soon`);
     if (id === "goals") return this.deps.openFastForward?.();
+    if (id === "taxes") return this.openDesk(undefined, "taxes");
     this.show(id);
   }
 
@@ -388,11 +396,12 @@ export class Phone {
     this.resumeSpeed = 0;
   }
 
-  /** Opens the Money window, on a stock's page when `stock` is given (the desk reads #stock=ID). */
-  private openDesk(stock?: string) {
+  /** Opens the Money window, on a stock's page when `stock` is given (#stock=ID) or a specific tab when `tab` is given (#tab=ID). */
+  private openDesk(stock?: string, tab?: string) {
     const frame = this.overlay.querySelector("iframe")!;
-    if (!frame.src) frame.src = `/debt.html${stock ? `#stock=${stock}` : ""}`;
-    else if (stock && frame.contentWindow) frame.contentWindow.location.hash = `stock=${stock}`;
+    const hash = stock ? `#stock=${stock}` : tab ? `#tab=${tab}` : "";
+    if (!frame.src) frame.src = `/debt.html${hash}`;
+    else if (hash && frame.contentWindow) frame.contentWindow.location.hash = hash.slice(1);
     this.resumeSpeed = this.deps.clock.speed || this.resumeSpeed;
     this.deps.clock.speed = 0;
     this.overlay.hidden = false;
@@ -435,6 +444,8 @@ export class Phone {
     );
     // Sponsor prices move with the city clock, so redraw once per game day.
     if (clock.day !== this.stockDay) this.renderStocks();
+    // The Taxes badge tracks pendingTaxReturn(), which can flip as the city plays.
+    this.q("[data-app-grid]").innerHTML = this.renderApps();
   }
 
   /** The HackRice sponsors on the city player's market: today's close, the move since the last trading day, and about six weeks of closes. */
