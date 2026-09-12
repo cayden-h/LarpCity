@@ -3,10 +3,10 @@
 // state's vibe (vibes.ts) shapes the core (water, grid, size, density) and
 // the world around it (terrain, farms, forest, signature features).
 
-import { LayoutBuilder } from "../engine/layout";
-import { hashKeys, rngFor } from "../engine/rng";
+import { LayoutBuilder } from "../engine/layout.ts";
+import { hashKeys, rngFor } from "../engine/rng.ts";
 import type { BackdropDef, BoatKind, CityDef, CityPalette, Climate, LandmarkPlacement, StateInfo, VehicleKind, WeatherKind } from "../engine/types";
-import { DEFAULT_VIBE, VIBES, type Side, type StateVibe } from "./vibes";
+import { DEFAULT_VIBE, VIBES, type Side, type StateVibe } from "./vibes.ts";
 
 interface TemplateStyle {
   shore: "s" | "~" | ".";
@@ -147,13 +147,17 @@ export function templateCity(state: StateInfo): CityDef {
 
   carveWater(L, vibe, rng, W, H);
   const S = vibe.grid;
-  for (let y = 2; y < H - 1; y += S) L.roadX(y, 0, W - 1, "=", 5);
+  const by = 2 + S * Math.max(0, Math.floor((H / 2 - 2) / S) - 1);
+  // The main street: the grid line below the capitol block, widened to four lanes.
+  const main = by + S + 1 < H - 1 ? by + S : -1;
+  for (let y = 2; y < H - 1; y += S) if (y !== main) L.roadX(y, 0, W - 1, "=", 5);
+  if (main >= 0) L.arterialX(main, 0, W - 1, 5);
   for (let x = 2; x < W - 1; x += S) L.roadY(x, 0, H - 1, "=", 5);
   L.frontage(2);
   if (style.shore !== ".") L.shore(style.shore);
 
   // The capitol in its own green square near the middle.
-  const bx = 2 + S * Math.max(0, Math.floor((W / 2 - 2) / S) - 1), by = 2 + S * Math.max(0, Math.floor((H / 2 - 2) / S) - 1);
+  const bx = 2 + S * Math.max(0, Math.floor((W / 2 - 2) / S) - 1);
   const free = (x: number, y: number, w: number, d: number) => {
     for (let j = y; j < y + d; j++) for (let i = x; i < x + w; i++) if (!["b", ".", "p"].includes(L.get(i, j))) return false;
     return true;
@@ -185,6 +189,7 @@ export function templateCity(state: StateInfo): CityDef {
     tagline: vibe.tagline,
     plates: state.cityId,
     layout: L.build(),
+    roads: L.roads(),
     // Towers stand behind the capitol (toward the back of the map) so the
     // skyline frames the dome instead of hiding it.
     zones: [

@@ -4,7 +4,8 @@
 // tower, double-deck freeways box it in, the stadium district lies to the
 // southeast, and big-lot suburbs spread out to the north and east.
 
-import { LayoutBuilder } from "../engine/layout";
+import { LayoutBuilder } from "../engine/layout.ts";
+import type { RoadDef } from "../engine/roads/types";
 import type { CityDef, Climate, LandmarkPlacement } from "../engine/types";
 
 const W = 36, H = 32;
@@ -21,15 +22,17 @@ const fixed: LandmarkPlacement[] = [
 /** Downtown core and the stadium block keep dense frontage; elsewhere lots get yards. */
 const dense = (x: number, y: number) => (x >= 14 && x <= 29 && y >= 4 && y <= 13) || (x >= 24 && x <= 30 && y >= 20 && y <= 27);
 
-function layout(): string[] {
+function layout(): { layout: string[]; roads: RoadDef[] } {
   const L = new LayoutBuilder(W, H);
   // Trinity River, winding south along the west side.
   L.path([[8, -1], [6, 4], [9, 10], [7, 16], [8.5, 21], [6, 26], [7, 33]], "w", 2);
-  // Surface streets and river crossings; 12-13 and 23-24 are double freeways.
-  for (const y of [4, 12, 13, 20, 27]) L.roadX(y);
+  // Surface streets and river crossings; the two freeways are four-lane arterials.
+  for (const y of [4, 20, 27]) L.roadX(y);
+  L.arterialX(12);
   L.roadX(8, 14, 24); // downtown cross street
   L.roadY(1, 4, 27); // Oak Cliff, on the west bank
-  for (const x of [14, 19, 23, 24, 30]) L.roadY(x);
+  for (const x of [14, 19, 30]) L.roadY(x);
+  L.arterialY(23);
   L.frontage(2);
   // The floodplain between the levees: open prairie grass with scattered trees.
   for (let y = 0; y < H; y++)
@@ -56,10 +59,12 @@ function layout(): string[] {
   L.set(27, 3, "h"); // the player's home, on the north suburban road
   L.shore("~", (x, y) => (x * 7 + y * 3) % 5 === 0);
   L.clipCorners(3);
-  return L.build();
+  const g = L.build();
+  return { layout: g, roads: L.roads() };
 }
 
-const grid = layout();
+const core = layout();
+const grid = core.layout;
 const archStart = grid[ARCH_ROW].indexOf("B");
 const archEnd = grid[ARCH_ROW].lastIndexOf("B");
 
@@ -92,6 +97,7 @@ export const dallas: CityDef = {
   tagline: "Big D: glass towers, freeways, and the Trinity River",
   plates: "dallas",
   layout: grid,
+  roads: core.roads,
   zones: [
     { x: 18.5, y: 8.5, r: 5, kind: "downtown" },
     { x: 27, y: 8, r: 3.5, kind: "midtown" },

@@ -170,7 +170,8 @@ export function expandWorld(source: CityDef, seed: number): World {
       zones.push({ x: zx, y: zy, r: 3, kind: "midtown" });
   }
 
-  const city: CityDef = { ...source, layout: g.map((row) => row.join("")), landmarks, zones, traffic: Math.round(source.traffic * 2.4) };
+  const roads = source.roads.map((r) => ({ ...r, path: r.path.map(([x, y]): [number, number] => [x + Mx, y + My]) }));
+  const city: CityDef = { ...source, layout: g.map((row) => row.join("")), roads, landmarks, zones, traffic: Math.round(source.traffic * 2.4) };
   return { city, center: { x: cc, y: cc }, region: { cx: cc, cy: cc, ru: RU, rv: RV } };
 }
 

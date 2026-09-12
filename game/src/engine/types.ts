@@ -3,6 +3,7 @@
 
 import type { Container } from "pixi.js";
 import type { Clock } from "./clock";
+import type { RoadDef } from "./roads/types";
 import type { SpriteSet } from "./sprites";
 
 /**
@@ -150,6 +151,8 @@ export interface CityDef {
   /** Folder under public/cities/ holding the 4 background plates. */
   plates: string;
   layout: string[];
+  /** The road network; the layout's road tiles are stamped from it. */
+  roads: RoadDef[];
   zones: Zone[];
   palette: CityPalette;
   backdrop: BackdropDef;

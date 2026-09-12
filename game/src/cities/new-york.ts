@@ -4,7 +4,8 @@
 // suspension bridge to Brooklyn's brownstones, and the harbor to the south
 // with a small island for the copper statue.
 
-import { LayoutBuilder } from "../engine/layout";
+import { LayoutBuilder } from "../engine/layout.ts";
+import type { RoadDef } from "../engine/roads/types";
 import type { CityDef, Climate, LandmarkPlacement } from "../engine/types";
 
 const landmarks: LandmarkPlacement[] = [
@@ -16,16 +17,18 @@ const landmarks: LandmarkPlacement[] = [
   { id: "ny-statue", x: 10, y: 29, w: 2, d: 2 },
 ];
 
-function layout(): string[] {
+function layout(): { layout: string[]; roads: RoadDef[] } {
   const L = new LayoutBuilder(36, 32);
   L.rect(0, 0, 4, 32, "w"); // Hudson River
   L.rect(27, 0, 3, 32, "w"); // East River
   L.rect(0, 27, 36, 5, "w"); // Upper Bay
-  // Manhattan avenues (north-south) and streets (east-west), three tiles apart.
-  for (const x of [5, 8, 20, 23, 26]) L.roadY(x, 2, 25);
+  // Manhattan avenues (north-south) and streets (east-west), three tiles apart; Fifth Avenue is four lanes.
+  for (const x of [5, 8, 23, 26]) L.roadY(x, 2, 25);
+  L.arterialY(19, 2, 25);
   for (const x of [11, 14, 17]) L.roadY(x, 10, 25); // these stop at the park
   L.roadX(2, 5, 26);
-  for (const y of [16, 19, 25]) L.roadX(y, 5, 26);
+  for (const y of [16, 19]) L.roadX(y, 5, 26);
+  L.arterialX(24, 5, 26);
   // Two crossings to Brooklyn; the lower one carries the stone bridge.
   for (const y of [13, 22]) L.roadX(y, 5, 32);
   L.roadX(10, 5, 26);
@@ -43,8 +46,11 @@ function layout(): string[] {
   L.set(33, 17, "h"); // a Brooklyn brownstone on the waterfront road
   L.shore("s", (x, y) => (x * 5 + y * 3) % 4 === 0);
   L.clipCorners(3);
-  return L.build();
+  const grid = L.build();
+  return { layout: grid, roads: L.roads() };
 }
+
+const core = layout();
 
 // Monthly odds per day, January first. Snowy winters with nor'easters,
 // hot humid summers with thunderstorms, late-summer tropical storms.
@@ -69,7 +75,8 @@ export const newYork: CityDef = {
   state: "NY",
   tagline: "The Big Apple: Art Deco spires, yellow cabs, and harbor ferries",
   plates: "new-york",
-  layout: layout(),
+  layout: core.layout,
+  roads: core.roads,
   zones: [
     { x: 11, y: 22, r: 5, kind: "downtown" },
     { x: 17, y: 15, r: 5, kind: "midtown" },

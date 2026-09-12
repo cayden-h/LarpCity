@@ -2,7 +2,7 @@
 // there, lots in between" instead of a hand-typed ASCII grid. It still
 // produces the same layout strings the engine consumes.
 
-import { defaultLanes, roadWidth, type RoadClass, type RoadDef } from "./roads/types.ts";
+import { defaultLanes, roadTiles, roadWidth, type RoadClass, type RoadDef } from "./roads/types.ts";
 import type { TileChar } from "./types";
 
 const ROADISH = new Set<TileChar>(["=", "B", "t", "O"]);
@@ -195,7 +195,15 @@ export class LayoutBuilder {
     return this;
   }
 
+  /** The layout strings. Road tiles no recorded road covers (1-tile stubs) go back to grass or water. */
   build(): string[] {
+    const covered = new Set<number>();
+    for (const r of this.roads()) for (const [x, y] of roadTiles(r)) covered.add(y * this.w + x);
+    for (let y = 0; y < this.h; y++)
+      for (let x = 0; x < this.w; x++) {
+        const c = this.g[y][x];
+        if (ROADISH.has(c) && !covered.has(y * this.w + x)) this.g[y][x] = c === "B" ? "w" : ".";
+      }
     return this.g.map((row) => row.join(""));
   }
 }
