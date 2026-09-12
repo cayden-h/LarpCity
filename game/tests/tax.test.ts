@@ -154,10 +154,7 @@ import { fileReturn } from "../src/sim/tax/filing.ts";
 test("fileReturn on exactly-covered withholding nets close to $0 for a mid-income single filer", () => {
   // $60,000 wages in Texas (no state tax): withholding was computed by the
   // same annualize-and-divide method, so it should reconcile close to zero.
-  const wagesYtd = 60_000;
-  const federalWithheldYtd = Math.round((Math.max(0, wagesYtd - 16_100) * 0.22 - 0) * 0); // not used directly; see below
-  void federalWithheldYtd;
-  const r = fileReturn({ year: 2026, state: "TX", wagesYtd, federalWithheldYtd: 8_000, stateWithheldYtd: 0 });
+  const r = fileReturn({ year: 2026, state: "TX", wagesYtd: 60_000, federalWithheldYtd: 8_000, stateWithheldYtd: 0 });
   assert.equal(r.wages, 60_000);
   assert.equal(r.stateTax, 0);
   assert.equal(r.stateRefundOrOwed, 0);
@@ -172,10 +169,20 @@ test("fileReturn computes federalTaxableIncome as wages minus the standard deduc
 
 test("fileReturn's federalRefundOrOwed is withheld + eic - tax (positive is a refund)", () => {
   const r = fileReturn({ year: 2026, state: "TX", wagesYtd: 40_000, federalWithheldYtd: 5_000, stateWithheldYtd: 0 });
-  assert.equal(r.federalRefundOrOwed, Math.round((5_000 + r.eic - r.federalTax) * 100) / 100);
+  // Hand-computed: federalTaxableIncome = max(0, 40,000 - 16,100) = 23,900
+  // federalTax(23,900): 10% on $12,400 = $1,240; 12% on ($23,900 - $12,400) = $1,380. Total = $2,620
+  // childlessEic(40,000) = 0 (above the $19,540 income limit)
+  // federalRefundOrOwed = 5,000 + 0 - 2,620 = 2,380
+  assert.equal(r.eic, 0);
+  assert.equal(r.federalTax, 2_620);
+  assert.equal(r.federalRefundOrOwed, 2_380);
 });
 
 test("fileReturn's stateRefundOrOwed is state withheld minus state tax", () => {
   const r = fileReturn({ year: 2026, state: "OH", wagesYtd: 50_000, federalWithheldYtd: 6_000, stateWithheldYtd: 900 });
-  assert.equal(r.stateRefundOrOwed, Math.round((900 - r.stateTax) * 100) / 100);
+  // Hand-computed: federalTaxableIncome = max(0, 50,000 - 16,100) = 33,900
+  // OH is flat 2.75% on taxable income: 33,900 × 0.0275 = 932.25
+  // stateRefundOrOwed = 900 - 932.25 = -32.25
+  assert.equal(r.stateTax, 932.25);
+  assert.equal(r.stateRefundOrOwed, -32.25);
 });
