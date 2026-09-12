@@ -5,6 +5,7 @@ import { parsePostCall, verifyElevenLabsSignature } from "../adapters/elevenlabs
 import { pool } from "../db.js";
 import { env } from "../env.js";
 import { logger } from "../logger.js";
+import { webhookLimiter } from "../middleware/rateLimit.js";
 
 export const voiceRouter = Router();
 
@@ -98,7 +99,7 @@ export const voiceWebhookRouter = Router();
 
 // ElevenLabs retries non-200 answers and disables the webhook after repeated
 // failures, so only a bad signature or a database error gets one.
-voiceWebhookRouter.post("/webhook", raw({ type: "*/*", limit: "5mb" }), async (req, res) => {
+voiceWebhookRouter.post("/webhook", webhookLimiter, raw({ type: "*/*", limit: "5mb" }), async (req, res) => {
   const secret = env.ELEVENLABS_WEBHOOK_SECRET;
   if (!secret) {
     res.status(503).end();
