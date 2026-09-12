@@ -156,3 +156,13 @@ test("listCustomers, listDeposits, and listWithdrawals never call live", async (
   await failover.listWithdrawals(account._id);
   assert.deepEqual(live.calls, [], "all three reads were served from local");
 });
+
+test("a localOnly FailoverNessie never calls live.createCustomer, even when live would succeed", async () => {
+  const live = fakeLive();
+  const local = fakeLocalNessie();
+  const failover = new FailoverNessie(live, local, { localOnly: true });
+
+  await failover.createCustomer({ first_name: "Bg", last_name: "Npc", address: HOUSTON });
+  assert.equal(live.calls.length, 0, "live.createCustomer was never called");
+  assert.equal(local.customers[0].nessieId, null);
+});

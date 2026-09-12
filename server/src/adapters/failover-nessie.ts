@@ -12,6 +12,7 @@ export class FailoverNessie implements NessieLike {
   constructor(
     private readonly live: NessieLike,
     private readonly local: LocalNessieLike,
+    private readonly opts: { localOnly?: boolean } = {},
   ) {}
 
   async listCustomers(): Promise<Customer[]> {
@@ -19,6 +20,7 @@ export class FailoverNessie implements NessieLike {
   }
 
   async createCustomer(c: Omit<Customer, "_id">): Promise<Customer> {
+    if (this.opts.localOnly) return this.local.insertCustomer(c, { localOnly: true });
     const created = await this.local.insertCustomer(c);
     try {
       const live = await this.live.createCustomer(c);

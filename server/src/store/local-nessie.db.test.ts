@@ -101,3 +101,13 @@ test("deposits and withdrawals are stored per account and kind, and only queued 
   await local.markTransactionSynced(tx._id, "real-tx-5");
   assert.ok(!(await local.listUnsyncedTransactions()).some((t) => t._id === tx._id));
 });
+
+test("a local-only customer is excluded from listUnsyncedCustomers forever", { skip }, async () => {
+  const normal = await local.insertCustomer({ first_name: "Primary", last_name: "Test-Primary", address: HOUSTON });
+  const bg = await local.insertCustomer({ first_name: "Background", last_name: "Test-Background", address: HOUSTON }, { localOnly: true });
+
+  const unsynced = await local.listUnsyncedCustomers();
+  const ids = unsynced.map((c) => c._id);
+  assert.ok(ids.includes(normal._id), "a normal customer is still eligible for replay");
+  assert.ok(!ids.includes(bg._id), "a local-only customer must never appear, even though its nessieId is also null");
+});
