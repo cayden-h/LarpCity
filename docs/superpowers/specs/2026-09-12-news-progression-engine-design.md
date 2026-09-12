@@ -2,7 +2,7 @@
 
 Date: 2026-09-12
 Branch: `NewsEngine`
-Status: Approved design, on hold until other open PRs (Nessie fallback, etc.) merge to `main`; this doc is the starting point when work resumes.
+Status: Implemented (docs/superpowers/plans/2026-09-12-news-progression-engine.md). The scorer, storage, and lazy writer described below are built and live behind `GET /api/news/:runId`. Still deferred, per "Explicitly out of scope" below: the frontend News app UI, the random event/rate engine, the fast-forward interrupt engine, and real server-side branch forking (branch_id exists and defaults to the run's own id).
 
 ## Problem
 
