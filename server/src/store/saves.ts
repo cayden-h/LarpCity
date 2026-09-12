@@ -72,31 +72,51 @@ export async function getSave(db: Db, playerId: string): Promise<SaveRow | null>
   return { runId: r.run_id, seed: Number(r.seed), version: r.version, gameDay: r.game_day, state: r.state, rev: r.rev, updatedAt: new Date(r.updated_at).toISOString() };
 }
 
-/** Writes the save and returns its new rev; throws SaveConflict when `baseRev` is stale. */
+// A save may only target a run that is still live and belongs to this player,
+// with that run's own seed. Without this, a stale tab that never saved (and
+// so still holds baseRev null with an old runId) could resurrect a life that
+// "New life" already ended, and a mismatched seed would decode a different
+// market than the one the run actually played.
+const RUN_IS_LIVE_AND_OWNED = `EXISTS (
+  SELECT 1 FROM runs WHERE id = $2 AND player_id = $1 AND ended_at IS NULL AND seed = $3
+)`;
+
+/** Writes the save and returns its new rev; throws SaveConflict when `baseRev` is stale, or the run is not a live run of this player with its own seed. */
 export async function putSave(db: Db, playerId: string, w: SaveWrite): Promise<number> {
   const params = [playerId, w.runId, w.seed, w.version, w.gameDay, JSON.stringify(w.state)];
   const { rows } =
     w.baseRev === null
       ? await db.query<{ rev: number }>(
-          `INSERT INTO saves (player_id, run_id, seed, version, game_day, state) VALUES ($1, $2, $3, $4, $5, $6)
+          `INSERT INTO saves (player_id, run_id, seed, version, game_day, state)
+           SELECT $1, $2, $3, $4, $5, $6 WHERE ${RUN_IS_LIVE_AND_OWNED}
            ON CONFLICT (player_id, slot) DO NOTHING RETURNING rev`,
           params,
         )
       : await db.query<{ rev: number }>(
           `UPDATE saves SET run_id = $2, seed = $3, version = $4, game_day = $5, state = $6, rev = rev + 1, updated_at = now()
-           WHERE player_id = $1 AND slot = 'main' AND rev = $7 RETURNING rev`,
+           WHERE player_id = $1 AND slot = 'main' AND rev = $7 AND ${RUN_IS_LIVE_AND_OWNED} RETURNING rev`,
           [...params, w.baseRev],
         );
   if (!rows[0]) throw new SaveConflict("stale save");
   return rows[0].rev;
 }
 
-/** "New life": forgets the save and the profile and marks the saved run ended. */
+/** "New life": forgets the save and the profile and marks the saved run ended, all in one transaction. */
 export async function deleteLife(db: Db, playerId: string): Promise<void> {
-  await db.query(
-    `UPDATE runs SET ended_at = now() WHERE id = (SELECT run_id FROM saves WHERE player_id = $1 AND slot = 'main') AND ended_at IS NULL`,
-    [playerId],
-  );
-  await db.query(`DELETE FROM saves WHERE player_id = $1`, [playerId]);
-  await db.query(`DELETE FROM profiles WHERE player_id = $1`, [playerId]);
+  const c = await db.connect();
+  try {
+    await c.query("BEGIN");
+    await c.query(
+      `WITH d AS (DELETE FROM saves WHERE player_id = $1 RETURNING run_id)
+       UPDATE runs SET ended_at = now() WHERE id IN (SELECT run_id FROM d) AND ended_at IS NULL`,
+      [playerId],
+    );
+    await c.query(`DELETE FROM profiles WHERE player_id = $1`, [playerId]);
+    await c.query("COMMIT");
+  } catch (err) {
+    await c.query("ROLLBACK");
+    throw err;
+  } finally {
+    c.release();
+  }
 }

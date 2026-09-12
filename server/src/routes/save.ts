@@ -19,6 +19,16 @@ export const saveRouter = Router();
 /** A 60-year save is under 1 MB once history is compacted (game/src/sim/save/codec.ts). */
 export const MAX_STATE_BYTES = 1_500_000;
 
+// The 50 states plus DC, mirroring game/src/data/states.ts (STATES[].abbr).
+export const US_STATES = new Set([
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA",
+  "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM",
+  "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA",
+  "WV", "WI", "WY",
+]);
+
+const usState = z.string().regex(/^[A-Z]{2}$/).refine((s) => US_STATES.has(s), "not a US state");
+
 const dollars = z.number().finite().min(0).max(10_000_000);
 
 export const profileBody = z.discriminatedUnion("source", [
@@ -29,7 +39,7 @@ export const profileBody = z.discriminatedUnion("source", [
     rent: dollars,
     debt: dollars,
     savings: dollars,
-    state: z.string().regex(/^[A-Z]{2}$/),
+    state: usState,
   }),
   z.object({
     source: z.literal("skipped"),
@@ -38,7 +48,7 @@ export const profileBody = z.discriminatedUnion("source", [
     rent: z.null(),
     debt: z.null(),
     savings: z.null(),
-    state: z.string().regex(/^[A-Z]{2}$/),
+    state: usState,
   }),
 ]);
 
@@ -47,7 +57,7 @@ export const saveBody = z.object({
   seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
   version: z.number().int().min(1).max(1000),
   gameDay: z.number().int().min(0).max(100_000),
-  state: z.record(z.unknown()).refine((s) => JSON.stringify(s).length <= MAX_STATE_BYTES, "save too large"),
+  state: z.record(z.unknown()).refine((s) => Buffer.byteLength(JSON.stringify(s)) <= MAX_STATE_BYTES, "save too large"),
   baseRev: z.number().int().min(1).nullable(),
 });
 

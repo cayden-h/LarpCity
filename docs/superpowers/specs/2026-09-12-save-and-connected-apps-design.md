@@ -140,5 +140,5 @@ The `pagehide` save uses `keepalive` only when the body is under the browser's 6
 
 - Round-trip test in `game/tests/`: for several seeds and intakes, play decisions and skips, save and restore at random days, continue N days, and assert the restored game equals an unsaved control (every balance, event, and score).
 - Codec edge cases: `Map` state, bankruptcy, an unknown version.
-- Server database tests: profile and save upserts, 409 on a stale `baseUpdatedAt`, the size cap, and that one player cannot read or write another's save or run.
+- Server database tests: profile and save upserts, 409 on a stale `baseRev`, the size cap, and that one player cannot read or write another's save or run.
 - End-to-end in the browser: intake, play a few months with a trade and a card application, reload and see the same day and money; open standalone `/debt.html` and see the same life; open two tabs and see the conflict notice; stop the server and see the offline chip.
