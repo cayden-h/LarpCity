@@ -26,6 +26,7 @@ test("the prompts carry the facts and the rules, and nothing the browser wrote",
   const p = coachPrompt(facts);
   assert.match(p, /reached a goal/);
   assert.match(p, /Use only the facts below/);
+  assert.match(p, /sentence case/);
   assert.ok(p.includes(JSON.stringify(facts)));
   const n = newsPrompt(news);
   assert.match(n, /1 to 4 short stories/);
