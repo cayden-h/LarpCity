@@ -13,8 +13,8 @@ export function gameDate(day: number): string {
   return new Date(GAME_START_MS + day * 86_400_000).toISOString().slice(0, 10);
 }
 
-/** The meeting's three feedback moments (2026-09-11): a goal, bankruptcy, and a big portfolio swing. */
-export type Trigger = "goal" | "bankruptcy" | "swing";
+/** The meeting's three feedback moments (2026-09-11): a goal, bankruptcy, and a big portfolio swing; plus the market's recovery after a crash. */
+export type Trigger = "goal" | "bankruptcy" | "swing" | "recovery";
 
 export interface FeedbackFacts {
   trigger: Trigger;
@@ -36,6 +36,26 @@ export interface FeedbackFacts {
     paidOff: string[];
     bankruptcyReason?: string;
   };
+  /** Recovery only: the last crash and how each investing line came through. */
+  recovery?: RecoveryFacts;
+}
+
+/** A crash and its recovery, from the run's bear_market, trade, and market_recovered events (game/src/sim/life/player.ts). */
+export interface RecoveryFacts {
+  /** How far stocks fell from their high, in whole percent. */
+  dropPct: number;
+  /** Months from the crash to the new high. */
+  months: number;
+  /** What the player did in between, read from their trades (auto-invest buys don't count). */
+  choice: "held" | "sold" | "bought more";
+  sold: number;
+  bought: number;
+  /** The player's investing line, the same buys never sold, and the 90/10 autopilot, at the recovery. */
+  you: number;
+  held: number;
+  autopilot: number;
+  /** held minus you: what selling cost (negative when the player came out ahead). */
+  costOfSelling: number;
 }
 
 export interface Story {
@@ -86,14 +106,24 @@ const str = (v: unknown) => (typeof v === "string" ? v : "");
 /**
  * `snapshots` are the run's daily rows up to `day` (at least the last 90 days);
  * `events` are its events from the 180 days before `day`.
+ * `recoveryEvents` are the run's bear_market, market_recovered, and trade events far enough back to
+ * include the last crash; they default to `events`.
  */
-export function feedbackFacts(trigger: Trigger, day: number, snapshots: SnapshotRow[], events: EventRow[], goal?: string): FeedbackFacts {
+export function feedbackFacts(
+  trigger: Trigger,
+  day: number,
+  snapshots: SnapshotRow[],
+  events: EventRow[],
+  goal?: string,
+  recoveryEvents: EventRow[] = events,
+): FeedbackFacts {
   const sorted = [...snapshots].filter((s) => s.day <= day).sort((a, b) => a.day - b.day);
   const now = sorted[sorted.length - 1];
   if (!now) throw new Error("no snapshot recorded for that day yet");
   const then = sorted.find((s) => s.day >= day - 90);
   const back = then && then.day <= day - 60 ? then : null; // only compare when the window is really there
   const bankruptcy = [...events].reverse().find((e) => e.kind === "bankruptcy_eligible");
+  const recovery = trigger === "recovery" ? recoveryFacts(day, recoveryEvents) : null;
   return {
     trigger,
     date: gameDate(day),
@@ -112,6 +142,31 @@ export function feedbackFacts(trigger: Trigger, day: number, snapshots: Snapshot
       paidOff: events.filter((e) => e.kind === "paid_off").map((e) => str(e.payload.name)).filter(Boolean),
       ...(bankruptcy ? { bankruptcyReason: str(bankruptcy.payload.reason) } : {}),
     },
+    ...(recovery ? { recovery } : {}),
+  };
+}
+
+/** The last recovery at or before `day` and the bear market before it; null when the run has no such pair. */
+export function recoveryFacts(day: number, events: EventRow[]): RecoveryFacts | null {
+  const sorted = [...events].sort((a, b) => a.day - b.day);
+  const rec = sorted.filter((e) => e.kind === "market_recovered" && e.day <= day).at(-1);
+  const bear = rec && sorted.filter((e) => e.kind === "bear_market" && e.day <= rec.day).at(-1);
+  if (!rec || !bear) return null;
+  const trades = sorted.filter((e) => e.kind === "trade" && e.day >= bear.day && e.day <= rec.day && e.payload.recurring !== true);
+  const total = (side: string) => trades.filter((e) => e.payload.side === side).reduce((s, e) => s + num(e.payload.amount), 0);
+  const sold = total("sell");
+  const bought = total("buy");
+  const p = rec.payload;
+  return {
+    dropPct: Math.round(num(bear.payload.drop) * 100),
+    months: Math.max(0, Math.round((rec.day - bear.day) / 30.44)),
+    choice: sold > 0 ? "sold" : bought > 0 ? "bought more" : "held",
+    sold: whole(sold),
+    bought: whole(bought),
+    you: whole(num(p.you)),
+    held: whole(num(p.held)),
+    autopilot: whole(num(p.autopilot)),
+    costOfSelling: whole(num(p.held) - num(p.you)),
   };
 }
 
@@ -206,6 +261,14 @@ export function templateFeedback(f: FeedbackFacts): Feedback {
     return change >= 0
       ? { headline: "A big run-up", tip: `${moved} A big win is a good time to rebalance, so one holding doesn't decide your future.`, mood: "warn" }
       : { headline: "A rough stretch for the market", tip: `${moved} Selling after a drop locks the loss in; money you won't need for five years has historically had time to recover.`, mood: "console" };
+  }
+  if (f.trigger === "recovery") {
+    const r = f.recovery;
+    if (!r) return { headline: "Stocks are back at their high", tip: "Holding through a drop is how investors get the rebound.", mood: "cheer" };
+    const back = `Stocks fell ${r.dropPct}% and took ${r.months} month${r.months === 1 ? "" : "s"} to get back to their high.`;
+    if (r.costOfSelling > 1) return { headline: `Selling cost you ${money(r.costOfSelling)}`, tip: `${back} You have ${money(r.you)}; holding would be worth ${money(r.held)}. Money you won't need for years can ride out a drop.`, mood: "console" };
+    if (r.costOfSelling < -1) return { headline: `You came out ${money(-r.costOfSelling)} ahead`, tip: `${back} You beat holding this time, but most people who sell in a crash miss the rebound.`, mood: "warn" };
+    return { headline: "You rode it out", tip: `${back} Holding through it got you the whole rebound: ${money(r.you)} now.`, mood: "cheer" };
   }
   return {
     headline: f.goal ? `You reached ${f.goal}` : "Goal reached",

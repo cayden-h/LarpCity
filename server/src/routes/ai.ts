@@ -3,7 +3,7 @@
 // data in Tiger Data (src/ai/facts.ts), never from text the browser sends,
 // and fall back to plain-text versions when Gemini is busy (src/ai/coach.ts).
 //
-//   POST /api/feedback  { runId, trigger: goal|bankruptcy|swing, day, goal? } -> { headline, tip, mood, source, model?, facts }
+//   POST /api/feedback  { runId, trigger: goal|bankruptcy|swing|recovery, day, goal? } -> { headline, tip, mood, source, model?, facts }
 //   POST /api/news      { runId, from, to }                                   -> { stories, source, model?, facts }
 //   POST /api/avatar    { selfieBase64, styleBase64 }                          -> { imageBase64 }  (verified adults only)
 import { Router } from "express";
@@ -37,7 +37,7 @@ const day = z.number().int().min(0).max(100_000);
 
 const feedbackBody = z.object({
   runId: z.string(),
-  trigger: z.enum(["goal", "bankruptcy", "swing"]),
+  trigger: z.enum(["goal", "bankruptcy", "swing", "recovery"]),
   day,
   /** The goal's name from the game's goal list, for the headline. */
   goal: z.string().regex(/^[A-Za-z0-9 $,.'()%-]{1,60}$/).optional(),
@@ -57,7 +57,10 @@ aiRouter.post(
       const snaps = (await history(pool, runId, "day", Math.max(0, b.day - 100), b.day)) as SnapshotRow[];
       if (!snaps.length) throw new HttpError(409, "No snapshots recorded for that day yet.");
       const events = await listEvents(pool, runId, { from: Math.max(0, b.day - 180), to: b.day });
-      const facts = feedbackFacts(b.trigger, b.day, snaps, events, b.goal);
+      // A crash and its recovery can be years apart, beyond 180 days; listEvents caps at 5,000 rows.
+      const recoveryEvents =
+        b.trigger === "recovery" ? await listEvents(pool, runId, { from: Math.max(0, b.day - 3650), to: b.day, kinds: ["bear_market", "market_recovered", "trade"] }) : events;
+      const facts = feedbackFacts(b.trigger, b.day, snaps, events, b.goal, recoveryEvents);
       const r = await coachFeedback(gemini, facts);
       return { ...r.feedback, source: r.source, ...(r.model ? { model: r.model } : {}), facts };
     });

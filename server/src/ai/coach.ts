@@ -67,6 +67,8 @@ const MOMENT: Record<Trigger, string> = {
   goal: "The player just reached a goal. Say what got them there, and how they could reach the next goal sooner.",
   bankruptcy: "The player just became eligible for bankruptcy. Explain what went wrong and what could have been done differently, kindly.",
   swing: "The player's investments moved a lot in three months. Up or down, nudge them toward diversifying and staying the course.",
+  recovery:
+    "Stocks just got back to their old high after a crash. Compare what the player has now with what holding and the autopilot would have, name what their choice cost or earned in dollars, and say what that teaches about crashes.",
 };
 
 export function coachPrompt(f: FeedbackFacts): string {
