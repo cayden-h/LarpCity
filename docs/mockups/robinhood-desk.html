@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Larp City Money - Robinhood-style prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* Robinhood-style prototype for the Credit Desk. Green #00C805 and orange-red #FF5000 follow Robinhood;
+     the accent follows the direction of whatever the big number is showing. */
+  :root { --up: #00c805; --down: #ff5000; --accent: var(--up); --ink: #0b0b0c; --sub: #6b7280; --line: #ececef; --soft: #f5f6f7; --bg: #fff; }
+  * { box-sizing: border-box; }
+  html { scrollbar-gutter: stable; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 "Inter", system-ui, -apple-system, sans-serif; font-variant-numeric: tabular-nums; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+  header { position: sticky; top: 0; z-index: 3; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .nav { max-width: 1080px; margin: 0 auto; display: flex; align-items: center; gap: 28px; padding: 14px 24px; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+  .logo i { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--ink); color: #fff; font-style: normal; font-size: 14px; }
+  .tabs { display: flex; gap: 22px; flex: 1; overflow-x: auto; }
+  .tabs button { padding: 6px 0; font-weight: 600; color: var(--sub); border-bottom: 2px solid transparent; white-space: nowrap; }
+  .tabs button.on { color: var(--ink); border-color: var(--accent); }
+  .clock { display: flex; align-items: center; gap: 10px; color: var(--sub); font-size: 13px; white-space: nowrap; }
+  .clock button { width: 30px; height: 30px; border-radius: 50%; background: var(--soft); font-size: 12px; }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 28px 24px 80px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 48px; }
+  @media (max-width: 880px) { main { grid-template-columns: minmax(0, 1fr); } }
+
+  .eyebrow { color: var(--sub); font-weight: 500; }
+  .hero { font-size: 44px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-top: 4px; }
+  .change { font-weight: 500; margin-top: 4px; color: var(--accent); }
+  .change span { color: var(--sub); }
+
+  .chart { position: relative; margin: 18px 0 6px; height: 260px; }
+  .chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .chart .when { position: absolute; top: -18px; transform: translateX(-50%); font-size: 12px; color: var(--sub); white-space: nowrap; pointer-events: none; }
+  .ranges { display: flex; gap: 6px; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+  .ranges button { padding: 5px 12px; border-radius: 999px; font-weight: 600; font-size: 13px; }
+  .ranges button:hover { background: var(--soft); }
+  .ranges button.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+  .rowhead { display: flex; justify-content: space-between; align-items: baseline; margin: 28px 0 4px; }
+  .rowhead h2 { font-size: 20px; margin: 0; }
+  .rowhead span { color: var(--sub); font-size: 13px; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) 72px auto; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); width: 100%; text-align: left; }
+  .row:hover { background: var(--soft); margin: 0 -12px; padding: 14px 12px; width: calc(100% + 24px); border-radius: 10px; }
+  .row b { display: block; font-weight: 600; }
+  .row small { color: var(--sub); font-size: 13px; }
+  .pill { min-width: 88px; text-align: center; padding: 7px 10px; border-radius: 8px; color: #fff; font-weight: 600; font-size: 14px; }
+  .pill.up { background: var(--up); } .pill.down { background: var(--down); } .pill.flat { background: #9ca3af; }
+  .spark { width: 72px; height: 28px; }
+
+  .side { position: sticky; top: 90px; align-self: start; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .side h3 { margin: 0; padding: 16px 18px; font-size: 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; }
+  .side .row { padding: 12px 18px; grid-template-columns: minmax(0, 1fr) 56px auto; border-bottom: 1px solid var(--line); }
+  .side .row:hover { margin: 0; width: 100%; border-radius: 0; padding: 12px 18px; }
+  .side .pill { min-width: 72px; font-size: 13px; padding: 6px 8px; }
+
+  .move { margin-top: 24px; border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: flex; gap: 16px; align-items: center; justify-content: space-between; }
+  .move p { margin: 2px 0 0; color: var(--sub); }
+  .cta { background: var(--accent); color: #fff; font-weight: 600; padding: 10px 22px; border-radius: 999px; white-space: nowrap; }
+  .cta.ghost { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+  .seg { display: flex; gap: 6px; margin-top: 16px; flex-wrap: wrap; }
+  .seg button { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); font-weight: 600; font-size: 14px; }
+  .seg button.on { border-color: var(--accent); color: var(--accent); }
+  .meter { height: 6px; background: var(--soft); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+  .meter span { display: block; height: 100%; background: var(--accent); }
+  .chip { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .foot { color: var(--sub); font-size: 12px; margin-top: 28px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="nav">
+    <div class="logo"><i>L</i>Larp City</div>
+    <nav class="tabs" data-tabs>
+      <button data-tab="home" class="on">Home</button>
+      <button data-tab="investing">Investing</button>
+      <button data-tab="debt">Debt</button>
+      <button data-tab="credit">Credit</button>
+      <button data-tab="cards">Cards</button>
+    </nav>
+    <div class="clock"><span>Fri, Sep 11, 2026</span><button aria-label="Pause">❚❚</button><button aria-label="Skip a month">+1M</button></div>
+  </div>
+</header>
+<main>
+  <section data-main></section>
+  <aside class="side" data-side></aside>
+</main>
+
+<script>
+// ---- Fake but plausible data from the Credit Desk's default save --------------------------------
+let seed = 7;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const DAY = 86400000, TODAY = new Date("2026-09-11T12:00:00").getTime();
+function walk(days, end, drift, vol) {
+  // Walk backwards from today's value so the series always lands on the real number.
+  const out = [end];
+  for (let i = 1; i < days; i++) out.unshift(out[0] - drift - (rnd() - 0.5) * vol);
+  return out.map((y, i) => ({ t: TODAY - (days - 1 - i) * DAY, y }));
+}
+const SERIES = {
+  networth: walk(730, -40800, 9, 260),
+  cash: walk(730, 3700, 1.2, 180),
+  invest: walk(730, 0, 0, 0),
+  sp500: walk(730, 7657, 3.4, 60),
+  score: walk(730, 665, 0.04, 1.4).map((p) => ({ ...p, y: Math.round(p.y) })),
+};
+// Debt looks forward: the plan's payoff path vs minimums (months ahead).
+const PLAN = Array.from({ length: 49 }, (_, m) => ({ t: TODAY + m * 30.4 * DAY, y: Math.max(0, 44500 * (1 - m / 48) ** 1.15) }));
+const MINS = Array.from({ length: 49 }, (_, m) => ({ t: TODAY + m * 30.4 * DAY, y: 44500 * (1 - m / 270) }));
+const DEBTS = [
+  { name: "Brickstone Visa", sub: "Credit card · 78% used", bal: 7000, apr: 23.96, gone: "Mar 2028", first: true },
+  { name: "Furniture loan", sub: "Personal loan · $60/mo", bal: 1500, apr: 11, gone: "Jan 2028" },
+  { name: "Car loan", sub: "Auto loan · $420/mo", bal: 14000, apr: 6.9, gone: "Aug 2029" },
+  { name: "Student loans", sub: "Federal · $250/mo", bal: 22000, apr: 6.39, gone: "Sep 2030" },
+];
+const FUNDS = [
+  { t: "LTM", name: "Larp Total Market", s: walk(60, 312.4, 0.3, 4), fee: "0.03% fee" },
+  { t: "BOND", name: "City Bond Fund", s: walk(60, 72.1, 0.01, 0.5), fee: "0.04% fee" },
+  { t: "NNST", name: "NeuralNest", s: walk(60, 188.2, 1.4, 9), fee: "Single stock" },
+  { t: "LWP", name: "Larp Water & Power", s: walk(60, 41.3, -0.02, 0.7), fee: "Single stock" },
+];
+const RANGES = { "1W": 7, "1M": 30, "3M": 91, "1Y": 365, "ALL": 730 };
+
+// ---- Helpers ----------------------------------------------------------------------------------
+const usd = (n, d = 0) => `${n < 0 ? "−" : ""}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d })}`;
+const signed = (n, d = 2) => `${n >= 0 ? "+" : "-"}${usd(Math.abs(n), d)}`;
+const dateLabel = (t, withYear = true) => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", ...(withYear ? { year: "numeric" } : {}) });
+const $ = (s) => document.querySelector(s);
+let tab = "home", range = "1M", strategy = "avalanche";
+
+function setAccent(up) { document.documentElement.style.setProperty("--accent", up ? "var(--up)" : "var(--down)"); }
+
+function spark(pts, goodWhenUp = true) {
+  const ys = pts.map((p) => p.y), min = Math.min(...ys), max = Math.max(...ys);
+  const up = ys[ys.length - 1] >= ys[0];
+  const d = pts.map((p, i) => `${i ? "L" : "M"}${((i / (pts.length - 1)) * 72).toFixed(1)},${(26 - ((p.y - min) / (max - min || 1)) * 24).toFixed(1)}`).join("");
+  return `<svg class="spark" viewBox="0 0 72 28"><path d="${d}" fill="none" stroke="${up === goodWhenUp ? "var(--up)" : "var(--down)"}" stroke-width="1.6"/></svg>`;
+}
+
+// The big chart: one line, no axes, dotted baseline at the range's starting value, hover to scrub.
+function bigChart(pts, { baseline = true, ghost = null, fmt, label, goodWhenUp = true, future = false, minSpan = 0 }) {
+  const all = ghost ? pts.concat(ghost) : pts;
+  const ys = all.map((p) => p.y);
+  // minSpan keeps tiny moves (a 1-point score change) from filling the whole chart.
+  const mid = (Math.min(...ys) + Math.max(...ys)) / 2, half = Math.max((Math.max(...ys) - Math.min(...ys)) / 2, minSpan / 2);
+  const min = mid - half, max = mid + half;
+  const W = 1000, H = 260, pad = 12;
+  const X = (i, n) => (i / (n - 1)) * W;
+  const Y = (y) => pad + (1 - (y - min) / (max - min || 1)) * (H - pad * 2);
+  const path = (arr) => arr.map((p, i) => `${i ? "L" : "M"}${X(i, arr.length).toFixed(1)},${Y(p.y).toFixed(1)}`).join("");
+  const first = pts[0].y, last = pts[pts.length - 1].y;
+  setAccent((last >= first) === goodWhenUp);
+  const el = document.createElement("div");
+  el.className = "chart";
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      ${baseline ? `<line x1="0" x2="${W}" y1="${Y(first)}" y2="${Y(first)}" stroke="#c7c9cf" stroke-dasharray="2 6" stroke-width="2" vector-effect="non-scaling-stroke"/>` : ""}
+      ${ghost ? `<path d="${path(ghost)}" fill="none" stroke="#c7c9cf" stroke-width="2" stroke-dasharray="6 6" vector-effect="non-scaling-stroke"/>` : ""}
+      <path d="${path(pts)}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+      <line data-x x1="0" x2="0" y1="0" y2="${H}" stroke="#c7c9cf" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden"/>
+    </svg><div class="when" data-when hidden></div>`;
+  const hero = () => $("[data-hero]"), chg = () => $("[data-change]");
+  const setTop = (p) => {
+    hero().textContent = fmt(p.y);
+    const d = p.y - first;
+    chg().innerHTML = future ? label(p) : `${signed(d, fmt === scoreFmt ? 0 : 2).replace("$", fmt === scoreFmt ? "" : "$")} (${first ? ((d / Math.abs(first)) * 100).toFixed(2) : "0.00"}%) <span>${label(p)}</span>`;
+  };
+  el.addEventListener("mousemove", (e) => {
+    const r = el.getBoundingClientRect();
+    const i = Math.max(0, Math.min(pts.length - 1, Math.round(((e.clientX - r.left) / r.width) * (pts.length - 1))));
+    const x = (i / (pts.length - 1)) * r.width;
+    const ln = el.querySelector("[data-x]");
+    ln.setAttribute("x1", X(i, pts.length)); ln.setAttribute("x2", X(i, pts.length)); ln.setAttribute("visibility", "visible");
+    const w = el.querySelector("[data-when]"); w.hidden = false; w.style.left = `${x}px`; w.textContent = dateLabel(pts[i].t);
+    setTop(pts[i]);
+  });
+  // At rest the big number is today: the last point of a history, or the first point of a forecast.
+  const rest = future ? pts[0] : pts[pts.length - 1];
+  el.addEventListener("mouseleave", () => { el.querySelector("[data-x]").setAttribute("visibility", "hidden"); el.querySelector("[data-when]").hidden = true; setTop(rest); });
+  requestAnimationFrame(() => setTop(rest));
+  return el;
+}
+const scoreFmt = (y) => String(Math.round(y));
+
+function rangeBar(keys = Object.keys(RANGES)) {
+  return `<div class="ranges">${keys.map((k) => `<button data-range="${k}" class="${k === range ? "on" : ""}">${k}</button>`).join("")}</div>`;
+}
+const since = () => ({ "1W": "Past week", "1M": "Past month", "3M": "Past 3 months", "1Y": "Past year", "ALL": "All time" })[range];
+const slice = (s) => s.slice(-RANGES[range]);
+
+function row({ title, sub, sparkPts, pill, tone, goTo, goodWhenUp = true }) {
+  return `<button class="row" ${goTo ? `data-go="${goTo}"` : ""}><div><b>${title}</b><small>${sub}</small></div>${sparkPts ? spark(sparkPts, goodWhenUp) : "<span></span>"}<span class="pill ${tone}">${pill}</span></button>`;
+}
+
+// ---- Screens ----------------------------------------------------------------------------------
+const screens = {
+  home() {
+    const nw = slice(SERIES.networth);
+    return {
+      top: `<div class="eyebrow">Net worth</div><div class="hero" data-hero></div><div class="change" data-change></div>`,
+      chart: bigChart(nw, { fmt: (y) => usd(y, 2), label: () => since() }),
+      after: `${rangeBar()}
+        <div class="move"><div><b>Your next move</b><p>Your Visa costs 24% a year, the most of anything you owe. Put your extra $300 there.</p></div><button class="cta">Pay $300</button></div>
+        <div class="rowhead"><h2>Your money</h2><span>Tap any row</span></div>
+        ${row({ title: "Cash", sub: "Checking + savings · rent $1,435/mo", sparkPts: slice(SERIES.cash), pill: usd(3700), tone: "up", goTo: "home" })}
+        ${row({ title: "Investing", sub: "No investments yet", sparkPts: null, pill: usd(0), tone: "flat", goTo: "investing" })}
+        ${row({ title: "Debt", sub: "Debt-free by Sep 2030", sparkPts: PLAN.slice(0, 13), pill: usd(44500), tone: "up", goTo: "debt", goodWhenUp: false })}
+        ${row({ title: "Credit score", sub: "Fair · biggest fix: card use", sparkPts: slice(SERIES.score), pill: "665", tone: "up", goTo: "credit" })}
+        <p class="foot">Education, not financial advice. Rates and market history: FRED.</p>`,
+    };
+  },
+  investing() {
+    const s = slice(SERIES.sp500);
+    return {
+      top: `<div class="eyebrow">Stock market · S&amp;P 500</div><div class="hero" data-hero></div><div class="change" data-change></div>`,
+      chart: bigChart(s, { fmt: (y) => y.toLocaleString("en-US", { maximumFractionDigits: 2 }), label: () => since() }),
+      after: `${rangeBar()}
+        <div class="move"><div><b>Buying power $3,700</b><p>You have $0 invested. $100 a month in an index fund since you started would be about $1,340 now.</p></div><button class="cta">Invest $100</button></div>
+        <div class="rowhead"><h2>Funds and stocks</h2><span>Price · past 60 days</span></div>
+        ${FUNDS.map((f) => { const a = f.s[0].y, b = f.s[f.s.length - 1].y; return row({ title: f.t, sub: `${f.name} · ${f.fee}`, sparkPts: f.s, pill: `${b >= a ? "+" : "-"}${Math.abs(((b - a) / a) * 100).toFixed(2)}%`, tone: b >= a ? "up" : "down" }); }).join("")}
+        <div class="move"><div><b>Pay debt or invest?</b><p>Paying off the 24% Visa is a guaranteed 24% return. The market has averaged about 10%. Pay the card first, but always take a 401(k) match.</p></div></div>`,
+    };
+  },
+  debt() {
+    return {
+      top: `<div class="eyebrow">Total debt</div><div class="hero" data-hero></div><div class="change" data-change></div>`,
+      chart: bigChart(PLAN, { baseline: false, ghost: MINS, goodWhenUp: false, future: true, fmt: (y) => usd(y, 0),
+        label: (p) => (p === PLAN[0] ? "Debt-free Sep 2030 on your plan · hover to see the path" : p.y <= 0.5 ? `Debt-free ${dateLabel(p.t)}` : `Left on ${dateLabel(p.t)} · dashed line is minimums only`) }),
+      after: `<div class="seg">${[["avalanche", "Avalanche · $7.2K interest"], ["snowball", "Snowball · first win in 5 mo"], ["minimums", "Minimums · 22 years"]].map(([k, l]) => `<button data-strategy="${k}" class="${k === strategy ? "on" : ""}">${l}</button>`).join("")}</div>
+        <div class="move"><div><b>Extra each month: $300</b><p>Debt-free Sep 2030 and $15,200 less interest than paying minimums.</p></div><button class="cta">Pay extra</button></div>
+        <div class="rowhead"><h2>What you owe</h2><span>In payoff order</span></div>
+        ${DEBTS.map((d) => row({ title: `${d.first ? "▶ " : ""}${d.name}`, sub: `${d.sub} · gone ${d.gone}`, pill: usd(d.bal), tone: d.apr > 15 ? "down" : "flat" }) .replace("</small>", ` · ${d.apr}% a year</small>`)).join("")}`,
+    };
+  },
+  credit() {
+    const s = slice(SERIES.score);
+    const f = [["Card use", "78% of your limit, aim under 30%", "High impact", 22], ["On-time payments", "No late payments", "High impact", 100], ["Account age", "2.1 years on average", "Medium impact", 35], ["Hard inquiries", "None in 12 months", "Low impact", 100], ["Mix of accounts", "Cards and loans", "Low impact", 90]];
+    return {
+      top: `<div class="eyebrow">Credit score · Fair</div><div class="hero" data-hero></div><div class="change" data-change></div>`,
+      chart: bigChart(s, { fmt: scoreFmt, label: () => since(), minSpan: 60 }),
+      after: `${rangeBar()}
+        <div class="move"><div><b>Biggest fix: card use</b><p>Pay the Visa under $2,700 (30% of its limit) and your score could rise about 40 points.</p></div><button class="cta" data-go="debt">See plan</button></div>
+        <div class="rowhead"><h2>What moves your score</h2><span>Most important first</span></div>
+        ${f.map(([t, s2, imp, v]) => `<div class="row"><div><b>${t}</b><small>${s2}</small><div class="meter"><span style="width:${v}%;background:${v >= 80 ? "var(--up)" : "var(--down)"}"></span></div></div><span></span><span class="chip">${imp}</span></div>`).join("")}`,
+    };
+  },
+  cards() {
+    return {
+      top: `<div class="eyebrow">Brickstone Visa · balance</div><div class="hero" data-hero>$7,000.00</div><div class="change" data-change style="color:var(--sub)">$2,000 available of $9,000 · 24% a year</div>`,
+      chart: (() => { setAccent(false); const d = document.createElement("div"); d.innerHTML = `<div class="meter" style="height:10px;margin:22px 0 8px"><span style="width:78%;background:var(--down)"></span></div><small style="color:var(--sub)">78% used · lenders like under 30%</small>`; return d; })(),
+      after: `<div class="move"><div><b>Statement due Oct 5</b><p>Pay the full statement and you owe no interest. Minimum only: about $140 in interest this month.</p></div><button class="cta">Pay card</button></div>
+        <div class="rowhead"><h2>Card Shop</h2><span>Real cards, real terms</span></div>
+        ${row({ title: "Browse 335 cards", sub: "Check your odds with a soft pull first", pill: "Open", tone: "up" })}`,
+    };
+  },
+};
+
+function renderSide() {
+  $("[data-side]").innerHTML = `<h3>Watch list <span style="color:var(--sub);font-weight:500">Market</span></h3>
+    ${[["S&P 500", SERIES.sp500], ["Mortgage 30Y", walk(60, 6.76, 0.004, 0.06)], ["Fed funds", walk(60, 3.63, -0.002, 0.01)]].map(([n, s]) => { const a = s.slice(-30); const up = a[a.length - 1].y >= a[0].y; return `<div class="row"><div><b>${n}</b><small>${a[a.length - 1].y.toLocaleString("en-US", { maximumFractionDigits: 2 })}</small></div>${spark(a)}<span class="pill ${up ? "up" : "down"}">${up ? "+" : "-"}${Math.abs(((a[a.length - 1].y - a[0].y) / a[0].y) * 100).toFixed(2)}%</span></div>`; }).join("")}
+    <h3 style="border-top:1px solid var(--line)">Upcoming</h3>
+    <div class="row"><div><b>Paycheck</b><small>Sep 15</small></div><span></span><span class="pill up">+$1,820</span></div>
+    <div class="row"><div><b>Student loans</b><small>Sep 20</small></div><span></span><span class="pill flat">$250</span></div>
+    <div class="row"><div><b>Rent</b><small>Oct 1</small></div><span></span><span class="pill flat">$1,435</span></div>`;
+}
+
+function render() {
+  document.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+  const s = screens[tab]();
+  const main = $("[data-main]");
+  main.innerHTML = s.top;
+  main.append(s.chart);
+  main.insertAdjacentHTML("beforeend", s.after);
+  renderSide();
+}
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.tab) { tab = b.dataset.tab; window.scrollTo(0, 0); }
+  if (b.dataset.go) { tab = b.dataset.go; window.scrollTo(0, 0); }
+  if (b.dataset.range) range = b.dataset.range;
+  if (b.dataset.strategy) strategy = b.dataset.strategy;
+  render();
+});
+render();
+</script>
+</body>
+</html>
