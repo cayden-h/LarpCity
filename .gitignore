@@ -30,3 +30,7 @@ game/plates-src/
 
 # Local git worktrees
 .worktrees/
+
+# Brainstorming and mockup scratch from agent tools
+.superpowers/
+.lavish/
