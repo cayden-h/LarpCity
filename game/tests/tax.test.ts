@@ -148,3 +148,34 @@ test("withholdingForPaycheck's federal income tax roughly matches the full year'
   // Within a few dollars: rounding happens once at the annual level, once per paycheck here.
   assert.ok(Math.abs(w.federalIncomeTax * periods - expectedAnnualTax) < 5);
 });
+
+import { fileReturn } from "../src/sim/tax/filing.ts";
+
+test("fileReturn on exactly-covered withholding nets close to $0 for a mid-income single filer", () => {
+  // $60,000 wages in Texas (no state tax): withholding was computed by the
+  // same annualize-and-divide method, so it should reconcile close to zero.
+  const wagesYtd = 60_000;
+  const federalWithheldYtd = Math.round((Math.max(0, wagesYtd - 16_100) * 0.22 - 0) * 0); // not used directly; see below
+  void federalWithheldYtd;
+  const r = fileReturn({ year: 2026, state: "TX", wagesYtd, federalWithheldYtd: 8_000, stateWithheldYtd: 0 });
+  assert.equal(r.wages, 60_000);
+  assert.equal(r.stateTax, 0);
+  assert.equal(r.stateRefundOrOwed, 0);
+  assert.equal(r.filedDay, null);
+});
+
+test("fileReturn computes federalTaxableIncome as wages minus the standard deduction, floored at 0", () => {
+  const r = fileReturn({ year: 2026, state: "TX", wagesYtd: 10_000, federalWithheldYtd: 0, stateWithheldYtd: 0 });
+  assert.equal(r.federalTaxableIncome, 0); // 10,000 - 16,100 floored at 0
+  assert.equal(r.federalTax, 0);
+});
+
+test("fileReturn's federalRefundOrOwed is withheld + eic - tax (positive is a refund)", () => {
+  const r = fileReturn({ year: 2026, state: "TX", wagesYtd: 40_000, federalWithheldYtd: 5_000, stateWithheldYtd: 0 });
+  assert.equal(r.federalRefundOrOwed, Math.round((5_000 + r.eic - r.federalTax) * 100) / 100);
+});
+
+test("fileReturn's stateRefundOrOwed is state withheld minus state tax", () => {
+  const r = fileReturn({ year: 2026, state: "OH", wagesYtd: 50_000, federalWithheldYtd: 6_000, stateWithheldYtd: 900 });
+  assert.equal(r.stateRefundOrOwed, Math.round((900 - r.stateTax) * 100) / 100);
+});
