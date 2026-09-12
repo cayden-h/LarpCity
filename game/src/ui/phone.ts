@@ -117,10 +117,13 @@ function sparkline(values: number[], up: boolean): string {
 
 const fmtIndex = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-function timeLabel(t: number): string {
-  const mins = Math.round(t * 24 * 60) % (24 * 60);
-  const h = Math.floor(mins / 60);
-  return `${((h + 11) % 12) + 1}:${String(mins % 60).padStart(2, "0")}`;
+/**
+ * The status-bar clock: the hour follows the sky's accelerated time of day `t`,
+ * but the minutes are the player's real ones, so the clock doesn't spin.
+ */
+function timeLabel(t: number, now = new Date()): string {
+  const h = Math.floor(t * 24) % 24;
+  return `${((h + 11) % 12) + 1}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
 export interface PhoneDeps {
