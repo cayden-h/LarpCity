@@ -9,7 +9,8 @@
 import "./phone.css";
 import type { Clock } from "../engine/clock";
 import { MARKET, type SeriesId } from "../data/market";
-import { latest, type PlayerLife } from "../sim/life";
+import { latest, type LifeEvent, type PlayerLife } from "../sim/life";
+import type { RunRecorder } from "../sim/record";
 
 interface AppDef {
   id: "stocks" | "goals" | "news" | "mail" | "bank";
@@ -92,6 +93,8 @@ export interface PhoneDeps {
   player: PlayerLife;
   /** Opens the goal fast-forward setup screen. */
   openFastForward?: () => void;
+  /** The city's run recorder, so the desk can ask the coach about the city's run. */
+  recorder?: RunRecorder;
 }
 
 /**
@@ -102,6 +105,12 @@ export interface PhoneDeps {
 export interface MoneyHost {
   life: () => PlayerLife;
   clock: Clock;
+  /** Decision events the city parked with `Phone.showDecision`, cleared as they're taken. */
+  takeDecisions: () => LifeEvent[];
+  /** Calls `fn` each time the Money window is shown. */
+  onShow: (fn: () => void) => void;
+  /** The city's run recorder, or null when the city isn't recording. */
+  recorder: () => RunRecorder | null;
 }
 
 export class Phone {
@@ -111,6 +120,9 @@ export class Phone {
   private live: LiveQuote[] = [];
   private toastTimer = 0;
   private resumeSpeed = 1;
+  /** Decision moments waiting for the desk to show them. */
+  private parked: LifeEvent[] = [];
+  private readonly showListeners: (() => void)[] = [];
 
   constructor(deps: PhoneDeps) {
     this.deps = deps;
@@ -127,7 +139,14 @@ export class Phone {
       <iframe title="Money" loading="lazy"></iframe>
     </div>`;
     document.body.appendChild(this.overlay);
-    (window as unknown as { larpMoney?: MoneyHost }).larpMoney = { life: () => this.deps.player, clock: deps.clock };
+    const host: MoneyHost = {
+      life: () => this.deps.player,
+      clock: deps.clock,
+      takeDecisions: () => this.parked.splice(0),
+      onShow: (fn) => this.showListeners.push(fn),
+      recorder: () => this.deps.recorder ?? null,
+    };
+    (window as unknown as { larpMoney?: MoneyHost }).larpMoney = host;
 
     this.setOpen(readOpen(), false);
     this.el.addEventListener("click", (ev) => this.onClick(ev));
@@ -235,6 +254,16 @@ export class Phone {
     this.show(id);
   }
 
+  /**
+   * A decision moment in the city (a crash, a payment the player can't cover,
+   * bankruptcy): parks the events for the desk and opens it, which pauses the
+   * clock. The desk takes them when it's shown, or when it first loads.
+   */
+  showDecision(events: LifeEvent[]) {
+    this.parked.push(...events);
+    this.openDesk();
+  }
+
   private openDesk() {
     const frame = this.overlay.querySelector("iframe")!;
     if (!frame.src) frame.src = "/debt.html";
@@ -242,6 +271,7 @@ export class Phone {
     this.deps.clock.speed = 0;
     this.overlay.hidden = false;
     this.overlay.querySelector<HTMLButtonElement>("[data-close]")!.focus();
+    for (const fn of this.showListeners) fn();
   }
 
   private closeDesk() {

@@ -123,6 +123,9 @@ function startRecorder(): RunRecorder {
   void r.begin();
   return r;
 }
+
+/** The recorder that owns this life's run: the desk's own, or the city's inside the city. */
+const runRecorder = () => (host ? host.recorder() : recorder);
 const feed: FeedItem[] = [];
 let decision: Decision | null = null;
 let resumeSpeed = 1;
@@ -226,8 +229,9 @@ function onLifeEvents(events: LifeEvent[]) {
       case "missed":
         log(e.day, `Missed the ${d?.name ?? ""} payment${e.fee ? ` and paid a ${usd(e.fee)} late fee` : ""}`, "down", e.fee ? -e.fee : undefined);
         break;
+      // Inside the city, the city hands decision moments to the phone, which opens this window on them (showParkedDecisions).
       case "cannot_cover":
-        if (!decision && d) askCannotCover(d, e.due, e.available);
+        if (!host && !decision && d) askCannotCover(d, e.due, e.available);
         break;
       case "late_mark":
         log(e.day, `${d?.name} reported ${e.severity} days late; score ${e.scoreBefore} → ${e.scoreAfter}`, "down");
@@ -251,11 +255,11 @@ function onLifeEvents(events: LifeEvent[]) {
         if (Math.abs(e.to - e.from) >= 3) log(e.day, `Credit score ${e.from} → ${e.to}`, e.to > e.from ? "up" : "down");
         break;
       case "bankruptcy_eligible":
-        if (!decision) askBankruptcy(e.reason);
+        if (!host && !decision) askBankruptcy(e.reason);
         break;
       case "bear_market":
         log(e.day, `Stocks are down ${pctOf(e.drop, 0)} from their high`, "down");
-        if (!decision) askBearMarket(e.day, e.drop, e.stocks);
+        if (!host && !decision) askBearMarket(e.day, e.drop, e.stocks);
         break;
       case "market_recovered":
         log(e.day, "Stocks are back at their high", "up");
@@ -309,7 +313,34 @@ function openDecision(dec: Decision) {
 
 function closeDecision() {
   decision = null;
-  clock.speed = resumeSpeed;
+  // Inside the city, time stays paused until the player presses play, as the Money window says.
+  if (!host) clock.speed = resumeSpeed;
+  render();
+}
+
+/** Most important first: bankruptcy, then a payment the player can't cover, then a crash. */
+const DECISION_RANK: Partial<Record<LifeEvent["type"], number>> = { bankruptcy_eligible: 0, cannot_cover: 1, bear_market: 2 };
+
+/**
+ * Inside the city: opens the most important decision the city parked with the phone, and logs the
+ * rest. Runs each time the Money window is shown, and once when the desk first loads, since the
+ * window may open (and park the events) before this page has loaded.
+ */
+function showParkedDecisions() {
+  if (!host) return;
+  const parked = host.takeDecisions().sort((a, b) => (DECISION_RANK[a.type] ?? 9) - (DECISION_RANK[b.type] ?? 9));
+  for (const e of parked) {
+    const d = "debtId" in e ? life.book.debts.find((x) => x.id === e.debtId) : undefined;
+    if (!decision) {
+      if (e.type === "bankruptcy_eligible") askBankruptcy(e.reason);
+      else if (e.type === "cannot_cover" && d) askCannotCover(d, e.due, e.available);
+      else if (e.type === "bear_market") askBearMarket(e.day, e.drop, e.stocks);
+      if (decision) continue;
+    }
+    // The listener already logged the crash itself.
+    if (e.type === "bankruptcy_eligible") log(e.day, "Bankruptcy became an option", "down");
+    else if (e.type === "cannot_cover") log(e.day, `You couldn't cover the ${d?.name ?? ""} payment`, "down");
+  }
   render();
 }
 
@@ -422,19 +453,19 @@ function askBearMarket(day: number, drop: number, stocks: number) {
 
 /**
  * Asks the coach for the recovery lesson. The server reads the run from Tiger Data, so the day's
- * events have to be there first: this desk hears market_recovered before the run recorder does
+ * events have to be there first: this desk can hear market_recovered before the run recorder does
  * (both listen to the same life), so wait a tick, then send everything, then ask.
- * Inside the city, the city's recorder owns the run, so only the standalone desk asks.
+ * Standalone, the desk's own recorder owns the run; inside the city, the city's recorder does.
  */
 async function askRecap(day: number) {
-  const r = recorder;
+  const r = runRecorder();
   if (!r?.runId) return;
   await Promise.resolve();
   await r.idle();
   await r.tick(true);
   const got = await fetchRecoveryLesson(r.runId, day);
   // A newer recovery (or a reset) may have replaced this one while the request was out.
-  if (got && recovery?.day === day && recorder === r) {
+  if (got && recovery?.day === day && runRecorder() === r) {
     recap = { headline: got.headline, lesson: got.tip };
     scheduleRender();
   }
@@ -1362,8 +1393,9 @@ window.addEventListener("resize", () => render());
 
 if (host) {
   // The city's ticker drives the clock and the city calls life.onDay; every day's events
-  // reach onLifeEvents, which re-renders.
-  render();
+  // reach onLifeEvents, which re-renders. Decision moments come through the phone.
+  host.onShow(showParkedDecisions);
+  showParkedDecisions();
 } else {
   clock.onDay((day) => {
     life.onDay(day, clock.date);

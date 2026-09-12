@@ -66,6 +66,12 @@ function syncHomeTier() {
 }
 clock.onDay((day) => {
   const events = player.onDay(day, clock.date);
+  if (player.needsDecision(events)) {
+    // A crash, a payment the player can't cover, or bankruptcy: stop the time-lapse and open the
+    // Money desk on the decision (opening it pauses the clock), instead of pausing time behind it.
+    skipping = 0;
+    phone.showDecision(events.filter((e) => player.needsDecision([e])));
+  }
   if (player.stopsSkip(events)) {
     // Bankruptcy stops skips and pauses time (the game design meeting's rule).
     skipping = 0;
@@ -139,7 +145,7 @@ const fastForward = new FastForward({
 });
 
 // The player's phone: the hub for the game's apps (Stocks opens the Credit Desk; Goals opens the fast-forward).
-const phone = new Phone({ clock, player, openFastForward: () => fastForward.open() });
+const phone = new Phone({ clock, player, recorder, openFastForward: () => fastForward.open() });
 
 app.renderer.on("resize", (w: number, h: number) => scene?.resize(w, h));
 app.ticker.add((ticker) => {
