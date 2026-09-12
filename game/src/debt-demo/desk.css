@@ -283,11 +283,10 @@ button:disabled {
   position: absolute;
   right: 0;
   transform: translateY(calc(-100% - 4px));
-  padding: 0 6px;
   font-size: 12px;
   color: var(--sub);
-  background: var(--bg);
-  border-radius: 999px;
+  background: none;
+  text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 0 0 4px var(--bg);
   pointer-events: none;
   white-space: nowrap;
 }
