@@ -74,7 +74,9 @@ export async function ownsRun(db: Db, playerId: string, runId: string): Promise<
 
 /**
  * Upserts one row per day: a day the game records again (a trade after the day's tick) keeps its latest numbers.
- * The investing lines (you, held, autopilot) keep their stored values when a resend omits them.
+ * Within one batch, the last copy of a day wins, investing lines included (the `byDay` map below).
+ * Across requests, the investing lines (you, held, autopilot) keep their stored values when a resend omits them,
+ * even though the other numbers still take the resend's latest copy.
  */
 export async function insertSnapshots(db: Db, runId: string, entries: SnapshotRow[]): Promise<number> {
   const byDay = new Map(entries.map((e) => [e.day, e])); // ON CONFLICT can't touch one row twice in a statement

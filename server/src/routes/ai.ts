@@ -10,7 +10,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { Gemini, GeminiError } from "../adapters/gemini.js";
 import { coachFeedback, writeNews } from "../ai/coach.js";
-import { feedbackFacts, newsFacts } from "../ai/facts.js";
+import { crashAndRecovery, feedbackFacts, newsFacts } from "../ai/facts.js";
 import { pool } from "../db.js";
 import { env, geminiKeys, geminiTextModels } from "../env.js";
 import { handle, HttpError, parse, type ErrorMap } from "../http.js";
@@ -57,9 +57,16 @@ aiRouter.post(
       const snaps = (await history(pool, runId, "day", Math.max(0, b.day - 100), b.day)) as SnapshotRow[];
       if (!snaps.length) throw new HttpError(409, "No snapshots recorded for that day yet.");
       const events = await listEvents(pool, runId, { from: Math.max(0, b.day - 180), to: b.day });
-      // A crash and its recovery can be years apart, beyond 180 days; listEvents caps at 5,000 rows.
-      const recoveryEvents =
-        b.trigger === "recovery" ? await listEvents(pool, runId, { from: Math.max(0, b.day - 3650), to: b.day, kinds: ["bear_market", "market_recovered", "trade"] }) : events;
+      let recoveryEvents = events;
+      if (b.trigger === "recovery") {
+        // Crashes and recoveries are rare, so a 10-year look-back of just those fits well under listEvents' cap;
+        // trades are read only between the two.
+        const marks = await listEvents(pool, runId, { from: Math.max(0, b.day - 3650), to: b.day, kinds: ["bear_market", "market_recovered"] });
+        const pair = crashAndRecovery(b.day, marks);
+        if (!pair) throw new HttpError(409, "No market recovery recorded for that day yet.");
+        const trades = await listEvents(pool, runId, { from: pair.bear.day, to: pair.rec.day, kinds: ["trade"] });
+        recoveryEvents = [...marks, ...trades];
+      }
       const facts = feedbackFacts(b.trigger, b.day, snaps, events, b.goal, recoveryEvents);
       const r = await coachFeedback(gemini, facts);
       return { ...r.feedback, source: r.source, ...(r.model ? { model: r.model } : {}), facts };

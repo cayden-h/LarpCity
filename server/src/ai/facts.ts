@@ -146,13 +146,20 @@ export function feedbackFacts(
   };
 }
 
-/** The last recovery at or before `day` and the bear market before it; null when the run has no such pair. */
-export function recoveryFacts(day: number, events: EventRow[]): RecoveryFacts | null {
+/** The market recovery recorded on `day` and the bear market before it; null until that day's recovery is stored. */
+export function crashAndRecovery(day: number, events: EventRow[]): { bear: EventRow; rec: EventRow } | null {
   const sorted = [...events].sort((a, b) => a.day - b.day);
-  const rec = sorted.filter((e) => e.kind === "market_recovered" && e.day <= day).at(-1);
+  const rec = sorted.filter((e) => e.kind === "market_recovered" && e.day === day).at(-1);
   const bear = rec && sorted.filter((e) => e.kind === "bear_market" && e.day <= rec.day).at(-1);
-  if (!rec || !bear) return null;
-  const trades = sorted.filter((e) => e.kind === "trade" && e.day >= bear.day && e.day <= rec.day && e.payload.recurring !== true);
+  return rec && bear ? { bear, rec } : null;
+}
+
+/** The recovery recorded on `day` and the bear market before it, and how each investing line came through. */
+export function recoveryFacts(day: number, events: EventRow[]): RecoveryFacts | null {
+  const pair = crashAndRecovery(day, events);
+  if (!pair) return null;
+  const { bear, rec } = pair;
+  const trades = events.filter((e) => e.kind === "trade" && e.day >= bear.day && e.day <= rec.day && e.payload.recurring !== true);
   const total = (side: string) => trades.filter((e) => e.payload.side === side).reduce((s, e) => s + num(e.payload.amount), 0);
   const sold = total("sell");
   const bought = total("buy");
@@ -160,6 +167,7 @@ export function recoveryFacts(day: number, events: EventRow[]): RecoveryFacts | 
   return {
     dropPct: Math.round(num(bear.payload.drop) * 100),
     months: Math.max(0, Math.round((rec.day - bear.day) / 30.44)),
+    // A sale bought back before the recovery still reads "sold"; sold and bought carry the dollars for the coach.
     choice: sold > 0 ? "sold" : bought > 0 ? "bought more" : "held",
     sold: whole(sold),
     bought: whole(bought),
@@ -265,10 +273,14 @@ export function templateFeedback(f: FeedbackFacts): Feedback {
   if (f.trigger === "recovery") {
     const r = f.recovery;
     if (!r) return { headline: "Stocks are back at their high", tip: "Holding through a drop is how investors get the rebound.", mood: "cheer" };
-    const back = `Stocks fell ${r.dropPct}% and took ${r.months} month${r.months === 1 ? "" : "s"} to get back to their high.`;
+    const took = r.months < 1 ? "less than a month" : `${r.months} month${r.months === 1 ? "" : "s"}`;
+    const back = `Stocks fell ${r.dropPct}% and took ${took} to get back to their high.`;
+    if (r.choice === "held") return { headline: "You rode it out", tip: `${back} Holding through it got you the whole rebound: ${money(r.you)} now.`, mood: "cheer" };
+    if (r.choice === "bought more") return { headline: "Buying the dip paid off", tip: `${back} You added ${money(r.bought)} while stocks were down and have ${money(r.you)} now.`, mood: "cheer" };
+    // Sold (including a sale bought back before the recovery: the label follows the first move, the dollars tell the rest).
     if (r.costOfSelling > 1) return { headline: `Selling cost you ${money(r.costOfSelling)}`, tip: `${back} You have ${money(r.you)}; holding would be worth ${money(r.held)}. Money you won't need for years can ride out a drop.`, mood: "console" };
-    if (r.costOfSelling < -1) return { headline: `You came out ${money(-r.costOfSelling)} ahead`, tip: `${back} You beat holding this time, but most people who sell in a crash miss the rebound.`, mood: "warn" };
-    return { headline: "You rode it out", tip: `${back} Holding through it got you the whole rebound: ${money(r.you)} now.`, mood: "cheer" };
+    if (r.costOfSelling < -1) return { headline: `Selling paid off by ${money(-r.costOfSelling)}`, tip: `${back} You beat holding this time, but most people who sell in a crash miss the rebound.`, mood: "warn" };
+    return { headline: "You came out even with holding", tip: `${back} Selling and buying back left you about where holding would have: ${money(r.you)}.`, mood: "cheer" };
   }
   return {
     headline: f.goal ? `You reached ${f.goal}` : "Goal reached",
