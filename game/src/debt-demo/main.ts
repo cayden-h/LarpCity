@@ -330,38 +330,43 @@ function askBearMarket(day: number, drop: number, stocks: number) {
     crash = { day, drop, choice };
     log(clock.day, `In the crash, you ${choice}`, "flat");
   };
-  const sellStocks = (share: 1 | 0.5) => {
+  /** Sells all or half of each stock holding; returns the dollars actually sold (tiny legs under the $1 minimum are skipped). */
+  const sellStocks = (share: 1 | 0.5): number => {
+    let sold = 0;
     for (const id of ["LTM", "NNST"] as InstrumentId[]) {
       const pos = life.position(id);
-      if (pos) life.sell(id, share === 1 ? "all" : pos.value * share);
+      if (!pos) continue;
+      const r = life.sell(id, share === 1 ? "all" : pos.value * share);
+      if (r.ok && r.event.type === "trade") sold += r.event.amount;
     }
+    return sold;
   };
   const options: Decision["options"] = [
     {
       label: "Sell everything",
       lesson: "Locks in the loss. The best days usually come right after the worst.",
       act: () => {
-        sellStocks(1);
-        choose("sold everything");
+        const sold = sellStocks(1);
+        choose(sold > 0 ? `sold everything (${usd(sold)})` : "held");
       },
     },
     {
       label: "Sell half",
       lesson: "Halves the pain and halves the rebound.",
       act: () => {
-        sellStocks(0.5);
-        choose("sold half");
+        const sold = sellStocks(0.5);
+        choose(sold > 0 ? `sold half (${usd(sold)})` : "held");
       },
     },
-    { label: "Hold", lesson: "Every US bear market has recovered, and holders get the whole rebound.", good: true, act: () => choose("held") },
+    { label: "Hold", lesson: "So far, every US bear market has recovered, and holders got the whole rebound.", good: true, act: () => choose("held") },
   ];
   if (more >= 1)
     options.push({
       label: `Buy ${usd(more)} more`,
       lesson: "Stocks are on sale. It works if you won't need this money for years.",
       act: () => {
-        life.buy("LTM", more);
-        choose(`bought ${usd(more)} more`);
+        const r = life.buy("LTM", more);
+        choose(r.ok ? `bought ${usd(more)} more` : "held");
       },
     });
   openDecision({ title: `Stocks are down ${pctOf(drop, 0)} from their high`, body: `Your stocks are worth ${usd(stocks)} now. This is a bear market. What do you do?`, options });
@@ -611,8 +616,13 @@ function recoveryCard(): string {
     gap > 1
       ? `Selling cost you ${usd(gap)}. Holding would be worth ${usd(recovery.held)}; you have ${usd(recovery.you)}.`
       : gap < -1
-        ? `You came out ${usd(-gap)} ahead of holding. Most sellers don't: the rebound usually comes fast.`
-        : "You held, so you got the whole rebound.";
+        ? `You came out ${usd(-gap)} ahead of holding. Most sellers don't: the rebound often comes fast.`
+        : crash?.choice === "held"
+          ? "You held, so you got the whole rebound."
+          : "You came out about where holding would have left you.";
+  // The decision pauses time until answered, and a new bear market can't start before this one
+  // recovers, so crash.day should already equal this recovery's crash - this guard only protects
+  // against a crash left over from an earlier run of the page (for example after reset).
   const choice = crash && crash.day <= recovery.day ? ` In the crash, you ${esc(crash.choice)}.` : "";
   return nextCard(recap ? esc(recap.headline) : "Stocks are back at their high", `${body}${choice}${recap ? ` ${esc(recap.lesson)}` : ""}`);
 }
@@ -1068,6 +1078,7 @@ app.addEventListener("click", (ev) => {
       feed.length = 0;
       rateShock = 0;
       life = makeLife();
+      crash = recovery = recap = null;
       menuOpen = false;
       shopShown = false;
       break;
