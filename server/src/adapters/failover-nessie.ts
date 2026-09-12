@@ -1,8 +1,10 @@
 // server/src/adapters/failover-nessie.ts
 // Sits between MirrorService and live Nessie (docs/superpowers/specs/2026-09-12-nessie-fallback-design.md):
-// every write tries live first and falls back to the local mirror on failure; every read comes
-// from local only, since local shadow-copies every successful live write too. No circuit breaker,
-// no manual toggle — each call independently decides, every time.
+// every write is persisted to the local mirror first, then attempted against live Nessie — so a
+// write is durable before the network is ever touched, and if live fails the write still stands,
+// local-only, for the replay sweep to retry later. Every read comes from local only, since local
+// shadow-copies every successful live write too. No circuit breaker, no manual toggle — each call
+// independently decides, every time.
 import type { LocalNessieLike } from "../store/local-nessie.js";
 import type { Account, AccountType, Customer, MoneyTx, NessieLike, NewTx } from "./nessie.js";
 

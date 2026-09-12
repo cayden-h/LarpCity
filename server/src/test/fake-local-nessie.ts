@@ -86,13 +86,16 @@ export function fakeLocalNessie(): LocalNessieLike & { customers: LocalCustomer[
       return customers.filter((c) => c.nessieId === null);
     },
     async listUnsyncedAccounts() {
-      return accounts.filter((a) => a.nessieId === null && customers.find((c) => c._id === a.customer_id)?.nessieId != null);
+      return accounts.filter((a) => !a.deleted && a.nessieId === null && customers.find((c) => c._id === a.customer_id)?.nessieId != null);
     },
     async listUnsyncedDeletes() {
       return accounts.filter((a) => a.deleted && a.nessieId != null && !(a as unknown as { deleteSynced?: boolean }).deleteSynced);
     },
     async listUnsyncedTransactions() {
-      return txns.filter((t) => t.nessieId === null && accounts.find((a) => a._id === t.accountId)?.nessieId != null);
+      return txns.filter((t) => {
+        const account = accounts.find((a) => a._id === t.accountId);
+        return t.nessieId === null && account?.nessieId != null && !account.deleted;
+      });
     },
   };
 }

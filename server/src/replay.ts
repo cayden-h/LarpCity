@@ -62,5 +62,6 @@ export function startReplaySweep(live: NessieLike, local: LocalNessieLike, inter
         running = false;
       });
   }, intervalMs);
+  timer.unref();
   return () => clearInterval(timer);
 }

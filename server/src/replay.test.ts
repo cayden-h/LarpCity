@@ -119,3 +119,21 @@ test("a second replayOnce call after live recovers finishes what the first left 
   assert.ok((await local.getCustomer(c._id))?.nessieId, "synced once live recovered");
   assert.ok((await local.listUnsyncedAccounts()).length === 0, "the account synced too, same tick, since its parent just synced");
 });
+
+test("replayOnce does not resurrect a soft-deleted, never-synced account into live Nessie", async () => {
+  const local = fakeLocalNessie();
+  const c = await local.insertCustomer({ first_name: "Test", last_name: "replay-deleted-account", address: HOUSTON });
+  const a = await local.insertAccount(c._id, { type: "Checking", nickname: "t:checking", balance: 0 });
+  await local.insertTransaction(a._id, "deposit", { transaction_date: "2026-09-12", status: "completed", amount: 25, description: "d1" });
+  // Neither the account nor its transaction ever synced live before the account was deleted,
+  // so nothing exists live to delete: delete_synced = true, same as FailoverNessie.deleteAccount does.
+  await local.softDeleteAccount(a._id, true);
+
+  const live = fakeLive();
+  await replayOnce(live, local);
+
+  assert.ok((await local.getCustomer(c._id))?.nessieId, "customer still syncs");
+  assert.deepEqual(live.calls, ["createCustomer"], "the deleted account (and its transaction) must not be replayed live");
+  assert.deepEqual(await local.listUnsyncedAccounts(), [], "the deleted account must not linger as pending work");
+  assert.deepEqual(await local.listUnsyncedTransactions(), [], "the deleted account's transaction must not linger as pending work either");
+});

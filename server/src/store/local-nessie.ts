@@ -145,7 +145,7 @@ export class LocalNessie implements LocalNessieLike {
       `SELECT a.id AS "_id", a.type, a.nickname, a.rewards, a.balance, a.account_number, a.customer_id,
               a.nessie_id AS "nessieId", a.deleted
        FROM nessie_accounts a JOIN nessie_customers c ON c.id = a.customer_id
-       WHERE a.nessie_id IS NULL AND c.nessie_id IS NOT NULL ORDER BY a.created_at`,
+       WHERE a.nessie_id IS NULL AND c.nessie_id IS NOT NULL AND NOT a.deleted ORDER BY a.created_at`,
     );
     return rows;
   }
@@ -162,7 +162,7 @@ export class LocalNessie implements LocalNessieLike {
       `SELECT t.id AS "_id", t.account_id AS "accountId", t.kind, t.amount, t.transaction_date, t.status,
               t.description, t.nessie_id AS "nessieId"
        FROM nessie_transactions t JOIN nessie_accounts a ON a.id = t.account_id
-       WHERE t.nessie_id IS NULL AND a.nessie_id IS NOT NULL ORDER BY t.created_at`,
+       WHERE t.nessie_id IS NULL AND a.nessie_id IS NOT NULL AND NOT a.deleted ORDER BY t.created_at`,
     );
     return rows.map((r) => ({ ...r, medium: "balance" as const }));
   }
