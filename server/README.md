@@ -48,6 +48,24 @@ time (`src/sql.ts`), because TimescaleDB won't create a continuous aggregate ins
 create a throwaway database (the local Docker one above works):
 `TEST_DATABASE_URL='postgres://postgres:larp@127.0.0.1:5433/postgres' npm test`.
 
+## AI coach and newspaper (Gemini)
+
+Feedback and the newspaper are written from the run's own data in Tiger Data, never from text the
+browser sends: `src/ai/facts.ts` builds a fact sheet in whole dollars, `src/ai/coach.ts` asks Gemini
+for a fixed JSON shape and checks it, and anything that fails (a busy model, a bad answer, no key)
+falls back to plain text from the same facts. Answers come back with `source: "gemini" | "template"`.
+
+| Route | Body | Returns |
+| --- | --- | --- |
+| `POST /api/feedback` | `{ runId, trigger: "goal" \| "bankruptcy" \| "swing", day, goal? }` | `{ headline, tip, mood, source, model?, facts }` |
+| `POST /api/news` | `{ runId, from, to }` | `{ stories: [{ title, where, blurb, impact }], source, model?, facts }` |
+| `POST /api/avatar` | `{ selfieBase64, styleBase64 }` | `{ imageBase64 }`; 403 until Persona has verified an adult (Gemini's terms) |
+
+The client (`src/adapters/gemini.ts`) tries `GEMINI_TEXT_MODEL` and then `GEMINI_FALLBACK_MODELS`
+(15 seconds each; `gemini-3.8-flash` is often busy), rotates `GEMINI_API_KEYS` on 429, and keeps the
+key in a header. The same moment asked twice is cached in memory, and the routes share the strict
+rate limit.
+
 ## Bank mirror (Capital One Nessie)
 
 The player and the game's named NPCs (`game/src/data/npcs.ts`) each have a Nessie bank statement.

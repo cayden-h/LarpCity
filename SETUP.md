@@ -333,61 +333,48 @@ Prize: Google swag kits, "push the boundaries of what's possible with AI using G
 
 | Env var | Value |
 | --- | --- |
-| `GEMINI_API_KEYS` | Comma-separated AI Studio keys; the server creates one `GoogleGenAI({ apiKey })` per key and moves to the next on 429 (quota) or 503 (overloaded) |
-| `GEMINI_TEXT_MODEL` | `gemini-3.8-flash` (newest; `gemini-3.5-flash-lite` is the cheap option) |
+| `GEMINI_API_KEYS` | Comma-separated AI Studio keys; the server moves to the next key on 429 (quota) |
+| `GEMINI_TEXT_MODEL` | `gemini-3.8-flash` (newest) |
+| `GEMINI_FALLBACK_MODELS` | `gemini-3.6-flash` by default: tried in order when the text model is busy |
 | `GEMINI_IMAGE_MODEL` | `gemini-3.1-flash-image` |
 
-### 3. Server code (Interactions API, per the current docs)
+### 3. What the live API does (probed 2026-09-12)
 
-```ts
-import { GoogleGenAI } from '@google/genai';
-const ai = new GoogleGenAI({});
+- `generateContent` with `generationConfig: { responseMimeType: "application/json", responseJsonSchema }` returns the JSON as the text part, on both `gemini-3.8-flash` and `gemini-3.6-flash` (`responseSchema` works too).
+- The key goes in the `x-goog-api-key` header; the `?key=` query string also works, but it ends up in URLs and logs.
+- Gemini 3.x models think before answering: skip the parts marked `thought`, and give `maxOutputTokens` room (the thinking counts against it, so 300 cut answers off with `MAX_TOKENS`).
+- **`gemini-3.8-flash` is often busy**: 503 "This model is currently experiencing high demand", sometimes a hang past 30 seconds, and now and then an instant empty-body 404 from Google's front end (listing models and `countTokens` still work at the same moment). All three mean "try another model".
+- `gemini-2.5-flash` is closed to new users (404 "no longer available to new users"); Google points to `gemini-3.6-flash`.
+- A 429 names the exceeded quota; the keys may share one project's quota, so rotating helps only when they don't.
+- `gemini-3.6-flash` answered the coach and newspaper prompts in about 4 to 14 seconds.
+- The newer Interactions API (`POST /v1beta/interactions`) also works; its answer comes back under `steps`, not `output_text`. The server doesn't use it.
 
-// Selfie + one art-pack sprite as style reference -> turnaround sprite sheet
-const it: any = await ai.interactions.create({
-  model: process.env.GEMINI_IMAGE_MODEL!,
-  input: [
-    { type: 'text', text: 'Image 1 is the player. Image 2 is the art style. Draw a 4-column turnaround sheet (front, 3/4, side, back) of this person as a chibi isometric citizen, full body, feet on one baseline, flat #FF00FF background.' },
-    { type: 'image', mime_type: 'image/jpeg', data: selfieB64 },
-    { type: 'image', mime_type: 'image/png', data: styleB64 },
-  ],
-  response_format: { type: 'image', aspect_ratio: '16:9', image_size: '1K' },
-});
-const pngB64 = it.output_image?.data;
+### 4. Server code
 
-// AI feedback as JSON the game can render
-const fb: any = await ai.interactions.create({
-  model: process.env.GEMINI_TEXT_MODEL!,
-  input: `Player event: ${JSON.stringify(event)}. Give short, kind financial coaching.`,
-  response_format: { type: 'text', mime_type: 'application/json', schema: {
-    type: 'object',
-    properties: { headline: { type: 'string' }, tip: { type: 'string' }, mood: { type: 'string', enum: ['cheer', 'warn', 'console'] } },
-    required: ['headline', 'tip', 'mood'] } },
-});
-const feedback = JSON.parse(fb.output_text); // field name lightly verified
-```
+- `server/src/adapters/gemini.ts`: the `Gemini` client. It sends the key in the header, falls back through the models (15 seconds each), rotates keys on 429, skips thought parts, and parses the JSON answer.
+- `server/src/ai/facts.ts`: the fact sheets (from the run's snapshots and events in Tiger Data, in whole dollars) and the plain-text fallbacks built from them.
+- `server/src/ai/coach.ts`: the prompts, the JSON schemas, and the checks on every answer; a bad answer, an error, or no model falls back to the plain text.
+- `server/src/routes/ai.ts`: `POST /api/feedback`, `/api/news`, and `/api/avatar` (routes table in [server/README.md](server/README.md)).
 
-- The Interactions API uses snake_case even in JS (`mime_type`, `response_format`); do not mix in camelCase `generateContent` examples from older posts.
-- The legacy `ai.models.generateContent` still works (images as `inlineData: { mimeType, data }`).
-- Flash image takes up to 14 input images (4 character, 3 style references).
+### 5. How it maps to Larp City
 
-### 4. How it maps to Larp City
+| Feature | Gemini piece | Status |
+| --- | --- | --- |
+| AI feedback at goals, bankruptcy, and big swings (the meeting's three moments) | `POST /api/feedback` with `{ runId, trigger, day, goal? }`: the server reads the last 100 days of snapshots and 180 days of events and returns `{ headline, tip, mood }` | Built Sep 12; spoken by ElevenLabs later |
+| Newspaper digest after a skip | `POST /api/news` with `{ runId, from, to }`: 1 to 4 stories `{ title, where, blurb, impact }` about the notable events, never routine paychecks and bills | Built Sep 12 |
+| Avatar from the verified selfie | `POST /api/avatar`: image model, selfie + style reference, sliced into 8 directions in Pixi; answers 403 until Persona has verified an adult (Gemini's terms) | Route ready, waits on Persona and billing |
+| Aged "future you" (Hershfield effect) | image edit of the player's sprite, "same character 30 years older, same style", hopeful on the good path | Not built |
+| "Your Real Plan" at the end | text model, personalized to the player's state and choices | Not built |
 
-| Feature | Gemini piece |
-| --- | --- |
-| Avatar from the verified selfie | image model, selfie + style reference, sliced into 8 directions in Pixi |
-| Aged "future you" (Hershfield effect) | image edit of the player's sprite, "same character 30 years older, same style", hopeful on the good path |
-| AI feedback at goals, bankruptcy, big swings | text model with a JSON schema, then spoken by ElevenLabs |
-| Newspaper digest after a skip | text model with `{ stories: [{ title, where, blurb, impact }] }` |
-| "Your Real Plan" at the end | text model, personalized to the player's state and choices |
+The prompts carry only the fact sheet, never text the browser sends, and tell the model to use only those numbers; the same moment asked twice is cached, and the AI routes share the strict rate limit (20 a minute).
 
-### 5. Test first
+### 6. Test first
 
-- [ ] A text call works.
+- [x] A text call works, with a JSON schema (`gemini-3.6-flash` and `gemini-3.8-flash`).
+- [x] End to end on a local TimescaleDB with a real 400-day run: all three triggers and the newspaper came back from Gemini with correct whole-dollar numbers, a repeat was served from the cache in 10 ms, and the plain-text fallback covers a busy or missing model.
 - [ ] Billing on: one image from one input image.
 - [ ] Two reference images: likeness and style both hold.
 - [ ] The sheet slices cleanly in Pixi after the magenta chroma key.
-- [ ] Force a 429 and confirm the fallback avatar appears; cache sprites per player.
 
 ### 6. What judges want
 
