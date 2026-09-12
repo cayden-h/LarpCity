@@ -103,3 +103,8 @@ CREATE TABLE IF NOT EXISTS voice_interviews (
 ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS you double precision;
 ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS held double precision;
 ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS autopilot double precision;
+
+-- Background NPCs (game/src/data/background-npcs.ts, GameEnginePlan.md Part 2): customers that must
+-- never be promoted to live Nessie, because the shared sandbox's 12-customer allowance is already
+-- fully spent on the primary roster. listUnsyncedCustomers() excludes these permanently.
+ALTER TABLE nessie_customers ADD COLUMN IF NOT EXISTS local_only boolean NOT NULL DEFAULT false;

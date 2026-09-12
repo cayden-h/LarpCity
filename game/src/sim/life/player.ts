@@ -70,6 +70,7 @@ export type LifeEvent =
   | DebtEvent
   | { type: "paycheck"; day: number; takeHome: number; garnished: number; unemployed: boolean; retirement?: number; federalWithheld: number; stateWithheld: number }
   | { type: "bill"; day: number; name: string; amount: number; paid: number }
+  | { type: "spend"; day: number; category: string; amount: number }
   | { type: "savings_interest"; day: number; amount: number }
   | { type: "moved"; day: number; from: string; to: string; rent: number; living: number }
   | { type: "job"; day: number; employed: boolean }
@@ -447,6 +448,19 @@ export class PlayerLife {
 
   onEvents(fn: (events: LifeEvent[], life: PlayerLife) => void): void {
     this.listeners.push(fn);
+  }
+
+  /**
+   * A one-off discretionary purchase outside the daily bill/payday cycle
+   * (sim/npcs' spending-habit engine calls this). Goes through the same
+   * checking -> savings -> emergency waterfall as a bill, so it can never
+   * overdraw, and emits like any other event so the bank mirror picks it up.
+   */
+  spend(day: number, category: string, amount: number): LifeEvent {
+    const paid = this.ledger.wallet().withdraw(amount, category);
+    const event: LifeEvent = { type: "spend", day, category, amount: paid };
+    this.emit([event]);
+    return event;
   }
 
   /** One game day. `date` is the calendar date of `day`. */

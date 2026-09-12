@@ -1,8 +1,13 @@
 import "./style.css";
 import { Application, CullerPlugin, extensions } from "pixi.js";
+import { BankClient } from "./api/bank";
 import { cityFor, LANDMARKS, stateForPin } from "./cities";
+import { BACKGROUND_NPCS } from "./data/background-npcs";
+import { NPCS } from "./data/npcs";
 import { STATES } from "./data/states";
+import { stateUniversity } from "./data/state-universities";
 import { Clock } from "./engine/clock";
+import type { ResidentSeed } from "./engine/people";
 import { CityScene } from "./engine/scene";
 import { loadSpriteSet } from "./engine/sprites";
 import type { StateInfo } from "./engine/types";
@@ -12,6 +17,7 @@ import { lifeFromIntake } from "./sim/life/intake";
 import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
 import { NpcTown } from "./sim/npcs";
+import { describeHabit } from "./sim/npcs/habits";
 import { RunRecorder } from "./sim/record";
 import { Hud } from "./ui/hud";
 import { runIntake } from "./ui/intake";
@@ -73,9 +79,26 @@ const narrator = new Narrator();
 // server, one statement per game month (off when the server isn't running).
 const town = new NpcTown({ place: state, day: clock.day, market: player.market, start: clock.start });
 const api = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api`;
-const bank = new BankSync({ run: `${seed}-${Date.now().toString(36)}`, start: clock.start, base: `${api}/bank` });
+const primaryBase = `${api}/bank`;
+const backgroundBase = `${api}/bank-bg`;
+// Marcus's story (data/npcs.ts) carries a {{stateUniversity}} placeholder, resolved here
+// against the current state rather than baked into the profile, so it tracks a move the
+// same way rent already does (see buildResidents's call site in open()).
+function resolveStory(story: string): string {
+  return story.replaceAll("{{stateUniversity}}", stateUniversity(state.abbr));
+}
+function buildResidents(): ResidentSeed[] {
+  return [
+    ...NPCS.map((n) => ({ id: n.id, first: n.first, last: n.last, job: n.job, age: n.age, story: `${resolveStory(n.story)} ${describeHabit(n.id)}`, marked: true, bankBase: primaryBase })),
+    ...BACKGROUND_NPCS.map((n) => ({ id: n.id, first: n.first, last: n.last, job: n.job, age: n.age, story: `${resolveStory(n.story)} ${describeHabit(n.id)}`, marked: false, bankBase: backgroundBase })),
+  ];
+}
+let residents: ResidentSeed[] = buildResidents();
+const bankClient = new BankClient(primaryBase);
+const bank = new BankSync({ run: `${seed}-${Date.now().toString(36)}`, start: clock.start, base: primaryBase });
 bank.add("player", "Player", player);
-for (const [id, life] of town.lives) bank.add(id, town.profiles.get(id)!.first, life);
+const backgroundIds = new Set(BACKGROUND_NPCS.map((n) => n.id));
+for (const [id, life] of town.lives) bank.add(id, town.profiles.get(id)!.first, life, backgroundIds.has(id) ? { base: backgroundBase } : {});
 void bank.begin();
 // The player's daily snapshots and life events, recorded in Tiger Data for charts, history, and the leaderboard.
 const recorder = new RunRecorder({ life: player, seed, base: api });
@@ -119,9 +142,10 @@ async function open(next: StateInfo): Promise<void> {
     narrator.cue("moved");
   }
   state = next;
+  residents = buildResidents();
   const city = cityFor(next);
   const sprites = await loadSpriteSet(city.id);
-  scene = new CityScene(app, city, clock, LANDMARKS, sprites);
+  scene = new CityScene(app, city, clock, LANDMARKS, sprites, undefined, residents);
   if (tier !== undefined) scene.hero?.setTier(tier);
   scene.onPick = (npc, sx, sy) => npcCard.show(npc, sx, sy);
   app.stage.addChild(scene.root);
@@ -131,7 +155,7 @@ async function open(next: StateInfo): Promise<void> {
   history.replaceState(null, "", `#${home && home.cityId !== next.cityId ? next.cityId : next.abbr}`);
 }
 
-const npcCard = new NpcCard(document.getElementById("npc")!);
+const npcCard = new NpcCard(document.getElementById("npc")!, bankClient);
 
 function skipDays(days: number): void {
   if (skipping) return;

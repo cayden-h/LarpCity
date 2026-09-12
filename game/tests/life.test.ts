@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PlayerLife, STARTER_PORTFOLIO, cashRateOn, seriesOn, US_MEDIAN_RENT, type Place } from "../src/sim/life/index.ts";
+import { PlayerLife, STARTER_PORTFOLIO, cashRateOn, seriesOn, US_MEDIAN_RENT, type Place, type LifeEvent } from "../src/sim/life/index.ts";
 import { MARKET } from "../src/data/market.ts";
 import { fileReturn } from "../src/sim/tax/filing.ts";
 import { runSkip, type Goal } from "../src/sim/skip/index.ts";
@@ -526,4 +526,29 @@ test("runSkip (the player-facing fast-forward) auto-files when it crosses an Apr
   const result = runSkip(life, { goal: neverMet, fromDay: 0, startDate: START, capAge: life.age + 1 });
   assert.ok(result.counts["tax_filed"] >= 1, `expected at least one tax_filed event, got counts ${JSON.stringify(result.counts)}`);
   assert.equal(life.pendingTaxReturn(), null, "runSkip should auto-file, not leave a return sitting pending");
+});
+
+test("spend() withdraws through the wallet waterfall and emits a spend event", () => {
+  const life = new PlayerLife({ place: TX, day: 0, monthlyTakeHome: 4_000 });
+  const checking = life.ledger.get("checking");
+  checking.balance = 50;
+  const events: LifeEvent[] = [];
+  life.onEvents((e) => events.push(...e));
+
+  const event = life.spend(10, "Dining out", 30);
+
+  assert.equal(event.type, "spend");
+  assert.equal(event.category, "Dining out");
+  assert.equal(event.amount, 30, "fully covered by checking");
+  assert.equal(life.ledger.get("checking").balance, 20);
+  assert.equal(events.length, 1);
+  assert.deepEqual(events[0], event);
+});
+
+test("spend() never pays more than the wallet has", () => {
+  const life = new PlayerLife({ place: TX, day: 0, monthlyTakeHome: 4_000 });
+  life.ledger.get("checking").balance = 5;
+  life.ledger.get("savings").balance = 0;
+  const event = life.spend(10, "Shopping", 40);
+  assert.equal(event.amount, 5, "capped at what the accounts actually held");
 });

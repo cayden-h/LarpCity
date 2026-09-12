@@ -156,6 +156,9 @@ export class MonthMirror {
       case "bill":
         add("checking", e.name, -e.paid);
         break;
+      case "spend":
+        add("checking", e.category, -e.amount);
+        break;
       case "payment": {
         const debt = this.life.book.debts.find((d) => d.id === e.debtId);
         if (debt?.kind === "credit_card") {

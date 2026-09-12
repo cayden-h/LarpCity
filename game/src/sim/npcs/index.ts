@@ -4,11 +4,13 @@
 // city clock and catches them up after a goal fast-forward, which runs only
 // the player (a decade takes a few milliseconds per life).
 
+import { BACKGROUND_NPCS } from "../../data/background-npcs.ts";
 import { NPCS, type NpcProfile } from "../../data/npcs.ts";
 import { creditCard, installment, newBook, studentLoan } from "../debt/factory.ts";
 import type { Debt } from "../debt/types.ts";
 import { defaultAccounts, PlayerLife, TAKE_HOME_SHARE, type Place } from "../life/player.ts";
 import type { MarketPath } from "../market/index.ts";
+import { applyDailyHabit } from "./habits.ts";
 
 export function npcLife(p: NpcProfile, o: { place: Place; day: number; market: MarketPath }): PlayerLife {
   const agi = Math.round((p.monthlyTakeHome * 12) / TAKE_HOME_SHARE);
@@ -38,7 +40,7 @@ export class NpcTown {
 
   constructor(o: { place: Place; day: number; market: MarketPath; start: Date; roster?: NpcProfile[] }) {
     this.start = o.start;
-    for (const p of o.roster ?? NPCS) {
+    for (const p of o.roster ?? [...NPCS, ...BACKGROUND_NPCS]) {
       this.profiles.set(p.id, p);
       this.lives.set(p.id, npcLife(p, o));
     }
@@ -46,15 +48,16 @@ export class NpcTown {
 
   /** One live game day for every NPC (catching up first if a fast-forward left them behind). */
   onDay(day: number): void {
-    for (const life of this.lives.values()) {
-      this.catchUpLife(life, day - 1);
+    for (const [id, life] of this.lives) {
+      this.catchUpLife(id, life, day - 1);
       life.onDay(day, this.dateOf(day));
+      applyDailyHabit(life, id, day, this.dateOf(day), this.profiles.get(id)?.categoryId);
     }
   }
 
   /** Runs every NPC headless up to `toDay`, after a goal fast-forward jumped the calendar. */
   catchUp(toDay: number): void {
-    for (const life of this.lives.values()) this.catchUpLife(life, toDay);
+    for (const [id, life] of this.lives) this.catchUpLife(id, life, toDay);
   }
 
   dateOf(day: number): Date {
@@ -63,11 +66,14 @@ export class NpcTown {
     return d;
   }
 
-  private catchUpLife(life: PlayerLife, toDay: number): void {
+  private catchUpLife(id: string, life: PlayerLife, toDay: number): void {
+    const categoryId = this.profiles.get(id)?.categoryId;
     // runHeadless stops early at a bankruptcy notice; keep going, the NPC's story continues.
     while (life.today < toDay) {
-      const r = life.runHeadless(life.today, toDay - life.today, this.dateOf(life.today));
+      const from = life.today;
+      const r = life.runHeadless(from, toDay - from, this.dateOf(from));
       if (r.daysRun === 0) break;
+      for (let d = from + 1; d <= from + r.daysRun; d++) applyDailyHabit(life, id, d, this.dateOf(d), categoryId);
     }
   }
 }
