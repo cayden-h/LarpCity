@@ -19,6 +19,7 @@ const { generalLimiter, strictLimiter } = await import("./middleware/rateLimit.j
 const { errorHandler } = await import("./middleware/errorHandler.js");
 const { healthRouter } = await import("./routes/health.js");
 const { personaRouter, personaWebhookRouter } = await import("./routes/persona.js");
+const { nessieRouter } = await import("./routes/nessie.js");
 const { runMigrations } = await import("./db.js");
 const { sessionMiddleware } = await import("./session.js");
 
@@ -36,6 +37,7 @@ app.use(generalLimiter);
 
 app.use("/api", healthRouter);
 app.use("/api/persona", strictLimiter, personaRouter);
+app.use("/api/bank", nessieRouter);
 
 app.use(errorHandler);
 
