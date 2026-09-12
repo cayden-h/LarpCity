@@ -68,6 +68,14 @@ test("snapshots are one row per day and a re-sent day keeps its latest numbers",
   assert.equal(((await history(db, run, "day", 0, 100_000)) as SnapshotRow[]).length, 800);
 });
 
+test("daily snapshots keep the investing lines, and rows without them read back as null", { skip }, async () => {
+  const run = await createRun(db, ALICE, 3);
+  await insertSnapshots(db, run, [{ ...snap(1), you: 10, held: 12, autopilot: 11 }, snap(2)]);
+  const days = (await history(db, run, "day", 0, 10)) as SnapshotRow[];
+  assert.deepEqual([days[0].you, days[0].held, days[0].autopilot], [10, 12, 11]);
+  assert.deepEqual([days[1].you, days[1].held, days[1].autopilot], [null, null, null]);
+});
+
 test("weekly and monthly history come from the continuous aggregates, fresh without a refresh", { skip }, async () => {
   const run = await createRun(db, ALICE, 2);
   await insertSnapshots(db, run, Array.from({ length: 400 }, (_, d) => snap(d)));

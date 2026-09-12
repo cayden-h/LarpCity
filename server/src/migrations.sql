@@ -43,3 +43,10 @@ SELECT add_continuous_aggregate_policy('player_snapshots_weekly', start_offset =
   schedule_interval => INTERVAL '1 minute', if_not_exists => true);
 SELECT add_continuous_aggregate_policy('player_snapshots_monthly', start_offset => NULL, end_offset => NULL,
   schedule_interval => INTERVAL '1 minute', if_not_exists => true);
+
+-- Investing lines (docs/superpowers/specs/2026-09-12-investing-twins-design.md): the player's
+-- brokerage plus cash sells took out, the same buys never sold, and a 90/10 autopilot. Daily rows only;
+-- the weekly and monthly aggregates above don't carry them.
+ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS you double precision;
+ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS held double precision;
+ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS autopilot double precision;

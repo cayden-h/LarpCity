@@ -16,6 +16,10 @@ export interface SnapshotRow {
   brokerage: number;
   retirement: number;
   debt: number;
+  /** Investing lines (game/src/sim/life/twins.ts); null on rows sent before they existed. */
+  you?: number | null;
+  held?: number | null;
+  autopilot?: number | null;
 }
 
 export interface EventRow {
@@ -74,14 +78,27 @@ export async function insertSnapshots(db: Db, runId: string, entries: SnapshotRo
   const rows = [...byDay.values()];
   const col = <K extends keyof SnapshotRow>(k: K) => rows.map((r) => r[k]);
   const r = await db.query(
-    `INSERT INTO player_snapshots (ts, run_id, day, net_worth, checking, savings, brokerage, retirement, debt)
-     SELECT ${AT_DAY("d")}, $1, d, nw, ch, sv, br, rt, dt
-     FROM unnest($2::int[], $3::float8[], $4::float8[], $5::float8[], $6::float8[], $7::float8[], $8::float8[])
-       AS t(d, nw, ch, sv, br, rt, dt)
+    `INSERT INTO player_snapshots (ts, run_id, day, net_worth, checking, savings, brokerage, retirement, debt, you, held, autopilot)
+     SELECT ${AT_DAY("d")}, $1, d, nw, ch, sv, br, rt, dt, yo, hd, ap
+     FROM unnest($2::int[], $3::float8[], $4::float8[], $5::float8[], $6::float8[], $7::float8[], $8::float8[], $9::float8[], $10::float8[], $11::float8[])
+       AS t(d, nw, ch, sv, br, rt, dt, yo, hd, ap)
      ON CONFLICT (run_id, ts) DO UPDATE SET
        net_worth = EXCLUDED.net_worth, checking = EXCLUDED.checking, savings = EXCLUDED.savings,
-       brokerage = EXCLUDED.brokerage, retirement = EXCLUDED.retirement, debt = EXCLUDED.debt`,
-    [runId, col("day"), col("netWorth"), col("checking"), col("savings"), col("brokerage"), col("retirement"), col("debt")],
+       brokerage = EXCLUDED.brokerage, retirement = EXCLUDED.retirement, debt = EXCLUDED.debt,
+       you = EXCLUDED.you, held = EXCLUDED.held, autopilot = EXCLUDED.autopilot`,
+    [
+      runId,
+      col("day"),
+      col("netWorth"),
+      col("checking"),
+      col("savings"),
+      col("brokerage"),
+      col("retirement"),
+      col("debt"),
+      rows.map((r) => r.you ?? null),
+      rows.map((r) => r.held ?? null),
+      rows.map((r) => r.autopilot ?? null),
+    ],
   );
   return r.rowCount ?? 0;
 }
@@ -102,7 +119,7 @@ export async function insertEvents(db: Db, runId: string, entries: EventRow[]): 
 export async function history(db: Db, runId: string, bucket: Bucket, from: number, to: number): Promise<(SnapshotRow | HistoryBucket)[]> {
   if (bucket === "day") {
     const { rows } = await db.query<SnapshotRow>(
-      `SELECT day, net_worth AS "netWorth", checking, savings, brokerage, retirement, debt
+      `SELECT day, net_worth AS "netWorth", checking, savings, brokerage, retirement, debt, you, held, autopilot
        FROM player_snapshots WHERE run_id = $1 AND day BETWEEN $2 AND $3 ORDER BY day`,
       [runId, from, to],
     );

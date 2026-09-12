@@ -32,7 +32,20 @@ const startRunBody = z.object({ seed: z.number().int().min(0).max(Number.MAX_SAF
 export const snapshotBody = z.object({
   runId,
   entries: z
-    .array(z.object({ day, netWorth: money, checking: money, savings: money, brokerage: money, retirement: money, debt: money }))
+    .array(
+      z.object({
+        day,
+        netWorth: money,
+        checking: money,
+        savings: money,
+        brokerage: money,
+        retirement: money,
+        debt: money,
+        you: money.optional(),
+        held: money.optional(),
+        autopilot: money.optional(),
+      }),
+    )
     .min(1)
     .max(5000),
 });
