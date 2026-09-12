@@ -105,6 +105,25 @@ test("no more than the cap of NPC customers is ever created", async () => {
   assert.equal(fake.customers.length, MAX_NPC_CUSTOMERS + 1, "players don't count toward the NPC cap");
 });
 
+test("two sessions' statements for the same shared NPC customer never mix", async () => {
+  const { mirror } = setup();
+  await mirror.open(SESSION_A, "npc-maya", { run: "r1", name: "Maya", opening: OPENING });
+  await mirror.post(SESSION_A, "npc-maya", { run: "r1", entries: [entry("a1", "checking", "deposit", 50)] });
+
+  await mirror.open(SESSION_B, "npc-maya", { run: "r1", name: "Maya", opening: OPENING });
+  await mirror.post(SESSION_B, "npc-maya", { run: "r1", entries: [entry("b1", "checking", "deposit", 999)] });
+
+  const a = await mirror.statement(SESSION_A, "npc-maya");
+  const b = await mirror.statement(SESSION_B, "npc-maya");
+
+  const checkingA = a.accounts.find((x) => x.account === "checking")!;
+  const checkingB = b.accounts.find((x) => x.account === "checking")!;
+  assert.equal(checkingA.balance, OPENING.checking + 50, "session A sees only its own +50");
+  assert.equal(checkingB.balance, OPENING.checking + 999, "session B sees only its own +999");
+  assert.ok(!checkingA.transactions.some((t) => t.memo === "b1"), "session A must never see session B's transaction");
+  assert.ok(!checkingB.transactions.some((t) => t.memo === "a1"), "session B must never see session A's transaction");
+});
+
 test("statement for an entity that was never opened is a 404", async () => {
   const { mirror } = setup();
   await assert.rejects(mirror.statement(SESSION_A, "npc-maya"), (e: MirrorError) => e.status === 404);
