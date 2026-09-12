@@ -219,6 +219,8 @@ export class PlayerLife {
    * Snapshots for the days before the life began, so charts have a past: cash,
    * debt, and score as they were on the first day, and the starting holdings at
    * each day's real price. Separate from `history`, which holds only days lived.
+   * The investing comparison starts on the first day, so before it `held` and
+   * `autopilot` equal `you`, the starting brokerage at that day's price.
    */
   pastSnapshots(from: number): LifeSnapshot[] {
     const first = this.startSnap;
@@ -229,6 +231,8 @@ export class PlayerLife {
     for (let d = Math.max(from, this.market.firstDay); d < this.startDay; d++) {
       const investments = round2(other + held(d));
       const brokerage = round2(otherBrokerage + held(d));
+      // Nothing was sold before the start, and the lines only split after it.
+      const you = this.twins.you(brokerage);
       out.push({
         day: d,
         cash: first.cash,
@@ -237,10 +241,9 @@ export class PlayerLife {
         netWorth: round2(first.cash + investments - first.debt),
         score: first.score,
         brokerage,
-        // Nothing was sold before the start, so you and if you had held are the starting holdings.
-        you: this.twins.you(brokerage),
-        held: this.twins.held(d),
-        autopilot: this.twins.autopilot(d),
+        you,
+        held: you,
+        autopilot: you,
       });
     }
     return out;
@@ -571,8 +574,8 @@ export class PlayerLife {
       const cost = round2(units * this.market.price(id, day - 365));
       acct.holdings[id] = { units, cost };
       this.startUnits.push([id, units]);
-      // The twins start where the player starts.
-      this.twins.seedHolding(id, units, cost, day - 365);
+      // The twins start where the player starts: the same value on the life's first day.
+      this.twins.seedHolding(id, units, day);
     }
   }
 

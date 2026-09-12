@@ -43,13 +43,15 @@ export class Twins {
   }
 
   /**
-   * A position the player already owns when the life starts, so every line starts in the same place:
-   * Held gets the same units, and Autopilot gets the dollars the player paid (`cost`) at `boughtDay`'s prices.
+   * A position the player already owns when the life starts on `day`, so every line starts at the same value:
+   * Held gets the same units, and Autopilot gets the dollars those units are worth on `day`, at `day`'s prices.
+   * What the player paid for it earlier doesn't matter; any later gap comes only from the player's choices.
    */
-  seedHolding(id: InstrumentId, units: number, cost: number, boughtDay: number): void {
-    this.invested = round2(this.invested + cost);
+  seedHolding(id: InstrumentId, units: number, day: number): void {
+    const value = units * this.market.price(id, day);
+    this.invested = round2(this.invested + value);
     this.heldUnits[id] = (this.heldUnits[id] ?? 0) + units;
-    for (const [i, w] of AUTOPILOT_MIX) this.add(this.autoUnits, i, cost * w, boughtDay);
+    for (const [i, w] of AUTOPILOT_MIX) this.add(this.autoUnits, i, value * w, day);
   }
 
   sell(proceeds: number): void {

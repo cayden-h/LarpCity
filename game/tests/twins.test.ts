@@ -132,12 +132,12 @@ test("the starter portfolio starts every line in the same place", () => {
   const m = earlyMarket();
   const life = new PlayerLife({ place: TX, day: 0, market: m, holdings: STARTER_PORTFOLIO });
   const s = life.history[0];
-  assert.ok(Math.abs(s.you - 6_800) < 0.01 && Math.abs(s.held - s.you) < 0.01, `you ${s.you} held ${s.held}`);
+  // On day 0 all three lines are the brokerage's value, so any later gap comes from the player's choices.
+  const near = (a: number, b: number) => Math.abs(a - b) < 0.01;
+  assert.ok(near(s.brokerage, 6_800), `brokerage ${s.brokerage}`);
+  assert.ok(near(s.you, s.brokerage) && near(s.held, s.brokerage) && near(s.autopilot, s.brokerage), `you ${s.you} held ${s.held} autopilot ${s.autopilot}`);
+  assert.ok(near(life.twins.invested, s.brokerage), `invested ${life.twins.invested}`);
   assert.equal(life.twins.cashOut, 0);
-  // Autopilot put the same dollars paid a year earlier into 90/10 LTM/BOND.
-  const paid = life.twins.invested;
-  const auto = (paid * 0.9 / m.price("LTM", -365)) * m.price("LTM", 0) + (paid * 0.1 / m.price("BOND", -365)) * m.price("BOND", 0);
-  assert.ok(Math.abs(s.autopilot - auto) < 0.01, `autopilot ${s.autopilot} vs ${auto}`);
   const past = life.pastSnapshots(-30);
-  assert.ok(past.length > 0 && past.every((p) => Math.abs(p.you - p.held) < 0.01 && p.brokerage > 0));
+  assert.ok(past.length > 0 && past.every((p) => p.brokerage > 0 && p.you === p.held && p.held === p.autopilot));
 });
