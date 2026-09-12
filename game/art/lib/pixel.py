@@ -66,7 +66,7 @@ def flatten(day: np.ndarray, ids: np.ndarray) -> np.ndarray:
         base = np.median(rgb[g].astype(np.float32), axis=0)
         ratio = lum[g] / max(float(_lum(base)), 1.0)
         tone = np.where(ratio < DARK, TONES[0], np.where(ratio > LIGHT, TONES[2], TONES[1]))
-        out_rgb[g] = np.clip(base[None, :] * tone[:, None], 0, 255).astype(np.uint8)
+        out_rgb[g] = np.clip(np.rint(base[None, :] * tone[:, None]), 0, 255).astype(np.uint8)
     out[..., :3] = out_rgb.reshape(out.shape[0], out.shape[1], 3)
     return out
 
@@ -82,13 +82,14 @@ def downsample(img: np.ndarray, s: int = RAW_SCALE) -> np.ndarray:
     keep = opaque.sum(axis=2) * 2 >= m
     keys = np.where(opaque, _key(blocks[..., :3]), -1)
     valid = keys >= 0
-    # for each pixel in the block, how many other valid pixels share its key
+    # for each pixel in the block, how many valid pixels in the block (itself included) share its key
     eq = (keys[..., :, None] == keys[..., None, :]) & valid[..., None, :]
     counts = np.where(valid, eq.sum(axis=-1), -1)
     # highest count wins; ties go to the lowest key. BIG exceeds any 24-bit packed RGB key, so it dominates.
     BIG = 1 << 25
     score = counts.astype(np.int64) * BIG - keys
     best = np.take_along_axis(keys, score.argmax(axis=-1, keepdims=True), axis=-1)[..., 0]
+    best = np.where(keep, best, 0)  # a dropped block must be exactly (0, 0, 0, 0), not -1 & 255 = 255
     out = np.zeros((h, w, 4), np.uint8)
     out[..., 0] = (best >> 16) & 255
     out[..., 1] = (best >> 8) & 255
@@ -100,8 +101,13 @@ def downsample(img: np.ndarray, s: int = RAW_SCALE) -> np.ndarray:
 def build_palette(images, n: int, ink: bool = True) -> list:
     """A shared palette: median cut over the opaque pixels of every image, sampled down to at most 200,000
     pixels with a fixed seed so the result stays deterministic. Returns up to n unique colors, deduped in
-    first-seen order; when ink=True, INK is appended as the last color (never duplicated), still capped at n.
+    first-seen order; when ink=True, INK is appended as the last color, exactly once, always last, even if
+    the median cut itself produced an INK-colored region. Requires n >= 2 with ink=True (n >= 1 otherwise).
     Raises ValueError if images is empty or none of the images has an opaque pixel."""
+    if ink and n < 2:
+        raise ValueError("build_palette needs n >= 2 when ink=True (there must be room for a non-ink color)")
+    if not ink and n < 1:
+        raise ValueError("build_palette needs n >= 1")
     if not images:
         raise ValueError("build_palette needs at least one image")
     px = np.concatenate([im[_opaque(im)][:, :3] for im in images])
@@ -116,9 +122,9 @@ def build_palette(images, n: int, ink: bool = True) -> list:
     colors = [tuple(int(v) for v in c) for c in np.array(q.getpalette()[: k * 3]).reshape(-1, 3)]
     seen = []
     for c in colors:
-        if c not in seen:
+        if c not in seen and not (ink and c == INK):
             seen.append(c)
-    if ink and INK not in seen:
+    if ink:
         seen.append(INK)
     return seen[:n]
 

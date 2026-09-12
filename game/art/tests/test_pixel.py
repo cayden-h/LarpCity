@@ -28,6 +28,11 @@ class Downsample(unittest.TestCase):
         a[0, :2] = (255, 255, 255, 255)
         self.assertEqual(P.downsample(a)[0, 0, 3], 0)
 
+    def test_dropped_block_is_fully_zero(self):
+        a = img(4, 4)
+        a[0, :2] = (255, 255, 255, 255)
+        self.assertEqual(tuple(P.downsample(a)[0, 0]), (0, 0, 0, 0))
+
     def test_size_shrinks_by_raw_scale(self):
         self.assertEqual(P.downsample(img(8, 12, (1, 2, 3, 255))).shape, (2, 3, 4))
 
@@ -98,6 +103,19 @@ class Flatten(unittest.TestCase):
         ids = img(2, 2, (9, 9, 9, 255))
         np.testing.assert_array_equal(P.flatten(day, ids), day)
 
+    def test_tones_are_rounded_not_truncated(self):
+        # median 101: dark tone 0.72 * 101 = 72.72 (rounds to 73, would truncate to 72);
+        # light tone 1.18 * 101 = 119.18 (rounds to 119, would truncate to 119 too, but check anyway)
+        day = img(1, 3, (0, 0, 0, 255))
+        day[0, 0] = (10, 10, 10, 255)
+        day[0, 1] = (101, 101, 101, 255)
+        day[0, 2] = (200, 200, 200, 255)
+        ids = img(1, 3, (5, 5, 5, 255))
+        out = P.flatten(day, ids)
+        self.assertEqual(tuple(out[0, 0, :3]), (73, 73, 73))
+        self.assertEqual(tuple(out[0, 1, :3]), (101, 101, 101))
+        self.assertEqual(tuple(out[0, 2, :3]), (119, 119, 119))
+
 
 class Palette(unittest.TestCase):
     def test_palette_has_n_colors_and_ends_with_the_ink(self):
@@ -127,6 +145,9 @@ class Palette(unittest.TestCase):
         pal = P.build_palette([a], 8)
         self.assertLess(len(pal), 8)
         self.assertEqual(pal[-1], P.INK)
+        self.assertEqual(len(pal), len(set(pal)))
+        self.assertIn((10, 20, 30), pal)
+        self.assertIn((200, 210, 220), pal)
 
     def test_all_transparent_image_raises(self):
         a = img(4, 4)
@@ -136,6 +157,24 @@ class Palette(unittest.TestCase):
     def test_empty_image_list_raises(self):
         with self.assertRaises(ValueError):
             P.build_palette([], 4)
+
+    def test_an_ink_colored_region_still_ends_up_last_and_once(self):
+        a = img(4, 4, (0, 0, 0, 255))
+        a[:2] = (*P.INK, 255)
+        a[2:] = (200, 210, 220, 255)
+        pal = P.build_palette([a], 8)
+        self.assertEqual(pal.count(P.INK), 1)
+        self.assertEqual(pal[-1], P.INK)
+
+    def test_n_must_leave_room_for_ink(self):
+        a = img(4, 4, (0, 0, 0, 255))
+        with self.assertRaises(ValueError):
+            P.build_palette([a], 1)
+
+    def test_n_must_be_at_least_one_without_ink(self):
+        a = img(4, 4, (0, 0, 0, 255))
+        with self.assertRaises(ValueError):
+            P.build_palette([a], 0, ink=False)
 
 
 class Outline(unittest.TestCase):
