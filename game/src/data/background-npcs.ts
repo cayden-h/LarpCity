@@ -7,7 +7,7 @@
 // hand-authored, so growing the roster later is a one-line count change.
 
 import { hashKeys, pick, pickWeighted, range, rngFor } from "../engine/rng.ts";
-import type { NpcDebtKind, NpcProfile } from "./npcs.ts";
+import type { JobCategoryId, JobLevel, NpcDebtKind, NpcProfile } from "./npcs.ts";
 import { NPCS } from "./npcs.ts";
 
 export const BACKGROUND_NPC_COUNT = 38;
@@ -22,6 +22,13 @@ interface Archetype {
   debt: { kind: NpcDebtKind; aprRange: [number, number]; balanceShare: [number, number] } | null;
   strategy: NpcProfile["strategy"];
   savingsMonths: [number, number];
+  /**
+   * Approximate: the shared `JOBS` pool spans multiple real categories, so a
+   * single categoryId/level per archetype is a simplification, not a
+   * financial-literacy lesson like the primary NPCs' tags. Closest fit only.
+   */
+  categoryId: JobCategoryId;
+  level: JobLevel;
   story: (job: string) => string;
 }
 
@@ -32,6 +39,8 @@ const ARCHETYPES: Archetype[] = [
     debt: { kind: "card", aprRange: [0.22, 0.28], balanceShare: [0.7, 1.1] },
     strategy: "minimums",
     savingsMonths: [0, 0.3],
+    categoryId: "sales_retail",
+    level: "entry",
     story: (job) => `Works as a ${job} and carries a card balance most months don't quite clear.`,
   },
   {
@@ -40,6 +49,8 @@ const ARCHETYPES: Archetype[] = [
     debt: null,
     strategy: "avalanche",
     savingsMonths: [2, 5],
+    categoryId: "business_finance",
+    level: "mid",
     story: (job) => `A ${job} with no debt, slowly building a real cushion.`,
   },
   {
@@ -48,6 +59,8 @@ const ARCHETYPES: Archetype[] = [
     debt: { kind: "auto", aprRange: [0.07, 0.15], balanceShare: [4, 7] },
     strategy: "minimums",
     savingsMonths: [0.2, 1],
+    categoryId: "transport",
+    level: "entry",
     story: (job) => `Financed the car this ${job} needs for work, still a few years of payments left.`,
   },
   {
@@ -56,6 +69,8 @@ const ARCHETYPES: Archetype[] = [
     debt: { kind: "card", aprRange: [0.2, 0.25], balanceShare: [1.5, 3] },
     strategy: "minimums",
     savingsMonths: [1, 3],
+    categoryId: "tech",
+    level: "senior",
     story: (job) => `A well-paid ${job} whose card balance grew quietly alongside the raises.`,
   },
 ];
@@ -85,6 +100,8 @@ function buildProfile(id: string, first: string, last: string, seed: string): Np
     last,
     age,
     job,
+    categoryId: archetype.categoryId,
+    level: archetype.level,
     monthlyTakeHome,
     accounts: { checking: Math.round(monthlyTakeHome * 0.15), savings, emergency: Math.round(savings * 0.4) },
     debts,

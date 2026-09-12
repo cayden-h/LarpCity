@@ -41,13 +41,8 @@ export interface NpcProfile {
   last: string;
   age: number;
   job: string;
-  /**
-   * Optional so Task 11's procedurally generated background roster
-   * (background-npcs.ts) — out of this task's scope — keeps typechecking
-   * without being tagged. Every one of the 12 primary NPCs below sets both.
-   */
-  categoryId?: JobCategoryId;
-  level?: JobLevel;
+  categoryId: JobCategoryId;
+  level: JobLevel;
   monthlyTakeHome: number;
   accounts: { checking: number; savings: number; emergency: number };
   debts: NpcDebtSpec[];
