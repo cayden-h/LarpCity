@@ -57,6 +57,12 @@ export async function createRun(db: Db, playerId: string, seed: number): Promise
   return rows[0].id;
 }
 
+/** True once Persona has verified this player as a human adult (routes/persona.ts). */
+export async function playerVerified(db: Db, playerId: string): Promise<boolean> {
+  const { rows } = await db.query<{ verified: boolean }>(`SELECT verified FROM players WHERE id = $1`, [playerId]);
+  return rows[0]?.verified === true;
+}
+
 export async function ownsRun(db: Db, playerId: string, runId: string): Promise<boolean> {
   const { rows } = await db.query(`SELECT 1 FROM runs WHERE id = $1 AND player_id = $2`, [runId, playerId]);
   return rows.length > 0;

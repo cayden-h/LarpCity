@@ -29,6 +29,8 @@ const schema = z.object({
 
   GEMINI_API_KEYS: z.string().min(1),
   GEMINI_TEXT_MODEL: z.string().min(1).default("gemini-3.8-flash"),
+  // Tried in order when the text model is busy (3.8 often answers 503 "high demand"); comma-separated.
+  GEMINI_FALLBACK_MODELS: z.string().default("gemini-3.6-flash"),
   GEMINI_IMAGE_MODEL: z.string().min(1).default("gemini-3.1-flash-image"),
 
   BACKBOARD_API_KEY: z.string().min(1),
@@ -48,3 +50,8 @@ export const env: Env = parseEnv(process.env);
 export const geminiKeys: string[] = env.GEMINI_API_KEYS.split(",")
   .map((k) => k.trim())
   .filter(Boolean);
+
+/** The text model first, then the fallbacks, without repeats. */
+export const geminiTextModels: string[] = [
+  ...new Set([env.GEMINI_TEXT_MODEL, ...env.GEMINI_FALLBACK_MODELS.split(",").map((m) => m.trim())].filter(Boolean)),
+];

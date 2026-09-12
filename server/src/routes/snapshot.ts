@@ -69,7 +69,7 @@ const eventsQuery = z.object({
 });
 
 /** The run id from the URL or body, after checking it belongs to this session's player. */
-async function ownRun(req: Request, id: unknown): Promise<string> {
+export async function ownRun(req: Request, id: unknown): Promise<string> {
   const r = runId.safeParse(id);
   if (!r.success) throw new HttpError(400, "invalid run id");
   if (!(await ownsRun(pool, req.playerId, r.data))) throw new HttpError(403, "forbidden");
