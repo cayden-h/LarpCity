@@ -207,6 +207,9 @@ export function cueForEvents(events: readonly LifeEvent[]): Cue | null {
     else if (e.type === "missed") consider("missed");
     else if (e.type === "paid_off") consider("paid_off");
     else if (e.type === "moved") consider("moved");
+    // The market: a bear market (the Money window opens on the crash decision) and its return to the old high.
+    else if (e.type === "bear_market") consider("crash");
+    else if (e.type === "market_recovered") consider("boom");
     else if (e.type === "score_change") {
       if (e.to - e.from >= SCORE_STEP) consider("score_up");
       else if (e.from - e.to >= SCORE_STEP) consider("score_down");

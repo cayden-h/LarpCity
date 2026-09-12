@@ -33,6 +33,18 @@ test("cueForEvents picks the most important event of the day", () => {
   assert.equal(cueForEvents([]), null);
 });
 
+test("the owl reacts to the market's crash and recovery", () => {
+  const bear = { type: "bear_market", day: 40, drop: 0.22, stocks: 3100 } as const;
+  const recovered = { type: "market_recovered", day: 400, you: 5200, held: 5200, autopilot: 5300 } as const;
+  const missed = { type: "missed", day: 40, debtId: "loan", due: 120, fee: 29 } as const;
+  const scoreUp = { type: "score_change", day: 40, from: 650, to: 650 + SCORE_STEP } as const;
+  assert.equal(cueForEvents([bear]), "crash");
+  assert.equal(cueForEvents([recovered]), "boom");
+  // A missed payment outranks the market; the market outranks a credit score move.
+  assert.equal(cueForEvents([bear, missed]), "missed");
+  assert.equal(cueForEvents([scoreUp, recovered]), "boom");
+});
+
 test("small credit score moves stay quiet", () => {
   const score = (from: number, to: number) => [{ type: "score_change", day: 5, from, to }] as const;
   assert.equal(cueForEvents(score(700, 700 + SCORE_STEP)), "score_up");
