@@ -24,7 +24,7 @@ export const RV = 66;
 
 const DEFAULTS: Outskirts = { terrain: "plains", farms: 0.35, forest: 0.25, suburbs: 10, grid: 6, beltway: true, features: [] };
 
-const ROADS = new Set<TileChar>(["=", "B", "t"]);
+const ROADS = new Set<TileChar>(["=", "B", "t", "O"]);
 const OPEN = new Set<TileChar>([".", "f", "F", "s", "~", "m"]);
 
 export interface Region {

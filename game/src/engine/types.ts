@@ -11,10 +11,11 @@ import type { SpriteSet } from "./sprites";
  *   w  water           s  sand / beach    ~  marsh / reeds
  *   b  building lot    p  park (trees)    P  plaza (paved, for landmarks)
  *   h  player's home   t  tram road (road with rails)
+ *   O  overpass (a road over another road)
  *   f  farmland        F  forest          m  mountain rock
  *   ' ' (space) is outside the map; the world builder fills it in.
  */
-export type TileChar = "." | "=" | "B" | "w" | "s" | "~" | "b" | "p" | "P" | "h" | "t" | "f" | "F" | "m" | " ";
+export type TileChar = "." | "=" | "B" | "w" | "s" | "~" | "b" | "p" | "P" | "h" | "t" | "O" | "f" | "F" | "m" | " ";
 
 export type Terrain = "plains" | "forest" | "hills" | "mountains" | "desert" | "swamp" | "tundra" | "island";
 

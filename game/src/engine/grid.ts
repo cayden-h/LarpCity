@@ -2,8 +2,8 @@
 
 import type { TileChar } from "./types";
 
-const ROADLIKE = new Set<TileChar>(["=", "B", "t"]);
-const LAND = new Set<TileChar>([".", "=", "s", "~", "b", "p", "P", "h", "t", "f", "F", "m"]);
+const ROADLIKE = new Set<TileChar>(["=", "B", "t", "O"]);
+const LAND = new Set<TileChar>([".", "=", "s", "~", "b", "p", "P", "h", "t", "O", "f", "F", "m"]);
 
 export class CityGrid {
   readonly w: number;

@@ -132,7 +132,7 @@ export class Ground {
         }
         const corners = tileCorners(x, y, 0);
         const fill =
-          c === "=" || c === "t"
+          c === "=" || c === "t" || c === "O"
             ? mix(ASPHALT, 0xeef2f6, snow * 0.35)
             : c === "s"
               ? mix(this.palette.sand, 0xffffff, snow * 0.6)
@@ -162,7 +162,7 @@ export class Ground {
           }
           marks.stroke({ width: 3, color: mix(crop, 0xffffff, snow * 0.7), cap: "round" });
         }
-        if (c === "=" || c === "t") this.drawRoad(marks, x, y, c === "t");
+        if (c === "=" || c === "t" || c === "O") this.drawRoad(marks, x, y, c === "t");
       }
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (g.at(x, y) === "B") this.drawBridge(bridges, x, y);
 
