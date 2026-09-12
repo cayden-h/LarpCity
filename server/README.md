@@ -8,9 +8,40 @@ obtain each provider's keys.
 ## Local development
 
 1. Fill in the repo-root `.env` (copy `.env.example`; see `SETUP.md` for where each key comes from).
+   Persona is optional for now: without its keys the server still boots and `/api/persona/*` answers 503.
 2. `npm install`
 3. `npm run dev` — starts on `PORT` (default 3000), applies additive migrations on boot, and
    serves `/api/health`.
+4. `cd ../game && npm run dev` — the game calls the server at `VITE_API_BASE_URL` from the root `.env`.
+
+To try it without touching the team's Tiger Data, run a local TimescaleDB and point the server at it
+(`sslmode=disable` turns TLS off for a local database):
+
+```sh
+docker run -d --name larp-pg -e POSTGRES_PASSWORD=larp -p 5433:5432 timescale/timescaledb:latest-pg17
+PGPASSWORD=larp psql -h 127.0.0.1 -p 5433 -U postgres -f ../game/db/schema.sql
+DATABASE_URL='postgres://postgres:larp@127.0.0.1:5433/postgres?sslmode=disable' npm run dev
+```
+
+## Bank mirror (Capital One Nessie)
+
+The player and the game's named NPCs (`game/src/data/npcs.ts`) each have a Nessie bank statement.
+The game works out each month's entries (`game/src/sim/mirror/`) and posts them here; `src/mirror.ts`
+posts them to Nessie once per key and reads them back.
+
+| Route | Body | Returns |
+| --- | --- | --- |
+| `GET /api/bank/status` | | `{ ok, customers }` when Nessie is reachable; the game turns the mirror on from this |
+| `POST /api/bank/:entity/open` | `{ run, name?, opening }` | `{ run, reused, balances }` |
+| `POST /api/bank/:entity/entries` | `{ run, entries }` | `{ posted, skipped, balances }` |
+| `GET /api/bank/:entity` | | this session's statement: each account's opening balance, transactions, and balance |
+
+`:entity` is `player` or a named NPC (`npc-maya`).
+Nessie never changes an account's `balance` after creating it, so every balance here is the opening
+balance plus the run's entries. Customers can't be deleted, so NPC customers are shared by every
+session and capped at 12, and a player gets one customer per session; accounts are per session and
+run, and a new run deletes the session's old ones. The probe results behind these rules are in
+`../SETUP.md` (Capital One Nessie, "What the live API does").
 
 ## Tests
 

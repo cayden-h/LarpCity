@@ -27,8 +27,16 @@ test("parseEnv accepts a fully populated environment", () => {
 });
 
 test("parseEnv rejects a missing required secret", () => {
-  const { PERSONA_API_KEY, ...missing } = VALID;
+  const { NESSIE_API_KEY, ...missing } = VALID;
   assert.throws(() => parseEnv(missing));
+});
+
+test("Persona keys are optional, and blank counts as unset", () => {
+  const { PERSONA_API_KEY, PERSONA_WEBHOOK_SECRET, ...withoutPersona } = VALID;
+  assert.equal(parseEnv(withoutPersona).PERSONA_API_KEY, undefined);
+  const blank = parseEnv({ ...VALID, PERSONA_API_KEY: "", PERSONA_WEBHOOK_SECRET: "" });
+  assert.equal(blank.PERSONA_API_KEY, undefined);
+  assert.equal(blank.PERSONA_WEBHOOK_SECRET, undefined);
 });
 
 test("parseEnv rejects a too-short session secret", () => {

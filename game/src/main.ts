@@ -8,6 +8,8 @@ import { loadSpriteSet } from "./engine/sprites";
 import type { StateInfo } from "./engine/types";
 import { PlayerLife } from "./sim/life";
 import { MarketPath } from "./sim/market";
+import { BankSync } from "./sim/mirror";
+import { NpcTown } from "./sim/npcs";
 import { Hud } from "./ui/hud";
 import { NpcCard } from "./ui/npccard";
 import { Phone } from "./ui/phone";
@@ -39,6 +41,16 @@ const seed = Number(new URLSearchParams(location.search).get("seed")) || 2026091
 // debt engine run once per game day (research/07-debt-system-design.md);
 // investments move with the seeded market.
 const player = new PlayerLife({ place: state, day: clock.day, market: new MarketPath(seed, clock.start) });
+
+// The named NPCs' money lives on the same market (src/data/npcs.ts), and the
+// bank mirror posts the player's and theirs to Capital One Nessie through the
+// server, one statement per game month (off when the server isn't running).
+const town = new NpcTown({ place: state, day: clock.day, market: player.market, start: clock.start });
+const bank = new BankSync({ run: `${seed}-${Date.now().toString(36)}`, start: clock.start, base: `${import.meta.env.VITE_API_BASE_URL ?? ""}/api/bank` });
+bank.add("player", "Player", player);
+for (const [id, life] of town.lives) bank.add(id, town.profiles.get(id)!.first, life);
+void bank.begin();
+
 let shownTier = -1;
 function syncHomeTier() {
   const tier = player.homeTier();
@@ -55,6 +67,8 @@ clock.onDay((day) => {
     clock.speed = 0;
   }
   syncHomeTier();
+  town.onDay(day);
+  void bank.tick(day);
 });
 
 async function open(next: StateInfo): Promise<void> {
@@ -111,6 +125,9 @@ const fastForward = new FastForward({
   onFinished: (result) => {
     clock.jumpTo(result.toDay);
     syncHomeTier();
+    // The fast-forward ran only the player; catch the NPCs up, then post the skipped months as one summary.
+    town.catchUp(result.toDay);
+    void bank.tick(result.toDay);
   },
 });
 
@@ -155,4 +172,4 @@ async function visit(abbrOrCity: string, seconds = 3) {
 }
 
 // Handy for testing from the console.
-Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, phone, fastForward } });
+Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, town, bank, phone, fastForward } });

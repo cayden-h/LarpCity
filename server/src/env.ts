@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+/** Not required yet: a blank value counts as unset, and the feature's routes answer 503. */
+const optional = z
+  .string()
+  .optional()
+  .transform((v) => v || undefined);
+
 const schema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
@@ -7,8 +13,9 @@ const schema = z.object({
   SESSION_SECRET: z.string().min(16),
   DATABASE_URL: z.string().min(1),
 
-  PERSONA_API_KEY: z.string().min(1),
-  PERSONA_WEBHOOK_SECRET: z.string().min(1),
+  // Persona is on hold (2026-09-12), so the server boots without it.
+  PERSONA_API_KEY: optional,
+  PERSONA_WEBHOOK_SECRET: optional,
   PERSONA_API_VERSION: z.string().min(1).default("2025-12-08"),
 
   NESSIE_API_KEY: z.string().min(1),

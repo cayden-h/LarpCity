@@ -101,6 +101,9 @@ export default defineConfig(({ mode }) => {
   const root = fileURLToPath(new URL("..", import.meta.url));
   const env = { ...loadEnv(mode, root, ""), ...loadEnv(mode, process.cwd(), "") };
   return {
+    // Public VITE_* values (VITE_API_BASE_URL, the server's address) live in the repo-root .env
+    // next to the server's keys; Vite only ever exposes VITE_-prefixed values to the browser.
+    envDir: root,
     plugins: [marketProxy(env.ALPHAVANTAGE_API_KEY || undefined)],
     build: {
       rollupOptions: {

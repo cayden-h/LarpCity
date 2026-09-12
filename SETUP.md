@@ -21,9 +21,12 @@ Every track below follows the same shape: account setup, keys, code, how it maps
   Docs: "Real verifications are not performed within sandbox mode."
   The Persona challenge is "Prove You're Human" ("access depends on a verified human"), so ask the Persona sponsor table on Saturday morning for a production environment or demo credits.
   Until then, sandbox plus the force-pass / force-fail toggle demos both branches.
-- **We need a backend.**
-  `game/` is a browser-only Vite app today, and every key below is secret except Persona's template and environment ids.
-  Add a small Node server (`server/`) that holds the keys, and have the browser call only our own `/api/*` routes.
+- **The backend is `server/`.**
+  Every key below is secret except Persona's template and environment ids, so an Express server holds the keys and the browser calls only our own `/api/*` routes (see [server/README.md](server/README.md)).
+  Persona is optional there for now, so the server boots without it.
+- **Nessie is a transaction log, not a ledger.**
+  It never applies deposits or withdrawals to an account's `balance`, truncates cents, rejects negative balances, has no payee on transfers, and can't delete customers (probed 2026-09-12, see the Nessie section).
+  The game stays the source of truth and mirrors each month into Nessie.
 - **Gemini image generation has no free tier.**
   `gemini-3.1-flash-image` is paid only (about $0.067 per 1K image), so one person must turn on billing in AI Studio.
   Billing also means our prompts are not used for training, which we want for selfies anyway.
@@ -158,63 +161,58 @@ Nessie is optional for this track, but real bank ledgers updating live make the 
 | `NESSIE_BASE_URL` | `https://api.nessieisreal.com` | No |
 | `NESSIE_TAG` | `larpcity`, a prefix for nicknames and descriptions | No |
 
-### 3. Endpoints we use
+### 3. What the live API does (probed 2026-09-12)
 
-| Call | Body |
-| --- | --- |
-| `POST /customers` | `{first_name, last_name, address:{street_number, street_name, city, state, zip}}` |
-| `POST /customers/{id}/accounts` | `{type: "Checking" \| "Savings" \| "Credit Card", nickname, rewards, balance}` ("Credit Card" as a request value is UNVERIFIED) |
-| `POST /accounts/{id}/deposits` (also `/withdrawals`) | `{medium: "balance", transaction_date: "YYYY-MM-DD", status, amount, description}` |
-| `POST /accounts/{id}/transfers` | `{medium, payee_id, amount, transaction_date, status, description}` (body UNVERIFIED) |
-| `POST /accounts/{id}/purchases` | `{merchant_id, medium, purchase_date, amount, status, description}` |
-| `POST /accounts/{id}/bills` | `{status: "recurring", payee, nickname, payment_date, recurring_date (1-31), payment_amount}` |
-| `POST /accounts/{id}/loans` | `{type: "home" \| "auto" \| "small business", status, credit_score, monthly_payment, amount, description}` (UNVERIFIED) |
-| `GET /accounts/{id}`, `GET /accounts/{id}/{deposits\|transfers\|purchases\|bills}` | balance and history for the in-game bank dashboard |
-| `DELETE /accounts/{id}` | cleanup (there is no bulk delete; `DELETE /data` returns 403) |
+Every row below was checked against `api.nessieisreal.com` with our key; the client in `server/src/adapters/nessie.ts` is built on these shapes.
 
-New ids are UUIDs, and POST responses have historically been `{code: 201, message, objectCreated: {...}}` (UNVERIFIED on the new API).
+| Call | Body (required fields) | What happens |
+| --- | --- | --- |
+| `GET /customers` | | Only this key's customers (the `/enterprise/*` and `GET /accounts` lists show every team's data) |
+| `POST /customers` | `{first_name, last_name, address:{street_number, street_name, city, state, zip}}` | 201 `{code, message, objectCreated}`; ids are UUIDs |
+| `DELETE /customers/{id}`, `DELETE /merchants/{id}` | | **403: customers and merchants can never be deleted**, so never create them casually |
+| `POST /customers/{id}/accounts` | `{type: "Checking" \| "Savings" \| "Credit Card", nickname, rewards, balance}` | 201; `"Credit Card"` works; **cents are truncated** (1200.57 becomes 1200) and **a negative balance is rejected** |
+| `PUT /accounts/{id}` | `{nickname}` (required) | 202, but only `nickname` changes: `balance` and `rewards` are silently ignored |
+| `DELETE /accounts/{id}` | | 200; the account 404s afterwards, but its deposits stay readable |
+| `POST /accounts/{id}/deposits`, `/withdrawals` | `{medium: "balance", transaction_date, status, amount, description}` (all required) | 201; any date works, past (2010) or future (2030); **amounts are truncated to whole dollars**; long descriptions are fine |
+| `POST /accounts/{id}/transfers` | `{transaction_date, status, amount, description}` | 201, but **there is no payee**: `payee_id` and `medium` are rejected as extra fields, and the transfer shows only on the sending account |
+| `POST /accounts/{id}/purchases` | `{merchant_id, medium, amount}` plus optional `purchase_date, status, description` | Needs a merchant (`POST /merchants` with `{name, category: string, address, geocode}`) |
+| `POST /accounts/{id}/bills` | `{status: "recurring", payee, nickname, payment_date, recurring_date, payment_amount}` | 201, with `upcoming_payment_date` computed |
+| `POST /accounts/{id}/loans` | `{type: "home" \| "auto" \| "small business", status, credit_score, monthly_payment, amount, description}` | 201 |
+| `GET /accounts/{id}/{deposits\|withdrawals\|transfers\|bills}` | | A list, or **404 with a message when the list is empty** |
+
+**Nessie never applies transactions to `balance`.**
+After a $1,000 deposit, a $50 withdrawal, and two $100 transfers, the checking account still reported its opening $500 ten minutes later, and PUT can't set it.
+So Nessie is a transaction log, not a ledger: the simulation stays the source of truth, and every balance we show is the opening balance plus the posted transactions.
+There is no published rate limit and no bulk endpoint.
 
 ### 4. Server code
 
-```ts
-const B = process.env.NESSIE_BASE_URL!, K = process.env.NESSIE_API_KEY!;
-async function nessie<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${B}${path}?key=${K}`, { method,
-    headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
-  if (!r.ok) throw new Error(`Nessie ${method} ${path} ${r.status} ${await r.text()}`);
-  const j: any = await r.json();
-  return (j.objectCreated ?? j) as T;
-}
+- `server/src/adapters/nessie.ts`: the typed client (one method per row above). It keeps the key out of every error, unwraps `objectCreated`, turns empty-list 404s into `[]`, and retries throttling and failed reads, but never a POST that may have landed.
+- `server/src/mirror.ts` and `server/src/routes/nessie.ts`: the bank mirror behind `/api/bank/*` ([server/README.md](server/README.md) has the routes).
+- `game/src/sim/mirror/`: turns each game month into statement entries and sends them; `game/src/sim/npcs/` and `game/src/data/npcs.ts`: the named NPCs.
 
-export async function provisionPlayer(playerId: string) {
-  // No real names: Nessie data is readable by every team.
-  const c = await nessie<{ _id: string }>('POST', '/customers', { first_name: 'Larp', last_name: `LC-${playerId.slice(0, 6)}`,
-    address: { street_number: '6100', street_name: 'Main Street', city: 'Houston', state: 'TX', zip: '77005' } });
-  const open = (type: string, balance: number) => nessie<{ _id: string }>('POST', `/customers/${c._id}/accounts`,
-    { type, nickname: `larpcity:${playerId}:${type}`, rewards: 0, balance });
-  const [checking, savings, credit] = await Promise.all([open('Checking', 500), open('Savings', 0), open('Credit Card', 0)]);
-  return { customerId: c._id, checking: checking._id, savings: savings._id, credit: credit._id };
-}
-```
+### 5. How it maps to Larp City (option B, built 2026-09-12)
 
-### 5. How it maps to Larp City
-
-- A new player gets one Nessie customer with Checking, Savings, and Credit Card accounts; store the three ids in Tiger Data.
-- **Mirror monthly, not daily.**
-  At each in-game month rollover, post one paycheck deposit, one transfer to savings, and one purchase per spending category; create bills once as `recurring`.
-  Life events (new job, loan, big purchase) post immediately.
-- Put the game date in `description` (for example `larpcity:<player>:G2047-03:paycheck`) and keep `transaction_date` as today, because back-dated and future dates are UNVERIFIED.
-- The in-game bank dashboard reads balances and history from Nessie and shows the game date from `description`.
-- Goal fast-forwards and long skips do not post to Nessie; after the jump, post one summary deposit or withdrawal so the balance matches the sim.
-- Queue at most one sync per player per month, with retry and backoff (no published rate limit).
+- **The player plus 8 named NPCs** (Maya the nurse, Jordan the barista, Priya, Marcus, Sofia, Kenji, Amara, and Diego) each have a Nessie customer with Checking, Savings (savings plus the emergency fund), and Credit Card (what the cards owe, as a positive number) accounts.
+  Each NPC is a full money life (paychecks, state rent, debts) on the same seeded market, and each tells one lesson.
+  The rest of the city's walkers stay a backdrop with no Nessie data.
+- **Customers are created once and reused**, because they can't be deleted: NPC customers are shared by every game session (capped at 12), and a player gets one customer per browser session.
+  Accounts are per session and run; a new run deletes that session's old accounts.
+- No real names or PII: NPC names are fictional and the player's customer is "Player".
+- **Mirror monthly.**
+  At each game month's end the game posts one entry per category (paycheck, rent, living costs, card payment, each loan payment, investing, interest) plus one "Transfers and other" entry per account, sized so the balance Nessie implies equals the sim's to the dollar.
+  The game date goes in `transaction_date`, and the entry's key goes in `description` so a retried batch never posts twice.
+- Goal fast-forwards and months when the server was down go out as one summary batch.
+- Verified end to end on 2026-09-12 (local TimescaleDB, live Nessie): after two game months, all 9 statements matched the game's balances exactly.
 
 ### 6. Test first
 
-- [ ] `curl "$NESSIE_BASE_URL/customers?key=$NESSIE_API_KEY"` returns `[]`.
-- [ ] Create a customer and a Checking account, post a deposit, and check whether `balance` updates right away (Nessie has applied pending transactions lazily before).
-- [ ] Try a future `transaction_date` like `2030-01-01` and note the result.
-- [ ] Try `type: "Credit Card"`; if rejected, use a Checking account nicknamed "Credit".
-- [ ] `DELETE /accounts/{id}` on a test account.
+- [x] `GET /customers` returns only our customers.
+- [x] A deposit does **not** update `balance`, even ten minutes later, and PUT can't set it: compute balances ourselves.
+- [x] Any `transaction_date` is accepted, past or future.
+- [x] `type: "Credit Card"` works; negative balances are rejected and cents are truncated.
+- [x] `DELETE /accounts/{id}` works; customers and merchants can't be deleted.
+- Leftovers on the key for good: two probe customers (`LC-probe1`, `larpcity-check`), one probe merchant (`Larp Grocer`), the 8 NPC customers, and one player customer per browser session that has run the mirror.
 
 ### 7. What judges want
 
@@ -707,7 +705,7 @@ All accounts are on sixtyfourandten@gmail.com (Nessie is on the `cayden-h` GitHu
 | ElevenLabs | Done | Key `larp-city` (unrestricted, auto-disable if leaked); agent "Larp City Intake Clerk" `agent_9101m29rg237f79b0rprqav18hxx` with the `submit_finances` client tool and auth on; mayor voice Bill `pqHfZKP75CvOlQylNhV4`, anchor voice Daniel `onwK4e9ZLuTAKqWW03F9` | `/v1/user` 200 (free tier, 0 / 10,000 credits); signed URL returns `wss://` |
 | Tiger Data | Done; schema applied and card data loaded (`game/db/load.py`, Sep 11) | Always-free Shared service `larp-city` in AWS us-east-1 (1 GiB, stays free after the trial), inside the 30-day Performance trial project | `psql` connects; TimescaleDB 2.30.0 |
 | Backboard | Done, chat needs credits | Key; assistant "Larp City Coach" `fe3bc6b8-0c92-45a1-a0c4-d98d7dd2834a` with research 02, 03, 06 indexed; models `anthropic/claude-haiku-4-5-20251001` (small) and `anthropic/claude-sonnet-5` (large) | `billing/balance` 200; docs indexed. **The free $5 covers only memory and RAG, not LLM chat**, so the coach needs paid credits (or route the coach text through another model) |
-| Capital One Nessie | Done | Key from the `cayden-h` GitHub login (no customers created yet) | `GET /customers` 200, returns `[]` |
+| Capital One Nessie | Done; API probed and bank mirror built (Sep 12) | Key from the `cayden-h` GitHub login; the 8 NPC customers, player customers per session, and two probe customers | Every endpoint we use (see the Nessie section); the mirror's statements matched the game's balances end to end |
 | Gemini | Done | Three keys in `GEMINI_API_KEYS`, rotated on 429 or 503; no OpenAI (we use Claude Code and ChatGPT in the browser for anything else) | All three: list models 200 (includes `gemini-3.8-flash` and `gemini-3.1-flash-image`), `gemini-3.8-flash` replies (key 2 needed one retry after a 503). Image generation billing not tested |
 | Persona | Teammate | | |
 | Vultr | Key saved, IP not allowed yet | `VULTR_API_KEY` in `.env` | Returns 401 "Unauthorized IP address" from the Rice network (168.5.164.0); add that IP (or the VPS IP) under Account > API > Access Control |
@@ -717,7 +715,7 @@ All accounts are on sixtyfourandten@gmail.com (Nessie is on the `cayden-h` GitHu
 
 - [ ] Persona: sandbox account, published selfie template with liveness (+ age if allowed), allowed domains, approve workflow, webhook; share template and environment ids.
 - [ ] Persona booth: ask for production or credits (Saturday morning).
-- [ ] Nessie: GitHub login, key, one tagged test customer with Checking, Savings, and Credit Card.
+- [x] Nessie: GitHub login, key, the API probed, and the bank mirror (option B) running against it.
 - [x] ElevenLabs: key, mayor and anchor voices, onboarding Agent with the `submit_finances` client tool; ask for a promo code (promo code still to ask).
 - [x] Gemini: three rotating keys in `GEMINI_API_KEYS` (image generation billing still to confirm).
 - [x] Tiger Data: ~~trial service~~ (done), ~~save `DATABASE_URL`~~ (done), ~~run the schema~~ (done: `python3 game/db/load.py` applies `game/db/schema.sql` and loads the card catalog and FRED rates).
@@ -725,7 +723,7 @@ All accounts are on sixtyfourandten@gmail.com (Nessie is on the `cayden-h` GitHu
 - [ ] Vultr: redeem the MLH code, Ubuntu 24.04 VPS, Node 22, Caddy, systemd.
 - [ ] Domain: MLH code, A record to the VPS.
 - [ ] Alpha Vantage (optional live quotes on `/debt.html`): free key from https://www.alphavantage.co/support/#api-key as `ALPHAVANTAGE_API_KEY` in `Larp City/.env` (or `game/.env.local`); the Vite dev server proxies `/api/market/*` and caches for the 25-requests-a-day limit (see `game/.env.example` and research/07). Without it the page uses the FRED snapshot.
-- [ ] Repo: add `server/` and `.env.example` (`game/.gitignore` now ignores `.env`).
+- [x] Repo: `server/` (Express, keys from the root `.env`) and `.env.example`; the root `.env` also needs a `SESSION_SECRET`.
 - [ ] Share secrets through a password manager or DM, never in Notion or git.
 
 ## Prize summary (HackRice 16 Devpost)

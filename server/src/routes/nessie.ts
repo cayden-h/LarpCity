@@ -1,85 +1,57 @@
 // server/src/routes/nessie.ts
-import { Router } from "express";
-import { z } from "zod";
-import { provisionPlayer, getAccount, postDeposit } from "../adapters/nessie.js";
-import { pool } from "../db.js";
+// The bank routes: option B's Nessie mirror (src/mirror.ts). The game posts
+// each month's statement entries for the session's player and the named NPCs,
+// and reads a statement back for the in-game Bank app. Balances come from the
+// mirror, not from Nessie's `balance`, which never changes after an account
+// is created.
+//
+//   GET  /api/bank/status            Nessie is reachable (the game turns the mirror on)
+//   POST /api/bank/:entity/open      { run, name?, opening } -> { run, reused, balances }
+//   POST /api/bank/:entity/entries   { run, entries }        -> { posted, skipped, balances }
+//   GET  /api/bank/:entity           this session's statement
+//
+// `:entity` is "player" or a named NPC ("npc-maya").
+import { Router, type Request, type Response } from "express";
+import type { z } from "zod";
+import { Nessie, NessieError } from "../adapters/nessie.js";
+import { env } from "../env.js";
 import { logger } from "../logger.js";
+import { ENTITY, entriesBody, MirrorError, MirrorService, openBody } from "../mirror.js";
 
 export const nessieRouter = Router();
 
-async function ownsAccount(playerId: string, accountId: string): Promise<boolean> {
-  const { rows } = await pool.query(
-    `SELECT 1 FROM players
-     WHERE id = $1 AND $2 IN (nessie_checking_id, nessie_savings_id, nessie_credit_id)`,
-    [playerId, accountId],
-  );
-  return rows.length > 0;
+export const mirror = new MirrorService(new Nessie({ baseUrl: env.NESSIE_BASE_URL, apiKey: env.NESSIE_API_KEY }), env.NESSIE_TAG);
+
+/** Runs a handler and turns every failure into a JSON reply (Express 4 doesn't catch rejected promises). */
+function handle(fn: (req: Request) => Promise<unknown>) {
+  return (req: Request, res: Response) => {
+    fn(req)
+      .then((body) => res.json(body))
+      .catch((err: unknown) => {
+        if (err instanceof MirrorError) return res.status(err.status).json({ error: err.message });
+        if (err instanceof NessieError) {
+          logger.error({ status: err.status, message: err.message }, "nessie request failed");
+          return res.status(502).json({ error: "nessie_unavailable" });
+        }
+        logger.error({ err }, "bank route failed");
+        return res.status(500).json({ error: "internal_error" });
+      });
+  };
 }
 
-nessieRouter.post("/provision", async (req, res) => {
-  try {
-    const existing = await pool.query(
-      `SELECT nessie_checking_id, nessie_savings_id, nessie_credit_id FROM players WHERE id = $1`,
-      [req.playerId],
-    );
-    const row = existing.rows[0];
-    if (row?.nessie_checking_id) {
-      res.json({
-        checkingId: row.nessie_checking_id,
-        savingsId: row.nessie_savings_id,
-        creditId: row.nessie_credit_id,
-      });
-      return;
-    }
-    const accounts = await provisionPlayer(req.playerId);
-    await pool.query(
-      `UPDATE players
-       SET nessie_customer_id = $1, nessie_checking_id = $2, nessie_savings_id = $3, nessie_credit_id = $4
-       WHERE id = $5`,
-      [accounts.customerId, accounts.checkingId, accounts.savingsId, accounts.creditId, req.playerId],
-    );
-    res.json({ checkingId: accounts.checkingId, savingsId: accounts.savingsId, creditId: accounts.creditId });
-  } catch (err) {
-    logger.error({ err }, "nessie provision failed");
-    res.status(502).json({ error: "nessie_unavailable" });
-  }
-});
+function entityOf(req: Request): string {
+  const entity = req.params.entity;
+  if (!ENTITY.test(entity)) throw new MirrorError(404, "Unknown account holder.");
+  return entity;
+}
 
-const syncBody = z.object({
-  accountId: z.string().min(1),
-  amount: z.number().positive().max(1_000_000),
-  description: z.string().min(1).max(200),
-});
+function parse<T>(schema: z.ZodType<T>, body: unknown): T {
+  const r = schema.safeParse(body);
+  if (!r.success) throw new MirrorError(400, "invalid body");
+  return r.data;
+}
 
-nessieRouter.post("/sync", async (req, res) => {
-  const parsed = syncBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "invalid body" });
-    return;
-  }
-  if (!(await ownsAccount(req.playerId, parsed.data.accountId))) {
-    res.status(403).json({ error: "forbidden" });
-    return;
-  }
-  try {
-    const result = await postDeposit(parsed.data.accountId, parsed.data.amount, parsed.data.description);
-    res.json(result);
-  } catch (err) {
-    logger.error({ err }, "nessie sync failed");
-    res.status(502).json({ error: "nessie_unavailable" });
-  }
-});
-
-nessieRouter.get("/:accountId", async (req, res) => {
-  if (!(await ownsAccount(req.playerId, req.params.accountId))) {
-    res.status(403).json({ error: "forbidden" });
-    return;
-  }
-  try {
-    const account = await getAccount(req.params.accountId);
-    res.json(account);
-  } catch (err) {
-    logger.error({ err }, "nessie get account failed");
-    res.status(502).json({ error: "nessie_unavailable" });
-  }
-});
+nessieRouter.get("/status", handle(async () => ({ ok: true, ...(await mirror.status()) })));
+nessieRouter.post("/:entity/open", handle(async (req) => mirror.open(req.playerId, entityOf(req), parse(openBody, req.body))));
+nessieRouter.post("/:entity/entries", handle(async (req) => mirror.post(req.playerId, entityOf(req), parse(entriesBody, req.body))));
+nessieRouter.get("/:entity", handle(async (req) => mirror.statement(req.playerId, entityOf(req))));
