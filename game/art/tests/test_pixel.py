@@ -68,12 +68,73 @@ class Flatten(unittest.TestCase):
 
     def test_two_regions_flatten_separately(self):
         day = img(2, 4, (100, 100, 100, 255))
-        day[:, 2:] = (30, 60, 90, 255)
+        day[:, 2:] = (40, 40, 40, 255)
         ids = img(2, 4, (1, 1, 1, 255))
         ids[:, 2:] = (2, 2, 2, 255)
         out = P.flatten(day, ids)
         self.assertEqual(tuple(out[0, 0, :3]), (100, 100, 100))
-        self.assertEqual(tuple(out[0, 3, :3]), (30, 60, 90))
+        self.assertEqual(tuple(out[0, 3, :3]), (40, 40, 40))
+
+    def test_base_color_is_saturated_at_the_same_brightness(self):
+        day = img(2, 2, (120, 100, 80, 255))
+        ids = img(2, 2, (5, 5, 5, 255))
+        out = P.flatten(day, ids)[0, 0, :3].astype(int)
+        self.assertEqual(out.max() - out.min(), round(40 * P.SATURATION))  # the spread grows by SATURATION
+        self.assertAlmostEqual(float(P._lum(out)), float(P._lum((120, 100, 80))), delta=1.0)
+        self.assertGreater(out[0], out[1])  # the hue stays: red over green over blue
+        self.assertGreater(out[1], out[2])
+
+    def test_grey_stays_grey(self):
+        day = img(2, 2, (90, 90, 90, 255))
+        ids = img(2, 2, (5, 5, 5, 255))
+        self.assertEqual(tuple(P.flatten(day, ids)[0, 0, :3]), (90, 90, 90))
+
+    def test_saturating_never_leaves_the_rgb_range(self):
+        day = img(2, 2, (250, 20, 10, 255))
+        ids = img(2, 2, (5, 5, 5, 255))
+        out = P.flatten(day, ids)[0, 0, :3]
+        self.assertEqual(out[0], 255)
+        self.assertEqual(out[2], 0)
+
+    def sheen(self, side):
+        """A 4-patch-wide grey region with a light square of the given side in one corner and a light line
+        two pixels wide along its bottom; the light pixels stay under half, so the median is the base."""
+        n = 4 * P.SHEEN_PATCH
+        day = img(n, n, (100, 100, 100, 255))
+        day[:side, :side] = (150, 150, 150, 255)
+        day[-2:, :] = (150, 150, 150, 255)
+        return P.flatten(day, img(n, n, (5, 5, 5, 255)))
+
+    def test_a_large_light_patch_falls_back_to_the_base_tone(self):
+        out = self.sheen(P.SHEEN_PATCH)
+        self.assertEqual(tuple(out[0, 0, :3]), (100, 100, 100))
+        self.assertEqual(tuple(out[P.SHEEN_PATCH - 1, P.SHEEN_PATCH - 1, :3]), (100, 100, 100))
+
+    def test_thin_light_details_keep_the_light_tone(self):
+        out = self.sheen(P.SHEEN_PATCH - 1)
+        self.assertEqual(tuple(out[0, 0, :3]), (118, 118, 118))    # a square just too small to count as a patch
+        self.assertEqual(tuple(out[-1, 5 * 1, :3]), (118, 118, 118))  # the thin line
+
+    def test_a_patch_is_measured_inside_one_region(self):
+        # two regions side by side, each with a light strip too thin to be a patch on its own, which together
+        # would be wide enough: they stay light
+        n = 4 * P.SHEEN_PATCH
+        h = P.SHEEN_PATCH // 2 + 1
+        day = img(n, n, (100, 100, 100, 255))
+        day[:P.SHEEN_PATCH, n // 2 - h: n // 2 + h] = (150, 150, 150, 255)
+        ids = img(n, n, (5, 5, 5, 255))
+        ids[:, n // 2:] = (6, 6, 6, 255)
+        out = P.flatten(day, ids)
+        self.assertEqual(tuple(out[0, n // 2 - 1, :3]), (118, 118, 118))
+        self.assertEqual(tuple(out[0, n // 2, :3]), (118, 118, 118))
+
+    def test_a_dark_patch_keeps_the_shade_tone(self):
+        # a large dark patch is a cast shadow, which is shape, not sheen
+        n = 4 * P.SHEEN_PATCH
+        day = img(n, n, (100, 100, 100, 255))
+        day[:P.SHEEN_PATCH, :P.SHEEN_PATCH] = (50, 50, 50, 255)
+        out = P.flatten(day, img(n, n, (5, 5, 5, 255)))
+        self.assertEqual(tuple(out[0, 0, :3]), (72, 72, 72))
 
     def test_sign_region_keeps_its_detail(self):
         day = img(4, 4, (0, 0, 0, 255))

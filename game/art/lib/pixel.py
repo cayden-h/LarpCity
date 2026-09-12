@@ -15,6 +15,13 @@ SIGN_ID = (255, 0, 255)        # id color of image-mapped signs, which keep thei
 TONES = (0.72, 1.0, 1.18)      # shade, base, and light, as multiples of a region's median color
 DARK, LIGHT = 0.82, 1.14       # luminance ratios (to the median) below which a pixel is shade, above which light
 EDGE_DARKEN = 0.55             # an inner line is the face's color at this brightness
+# A region's median color has its spread from grey (at the same luminance) multiplied by this: a physically lit
+# render comes out dusty next to the reference's small saturated palette, while greys stay grey.
+SATURATION = 1.8
+# Light-tone pixels that fill a square this many raw pixels wide, inside one region, are sheen (a glass
+# reflection, a glossy highlight) rather than detail, and fall back to the base tone; thinner light marks
+# (mullions, sills, window rows, brick) keep it. Dark patches stay: a cast shadow is shape.
+SHEEN_PATCH = 3 * RAW_SCALE
 # A cast shadow is one flat, unoutlined shape: the ink at a fixed alpha, so it darkens whatever ground
 # it lands on the same way everywhere, instead of the render's soft gradient.
 SHADOW = (*INK, 96)
@@ -49,9 +56,33 @@ def _key(rgb):
 SIGN_KEY = int(_key(np.array(SIGN_ID)))
 
 
+def _saturate(rgb, k: float) -> np.ndarray:
+    """rgb with its distance from the grey of the same luminance scaled by k, clipped to 0..255."""
+    rgb = np.asarray(rgb, dtype=np.float32)
+    grey = _lum(rgb)[..., None]
+    return np.clip(grey + (rgb - grey) * k, 0, 255)
+
+
+def _box_sum(mask: np.ndarray, k: int) -> np.ndarray:
+    """For every k x k window of mask, how many of its pixels are set, keyed by the window's top-left pixel."""
+    c = np.pad(mask.astype(np.int32).cumsum(0).cumsum(1), ((1, 0), (1, 0)))
+    return c[k:, k:] - c[:-k, k:] - c[k:, :-k] + c[:-k, :-k]
+
+
+def _patches(mask: np.ndarray, k: int) -> np.ndarray:
+    """The pixels of mask covered by some k x k square lying wholly inside mask (a morphological opening)."""
+    h, w = mask.shape
+    if h < k or w < k:
+        return np.zeros_like(mask)
+    full = np.zeros((h + k - 1, w + k - 1), bool)  # window anchors, padded so every pixel sees k x k of them
+    full[k - 1: h, k - 1: w] = _box_sum(mask, k) == k * k
+    return _box_sum(full, k) > 0
+
+
 def flatten(day: np.ndarray, ids: np.ndarray) -> np.ndarray:
-    """Every id region becomes at most three flat tones of its median color; sign regions, and any pixel
-    transparent in the day or the ids render, are left alone. Safe on an empty (0-size) image."""
+    """Every id region becomes at most three flat tones of its median color, saturated by SATURATION; light
+    patches at least SHEEN_PATCH wide take the base tone. Sign regions, and any pixel transparent in the day or
+    the ids render, are left alone. Safe on an empty (0-size) image."""
     out = day.copy()
     keys = _key(ids[..., :3])
     keys[~opaque(day)] = -1
@@ -62,17 +93,32 @@ def flatten(day: np.ndarray, ids: np.ndarray) -> np.ndarray:
     groups = np.split(order, np.flatnonzero(np.diff(sorted_keys)) + 1)
     rgb = day[..., :3].reshape(-1, 3)
     lum = _lum(rgb)
-    out_rgb = out[..., :3].reshape(-1, 3)
+    base = np.zeros((flat.size, 3), np.float32)
+    tone = np.full(flat.size, -1, np.int8)  # 0 shade, 1 base, 2 light; -1 left alone
     for g in groups:
         if g.size == 0:
             continue
         k = flat[g[0]]
         if k < 0 or k == SIGN_KEY:
             continue
-        base = np.median(rgb[g].astype(np.float32), axis=0)
-        ratio = lum[g] / max(float(_lum(base)), 1.0)
-        tone = np.where(ratio < DARK, TONES[0], np.where(ratio > LIGHT, TONES[2], TONES[1]))
-        out_rgb[g] = np.clip(np.rint(base[None, :] * tone[:, None]), 0, 255).astype(np.uint8)
+        median = np.median(rgb[g].astype(np.float32), axis=0)
+        ratio = lum[g] / max(float(_lum(median)), 1.0)
+        base[g] = _saturate(median, SATURATION)
+        tone[g] = np.where(ratio < DARK, 0, np.where(ratio > LIGHT, 2, 1))
+    tone = tone.reshape(keys.shape)
+    # a pixel on a region's border never belongs to a patch, so no square spans two regions
+    inside = np.ones(keys.shape, bool)
+    inside[:-1] &= keys[:-1] == keys[1:]
+    inside[1:] &= keys[1:] == keys[:-1]
+    inside[:, :-1] &= keys[:, :-1] == keys[:, 1:]
+    inside[:, 1:] &= keys[:, 1:] == keys[:, :-1]
+    light = tone == 2
+    tone[light & _patches(light & inside, SHEEN_PATCH)] = 1
+    tone = tone.ravel()
+    done = tone >= 0
+    factor = np.asarray(TONES, np.float32)[tone[done]]
+    out_rgb = out[..., :3].reshape(-1, 3)
+    out_rgb[done] = np.clip(np.rint(base[done] * factor[:, None]), 0, 255).astype(np.uint8)
     out[..., :3] = out_rgb.reshape(out.shape[0], out.shape[1], 3)
     return out
 
