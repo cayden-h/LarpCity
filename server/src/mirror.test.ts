@@ -129,6 +129,30 @@ test("statement for an entity that was never opened is a 404", async () => {
   await assert.rejects(mirror.statement(SESSION_A, "npc-maya"), (e: MirrorError) => e.status === 404);
 });
 
+test("a MirrorService constructed with a higher cap allows more NPC customers than the module default", async () => {
+  const fake = fakeNessie();
+  const nessie = new Nessie({ baseUrl: "https://nessie.test", apiKey: "k", fetchFn: fake.fetchFn, retries: 0 });
+  const mirror = new MirrorService(nessie, "bgtest", 60);
+  for (let i = 0; i < 20; i++) {
+    await mirror.open(SESSION_A, `npc-bg${i}`, { run: "r1", name: `Bg${i}`, opening: { checking: 0, savings: 0, credit: 0 } });
+  }
+  // 20 > the module's MAX_NPC_CUSTOMERS (12) but under this instance's own cap of 60.
+  assert.equal(fake.customers.length, 20);
+});
+
+test("the default cap (no third argument) is unchanged at MAX_NPC_CUSTOMERS", async () => {
+  const fake = fakeNessie();
+  const nessie = new Nessie({ baseUrl: "https://nessie.test", apiKey: "k", fetchFn: fake.fetchFn, retries: 0 });
+  const mirror = new MirrorService(nessie, "captest");
+  for (let i = 0; i < MAX_NPC_CUSTOMERS; i++) {
+    await mirror.open(SESSION_A, `npc-x${i}`, { run: "r1", name: `X${i}`, opening: { checking: 0, savings: 0, credit: 0 } });
+  }
+  await assert.rejects(
+    () => mirror.open(SESSION_A, "npc-over", { run: "r1", name: "Over", opening: { checking: 0, savings: 0, credit: 0 } }),
+    /At most \d+ NPC customers/,
+  );
+});
+
 test("request bodies are validated before anything reaches Nessie", () => {
   assert.ok(openBody.safeParse({ run: "20260912-abc", name: "Maya", opening: OPENING }).success);
   assert.ok(!openBody.safeParse({ run: "has space", opening: OPENING }).success);
