@@ -102,3 +102,28 @@ test("the life is deterministic", () => {
   assert.deepEqual(live(a, 300), live(b, 300));
   assert.deepEqual(a.history, b.history);
 });
+
+test("spend() withdraws through the wallet waterfall and emits a spend event", () => {
+  const life = new PlayerLife({ place: TX, day: 0, monthlyTakeHome: 4_000 });
+  const checking = life.ledger.get("checking");
+  checking.balance = 50;
+  const events: typeof import("../src/sim/life/index.ts").LifeEvent[] = [];
+  life.onEvents((e) => events.push(...e));
+
+  const event = life.spend(10, "Dining out", 30);
+
+  assert.equal(event.type, "spend");
+  assert.equal(event.category, "Dining out");
+  assert.equal(event.amount, 30, "fully covered by checking");
+  assert.equal(life.ledger.get("checking").balance, 20);
+  assert.equal(events.length, 1);
+  assert.deepEqual(events[0], event);
+});
+
+test("spend() never pays more than the wallet has", () => {
+  const life = new PlayerLife({ place: TX, day: 0, monthlyTakeHome: 4_000 });
+  life.ledger.get("checking").balance = 5;
+  life.ledger.get("savings").balance = 0;
+  const event = life.spend(10, "Shopping", 40);
+  assert.equal(event.amount, 5, "capped at what the accounts actually held");
+});
