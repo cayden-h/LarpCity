@@ -1,15 +1,17 @@
 // The player's phone: the hub where the game's "apps" live (Stocks and Goals
 // now; News, Mail, and Bank next). It docks on the left edge of the city and
-// can be tucked away. Stocks shows the market from the FRED snapshot (plus
-// live Alpha Vantage quotes when the dev server has a key) and opens the Money
-// desk (/debt.html) in a window over the city, sharing the city's player and
-// clock through window.larpMoney. Goals opens the fast-forward setup screen
+// can be tucked away. Stocks lists the HackRice sponsor stocks at today's game
+// prices (tap one to open its page), then the market from the FRED snapshot
+// (plus live Alpha Vantage quotes when the dev server has a key), and opens the
+// Money desk (/debt.html) in a window over the city, sharing the city's player
+// and clock through window.larpMoney. Goals opens the fast-forward setup screen
 // (ui/skip-setup.ts).
 
 import "./phone.css";
 import type { Clock } from "../engine/clock";
 import { MARKET, type SeriesId } from "../data/market";
 import { latest, type PlayerLife } from "../sim/life";
+import { INSTRUMENTS } from "../sim/market";
 
 interface AppDef {
   id: "stocks" | "goals" | "news" | "mail" | "bank";
@@ -109,6 +111,8 @@ export class Phone {
   private readonly overlay: HTMLElement;
   private readonly deps: PhoneDeps;
   private live: LiveQuote[] = [];
+  /** Game day the Stocks list was drawn for; sponsor prices move with the city clock. */
+  private stockDay = Number.NEGATIVE_INFINITY;
   private toastTimer = 0;
   private resumeSpeed = 1;
 
@@ -227,6 +231,7 @@ export class Phone {
     if (btn.dataset.toggle !== undefined) return this.setOpen(!this.el.classList.contains("open"));
     if (btn.dataset.home !== undefined) return this.show("home");
     if (btn.dataset.desk !== undefined) return this.openDesk();
+    if (btn.dataset.stock) return this.openDesk(btn.dataset.stock);
     const id = btn.dataset.app as AppDef["id"] | undefined;
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;
@@ -235,9 +240,11 @@ export class Phone {
     this.show(id);
   }
 
-  private openDesk() {
+  /** Opens the Money window, on a stock's page when `stock` is given (the desk reads #stock=ID). */
+  private openDesk(stock?: string) {
     const frame = this.overlay.querySelector("iframe")!;
-    if (!frame.src) frame.src = "/debt.html";
+    if (!frame.src) frame.src = `/debt.html${stock ? `#stock=${stock}` : ""}`;
+    else if (stock && frame.contentWindow) frame.contentWindow.location.hash = `stock=${stock}`;
     this.resumeSpeed = this.deps.clock.speed || this.resumeSpeed;
     this.deps.clock.speed = 0;
     this.overlay.hidden = false;
@@ -255,12 +262,35 @@ export class Phone {
     const d = clock.date;
     this.q("[data-dow]").textContent = d.toLocaleDateString("en-US", { weekday: "long" });
     this.q("[data-date]").textContent = d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+    // Sponsor prices move with the city clock, so redraw once per game day.
+    if (clock.day !== this.stockDay) this.renderStocks();
+  }
+
+  /** The HackRice sponsors on the city player's market: today's close, the move since the last trading day, and about six weeks of closes. */
+  private sponsorRows(): string[] {
+    const market = this.deps.player.market;
+    const day = this.deps.clock.day;
+    const trading = (d: number) => ![0, 6].includes(market.dateOf(d).getDay());
+    let today = day;
+    while (!trading(today)) today--;
+    let prev = today - 1;
+    while (!trading(prev)) prev--;
+    return INSTRUMENTS.filter((i) => i.sponsor).map((i) => {
+      const px = market.price(i.id, today);
+      const chg = px / market.price(i.id, prev) - 1;
+      const pts = market.series(i.id, day - 42, day).filter((p) => trading(p.day)).map((p) => p.value);
+      const tone = Math.abs(chg) < 1e-6 ? "flat" : chg > 0 ? "up" : "down";
+      return `<button class="st-row link" data-stock="${i.id}" aria-label="${i.name}: open in Money"><div class="st-name"><b>${i.id}</b><span>${i.name}${i.listed === false ? " · private" : ""}</span></div>${sparkline(pts, pts[pts.length - 1] >= pts[0])}<div class="st-right"><span class="st-px">$${fmtIndex(px)}</span><span class="st-pill ${tone}">${chg >= 0 ? "+" : "−"}${Math.abs(chg * 100).toFixed(2)}%</span></div></button>`;
+    });
   }
 
   private renderStocks() {
+    this.stockDay = this.deps.clock.day;
+    const item = (row: string) => `<li class="st-item">${row}</li>`;
+    const sec = (title: string, note: string) => `<li class="st-sec"><span>${title}</span><span>${note}</span></li>`;
     const live = this.live.map((q) => {
       const up = q.change >= 0;
-      return `<li class="st-row"><div class="st-name"><b>${q.symbol}</b><span>Live · Alpha Vantage</span></div><span class="spark-slot"></span><div class="st-right"><span class="st-px">${fmtIndex(q.price)}</span><span class="st-pill ${up ? "up" : "down"}">${up ? "+" : "−"}${Math.abs(q.changePct * 100).toFixed(2)}%</span></div></li>`;
+      return `<div class="st-row"><div class="st-name"><b>${q.symbol}</b><span>Live · Alpha Vantage</span></div><span class="spark-slot"></span><div class="st-right"><span class="st-px">${fmtIndex(q.price)}</span><span class="st-pill ${up ? "up" : "down"}">${up ? "+" : "−"}${Math.abs(q.changePct * 100).toFixed(2)}%</span></div></div>`;
     });
     const fred = WATCHLIST.map((w) => {
       const l = latest(w.id);
@@ -269,11 +299,17 @@ export class Phone {
       const up = l.change >= 0;
       const value = pct ? `${l.value.toFixed(2)}%` : fmtIndex(l.value);
       const chg = pct ? `${up ? "+" : "−"}${Math.abs(l.change * 100).toFixed(0)} bp` : `${up ? "+" : "−"}${Math.abs(l.changePct * 100).toFixed(2)}%`;
-      return `<li class="st-row"><div class="st-name"><b>${w.ticker}</b><span>${w.name}</span></div>${sparkline(pts, pts[pts.length - 1] >= pts[0])}<div class="st-right"><span class="st-px">${value}</span><span class="st-pill ${up ? "up" : "down"}">${chg}</span></div></li>`;
+      return `<div class="st-row"><div class="st-name"><b>${w.ticker}</b><span>${w.name}</span></div>${sparkline(pts, pts[pts.length - 1] >= pts[0])}<div class="st-right"><span class="st-px">${value}</span><span class="st-pill ${up ? "up" : "down"}">${chg}</span></div></div>`;
     });
-    this.q("[data-st-list]").innerHTML = [...live, ...fred].join("");
-    const asOf = new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric" });
-    this.q("[data-st-sub]").textContent = this.live.length ? `Live quotes and FRED, ${asOf}` : `FRED, ${asOf}`;
+    const asOf = new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    this.q("[data-st-list]").innerHTML = [
+      // "In game" (not "Game prices") so the full title fits on the phone's 192px row.
+      sec("HackRice sponsors", "In game"),
+      ...this.sponsorRows().map(item),
+      sec("Markets", `${this.live.length ? "Live and " : ""}FRED, ${asOf}`),
+      ...[...live, ...fred].map(item),
+    ].join("");
+    this.q("[data-st-sub]").textContent = `Larp City, ${this.deps.clock.date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
   }
 
   private async loadLive() {

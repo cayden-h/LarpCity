@@ -1391,6 +1391,20 @@ window.addEventListener("resize", () => render());
 
 // ---- Start -----------------------------------------------------------------------------
 
+/** The phone's Stocks app links straight to a stock page as /debt.html#stock=COF. */
+function openFromHash(): boolean {
+  const id = new URLSearchParams(location.hash.slice(1)).get("stock");
+  if (!id || !INSTRUMENTS.some((i) => i.id === id)) return false;
+  openFund(id as InstrumentId);
+  // Clear it, so tapping the same stock again still fires hashchange.
+  history.replaceState(null, "", location.pathname + location.search);
+  return true;
+}
+window.addEventListener("hashchange", () => {
+  if (openFromHash()) render();
+});
+openFromHash();
+
 if (host) {
   // The city's ticker drives the clock and the city calls life.onDay; every day's events
   // reach onLifeEvents, which re-renders.
