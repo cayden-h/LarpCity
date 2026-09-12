@@ -26,7 +26,7 @@ export const STATE_TAX: Record<string, StateTax> = {
   KS: { type: "graduated", brackets: [{ upTo: 23000, rate: 0.052 }, { upTo: Infinity, rate: 0.0558 }] },
   KY: { type: "flat", rate: 0.035 },
   LA: { type: "flat", rate: 0.03 },
-  MA: { type: "flat", rate: 0.05 },
+  MA: { type: "graduated", brackets: [{ upTo: 1000000, rate: 0.05 }, { upTo: Infinity, rate: 0.09 }] },
   MD: { type: "graduated", brackets: [{ upTo: 1000, rate: 0.02 }, { upTo: 2000, rate: 0.03 }, { upTo: 3000, rate: 0.04 }, { upTo: 100000, rate: 0.0475 }, { upTo: 125000, rate: 0.05 }, { upTo: 150000, rate: 0.0525 }, { upTo: 250000, rate: 0.055 }, { upTo: Infinity, rate: 0.0575 }] },
   ME: { type: "graduated", brackets: [{ upTo: 26050, rate: 0.058 }, { upTo: 61600, rate: 0.0675 }, { upTo: Infinity, rate: 0.0715 }] },
   MI: { type: "flat", rate: 0.0425 },
