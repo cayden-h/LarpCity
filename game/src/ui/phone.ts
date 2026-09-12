@@ -1,56 +1,42 @@
 // The player's phone: the hub where the game's apps live. It pulls up from the
-// bottom-right corner. Stocks shows the market from the FRED snapshot (plus
-// live Alpha Vantage quotes when the dev server has a key) and opens the Money
-// desk (/debt.html) in a window over the city, sharing the city's player and
-// clock through window.larpMoney. Goals opens the fast-forward setup screen
-// (ui/skip-setup.ts).
+// bottom-right corner. Stocks lists the HackRice sponsor stocks at today's game
+// prices (tap one to open its page), then the market from the FRED snapshot
+// (plus live Alpha Vantage quotes when the dev server has a key), and opens the
+// Money desk (/debt.html) in a window over the city, sharing the city's player
+// and clock through window.larpMoney. Goals opens the fast-forward setup screen
+// (ui/skip-setup.ts). Map and Weather show where the player is and the city's
+// weather and season. Calendar (ui/calendar.ts) shows the player's days, goes
+// back to a past one, skips to the next decision, and sets the clock's speed.
+// News and Mail are static placeholder content; no backend yet.
 
 import "./phone.css";
+import { CalendarApp } from "./calendar";
 import { pixelIcon } from "./pixel-icons";
 import type { Clock } from "../engine/clock";
 import { MARKET, type SeriesId } from "../data/market";
 import type { SceneStatus } from "../engine/scene";
 import type { CityDef, StateInfo, WeatherKind } from "../engine/types";
 import { latest, type LifeEvent, type PlayerLife } from "../sim/life";
-import type { AccountKind } from "../sim/money/types";
+import { INSTRUMENTS } from "../sim/market";
+import type { RunRecorder } from "../sim/record";
 
 interface AppDef {
-  id: "stocks" | "goals" | "map" | "weather" | "timeline" | "news" | "mail" | "bank";
+  id: "stocks" | "goals" | "map" | "weather" | "calendar" | "news" | "mail" | "bank";
   name: string;
   icon: string;
   ready: boolean;
 }
-
 
 const APPS: AppDef[] = [
   { id: "stocks", name: "Stocks", icon: pixelIcon("stocks"), ready: true },
   { id: "goals", name: "Goals", icon: pixelIcon("goals"), ready: true },
   { id: "map", name: "Map", icon: pixelIcon("map"), ready: true },
   { id: "weather", name: "Weather", icon: pixelIcon("weather"), ready: true },
-  { id: "timeline", name: "Timeline", icon: pixelIcon("calendar"), ready: true },
+  { id: "calendar", name: "Calendar", icon: pixelIcon("calendar"), ready: true },
   { id: "news", name: "News", icon: pixelIcon("news"), ready: true },
   { id: "mail", name: "Mail", icon: pixelIcon("mail"), ready: true },
-  { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: true },
+  { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: false },
 ];
-
-const BANK_ACCOUNT_ORDER: AccountKind[] = ["checking", "savings", "emergency"];
-
-const BANK_ACCOUNT_META: Partial<Record<AccountKind, { initials: string; sub: string; accent: string }>> = {
-  checking: { initials: "CHK", sub: "Spending", accent: "#147cc8" },
-  savings: { initials: "SAV", sub: "High-yield", accent: "#2f9b52" },
-  emergency: { initials: "EF", sub: "Rainy-day fund", accent: "#c8722f" },
-};
-
-interface BankActivityRow {
-  id: number;
-  day: number;
-  label: string;
-  sub: string;
-  amount: number;
-}
-
-const fmtUsd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-const fmtUsdCents = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 const WATCHLIST: { id: SeriesId; ticker: string; name: string }[] = [
   { id: "SP500", ticker: "S&P 500", name: "Standard & Poor's 500" },
@@ -95,6 +81,13 @@ const WEATHER_SYMBOL: Record<WeatherKind, string> = {
   heat: "☀",
   smoke: "≋",
 };
+
+const SEASON_NOTE = {
+  spring: "New growth and milder days",
+  summer: "Long days and warm weather",
+  fall: "Cooler air and changing leaves",
+  winter: "Short days and colder weather",
+} as const;
 
 interface MailMessage {
   id: string;
@@ -250,13 +243,6 @@ const NEWS_TAG_CLASS: Record<NewsCategory, string> = {
   Local: "news-tag-local",
 };
 
-const SEASON_NOTE = {
-  spring: "New growth and milder days",
-  summer: "Long days and warm weather",
-  fall: "Cooler air and changing leaves",
-  winter: "Short days and colder weather",
-} as const;
-
 const OPEN_KEY = "larp.phone.open";
 
 function readOpen(): boolean {
@@ -288,10 +274,13 @@ function sparkline(values: number[], up: boolean): string {
 
 const fmtIndex = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-function timeLabel(t: number): string {
-  const mins = Math.round(t * 24 * 60) % (24 * 60);
-  const h = Math.floor(mins / 60);
-  return `${((h + 11) % 12) + 1}:${String(mins % 60).padStart(2, "0")}`;
+/**
+ * The status-bar clock: the hour follows the sky's accelerated time of day `t`,
+ * but the minutes are the player's real ones, so the clock doesn't spin.
+ */
+function timeLabel(t: number, now = new Date()): string {
+  const h = Math.floor(t * 24) % 24;
+  return `${((h + 11) % 12) + 1}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
 export interface PhoneDeps {
@@ -299,8 +288,17 @@ export interface PhoneDeps {
   player: PlayerLife;
   /** Opens the goal fast-forward setup screen. */
   openFastForward?: () => void;
+  /** The city's run recorder, so the desk can ask the coach about the city's run. */
+  recorder?: RunRecorder;
+  /** Opens the U.S. map (the Map app's button). */
   openMap?: () => void;
-  skip?: (days: number) => void;
+  /** Plays the days up to `day` as a time-lapse (the Calendar's "Skip to"). */
+  skipTo?: (day: number) => void;
+  /** Goes back to the morning of a past day (the Calendar's "Go back"). */
+  rewindTo?: (day: number) => void;
+  /** The earliest day the player can go back to. */
+  firstDay?: () => number;
+  /** Where the player is and the city's weather, for the Map and Weather apps. */
   getWorld: () => WorldSnapshot;
 }
 
@@ -312,6 +310,20 @@ export interface PhoneDeps {
 export interface MoneyHost {
   life: () => PlayerLife;
   clock: Clock;
+  /** Decision events the city parked with `Phone.showDecision`, cleared as they're taken. */
+  takeDecisions: () => LifeEvent[];
+  /**
+   * Hands events back for the next `takeDecisions()`, e.g. when the desk
+   * already has a decision open and can't ask a newly arrived one yet. Does
+   * not reopen the desk.
+   */
+  parkDecisions: (events: LifeEvent[]) => void;
+  /** Calls `fn` each time the Money window is shown. */
+  onShow: (fn: () => void) => void;
+  /** The city's run recorder, or null when the city isn't recording. */
+  recorder: () => RunRecorder | null;
+  /** Calls `fn` with the day the city went back to, after each rewind. */
+  onRewind: (fn: (day: number) => void) => void;
 }
 
 export class Phone {
@@ -319,10 +331,15 @@ export class Phone {
   private readonly overlay: HTMLElement;
   private readonly deps: PhoneDeps;
   private live: LiveQuote[] = [];
+  /** Game day the Stocks list was drawn for; sponsor prices move with the city clock. */
+  private stockDay = Number.NEGATIVE_INFINITY;
   private toastTimer = 0;
   private resumeSpeed = 1;
-  private bankActivity: BankActivityRow[] = [];
-  private bankActivitySeq = 0;
+  /** Decision moments waiting for the desk to show them. */
+  private parked: LifeEvent[] = [];
+  private readonly showListeners: (() => void)[] = [];
+  private readonly rewindListeners: ((day: number) => void)[] = [];
+  private readonly calendar: CalendarApp;
 
   constructor(deps: PhoneDeps) {
     this.deps = deps;
@@ -339,7 +356,24 @@ export class Phone {
       <iframe title="Money" loading="lazy"></iframe>
     </div>`;
     document.body.appendChild(this.overlay);
-    (window as unknown as { larpMoney?: MoneyHost }).larpMoney = { life: () => this.deps.player, clock: deps.clock };
+    const host: MoneyHost = {
+      life: () => this.deps.player,
+      clock: deps.clock,
+      takeDecisions: () => this.parked.splice(0),
+      parkDecisions: (events) => this.parked.push(...events),
+      onShow: (fn) => this.showListeners.push(fn),
+      recorder: () => this.deps.recorder ?? null,
+      onRewind: (fn) => this.rewindListeners.push(fn),
+    };
+    (window as unknown as { larpMoney?: MoneyHost }).larpMoney = host;
+    this.calendar = new CalendarApp(this.q('[data-view="calendar"]'), {
+      clock: deps.clock,
+      life: deps.player,
+      firstDay: () => deps.firstDay?.() ?? 0,
+      rewindTo: (day) => deps.rewindTo?.(day),
+      skipTo: (day) => deps.skipTo?.(day),
+      onHome: () => this.show("home"),
+    });
 
     this.setOpen(readOpen(), false);
     this.el.addEventListener("click", (ev) => this.onClick(ev));
@@ -350,32 +384,10 @@ export class Phone {
       if (ev.key === "Escape" && !this.overlay.hidden) this.closeDesk();
     });
 
-    this.deps.player.onEvents((events) => this.onLifeEvents(events));
-
     this.renderStocks();
     this.renderStatus();
     setInterval(() => this.renderStatus(), 1000);
     void this.loadLive();
-  }
-
-  /** Turns paycheck/bill/interest events into the Bank app's activity feed. No backend: kept in memory for the session. */
-  private onLifeEvents(events: LifeEvent[]) {
-    let touched = false;
-    for (const e of events) {
-      if (e.type === "paycheck" && !e.unemployed) {
-        this.bankActivity.unshift({ id: ++this.bankActivitySeq, day: e.day, label: "Paycheck deposited", sub: "Checking", amount: e.takeHome });
-        touched = true;
-      } else if (e.type === "bill") {
-        this.bankActivity.unshift({ id: ++this.bankActivitySeq, day: e.day, label: e.name, sub: "Checking", amount: -e.paid });
-        touched = true;
-      } else if (e.type === "savings_interest" && e.amount > 0) {
-        this.bankActivity.unshift({ id: ++this.bankActivitySeq, day: e.day, label: "Interest earned", sub: "Savings", amount: e.amount });
-        touched = true;
-      }
-    }
-    if (!touched) return;
-    if (this.bankActivity.length > 25) this.bankActivity.length = 25;
-    if (this.el.querySelector('[data-view="bank"]')?.hasAttribute("hidden") === false) this.renderBank();
   }
 
   private markup(): string {
@@ -423,7 +435,7 @@ export class Phone {
 
           <section class="view view-stocks" data-view="stocks" hidden>
             <header class="st-head">
-              <button class="st-back" data-home aria-label="Back to home"><svg viewBox="0 0 10 16" width="9" height="15"><path d="M8 2L2 8l6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
               <div><div class="st-title">Stocks</div><div class="st-sub" data-st-sub></div></div>
             </header>
             <ul class="st-list" data-st-list></ul>
@@ -467,28 +479,6 @@ export class Phone {
             <div class="weather-date" data-weather-date></div>
           </section>
 
-          <section class="view view-timeline" data-view="timeline" hidden>
-            <header class="phone-app-head">
-              <button class="st-back" data-home aria-label="Back to home">‹</button>
-              <div><div class="st-title">Timeline</div><div class="st-sub">Control city time</div></div>
-            </header>
-            <div class="timeline-date"><span data-timeline-dow></span><strong data-timeline-date></strong></div>
-            <div class="timeline-section">
-              <span class="timeline-label">Speed</span>
-              <div class="timeline-speeds">
-                <button data-tl-speed="0" aria-label="Pause timeline">Ⅱ</button>
-                <button data-tl-speed="1">1×</button>
-                <button data-tl-speed="2">2×</button>
-                <button data-tl-speed="4">4×</button>
-              </div>
-            </div>
-            <div class="timeline-section">
-              <span class="timeline-label">Jump ahead</span>
-              <button class="timeline-jump" data-tl-skip="7">+1 week</button>
-              <button class="timeline-jump" data-tl-skip="30">+1 month</button>
-            </div>
-          </section>
-
           <section class="view view-news" data-view="news" hidden>
             <header class="phone-app-head">
               <button class="st-back" data-home aria-label="Back to home">‹</button>
@@ -521,17 +511,7 @@ export class Phone {
             <div class="mail-detail" data-mail-detail></div>
           </section>
 
-          <section class="view view-bank" data-view="bank" hidden>
-            <header class="phone-app-head">
-              <button class="st-back" data-home aria-label="Back to home">‹</button>
-              <div><div class="st-title">Bank</div><div class="st-sub">Checking &amp; savings</div></div>
-            </header>
-            <div class="bank-total"><span>Total cash</span><strong data-bank-total></strong></div>
-            <ul class="bank-accounts" data-bank-accounts></ul>
-            <div class="bank-activity-head">Activity</div>
-            <ul class="bank-activity" data-bank-activity></ul>
-            <button class="st-open" data-desk>Open Money <span aria-hidden="true">↗</span></button>
-          </section>
+          <section class="view view-calendar" data-view="calendar" hidden></section>
 
           <button class="home-bar" data-home aria-label="Go home"></button>
         </div>
@@ -552,6 +532,7 @@ export class Phone {
 
   private show(view: "home" | AppDef["id"] | "mail-detail" | "news-detail") {
     this.el.querySelectorAll<HTMLElement>("[data-view]").forEach((v) => (v.hidden = v.dataset.view !== view));
+    if (view === "calendar") this.calendar.show();
   }
 
   private toast(text: string) {
@@ -573,18 +554,10 @@ export class Phone {
     if (btn.dataset.home !== undefined) return this.show("home");
     if (btn.dataset.back !== undefined) return this.show(btn.dataset.back as "mail" | "news");
     if (btn.dataset.desk !== undefined) return this.openDesk();
+    if (btn.dataset.stock) return this.openDesk(btn.dataset.stock);
     if (btn.dataset.mailOpen !== undefined) return this.openMail(btn.dataset.mailOpen);
     if (btn.dataset.newsOpen !== undefined) return this.openNews(btn.dataset.newsOpen);
     if (btn.dataset.openMap !== undefined) return this.deps.openMap?.();
-    if (btn.dataset.tlSpeed !== undefined) {
-      this.deps.clock.speed = Number(btn.dataset.tlSpeed);
-      this.renderStatus();
-      return;
-    }
-    if (btn.dataset.tlSkip !== undefined) {
-      this.deps.skip?.(Number(btn.dataset.tlSkip));
-      return;
-    }
     const id = btn.dataset.app as AppDef["id"] | undefined;
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;
@@ -592,8 +565,31 @@ export class Phone {
     if (id === "goals") return this.deps.openFastForward?.();
     if (id === "mail") this.renderMail();
     if (id === "news") this.renderNews();
-    if (id === "bank") this.renderBank();
     this.show(id);
+  }
+
+  /**
+   * A decision moment in the city (a crash, a payment the player can't cover,
+   * bankruptcy): parks the events for the desk and opens it, which pauses the
+   * clock. The desk takes them when it's shown, or when it first loads.
+   */
+  showDecision(events: LifeEvent[]) {
+    this.parked.push(...events);
+    this.openDesk();
+    // A decision moment keeps the city paused until the player presses play.
+    this.resumeSpeed = 0;
+  }
+
+  /**
+   * The city went back to the morning of `day`: decisions parked on the path
+   * it left are dropped, the desk trims what it showed, the calendar moves to
+   * that day, and a decision that day had opens again.
+   */
+  rewound(day: number, decisions: LifeEvent[]) {
+    this.parked = [];
+    for (const fn of this.rewindListeners) fn(day);
+    this.calendar.rewound(day);
+    if (decisions.length) this.showDecision(decisions);
   }
 
   private openNews(id: string) {
@@ -672,44 +668,16 @@ export class Phone {
     this.q("[data-mail-sub]").textContent = unread > 0 ? `${unread} unread` : "All caught up";
   }
 
-  private renderBank() {
-    const { player } = this.deps;
-    this.q("[data-bank-total]").textContent = fmtUsd(player.cash());
-    this.q("[data-bank-accounts]").innerHTML = BANK_ACCOUNT_ORDER.map((kind) => {
-      const meta = BANK_ACCOUNT_META[kind]!;
-      const account = [...player.ledger.accounts.values()].find((a) => a.kind === kind);
-      if (!account) return "";
-      return `<li class="bank-account-row">
-        <span class="bank-avatar" style="background:${meta.accent}">${meta.initials}</span>
-        <span class="bank-account-body">
-          <span class="bank-account-top"><strong>${account.name}</strong><span class="bank-account-balance">${fmtUsdCents(account.balance)}</span></span>
-          <span class="bank-account-sub">${meta.sub} · ${(account.apy * 100).toFixed(2)}% APY</span>
-        </span>
-      </li>`;
-    }).join("");
-    const list = this.q("[data-bank-activity]");
-    if (!this.bankActivity.length) {
-      list.innerHTML = `<li class="bank-activity-empty">No activity yet — check back after your next payday.</li>`;
-    } else {
-      list.innerHTML = this.bankActivity
-        .map((row) => {
-          const up = row.amount >= 0;
-          return `<li class="bank-activity-row">
-            <span class="bank-activity-body"><strong>${row.label}</strong><span>${row.sub}</span></span>
-            <span class="bank-activity-amount ${up ? "up" : "down"}">${up ? "+" : "−"}${fmtUsd(Math.abs(row.amount))}</span>
-          </li>`;
-        })
-        .join("");
-    }
-  }
-
-  private openDesk() {
+  /** Opens the Money window, on a stock's page when `stock` is given (the desk reads #stock=ID). */
+  private openDesk(stock?: string) {
     const frame = this.overlay.querySelector("iframe")!;
-    if (!frame.src) frame.src = "/debt.html";
+    if (!frame.src) frame.src = `/debt.html${stock ? `#stock=${stock}` : ""}`;
+    else if (stock && frame.contentWindow) frame.contentWindow.location.hash = `stock=${stock}`;
     this.resumeSpeed = this.deps.clock.speed || this.resumeSpeed;
     this.deps.clock.speed = 0;
     this.overlay.hidden = false;
     this.overlay.querySelector<HTMLButtonElement>("[data-close]")!.focus();
+    for (const fn of this.showListeners) fn();
   }
 
   private closeDesk() {
@@ -723,8 +691,6 @@ export class Phone {
     const d = clock.date;
     this.q("[data-dow]").textContent = d.toLocaleDateString("en-US", { weekday: "long" });
     this.q("[data-date]").textContent = d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
-    this.q("[data-timeline-dow]").textContent = d.toLocaleDateString("en-US", { weekday: "long" });
-    this.q("[data-timeline-date]").textContent = d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     const { state, city, status } = this.deps.getWorld();
     const weather = status?.weather ?? "clear";
     const season = status?.season ?? clock.season;
@@ -742,15 +708,36 @@ export class Phone {
     this.q("[data-season-name]").textContent = season[0].toUpperCase() + season.slice(1);
     this.q("[data-season-note]").textContent = SEASON_NOTE[season];
     this.q("[data-weather-date]").textContent = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-    this.el.querySelectorAll<HTMLButtonElement>("[data-tl-speed]").forEach((button) =>
-      button.classList.toggle("on", Number(button.dataset.tlSpeed) === clock.speed),
-    );
+    this.calendar.refresh();
+    // Sponsor prices move with the city clock, so redraw once per game day.
+    if (clock.day !== this.stockDay) this.renderStocks();
+  }
+
+  /** The HackRice sponsors on the city player's market: today's close, the move since the last trading day, and about six weeks of closes. */
+  private sponsorRows(): string[] {
+    const market = this.deps.player.market;
+    const day = this.deps.clock.day;
+    const trading = (d: number) => ![0, 6].includes(market.dateOf(d).getDay());
+    let today = day;
+    while (!trading(today)) today--;
+    let prev = today - 1;
+    while (!trading(prev)) prev--;
+    return INSTRUMENTS.filter((i) => i.sponsor).map((i) => {
+      const px = market.price(i.id, today);
+      const chg = px / market.price(i.id, prev) - 1;
+      const pts = market.series(i.id, day - 42, day).filter((p) => trading(p.day)).map((p) => p.value);
+      const tone = Math.abs(chg) < 1e-6 ? "flat" : chg > 0 ? "up" : "down";
+      return `<button class="st-row link" data-stock="${i.id}" aria-label="${i.name}: open in Money"><div class="st-name"><b>${i.id}</b><span>${i.name}${i.listed === false ? " · private" : ""}</span></div>${sparkline(pts, pts[pts.length - 1] >= pts[0])}<div class="st-right"><span class="st-px">$${fmtIndex(px)}</span><span class="st-pill ${tone}">${chg >= 0 ? "+" : "−"}${Math.abs(chg * 100).toFixed(2)}%</span></div></button>`;
+    });
   }
 
   private renderStocks() {
+    this.stockDay = this.deps.clock.day;
+    const item = (row: string) => `<li class="st-item">${row}</li>`;
+    const sec = (title: string, note: string) => `<li class="st-sec"><span>${title}</span><span>${note}</span></li>`;
     const live = this.live.map((q) => {
       const up = q.change >= 0;
-      return `<li class="st-row"><div class="st-name"><b>${q.symbol}</b><span>Live · Alpha Vantage</span></div><span class="spark-slot"></span><div class="st-right"><span class="st-px">${fmtIndex(q.price)}</span><span class="st-pill ${up ? "up" : "down"}">${up ? "+" : "−"}${Math.abs(q.changePct * 100).toFixed(2)}%</span></div></li>`;
+      return `<div class="st-row"><div class="st-name"><b>${q.symbol}</b><span>Live · Alpha Vantage</span></div><span class="spark-slot"></span><div class="st-right"><span class="st-px">${fmtIndex(q.price)}</span><span class="st-pill ${up ? "up" : "down"}">${up ? "+" : "−"}${Math.abs(q.changePct * 100).toFixed(2)}%</span></div></div>`;
     });
     const fred = WATCHLIST.map((w) => {
       const l = latest(w.id);
@@ -759,11 +746,17 @@ export class Phone {
       const up = l.change >= 0;
       const value = pct ? `${l.value.toFixed(2)}%` : fmtIndex(l.value);
       const chg = pct ? `${up ? "+" : "−"}${Math.abs(l.change * 100).toFixed(0)} bp` : `${up ? "+" : "−"}${Math.abs(l.changePct * 100).toFixed(2)}%`;
-      return `<li class="st-row"><div class="st-name"><b>${w.ticker}</b><span>${w.name}</span></div>${sparkline(pts, pts[pts.length - 1] >= pts[0])}<div class="st-right"><span class="st-px">${value}</span><span class="st-pill ${up ? "up" : "down"}">${chg}</span></div></li>`;
+      return `<div class="st-row"><div class="st-name"><b>${w.ticker}</b><span>${w.name}</span></div>${sparkline(pts, pts[pts.length - 1] >= pts[0])}<div class="st-right"><span class="st-px">${value}</span><span class="st-pill ${up ? "up" : "down"}">${chg}</span></div></div>`;
     });
-    this.q("[data-st-list]").innerHTML = [...live, ...fred].join("");
-    const asOf = new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric" });
-    this.q("[data-st-sub]").textContent = this.live.length ? `Live quotes and FRED, ${asOf}` : `FRED, ${asOf}`;
+    const asOf = new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    this.q("[data-st-list]").innerHTML = [
+      // "In game" (not "Game prices") so the full title fits on the phone's 192px row.
+      sec("HackRice sponsors", "In game"),
+      ...this.sponsorRows().map(item),
+      sec("Markets", `${this.live.length ? "Live and " : ""}FRED, ${asOf}`),
+      ...[...live, ...fred].map(item),
+    ].join("");
+    this.q("[data-st-sub]").textContent = `Larp City, ${this.deps.clock.date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
   }
 
   private async loadLive() {

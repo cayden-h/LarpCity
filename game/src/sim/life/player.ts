@@ -19,12 +19,14 @@ import {
   type DebtEvent,
   type Projection,
 } from "../debt/index.ts";
-import { MarketPath, type InstrumentId } from "../market/index.ts";
+import { instrument, MarketPath, type InstrumentId } from "../market/index.ts";
 import { Ledger } from "../money/accounts.ts";
 import type { Account, Holding } from "../money/types.ts";
-import { CrashWatch } from "../skip/crash.ts";
+import { deepCopy } from "../rewind/copy.ts";
+import { CrashWatch, PANIC_DRAWDOWN } from "../skip/crash.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
 import { cashRateOn } from "./rates.ts";
+import { Twins } from "./twins.ts";
 
 /** What the life needs to know about where the player lives (a StateInfo satisfies it). */
 export interface Place {
@@ -68,7 +70,9 @@ export type LifeEvent =
   | { type: "moved"; day: number; from: string; to: string; rent: number; living: number }
   | { type: "job"; day: number; employed: boolean }
   | { type: "trade"; day: number; id: InstrumentId; side: "buy" | "sell"; amount: number; units: number; price: number; recurring: boolean }
-  | { type: "trade_skipped"; day: number; id: InstrumentId; amount: number; reason: string };
+  | { type: "trade_skipped"; day: number; id: InstrumentId; amount: number; reason: string }
+  | { type: "bear_market"; day: number; drop: number; stocks: number }
+  | { type: "market_recovered"; day: number; you: number; held: number; autopilot: number };
 
 export interface LifeSnapshot {
   day: number;
@@ -77,6 +81,25 @@ export interface LifeSnapshot {
   debt: number;
   netWorth: number;
   score: number;
+  /** Brokerage holdings at the day's prices. */
+  brokerage: number;
+  /** The player's investing line: brokerage plus the cash sells took out (sim/life/twins.ts). */
+  you: number;
+  /** The same buys, never sold. */
+  held: number;
+  /** The same dollars at 90/10 LTM/BOND, never sold. */
+  autopilot: number;
+}
+
+/** A life's state on one day, for rewinding (sim/rewind). */
+export interface LifeCheckpoint {
+  day: number;
+  /** A detached copy (no listeners, history, or log). */
+  state: PlayerLife;
+  historyLength: number;
+  /** The day's history row as it was then; a trade later that day replaces it in place. */
+  lastSnapshot: LifeSnapshot | null;
+  logLength: number;
 }
 
 export interface LifeOptions {
@@ -88,12 +111,18 @@ export interface LifeOptions {
   age?: number;
   /** Gross yearly pay; estimated from take-home until onboarding asks for it. */
   grossAnnual?: number;
+  /** Job title from onboarding. */
+  job?: string;
+  /** Monthly rent the player stated in onboarding; after a move it scales with the new state's housing costs. */
+  rent?: number;
   book?: DebtBook;
   accounts?: Account[];
   /** Cash rate for a date; defaults to the FRED Fed funds snapshot. */
   cashRate?: (date: Date) => number;
   /** Prices for brokerage holdings; defaults to a market path with the default seed. */
   market?: MarketPath;
+  /** Dollars of each fund or stock already held on the first day, bought a year earlier. */
+  holdings?: Partial<Record<InstrumentId, number>>;
 }
 
 /** A position valued at a day's price. */
@@ -123,8 +152,23 @@ export function defaultAccounts(day: number): Account[] {
   ];
 }
 
+/**
+ * The player's starting brokerage: a total-market fund and a little of the
+ * hyped AI stock, bought a year before the game starts, so net worth moves
+ * with the market from the first day the way a real portfolio does.
+ */
+export const STARTER_PORTFOLIO: Partial<Record<InstrumentId, number>> = { LTM: 6_000, NNST: 800 };
+
+/** Funds that hold bonds, not stocks: a crash sale keeps them and the bear market doesn't count them. */
+export const BOND_FUNDS: ReadonlySet<InstrumentId> = new Set<InstrumentId>(["BOND"]);
+
+/** One stock over this share of the portfolio earns the desk's concentration warning. */
+export const CONCENTRATION_LIMIT = 0.2;
+
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const CASH_KINDS = new Set(["checking", "savings", "emergency"]);
+/** Fields a detached copy starts empty: it runs on its own and keeps no past. */
+const FRESH_ON_COPY = new Set(["history", "log", "listeners"]);
 /** Smallest trade the brokerage accepts, like most apps' $1 fractional minimum. */
 export const MIN_TRADE = 1;
 
@@ -142,6 +186,8 @@ export class PlayerLife {
   monthlyTakeHome: number;
   /** Gross yearly pay, for the 401(k), its match, and the mortgage test. */
   grossAnnual: number;
+  /** Job title from onboarding; empty for the sample household. */
+  job: string;
   /** The plan from the fast-forward setup screen (sim/skip), in force from the day it was set. */
   orders: StandingOrders | null = null;
   /**
@@ -152,8 +198,16 @@ export class PlayerLife {
   /** The latest game day the life has seen; holdings are valued at this day's prices. */
   today: number;
   readonly history: LifeSnapshot[] = [];
+  /** Every event the life has emitted, in order (the calendar reads it; a rewind truncates it). */
+  readonly log: LifeEvent[] = [];
+  /** True while days replay for a rewind: events still go in the log, but no listener hears them. */
+  private muted = false;
+  /** Shadow portfolios of the player's buys, for "if you had held" and "autopilot". */
+  readonly twins: Twins;
   private readonly startDay: number;
   private readonly startAge: number;
+  /** The stated rent and the housing price parity it was stated at; null means the state's median rent. */
+  private readonly rentAnchor: { amount: number; housing: number } | null;
   private readonly cashRate: (date: Date) => number;
   private readonly listeners: ((events: LifeEvent[], life: PlayerLife) => void)[] = [];
   private readonly crash = new CrashWatch();
@@ -163,6 +217,14 @@ export class PlayerLife {
   private lastFirst: { stock: number; bond: number } | null = null;
   private k401Year = -1;
   private k401Ytd = 0;
+  /** Highest LTM close seen, for the bear-market line. */
+  private ltmPeak: number;
+  /** A bear_market event fired and the market hasn't set a new high since. */
+  private inBear = false;
+  /** Units of each starting holding, for pastSnapshots. */
+  private readonly startUnits: [InstrumentId, number][] = [];
+  /** Balances on the first day, before anything the player does that day. */
+  private readonly startSnap: LifeSnapshot;
 
   constructor(o: LifeOptions) {
     this.place = o.place;
@@ -173,16 +235,57 @@ export class PlayerLife {
     this.book = o.book ?? sampleHousehold(o.day, "avalanche", 300);
     this.monthlyTakeHome = o.monthlyTakeHome ?? this.book.monthlyTakeHome;
     this.grossAnnual = o.grossAnnual ?? Math.round((this.monthlyTakeHome * 12) / TAKE_HOME_SHARE);
+    this.job = o.job ?? "";
+    this.rentAnchor = o.rent === undefined ? null : { amount: o.rent, housing: o.place.rpp.housing };
     // The engine's bankruptcy test compares minimums with the book's take-home, so keep them in sync.
     this.book.monthlyTakeHome = this.monthlyTakeHome;
     this.ledger = new Ledger(o.accounts ?? defaultAccounts(o.day));
     this.market = o.market ?? new MarketPath();
+    this.ltmPeak = this.market.price("LTM", o.day);
     this.cashRate = o.cashRate ?? cashRateOn;
+    this.twins = new Twins(this.market);
+    if (o.holdings) this.seedHoldings(o.holdings, o.day);
+    this.startSnap = this.snapshot(o.day);
     this.record(o.day);
   }
 
-  /** Monthly rent for the current state. */
+  /**
+   * Snapshots for the days before the life began, so charts have a past: cash,
+   * debt, and score as they were on the first day, and the starting holdings at
+   * each day's real price. Separate from `history`, which holds only days lived.
+   * The investing comparison starts on the first day, so before it `held` and
+   * `autopilot` equal `you`, the starting brokerage at that day's price.
+   */
+  pastSnapshots(from: number): LifeSnapshot[] {
+    const first = this.startSnap;
+    const held = (d: number) => this.startUnits.reduce((s, [id, units]) => s + units * this.market.price(id, d), 0);
+    const other = first.investments - held(this.startDay);
+    const otherBrokerage = first.brokerage - held(this.startDay);
+    const out: LifeSnapshot[] = [];
+    for (let d = Math.max(from, this.market.firstDay); d < this.startDay; d++) {
+      const investments = round2(other + held(d));
+      const brokerage = round2(otherBrokerage + held(d));
+      // Nothing was sold before the start, and the lines only split after it.
+      const you = this.twins.you(brokerage);
+      out.push({
+        day: d,
+        cash: first.cash,
+        investments,
+        debt: first.debt,
+        netWorth: round2(first.cash + investments - first.debt),
+        score: first.score,
+        brokerage,
+        you,
+        held: you,
+        autopilot: you,
+      });
+    }
+    return out;
+  }
+
+  /** Monthly rent for the current state: the stated rent (rescaled after a move), or the state's median. */
   get rent(): number {
+    if (this.rentAnchor) return Math.round((this.rentAnchor.amount * this.place.rpp.housing) / this.rentAnchor.housing);
     return Math.round((US_MEDIAN_RENT * this.place.rpp.housing) / 100);
   }
 
@@ -204,9 +307,14 @@ export class PlayerLife {
 
   /** Brokerage and retirement balances plus holdings at today's prices. */
   investments(): number {
+    return this.investmentsWith(this.positions());
+  }
+
+  /** Brokerage and retirement balances plus the given positions' value. */
+  private investmentsWith(positions: Position[]): number {
     let s = 0;
     for (const a of this.ledger.accounts.values()) if (!CASH_KINDS.has(a.kind)) s += a.balance;
-    return round2(s + this.positions().reduce((t, p) => t + p.value, 0));
+    return round2(s + positions.reduce((t, p) => t + p.value, 0));
   }
 
   /** Money in checking that can buy investments right now. */
@@ -229,10 +337,27 @@ export class PlayerLife {
     return this.positions().find((p) => p.id === id);
   }
 
+  /** Every position that rides the stock market: all of them but the bond funds. */
+  stockPositions(day = this.today): Position[] {
+    return this.positions(day).filter((p) => !BOND_FUNDS.has(p.id));
+  }
+
+  /** The biggest single stock (not a fund) when it is over `limit` of the portfolio, or null. */
+  concentration(limit = CONCENTRATION_LIMIT, day = this.today): { id: InstrumentId; share: number } | null {
+    const positions = this.positions(day);
+    const total = positions.reduce((s, p) => s + p.value, 0);
+    if (total <= 0) return null;
+    const top = positions.filter((p) => instrument(p.id).kind === "stock").sort((a, b) => b.value - a.value)[0];
+    return top && top.value / total > limit ? { id: top.id, share: top.value / total } : null;
+  }
+
   /** Buys `amount` dollars of an instrument from checking at today's price (fractional units). */
   buy(id: InstrumentId, amount: number, day = this.today, recurring = false): TradeResult {
     const result = this.fill(id, "buy", amount, day, recurring);
-    if (result.ok) this.emit([result.event]);
+    if (result.ok) {
+      this.record(day);
+      this.emit([result.event]);
+    }
     return result;
   }
 
@@ -241,7 +366,10 @@ export class PlayerLife {
     const pos = this.position(id);
     if (!pos) return { ok: false, error: "You don't own any." };
     const result = this.fill(id, "sell", amount === "all" ? pos.value : amount, day, false, amount === "all");
-    if (result.ok) this.emit([result.event]);
+    if (result.ok) {
+      this.record(day);
+      this.emit([result.event]);
+    }
     return result;
   }
 
@@ -292,6 +420,47 @@ export class PlayerLife {
     this.listeners.push(fn);
   }
 
+  /** Runs `fn` (days replayed for a rewind) without telling any listener; the log still records. */
+  quietly(fn: () => void): void {
+    const was = this.muted;
+    this.muted = true;
+    try {
+      fn();
+    } finally {
+      this.muted = was;
+    }
+  }
+
+  /** A copy of this life that runs on its own: the same state, but no listeners, history, or log. */
+  detached(): PlayerLife {
+    const self = this as unknown as Record<string, unknown>;
+    const copy = Object.create(PlayerLife.prototype) as Record<string, unknown>;
+    const seen = new Map<unknown, unknown>();
+    for (const k of Object.keys(self)) copy[k] = FRESH_ON_COPY.has(k) ? [] : deepCopy(self[k], seen);
+    return copy as unknown as PlayerLife;
+  }
+
+  /** Today's state, to come back to later with `restore`. Taken right after a day's tick, it's that day's morning. */
+  checkpoint(): LifeCheckpoint {
+    const last = this.history[this.history.length - 1];
+    return { day: this.today, state: this.detached(), historyLength: this.history.length, lastSnapshot: last ? { ...last } : null, logLength: this.log.length };
+  }
+
+  /**
+   * Puts a checkpoint's state back into this same life, so everything holding
+   * it (the desk, the recorder, the bank mirror) keeps working. History and
+   * the log are cut back to where they were; the checkpoint stays reusable.
+   */
+  restore(cp: LifeCheckpoint): void {
+    const from = cp.state.detached() as unknown as Record<string, unknown>;
+    const self = this as unknown as Record<string, unknown>;
+    for (const k of Object.keys(from)) if (!FRESH_ON_COPY.has(k)) self[k] = from[k];
+    this.history.length = cp.historyLength;
+    // A trade later that day replaced the day's row; put the morning's back.
+    if (cp.lastSnapshot) this.history[cp.historyLength - 1] = { ...cp.lastSnapshot };
+    this.log.length = cp.logLength;
+  }
+
   /** One game day. `date` is the calendar date of `day`. */
   onDay(day: number, date: Date): LifeEvent[] {
     const events: LifeEvent[] = [];
@@ -338,6 +507,7 @@ export class PlayerLife {
       if (interest > 0) events.push({ type: "savings_interest", day, amount: interest });
       if (this.orders) events.push(...this.onFirstOfMonth(day));
     }
+    events.push(...this.watchMarket(day));
     this.record(day);
     this.emit(events);
     return events;
@@ -366,9 +536,9 @@ export class PlayerLife {
     return events.some((e) => e.type === "bankruptcy_eligible");
   }
 
-  /** Events that should pause time for a decision once there is a UI for it. */
+  /** Events that pause time for a decision in the desk. */
   needsDecision(events: LifeEvent[]): boolean {
-    return events.some((e) => e.type === "cannot_cover" || e.type === "bankruptcy_eligible");
+    return events.some((e) => e.type === "cannot_cover" || e.type === "bankruptcy_eligible" || e.type === "bear_market");
   }
 
   setPlace(place: Place, day: number): LifeEvent {
@@ -451,6 +621,28 @@ export class PlayerLife {
     return [];
   }
 
+  /**
+   * The desk's crash moment (research/03, event 1): the first close 20% below
+   * LTM's high while the player owns stocks. It fires once, then re-arms when
+   * LTM sets a new high, which also reports how each line came through.
+   */
+  private watchMarket(day: number): LifeEvent[] {
+    const price = this.market.price("LTM", day);
+    if (price >= this.ltmPeak) {
+      this.ltmPeak = price;
+      if (!this.inBear) return [];
+      this.inBear = false;
+      const snap = this.snapshot(day);
+      return [{ type: "market_recovered", day, you: snap.you, held: snap.held, autopilot: snap.autopilot }];
+    }
+    const drop = 1 - price / this.ltmPeak;
+    if (this.inBear || drop < PANIC_DRAWDOWN) return [];
+    const stocks = round2(this.stockPositions(day).reduce((t, p) => t + p.value, 0));
+    if (stocks <= 0) return [];
+    this.inBear = true;
+    return [{ type: "bear_market", day, drop, stocks }];
+  }
+
   /** The account with this id, opened now if a custom account list left it out. */
   private account(id: keyof typeof ACCOUNT_NAMES): Account {
     let a = this.ledger.accounts.get(id);
@@ -459,6 +651,22 @@ export class PlayerLife {
       this.ledger.accounts.set(id, a);
     }
     return a;
+  }
+
+  /** Opens the starting positions, bought a year before `day` at that day's real prices. */
+  private seedHoldings(dollars: Partial<Record<InstrumentId, number>>, day: number): void {
+    const acct = this.brokerage();
+    if (!acct) return;
+    acct.holdings ??= {};
+    for (const [id, amount] of Object.entries(dollars) as [InstrumentId, number][]) {
+      if (!(amount > 0)) continue;
+      const units = amount / this.market.price(id, day);
+      const cost = round2(units * this.market.price(id, day - 365));
+      acct.holdings[id] = { units, cost };
+      this.startUnits.push([id, units]);
+      // The twins start where the player starts: the same value on the life's first day.
+      this.twins.seedHolding(id, units, day);
+    }
   }
 
   private brokerage(): Account | undefined {
@@ -482,6 +690,7 @@ export class PlayerLife {
       checking.balance = round2(checking.balance - dollars);
       h.units += units;
       h.cost = round2(h.cost + dollars);
+      this.twins.buy(id, dollars, day);
     } else {
       units = all ? h.units : Math.min(h.units, dollars / price);
       if (units <= 1e-9) return { ok: false, error: "You don't own any." };
@@ -490,21 +699,37 @@ export class PlayerLife {
       h.cost = round2(h.cost * (1 - units / h.units));
       h.units = all ? 0 : h.units - units;
       checking.balance = round2(checking.balance + proceeds);
+      this.twins.sell(proceeds);
       return { ok: true, event: { type: "trade", day, id, side, amount: proceeds, units, price, recurring } };
     }
     return { ok: true, event: { type: "trade", day, id, side, amount: dollars, units, price, recurring } };
   }
 
   private emit(events: LifeEvent[]) {
+    this.log.push(...events);
+    if (this.muted) return;
     for (const fn of this.listeners) fn(events, this);
   }
 
   /** Balances right now, as a history row. */
   snapshot(day: number): LifeSnapshot {
     const cash = this.cash();
-    const investments = this.investments();
+    const positions = this.positions(day);
+    const investments = this.investmentsWith(positions);
     const debt = this.totalDebt();
-    return { day, cash, investments, debt, netWorth: round2(cash + investments - debt), score: this.book.profile.score };
+    const brokerage = round2(positions.reduce((t, p) => t + p.value, 0));
+    return {
+      day,
+      cash,
+      investments,
+      debt,
+      netWorth: round2(cash + investments - debt),
+      score: this.book.profile.score,
+      brokerage,
+      you: this.twins.you(brokerage),
+      held: this.twins.held(day),
+      autopilot: this.twins.autopilot(day),
+    };
   }
 
   private record(day: number) {

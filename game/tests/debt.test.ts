@@ -14,6 +14,7 @@ import {
   monthlyPayment,
   newBook,
   passesMeansTest,
+  payNow,
   rapMonthlyPayment,
   sampleHousehold,
   scoreBreakdown,
@@ -109,6 +110,36 @@ test("paying the statement in full keeps the card in grace with no interest", ()
   card.balance = 1_000; // purchases this cycle
   run(book, 120, wallet(10_000));
   assert.equal(book.interestPaid, 0);
+});
+
+test("payments before the due date count toward the statement, and the count resets each statement", () => {
+  const card = creditCard({ id: "c", name: "Card", balance: 2_000, limit: 5_000, apr: 0.24, day: 0, dueDayOfMonth: 12 });
+  card.autopay = "none";
+  const book = newBook({ debts: [card], agi: 60_000, monthlyTakeHome: 4_000, day: 0 });
+  const w = wallet(10_000);
+  // Live until the first statement closes.
+  let day = 0;
+  while (!run(book, 1, w, 0, day++).some((e) => e.type === "statement")) assert.ok(day < 45, "a statement should close within a cycle");
+  const stmt = card.statementBalance!;
+  assert.equal(card.statementPaid, 0);
+
+  // Two extra payments before the due date add up to the whole statement.
+  const ctx = () => ({ day, date: dateOf(day), env: { cashRateAnnual: 0.043 }, wallet: w });
+  payNow(book, "c", stmt - 500, ctx());
+  assert.ok(Math.abs(card.statementPaid! - (stmt - 500)) < 0.01);
+  payNow(book, "c", 500, ctx());
+  // New purchases keep the card open (a card paid down to $0 counts as paid off).
+  card.balance += 250;
+  const before = w.cash;
+  run(book, card.statementDueDay! - day, w, 0, day);
+  assert.equal(w.cash, before, "nothing more is due: the early payments covered the minimum");
+  day = card.statementDueDay!;
+  assert.equal(card.inGrace, true, "paid in full before the due date");
+  assert.equal(card.pastDue, 0);
+
+  // The next statement starts the count over.
+  while (!run(book, 1, w, 0, day++).some((e) => e.type === "statement")) assert.ok(day < 120);
+  assert.equal(card.statementPaid, 0);
 });
 
 test("missing card payments walks the ladder: late marks, penalty APR, collections", () => {

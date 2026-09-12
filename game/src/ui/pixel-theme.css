@@ -23,6 +23,8 @@
     0 4px var(--edge), 4px 4px var(--edge), 7px 8px #102231a6;
   font-family: "Pixelify Sans", monospace;
   font-weight: 700;
+  /* Pixelify's "fi" and "fl" ligatures squeeze two letters into one cell, so "find" reads as "And". */
+  font-variant-ligatures: no-common-ligatures;
 }
 
 button, input { font-family: inherit; }
@@ -48,7 +50,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 }
 .label { opacity: 1; font-size: 22px; letter-spacing: 0; margin-bottom: 10px; }
 
-.btn, .round, .event, .seg button, .desk-close {
+.btn, .round, .desk-close {
   border: 3px solid var(--edge);
   border-radius: 0;
   background: var(--panel);
@@ -58,14 +60,14 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   transition: filter .1s, transform .1s;
   clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
 }
-.btn, .seg button.on {
+.btn {
   background: linear-gradient(#ffe778, #ffdb39 65%, #ffc329);
   color: #121a20;
   text-shadow: none;
   box-shadow: inset 3px 3px #fff5b2, inset -3px -3px #c58910, 0 3px #082137;
 }
-.btn:hover, .round:hover, .event:hover:not(:disabled), .seg button:hover { filter: brightness(1.12); }
-.btn:active, .round:active, .event:active:not(:disabled), .seg button:active { transform: translateY(2px); }
+.btn:hover, .round:hover { filter: brightness(1.12); }
+.btn:active, .round:active { transform: translateY(2px); }
 .btn.small { padding: 8px 10px; border-width: 3px; font-size: 18px; }
 .round { width: 38px; height: 38px; font-size: 28px; }
 .btn.ghost { background: #0966ae; box-shadow: inset 2px 2px #56b5ec, inset -2px -2px #00487d; }
@@ -94,8 +96,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 }
 .phone-screen { border-radius: 0; background: var(--paper); color: var(--ink); }
 .island { top: 10px; width: 76px; height: 20px; border-radius: 0; background: #10171d; box-shadow: -4px 3px #10171d, 4px 3px #10171d, 0 6px #10171d; }
-.status { height: 42px; padding: 0 19px; font-size: 17px; }
-.view { inset: 42px 0 0; }
+.phone .status { height: 42px; padding: 0 19px; font-size: 17px; }
+.phone .view { inset: 42px 0 0; }
 .view-home { padding: 7px 12px 32px; gap: 14px; }
 .home-clock { text-shadow: none; }
 .hc-day { font-size: 21px; opacity: 1; }
@@ -124,6 +126,24 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .st-sub, .st-name span { color: #4f6876; }
 .st-pill, .st-open, .st-back { border-radius: 0; }
 .st-open { border: 3px solid #10314b; background: var(--panel); box-shadow: inset 2px 2px #8bddff; }
+/* Stocks sections (HackRice sponsors, Markets): headers and dividers in the paper palette. */
+.st-sec {
+  padding: 4px 0 5px;
+  border-bottom: 2px solid #aac2c9;
+  color: #4f6876;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.st-item + .st-sec { margin-top: 12px; }
+.st-sec span + span { font-weight: 700; }
+.st-item + .st-item .st-row { border-top: 2px solid #c4d3c9; }
+/* The sponsor rows are buttons that open the stock in Money. */
+.st-row.link { border-top: 0; }
+.st-row.link:hover { background: #f5e9c3; }
+.st-row.link:hover .st-name b,
+.st-row.link:focus-visible .st-name b { color: var(--blue); }
+.st-row.link:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
 
 .map-card { position: relative; }
 .map-svg, .state-panel, .state-panel .thumb, #npc, .desk-window, .ff-window { border-radius: 0; border-color: var(--edge); }
@@ -230,11 +250,6 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .phone .app-icon { width: 48px; max-width: 48px; justify-self: center; }
 .phone .app-icon .pixel-icon { width: 40px; height: 40px; }
 
-.view-timeline {
-  padding: 10px 14px 30px;
-  gap: 16px;
-  background: var(--paper);
-}
 .phone-app-head {
   display: flex;
   align-items: center;
@@ -242,7 +257,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   padding: 0 0 10px;
   border-bottom: 3px solid #aac2c9;
 }
-.phone-app-head .st-back {
+/* The square pixel back button, in every app (Stocks keeps its own header). */
+.phone-app-head .st-back,
+.st-head .st-back {
   flex: none;
   width: 32px;
   height: 32px;
@@ -255,55 +272,11 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   box-shadow: inset 2px 2px #8cddff, inset -2px -2px #07539e;
   cursor: pointer;
 }
-.timeline-date {
-  display: grid;
-  gap: 2px;
-  padding: 15px 12px;
-  border: 3px solid var(--edge);
-  background: linear-gradient(#2b9cee, #0873c5);
-  color: white;
-  box-shadow: inset 3px 3px #9ce3ff, inset -3px -3px #075093, 0 3px #11283a;
-  text-align: center;
-  text-shadow: 2px 2px #075093;
-}
-.timeline-date span { font-size: 20px; }
-.timeline-date strong { font-size: 27px; line-height: 1.05; }
-.timeline-section {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-.timeline-label {
-  grid-column: 1 / -1;
-  font-size: 18px;
-  color: var(--ink);
-}
-.timeline-speeds {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-.timeline-speeds button,
-.timeline-jump {
-  min-height: 43px;
-  border: 3px solid var(--edge);
+.phone-app-head .st-back:hover,
+.st-head .st-back:hover {
   background: var(--panel);
-  color: white;
-  font: inherit;
-  font-size: 20px;
-  box-shadow: inset 3px 3px #8edcff, inset -3px -3px #07539e, 0 3px #11283a;
-  cursor: pointer;
+  filter: brightness(1.12);
 }
-.timeline-speeds button.on,
-.timeline-jump {
-  background: linear-gradient(#ffe778, #ffcf2f);
-  color: #16212b;
-  text-shadow: none;
-  box-shadow: inset 3px 3px #fff5ac, inset -3px -3px #c58b13, 0 3px #11283a;
-}
-.timeline-jump { font-size: 18px; }
-
 /* Map and weather phone apps ------------------------------------------------ */
 .view-map-app,
 .view-weather {
@@ -323,15 +296,21 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 }
 .map-place-pin { width: 44px; height: 44px; }
 .map-place-copy { min-width: 0; }
+/* The city and its state stay on one line; the tier badge wraps under them when there's no room. */
 .map-place-title {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 7px;
+  gap: 5px 7px;
 }
 .map-place-title strong {
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   font-size: 19px;
-  line-height: 1;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .map-place-title .tier {
   flex: none;

@@ -24,9 +24,7 @@ export class Hud {
           <button class="round" data-tier-step="1" title="Net worth up">+</button>
           <button class="round find" data-home-focus title="Find my home">${pixelIcon("pin")}</button>
         </div>
-      </section>
-
-    `;
+      </section>`;
     this.el.querySelectorAll<HTMLButtonElement>("[data-tier-step]").forEach((b) =>
       b.addEventListener("click", () => actions.tier(Number(b.dataset.tierStep))),
     );

@@ -1,0 +1,155 @@
+/* The owl narrator (ui/narrator.ts): the owl at the bottom of the city with a
+   square pixel speech bubble in the HUD's pixel theme (ui/pixel-theme.css).
+   Words brighten as they're spoken. The owl stands above the modal windows
+   too (the U.S. map, the Money window, the fast-forward); while it's up, those
+   windows leave a band clear at the bottom for it, so it never covers their
+   controls. */
+
+.nr {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  /* Above the map (10), Money (20), and the fast-forward (20); under the intake (30). */
+  z-index: 25;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  transform: translate(-50%, 24px);
+  opacity: 0;
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
+  font-family: "Pixelify Sans", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  pointer-events: none;
+}
+.nr.in {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+.nr[hidden] {
+  display: none;
+}
+.nr-bubble {
+  position: relative;
+  width: min(430px, calc(100vw - 170px));
+  margin-bottom: 30px;
+  padding: 8px 12px 11px 14px;
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: var(--paper, #fff7dd);
+  box-shadow: inset 3px 3px #fff, inset -3px -3px #d7cba8, 4px 4px 0 var(--edge, #101a23), 7px 8px 0 #102231a6;
+  color: var(--ink, #092c49);
+  pointer-events: auto;
+}
+/* The tail, a pixel staircase pointing back at the owl: the edge color, then the paper over it. */
+.nr-bubble::before,
+.nr-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: 12px;
+  background: var(--edge, #101a23);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%, 0 66%, 33% 66%, 33% 33%, 66% 33%, 66% 0);
+}
+.nr-bubble::before {
+  left: -18px;
+  width: 18px;
+  height: 18px;
+}
+.nr-bubble::after {
+  left: -9px;
+  bottom: 15px;
+  width: 12px;
+  height: 12px;
+  background: var(--paper, #fff7dd);
+}
+.nr-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+.nr-name {
+  margin-right: auto;
+  color: var(--blue, #096abe);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.nr-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: #fffdf0;
+  box-shadow: inset -2px -2px #d7cba8, 0 2px 0 var(--edge, #101a23);
+  color: var(--ink, #092c49);
+  font-size: 12px;
+  line-height: 1;
+}
+.nr-btn:hover {
+  filter: brightness(1.06);
+}
+.nr-btn:active {
+  transform: translateY(2px);
+  box-shadow: inset -2px -2px #d7cba8;
+}
+.nr-btn:focus-visible {
+  outline: 3px solid var(--blue-2, #158ced);
+  outline-offset: 2px;
+}
+.nr-text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.4;
+}
+.nr-text span {
+  opacity: 0.35;
+  transition: opacity 0.12s;
+}
+.nr-text span.said {
+  opacity: 1;
+}
+
+/* Narrow screens: above the bottom HUD cards instead of between them. */
+@media (max-width: 900px) {
+  .nr {
+    bottom: 104px;
+  }
+}
+
+/* A modal window is open: the owl stands at the very bottom, in the band the window leaves clear
+   below itself, with the bubble dropped level with the owl so the band stays short. */
+body:has(#map:not([hidden]), .desk-overlay:not([hidden]), .ff-overlay:not([hidden])) .nr {
+  bottom: 8px;
+}
+body:has(#map:not([hidden]), .desk-overlay:not([hidden]), .ff-overlay:not([hidden])) .nr-bubble {
+  margin-bottom: 6px;
+}
+#map,
+.desk-overlay,
+.ff-overlay {
+  transition: padding-bottom 0.25s ease;
+}
+:root.nr-on #map,
+:root.nr-on .desk-overlay,
+:root.nr-on .ff-overlay {
+  padding-bottom: calc(var(--nr-h, 150px) + 18px);
+}
+/* The map card sizes itself by the viewport, so give it the same band. */
+:root.nr-on #map .map-card {
+  max-height: calc(96vh - var(--nr-h, 150px) - 18px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nr,
+  .nr-text span,
+  #map,
+  .desk-overlay,
+  .ff-overlay {
+    transition: none;
+  }
+}

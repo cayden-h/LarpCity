@@ -1,0 +1,37 @@
+/* The owl's box (ui/owl.ts): as tall as the owl stands, with each animation
+   strip placed so the owl's feet sit on the bottom edge, over a soft ground
+   shadow that stays put when the owl hops or flies. */
+
+.owl {
+  position: relative;
+  isolation: isolate;
+  flex: none;
+  width: calc(var(--owl-size) * 0.9);
+  height: var(--owl-size);
+}
+.owl::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  bottom: -3px;
+  width: 58%;
+  height: calc(var(--owl-size) * 0.07);
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(8, 16, 34, 0.28);
+}
+.owl-sprite {
+  position: absolute;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  transform: translateY(calc(var(--owl-level, 0) * -5px));
+  transition: transform 0.08s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .owl-sprite {
+    transform: none;
+    transition: none;
+  }
+}

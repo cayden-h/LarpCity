@@ -2,7 +2,7 @@
 
 How the debt system from [06-debt-and-credit.md](06-debt-and-credit.md) is built in the game.
 Written 2026-09-11 during HackRice 2026.
-Code: `game/src/sim/debt/` (engine), `game/src/debt-demo/` (Credit Desk page), `game/tests/debt.test.ts` and `life.test.ts` (24 tests), `game/scripts/debt-charts.ts` (pitch chart).
+Code: `game/src/sim/debt/` (engine), `game/src/debt-demo/` (the Money desk page, formerly the Credit Desk), `game/tests/debt.test.ts` and `life.test.ts` (24 tests), `game/scripts/debt-charts.ts` (pitch chart).
 Diagrams for the pitch deck: [../diagrams/debt/](../diagrams/debt/) (SVG source plus 3200 px PNG exports).
 Mirrored to Notion on 2026-09-11 as the "🛠️ Research: Debt System Design" sub-page (with all five diagrams), plus a "Built on Sep 11" block and the architecture diagram in the "💳 Debt & Credit" section.
 
@@ -13,7 +13,7 @@ Mirrored to Notion on 2026-09-11 as the "🛠️ Research: Debt System Design" s
 - Inputs are the player's debts, the market's cash rate (seeded and decision-independent), the calendar date, and a `Wallet` (the game's shortfall waterfall).
 - Output is a list of typed events (`payment`, `missed`, `late_mark`, `penalty_apr`, `repossessed`, `collections`, `default`, `paid_off`, `cannot_cover`, `bankruptcy_eligible`, `score_change`) that the HUD, map, decision prompts, newspaper, and AI feedback subscribe to.
 - It is deterministic: the same book, dates, and wallet produce identical events (tested), which keeps rewind exact.
-- Play it: `cd game && npm run dev`, then open `/debt.html` (the Credit Desk).
+- Play it: `cd game && npm run dev`, then open `/debt.html` (the Money desk).
 - Test it: `npm test` (Node's built-in runner, no new dependencies).
 
 ![Architecture](../diagrams/debt/01-architecture.png)
@@ -97,15 +97,18 @@ Done on 2026-09-11: `PlayerLife` (`src/sim/life/player.ts`) owns the player's mo
 - **Rates:** the engine's cash rate is the real effective Fed funds rate from the FRED snapshot (`src/sim/life/rates.ts`, 3.63% on 2026-09-10), held at the last value past the snapshot until the seeded market path drives it.
 - **City hooks in `main.ts`:** `clock.onDay` calls `player.onDay`; a `bankruptcy_eligible` event stops the skip time-lapse and pauses time; the hero's home tier follows `player.homeTier()` (tent after bankruptcy or collections, then studio, small house, townhouse, large house, villa at $25k / $100k / $250k / $1M of net worth); moving states calls `player.setPlace` so rent changes; `window.larp.player` exposes it for the console.
 - **Headless:** `player.runHeadless(fromDay, days, startDate)` runs skips (and will run goal fast-forwards) and stops at bankruptcy.
-- **Not yet in the city UI:** the HUD numbers, decision prompts, and the Debt District on the map. `player.needsDecision(events)` flags the events that should pause for a prompt once the UI exists.
+- **Not yet in the city UI:** the HUD numbers and the Debt District on the map. Decision prompts are built: since 2026-09-12 the city checks `player.needsDecision(events)` each day and opens the Money desk on a payment it can't cover, bankruptcy, or a bear market.
 - **Persistence (Tiger Data, planned):** one `debt_daily` row per debt per day and a `credit_score_monthly` row on the 1st.
 - **Nessie (unverified):** mirror cards as `Credit Card` accounts and loans as Nessie loans behind an adapter with a mock.
 
-## Credit Desk (`/debt.html`)
+## Credit Desk (`/debt.html`), now the Money desk
+
+Since 2026-09-12 this page is the Money desk (the redesign from [research 12](12-credit-desk-ui.md)): Home, Cash, Investing, Debt, Credit, and Cards in a Robinhood-style layout, sharing the city's `PlayerLife` and clock when opened from the phone; [game/README.md](../game/README.md) describes it as it is now.
+The rest of this section records the Sep 11 terminal design.
 
 Redesigned on 2026-09-11 from the LEGO-style Debt Lab into a markets terminal, first dark, then (at Cayden's request) restyled to match the city game: Fredoka, a sky ground, blue HUD cards with white borders, yellow buttons, and charts on white insets. It runs the same `PlayerLife` as the city on the game's real `Clock`.
 In the city it opens from the player's phone (`src/ui/phone.ts`): the phone docks on the left edge as the hub for the game's apps, with a Stocks app (FRED watchlist with sparklines, plus live quotes when a key is set) whose "Open Credit Desk" button shows `/debt.html` in a window over the city and pauses city time; News, Mail, and Bank are placeholders marked "Soon".
-The Credit Desk window still runs its own `PlayerLife`; sharing the city's player is the next step.
+At the time the Credit Desk window ran its own `PlayerLife`; it has shared the city's player (through `window.larpMoney`) since Sep 12, and the phone now pulls up from the bottom-right.
 
 - **Top bar:** speed (pause, 1×, 2×, 4×), skips (+1 week, month, year), the game date, and the data source badge (FRED snapshot, or "Live · Alpha Vantage").
 - **Ticker tape:** S&P 500, Nasdaq, Dow, Fed funds, 10-year Treasury, and 30-year mortgage from FRED with day changes; live SPY, QQQ, DIA, and IWM quotes join it when a key is set.
@@ -123,7 +126,7 @@ The Credit Desk window still runs its own `PlayerLife`; sharing the city's playe
 - **Live quotes (optional):** `vite.config.ts` adds `/api/market/status`, `/api/market/quotes?symbols=`, and `/api/market/daily?symbol=` to the dev and preview servers.
   They call Alpha Vantage (`GLOBAL_QUOTE`, `TIME_SERIES_DAILY` compact) with `ALPHAVANTAGE_API_KEY` from `game/.env.local` or the repo-root `.env` (the key never reaches the browser), and cache responses in `game/.cache/market/` (quotes 6 hours, daily bars 24 hours) because the free tier allows 25 requests a day.
   Without a key they return 503 and the pages use the snapshot.
-- **Production:** the planned Node server (SETUP.md) should host the same three routes.
+- **Production:** the Express server (`server/`, live since Sep 12) doesn't host these three routes yet, so the deployed game uses the snapshot; porting them is the fix.
 
 ## Simplifications (on purpose)
 

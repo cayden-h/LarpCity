@@ -10,6 +10,7 @@
     "test": "node --test tests/",
     "debt:charts": "node scripts/debt-charts.ts",
     "market:snapshot": "node scripts/build-market-snapshot.ts",
+    "narration:pack": "node scripts/build-narration.ts",
     "art:sf": "sh art/fetch_textures.sh && python3 art/make_ads.py && blender -b -P art/build.py -- --city san-francisco && python3 art/check_register.py san-francisco"
   },
   "devDependencies": {
@@ -21,6 +22,7 @@
     "vite": "^8.3.0"
   },
   "dependencies": {
+    "@elevenlabs/client": "^1.25.0",
     "d3-geo": "^3.1.1",
     "pixi.js": "^8.20.1",
     "topojson-client": "^3.1.0",

@@ -124,66 +124,6 @@ button {
   background: #3a7be0;
 }
 
-/* City card */
-.city-card {
-  top: 14px;
-  left: 14px;
-  min-width: 260px;
-  max-width: 340px;
-}
-
-.city-name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.city-sub {
-  font-size: 13px;
-  opacity: 0.85;
-  margin: 2px 0 6px;
-}
-
-.calendar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  padding: 5px 9px;
-}
-
-.calendar .dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--white);
-  opacity: 0.6;
-}
-
-.event-banner {
-  margin-top: 8px;
-  padding: 5px 9px;
-  border-radius: 10px;
-  font-weight: 700;
-  background: #2e9e57;
-}
-
-.event-banner.bad {
-  background: #d9443d;
-  animation: pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  50% {
-    filter: brightness(1.15);
-  }
-}
-
 .tier {
   display: inline-block;
   font-size: 12px;
@@ -203,51 +143,6 @@ button {
 .tier.hcol {
   background: var(--hcol);
   color: var(--white);
-}
-
-/* Map button */
-.btn-map {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 18px;
-  padding: 10px 22px;
-}
-
-.btn-map:hover {
-  transform: translateX(-50%) translateY(-1px);
-}
-
-/* Speed */
-.speed {
-  top: 14px;
-  right: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.seg {
-  display: flex;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 12px;
-  padding: 3px;
-}
-
-.seg button {
-  border: 0;
-  background: transparent;
-  color: var(--white);
-  font-weight: 700;
-  min-width: 38px;
-  padding: 5px 8px;
-  border-radius: 9px;
-}
-
-.seg button.on {
-  background: var(--yellow);
-  color: var(--ink);
 }
 
 /* Home */
@@ -273,83 +168,6 @@ button {
   text-align: center;
   font-weight: 700;
   font-size: 16px;
-}
-
-/* Events */
-.events {
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 196px;
-}
-
-.event-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.event {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 4px;
-  border-radius: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--white);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.event span {
-  font-size: 20px;
-}
-
-.event:hover {
-  background: rgba(255, 255, 255, 0.24);
-}
-
-.event:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  background: transparent;
-}
-
-.event[data-ev="clear"] {
-  grid-column: span 2;
-  flex-direction: row;
-  justify-content: center;
-  gap: 6px;
-}
-
-/* Sky + zoom */
-.sky {
-  right: 14px;
-  bottom: 14px;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 4px 10px;
-  width: 360px;
-}
-
-.sky .label {
-  margin: 0;
-  white-space: nowrap;
-}
-
-.sky input[type="range"] {
-  width: 100%;
-  accent-color: var(--yellow);
-}
-
-.sky .zoom {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
 }
 
 /* NPC card */
@@ -479,16 +297,6 @@ button {
   stroke-width: 3;
 }
 
-.pin circle {
-  fill: #ffffff;
-  stroke: var(--blue);
-  stroke-width: 3;
-}
-
-.pin.handmade circle {
-  fill: var(--yellow);
-}
-
 .pin text {
   font-size: 13px;
   font-weight: 700;
@@ -502,11 +310,6 @@ button {
 
 .pin {
   cursor: pointer;
-}
-
-.pin:hover circle {
-  r: 10;
-  stroke-width: 4;
 }
 
 .state-panel {
@@ -590,15 +393,7 @@ button {
 }
 
 @media (max-width: 900px) {
-  .events {
-    top: auto;
-    bottom: 170px;
-    transform: none;
-  }
   .map-body {
     grid-template-columns: 1fr;
-  }
-  .sky {
-    width: 280px;
   }
 }

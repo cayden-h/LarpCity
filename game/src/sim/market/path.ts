@@ -8,7 +8,7 @@
 import { MARKET } from "../../data/market.ts";
 import { seriesOn } from "../life/rates.ts";
 
-export type InstrumentId = "LTM" | "BOND" | "NNST";
+export type InstrumentId = "LTM" | "BOND" | "NNST" | "COF" | "GOOG" | "GDDY" | "ELVN" | "TGDT" | "VLTR" | "BKBD" | "PRSN";
 export type Regime = "bull" | "bear";
 
 export interface Instrument {
@@ -25,12 +25,27 @@ export interface Instrument {
   start: number;
   /** One plain-language line for beginners. */
   blurb: string;
+  /** A HackRice 2026 sponsor; listed in the Sponsors section. */
+  sponsor?: boolean;
+  /** False for private companies: in real life they don't trade, so the ticker and price are made up for Larp City. */
+  listed?: boolean;
 }
+
+const daily = (annualVol: number) => annualVol / Math.sqrt(252);
 
 export const INSTRUMENTS: readonly Instrument[] = [
   { id: "LTM", name: "Larp Total Market", kind: "fund", expenseRatio: 0.0003, beta: 1, idioVol: 0, start: 312.4, blurb: "Owns a sliver of every big US company. The default good choice." },
   { id: "BOND", name: "City Bond Fund", kind: "fund", expenseRatio: 0.0004, beta: 0, idioVol: 0, start: 72.1, blurb: "Loans to governments and companies. Steadier, grows slower, and still not risk-free." },
-  { id: "NNST", name: "NeuralNest", kind: "stock", expenseRatio: 0, beta: 1.8, idioVol: 0.6 / Math.sqrt(252), start: 188.2, blurb: "One hyped AI company. Big swings both ways; one stock can fall 80%." },
+  { id: "NNST", name: "NeuralNest", kind: "stock", expenseRatio: 0, beta: 1.8, idioVol: daily(0.6), start: 188.2, blurb: "One hyped AI company. Big swings both ways; one stock can fall 80%." },
+  // HackRice 2026 sponsors. Listed companies start near their real price; every price after day 0 is simulated.
+  { id: "COF", name: "Capital One", kind: "stock", expenseRatio: 0, beta: 1.3, idioVol: daily(0.28), start: 228.4, sponsor: true, listed: true, blurb: "A big card issuer and bank, and the maker of the Nessie API. Its profits rise and fall with how many borrowers pay on time." },
+  { id: "GOOG", name: "Alphabet", kind: "stock", expenseRatio: 0, beta: 1.1, idioVol: daily(0.24), start: 335.3, sponsor: true, listed: true, blurb: "Google's parent: search ads, YouTube, cloud, and the Gemini models." },
+  { id: "GDDY", name: "GoDaddy", kind: "stock", expenseRatio: 0, beta: 1, idioVol: daily(0.28), start: 148.6, sponsor: true, listed: true, blurb: "Domain names and small-business websites, sold as steady yearly subscriptions." },
+  { id: "ELVN", name: "ElevenLabs", kind: "stock", expenseRatio: 0, beta: 1.6, idioVol: daily(0.55), start: 42, sponsor: true, listed: false, blurb: "AI voices, including the one that narrates this game." },
+  { id: "TGDT", name: "Tiger Data", kind: "stock", expenseRatio: 0, beta: 1.3, idioVol: daily(0.45), start: 27.5, sponsor: true, listed: false, blurb: "Time-series Postgres, the database that records every Larp City run." },
+  { id: "VLTR", name: "Vultr", kind: "stock", expenseRatio: 0, beta: 1.4, idioVol: daily(0.45), start: 36.8, sponsor: true, listed: false, blurb: "Cloud servers and GPUs, the machines that host the game." },
+  { id: "BKBD", name: "Backboard", kind: "stock", expenseRatio: 0, beta: 1.5, idioVol: daily(0.6), start: 12.4, sponsor: true, listed: false, blurb: "Memory and model routing for AI apps, the coach's long-term memory." },
+  { id: "PRSN", name: "Persona", kind: "stock", expenseRatio: 0, beta: 1.2, idioVol: daily(0.4), start: 31.2, sponsor: true, listed: false, blurb: "Identity checks that prove a player is a real person." },
 ];
 
 export const instrument = (id: InstrumentId): Instrument => INSTRUMENTS.find((i) => i.id === id)!;
@@ -82,7 +97,7 @@ const STREAM = {
   market: nameHash("market"),
   bond: nameHash("bond"),
   pop: nameHash("pop"),
-  idio: Object.fromEntries(["LTM", "BOND", "NNST"].map((id) => [id, nameHash(`idio:${id}`)])) as Record<InstrumentId, number>,
+  idio: Object.fromEntries(INSTRUMENTS.map((i) => [i.id, nameHash(`idio:${i.id}`)])) as Record<InstrumentId, number>,
 };
 
 /** Integer mix of (seed, stream, day), murmur3-finalizer style: no strings on the hot path. */
@@ -122,13 +137,28 @@ export interface PricePoint {
   value: number;
 }
 
+interface Shock {
+  rm: number;
+  zm: number;
+  noise: number;
+  sigma: number;
+}
+const NO_SHOCK: Shock = { rm: 0, zm: 0, noise: 0, sigma: 0 };
+
 export class MarketPath {
   readonly seed: number;
   readonly start: Date;
-  /** Index level and instrument prices for game days 0..n (weekends repeat Friday). */
+  /** Index level for game days 0..n (weekends repeat Friday). */
   private readonly index: number[] = [SP_LAST];
-  private readonly prices: Record<InstrumentId, number[]> = { LTM: [instrument("LTM").start], BOND: [instrument("BOND").start], NNST: [instrument("NNST").start] };
   private readonly regimes: Regime[] = ["bull"];
+  /**
+   * Each day's market move: its log return, fat-tailed shock, noise, and the regime's
+   * volatility. Instruments price from these on demand, so a caller that reads only
+   * LTM and BOND (the fast-forward preview's 100 futures) never pays for the other stocks.
+   */
+  private readonly shocks: Shock[] = [NO_SHOCK];
+  /** Instrument prices, each filled only as far as someone has asked. */
+  private readonly prices = Object.fromEntries(INSTRUMENTS.map((i) => [i.id, [i.start]])) as Record<InstrumentId, number[]>;
   readonly presets: MarketPresets;
   /** Weekday of game day 0; weekdays advance by calendar days, so no Date is needed per day. */
   private readonly startDow: number;
@@ -207,6 +237,7 @@ export class MarketPath {
   price(id: InstrumentId, day: number): number {
     if (day < 0) return this.pastPrice(id, day);
     this.extend(day);
+    this.extendInstrument(id, day);
     return this.prices[id][day];
   }
 
@@ -230,13 +261,14 @@ export class MarketPath {
     return inst.start * (seriesOn("SP500", date) / SP_LAST) ** inst.beta;
   }
 
+  /** Advances the whole market (index, regime, and each day's shock) through `day`. */
   private extend(day: number) {
     for (let d = this.index.length; d <= day; d++) {
       const prevRegime = this.regimes[d - 1];
       if (this.weekend(d)) {
         this.index.push(this.index[d - 1]);
         this.regimes.push(prevRegime);
-        for (const i of INSTRUMENTS) this.prices[i.id].push(this.prices[i.id][d - 1]);
+        this.shocks.push(NO_SHOCK);
         continue;
       }
       const pr = this.presets;
@@ -258,28 +290,43 @@ export class MarketPath {
       const rm = (inPop ? steer(this.index[d - 1], this.index[pr.popDay - 1] * (1 - pr.popDepth)) : p.mu) + noise;
       this.index.push(this.index[d - 1] * Math.exp(rm));
       this.regimes.push(regime);
-      for (const i of INSTRUMENTS) {
-        let r: number;
-        if (i.id === "BOND") {
-          const zb = normal(...(uniforms(this.seed, STREAM.bond, d).slice(0, 2) as [number, number]));
-          // Mildly opposite to the market's shock (flight to safety), clamped so a fat-tailed crash day can't whipsaw bonds.
-          r = BOND.mu + BOND.sigma * (BOND.corr * Math.max(-4, Math.min(4, zm)) + Math.sqrt(1 - BOND.corr ** 2) * zb);
-        } else {
-          const zi = i.idioVol ? normal(...(uniforms(this.seed, STREAM.idio[i.id], d).slice(0, 2) as [number, number])) : 0;
-          const inBoom = d >= pr.boomDay && d < pr.popDay;
-          if (i.id === "NNST" && (inPop || inBoom)) {
-            // Both halves of the AI arc are steered like the pop: noise along the way, landing on the preset.
-            const end = inPop ? pr.popEndDay : pr.popDay;
-            const n = this.tradingDays(d, end);
-            const target = inPop ? this.prices.NNST[pr.popDay - 1] * (1 - pr.nnstPopDepth) : this.prices.NNST[pr.boomDay - 1] * pr.boomMultiple;
-            const wobble = n > 1 ? i.beta * (inPop ? noise : p.sigma * zm) + 0.5 * i.idioVol * zi : 0;
-            r = Math.log(target / this.prices.NNST[d - 1]) / n + wobble;
-          } else {
-            r = i.beta * rm + i.idioVol * zi;
-          }
-        }
-        this.prices[i.id].push(this.prices[i.id][d - 1] * Math.exp(r - i.expenseRatio / 252));
+      this.shocks.push({ rm, zm, noise, sigma: p.sigma });
+    }
+  }
+
+  /** Prices one instrument through `day` from the market's stored shocks (extend must have run). */
+  private extendInstrument(id: InstrumentId, day: number) {
+    const series = this.prices[id];
+    if (series.length > day) return;
+    const i = instrument(id);
+    const pr = this.presets;
+    for (let d = series.length; d <= day; d++) {
+      if (this.weekend(d)) {
+        series.push(series[d - 1]);
+        continue;
       }
+      const { rm, zm, noise, sigma } = this.shocks[d];
+      const inPop = d >= pr.popDay && d < pr.popEndDay;
+      let r: number;
+      if (id === "BOND") {
+        const zb = normal(...(uniforms(this.seed, STREAM.bond, d).slice(0, 2) as [number, number]));
+        // Mildly opposite to the market's shock (flight to safety), clamped so a fat-tailed crash day can't whipsaw bonds.
+        r = BOND.mu + BOND.sigma * (BOND.corr * Math.max(-4, Math.min(4, zm)) + Math.sqrt(1 - BOND.corr ** 2) * zb);
+      } else {
+        const zi = i.idioVol ? normal(...(uniforms(this.seed, STREAM.idio[id], d).slice(0, 2) as [number, number])) : 0;
+        const inBoom = d >= pr.boomDay && d < pr.popDay;
+        if (id === "NNST" && (inPop || inBoom)) {
+          // Both halves of the AI arc are steered like the pop: noise along the way, landing on the preset.
+          const end = inPop ? pr.popEndDay : pr.popDay;
+          const n = this.tradingDays(d, end);
+          const target = inPop ? series[pr.popDay - 1] * (1 - pr.nnstPopDepth) : series[pr.boomDay - 1] * pr.boomMultiple;
+          const wobble = n > 1 ? i.beta * (inPop ? noise : sigma * zm) + 0.5 * i.idioVol * zi : 0;
+          r = Math.log(target / series[d - 1]) / n + wobble;
+        } else {
+          r = i.beta * rm + i.idioVol * zi;
+        }
+      }
+      series.push(series[d - 1] * Math.exp(r - i.expenseRatio / 252));
     }
   }
 }

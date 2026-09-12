@@ -72,7 +72,7 @@
   z-index: 3;
 }
 
-.status {
+.phone .status {
   position: relative;
   z-index: 2;
   display: flex;
@@ -91,7 +91,7 @@
   align-items: center;
 }
 
-.view {
+.phone .view {
   position: absolute;
   inset: 36px 0 0;
   display: flex;
@@ -301,11 +301,54 @@
   grid-template-columns: minmax(0, 1fr) 56px auto;
   align-items: center;
   gap: 8px;
+  width: 100%;
   padding: 9px 0;
+}
+/* Dividers between rows of a section; a section heading starts fresh. */
+.st-item + .st-item .st-row {
   border-top: 1px solid #1c1c1e;
 }
-.st-row:first-child {
-  border-top: 0;
+.st-row.link {
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.st-row.link:hover .st-name b,
+.st-row.link:focus-visible .st-name b {
+  color: #0a84ff;
+}
+/* One line each: the note keeps its width and the title ellipsizes only if the phone is very narrow. */
+.st-sec {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+  padding: 12px 0 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8e8e93;
+}
+.st-sec:first-child {
+  padding-top: 2px;
+}
+.st-sec span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.st-sec span + span {
+  flex: none;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .st-name {
   min-width: 0;
@@ -349,6 +392,10 @@
 .st-pill.down {
   background: #ff453a;
   color: #2b0300;
+}
+.st-pill.flat {
+  background: #3a3a3c;
+  color: #e5e5ea;
 }
 .st-open {
   margin: 8px 12px 28px;

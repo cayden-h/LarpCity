@@ -15,7 +15,7 @@ Full details and sources are in the research files next to this one:
 - [09-wellbeing-meter.md](09-wellbeing-meter.md) (a data-backed wellbeing meter and how it combines with retirement readiness into the final score)
 - [10-teleport-and-goal-skips.md](10-teleport-and-goal-skips.md) (the setup screen before a goal fast-forward, what makes decisions while skipping, what interrupts a skip, rewind branches, and the hackathon-sized version; the age teleport parts are superseded)
 - [11-jobs-and-salary-progression.md](11-jobs-and-salary-progression.md) (job categories, level inference from salary, and the salary progression model; in progress)
-- [12-credit-desk-ui.md](12-credit-desk-ui.md) (simplifying the Credit Desk and market views: what's wrong today, patterns from finance apps, three mockups, and the recommended Money screen)
+- [12-credit-desk-ui.md](12-credit-desk-ui.md) (built on Sep 12 as the Money desk; simplifying the Credit Desk and market views: what's wrong today, patterns from finance apps, three mockups, and the recommended Money screen)
 
 ## 1. What Larp City is
 
@@ -160,7 +160,7 @@ Built so far (2026-09-11 night), all in `game/`:
 - The player's daily money life (`src/sim/life/`): paychecks, state-scaled rent and living costs, accounts, and the debt engine (`src/sim/debt/`) at the real Fed funds rate; the home tier follows net worth and bankruptcy stops skips.
 - Cards, loans, and moving money (`src/sim/money/`), with the real card catalog.
 - The phone hub on the city screen (`src/ui/phone.ts`): Stocks is live, and News, Mail, and Bank are next.
-- The Credit Desk (`debt.html`), a stock-market terminal in the game's look with the Card Shop, opened from the phone's Stocks app.
+- The Money desk (`debt.html`), a Robinhood-style view of the player's money with the Card Shop on its Cards tab, opened from the phone's Stocks app (it replaced the Sep 11 stock-market terminal).
 - Market data: a year of FRED rates and indexes shipped in `src/data/market.ts`, plus optional live Alpha Vantage quotes.
 - 51 tests via `npm test`.
 

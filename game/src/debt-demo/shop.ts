@@ -14,6 +14,7 @@ import { SPEND_LABEL, SPEND_ORDER, cardValue } from "./shop-value.ts";
 import { CURATED, CURATED_AS_OF, TCCP_AS_OF } from "../data/cards-curated.ts";
 import { CARD_PRODUCTS } from "../data/cards.ts";
 import type { Clock } from "../engine/clock.ts";
+import { effectiveApr, owed } from "../sim/debt/index.ts";
 import type { PlayerLife } from "../sim/life/index.ts";
 import {
   BLS_MONTHLY_SPEND,
@@ -36,7 +37,7 @@ import {
 
 type Tone = "up" | "down" | "flat" | "info";
 type CreditFilter = "all" | CuratedCard["creditNeeded"];
-type Sort = "value" | "apr" | "fee" | "bonus";
+type Sort = "match" | "value" | "apr" | "fee" | "bonus";
 type View = "featured" | "plans";
 
 export interface ShopHost {
@@ -53,11 +54,21 @@ export interface Shop {
   refresh(): void;
   /** Full rebuild, when the shop becomes visible. */
   render(): void;
+  /** Opens a card's details (from search); the next render shows them. */
+  select(slug: string): void;
 }
+
+/** Category colors, shared by the spending bar and each row's dot (Apple Card's color-coded categories). */
+const SPEND_COLORS = ["#30b566", "#ff8a00", "#e5484d", "#3e7bfa", "#a855f7", "#8e8e93", "#14b8a6", "#f59e0b"];
+const CARRY_PRESETS = [0, 1_000, 3_000, 5_000];
+const DEPOSIT_PRESETS = [200, 300, 500, 1_000];
+const typedDollars = (s: string, min: number, max: number) => Math.max(min, Math.min(max, Math.round(Number(s.replace(/[^0-9.]/g, "")) || 0)));
 
 // ---- Formatting ----------------------------------------------------------------
 
+/** Whole dollars for estimates (year-one value, fees); balances use `cents`, like the rest of the desk. */
 const usd = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
+const cents = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const pct = (f: number | null | undefined, d = 2) => (f == null ? "—" : `${(f * 100).toFixed(d)}%`);
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
@@ -113,7 +124,7 @@ export function mountShop(host: ShopHost): Shop {
   const histories = new WeakMap<PlayerLife, ApplicationRecord[]>();
   const state = {
     credit: "all" as CreditFilter,
-    sort: "value" as Sort,
+    sort: "match" as Sort,
     noFee: false,
     view: "featured" as View,
     spend: { ...BLS_MONTHLY_SPEND, travel: 125 } as Record<SpendCategory, number>,
@@ -164,12 +175,15 @@ export function mountShop(host: ShopHost): Shop {
   function visible(): CuratedCard[] {
     const list = CURATED.filter((c) => (state.credit === "all" || c.creditNeeded === state.credit) && (!state.noFee || c.annualFee === 0));
     const key: Record<Sort, (c: CuratedCard) => number> = {
+      // Year-one value weighted by the chance you'd actually get the card.
+      match: (c) => -value(c).net * (c.closed ? 0 : prequal(c).odds),
       value: (c) => -value(c).net,
       apr: (c) => yourApr(c.terms),
       fee: (c) => c.annualFee,
       bonus: (c) => -(c.welcomeOffer?.valueUsd ?? 0),
     };
-    return list.sort((a, b) => key[state.sort](a) - key[state.sort](b));
+    const k = new Map(list.map((c) => [c, key[state.sort](c)]));
+    return list.sort((a, b) => k.get(a)! - k.get(b)!);
   }
 
   // ---- Pieces ----
@@ -225,14 +239,18 @@ export function mountShop(host: ShopHost): Shop {
     return `<div class="om-top"><span class="${tone}">${label}</span><span class="dim">${Math.round(odds * 100)}%</span></div><div class="om-bar"><span class="${tone}" style="width:${Math.max(3, odds * 100)}%"></span></div>`;
   }
 
+  /** Copilot-style budget: one bar split by category, then rows whose amounts you click to edit. */
   function spendHtml(): string {
     const total = SPEND_ORDER.reduce((s, c) => s + state.spend[c], 0);
+    const color = (i: number) => SPEND_COLORS[i % SPEND_COLORS.length];
     return `<div class="panel-head"><h2>Your card spending</h2><span class="muted" data-spend-total>${usd(total)}/mo</span></div>
-      ${SPEND_ORDER.map((c) => `<label class="sl"><span>${SPEND_LABEL[c]}</span><b data-spend-v="${c}">${usd(state.spend[c])}</b>
-        <input type="range" min="0" max="${c === "travel" ? 1000 : 1500}" step="5" value="${Math.round(state.spend[c])}" data-spend="${c}" /></label>`).join("")}
-      <p class="note">Defaults are the average US household (BLS Consumer Expenditure Survey 2024), plus $125 a month of travel.</p>
-      <label class="sl carry"><span>Balance you carry</span><b data-carry-v>${usd(state.carry)}</b>
-        <input type="range" min="0" max="10000" step="100" value="${state.carry}" data-carry /></label>
+      <div class="sp-bar" aria-hidden="true">${SPEND_ORDER.map((c, i) => `<span data-seg="${c}" style="--c:${color(i)};width:${total ? (state.spend[c] / total) * 100 : 0}%"></span>`).join("")}</div>
+      ${SPEND_ORDER.map((c, i) => `<label class="sp-row"><i style="--c:${color(i)}"></i><span>${SPEND_LABEL[c]}</span><span class="amt-edit"><input inputmode="numeric" value="${usd(state.spend[c])}" data-spend="${c}" aria-label="${SPEND_LABEL[c]} a month"></span></label>`).join("")}
+      <p class="note">Click an amount to change it. Defaults are the average US household (BLS Consumer Expenditure Survey 2024), plus $125 a month of travel.</p>
+      <div class="field">
+        <div class="field-head"><b>Balance you carry</b><label class="amt-edit"><input inputmode="numeric" value="${usd(state.carry)}" data-carry aria-label="Balance you carry"></label></div>
+        <div class="chips" role="group" aria-label="Balance presets">${CARRY_PRESETS.map((v) => `<button data-carry-set="${v}" class="${state.carry === v ? "on" : ""}" aria-label="${v ? usd(v) : "None"}">${v ? `$${v / 1_000}K` : "None"}</button>`).join("")}</div>
+      </div>
       <p class="note">Carrying a balance costs your APR every year. At about 23%, $3,000 costs $690, more than a 2% card earns on average spending.</p>`;
   }
 
@@ -244,7 +262,7 @@ export function mountShop(host: ShopHost): Shop {
         const c = CURATED.find((x) => d.id.startsWith(`card-${x.slug}-`));
         const art = c ? cardArt(c, "mini") : `<div class="cc cc-mini"><div class="cc-body">${fallbackFace(d.name, "Brickstone Bank", "VISA", null)}</div></div>`;
         const closed = d.status === "paid" || d.status === "discharged";
-        return `<div class="w-row ${closed ? "closed" : ""}">${art}<div><div class="pos-name">${esc(d.name)}</div><div class="pos-sub">${usd(d.balance + d.accrued)} of ${usd(d.creditLimit ?? 0)} · ${pct(d.aprAnnual)}${d.promoUntil !== undefined && clock.day < d.promoUntil ? ` · ${pct(d.promoApr ?? 0, 0)} intro` : ""}</div></div></div>`;
+        return `<div class="w-row ${closed ? "closed" : ""}">${art}<div><div class="pos-name">${esc(d.name)}</div><div class="pos-sub">${cents(owed(d))} of ${cents(d.creditLimit ?? 0)} · ${pct(effectiveApr(d, clock.day))}${d.promoUntil !== undefined && clock.day < d.promoUntil ? ` · ${pct(d.promoApr ?? 0, 0)} intro` : ""}</div></div></div>`;
       })
       .join("");
   }
@@ -281,7 +299,7 @@ export function mountShop(host: ShopHost): Shop {
     <aside class="drawer" role="dialog" aria-modal="true" aria-label="${esc(card.name)}">
       <button class="x" data-shop-close aria-label="Close">×</button>
       <div class="d-hero">${cardArt(card, "hero")}</div>
-      <div class="d-title"><h3>${esc(card.name)}</h3><div class="t-sub">${esc(card.issuer)} · ${esc(card.network)} · ${CREDIT_LABEL[card.creditNeeded]} credit${card.student ? " · Student" : ""}</div></div>
+      <div class="d-title"><h3>${esc(card.name)}</h3><div class="t-sub">${esc(card.issuer)} · ${esc(card.network)} · ${card.creditNeeded === "none" ? "No credit needed" : `${CREDIT_LABEL[card.creditNeeded]} credit`}${card.student ? " · Student" : ""}</div></div>
       <div class="d-kpis">
         <div><span>Annual fee</span><b>${card.annualFee ? usd(card.annualFee) : "$0"}${card.firstYearFeeWaived && card.annualFee ? `<em>waived year one</em>` : ""}</b></div>
         <div><span>Your APR</span><b>${pct(apr)}</b><em>${esc(card.regularApr)}</em></div>
@@ -303,7 +321,11 @@ export function mountShop(host: ShopHost): Shop {
       <ul class="perks">${card.perks.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
       <h4>Terms <span class="dim">CFPB survey, ${TCCP_AS_OF}</span></h4>
       <table class="terms"><tbody>${termsRows(card.terms)}</tbody></table>
-      ${card.secured ? `<label class="sl"><span>Security deposit</span><b>${usd(state.deposit)}</b><input type="range" min="200" max="2000" step="50" value="${state.deposit}" data-deposit /></label>` : ""}
+      ${card.secured ? `<div class="field">
+        <div class="field-head"><b>Security deposit</b><label class="amt-edit"><input inputmode="numeric" value="${usd(state.deposit)}" data-deposit aria-label="Security deposit, $200 to $2,000"></label></div>
+        <div class="chips" role="group" aria-label="Deposit presets">${DEPOSIT_PRESETS.map((v) => `<button data-deposit-set="${v}" class="${state.deposit === v ? "on" : ""}">${usd(v)}</button>`).join("")}</div>
+        <p class="note">Your deposit becomes your credit limit ($200 to $2,000), and you get it back when you close the card or move up to an unsecured one.</p>
+      </div>` : ""}
       ${card.closed ? `<p class="d-warn">${esc(card.issuer)} has ${esc(card.closed)}. Existing cardholders keep it, but you can't apply.</p>` : ""}
       ${rule ? `<p class="d-warn">${esc(rule)}</p>` : ""}
       ${owns(card) ? `<p class="d-ok">This card is in your wallet.</p>` : ""}
@@ -369,13 +391,8 @@ export function mountShop(host: ShopHost): Shop {
   function render(): void {
     const list = visible();
     root.innerHTML = `
-      <section class="shop-hero">
-        <div>
-          <h1>Card Shop</h1>
-          <p>Real cards and their real terms. Check your odds with a soft pull before a hard pull costs you points.</p>
-        </div>
-        <div class="shop-profile" data-s-profile>${profileHtml()}</div>
-      </section>
+      <div class="section shop-title"><h2>Card Shop</h2><span>Real cards, real terms. Check your odds with a soft pull before a hard pull costs you points.</span></div>
+      <div class="shop-profile" data-s-profile>${profileHtml()}</div>
       <div class="shop-bar">
         <div class="tabs" role="tablist">
           <button data-shop-view="featured" class="${state.view === "featured" ? "on" : ""}">Featured cards</button>
@@ -383,9 +400,11 @@ export function mountShop(host: ShopHost): Shop {
         </div>
         ${
           state.view === "featured"
-            ? `<div class="seg" role="group" aria-label="Credit needed">${(["all", "none", "fair", "good", "excellent"] as CreditFilter[]).map((c) => `<button data-shop-credit="${c}" class="${state.credit === c ? "on" : ""}">${c === "all" ? "All" : CREDIT_LABEL[c]}</button>`).join("")}</div>
-          <div class="seg" role="group" aria-label="Sort">${(
+            ? `<div class="seg" role="group" aria-label="Credit needed"><span class="seg-lbl" aria-hidden="true">Credit</span>${(["all", "none", "fair", "good", "excellent"] as CreditFilter[]).map((c) => `<button data-shop-credit="${c}" class="${state.credit === c ? "on" : ""}">${c === "all" ? "All" : CREDIT_LABEL[c]}</button>`).join("")}
+            <button data-shop-nofee class="${state.noFee ? "on" : ""}" aria-pressed="${state.noFee}">${state.noFee ? "✓ " : ""}No annual fee</button></div>
+          <div class="seg" role="group" aria-label="Sort"><span class="seg-lbl" aria-hidden="true">Sort</span>${(
             [
+              ["match", "Best match"],
               ["value", "Best value"],
               ["apr", "Lowest APR"],
               ["bonus", "Biggest offer"],
@@ -393,8 +412,7 @@ export function mountShop(host: ShopHost): Shop {
             ] as [Sort, string][]
           )
             .map(([k, l]) => `<button data-shop-sort="${k}" class="${state.sort === k ? "on" : ""}">${l}</button>`)
-            .join("")}</div>
-          <button class="btn tiny ${state.noFee ? "on" : ""}" data-shop-nofee>${state.noFee ? "✓ " : ""}No annual fee</button>`
+            .join("")}</div>`
             : ""
         }
       </div>
@@ -431,8 +449,14 @@ export function mountShop(host: ShopHost): Shop {
         o.innerHTML = oddsMeter(p.odds, p.decision === "denied" && p.odds === 0 ? ["Not eligible", "down"] : oddsLabel(p.odds));
       }
     }
+    const total = SPEND_ORDER.reduce((s, c) => s + state.spend[c], 0);
     const t = root.querySelector("[data-spend-total]");
-    if (t) t.textContent = `${usd(SPEND_ORDER.reduce((s, c) => s + state.spend[c], 0))}/mo`;
+    if (t) t.textContent = `${usd(total)}/mo`;
+    for (const c of SPEND_ORDER) {
+      const seg = root.querySelector<HTMLElement>(`[data-seg="${c}"]`);
+      if (seg) seg.style.width = `${total ? (state.spend[c] / total) * 100 : 0}%`;
+    }
+    root.querySelectorAll<HTMLButtonElement>("[data-carry-set]").forEach((b) => b.classList.toggle("on", Number(b.dataset.carrySet) === state.carry));
     const drawer = root.querySelector<HTMLElement>("[data-s-drawer]");
     if (drawer && state.selected) {
       const scroll = drawer.querySelector(".drawer")?.scrollTop ?? 0;
@@ -478,10 +502,12 @@ export function mountShop(host: ShopHost): Shop {
   }
 
   root.addEventListener("click", (ev) => {
-    const el = (ev.target as HTMLElement).closest<HTMLElement>("[data-shop-open],[data-shop-close],[data-shop-view],[data-shop-credit],[data-shop-sort],[data-shop-nofee],[data-shop-prequal],[data-shop-apply],[data-shop-dismiss],[data-card]");
+    const el = (ev.target as HTMLElement).closest<HTMLElement>("[data-shop-open],[data-shop-close],[data-shop-view],[data-shop-credit],[data-shop-sort],[data-shop-nofee],[data-shop-prequal],[data-shop-apply],[data-shop-dismiss],[data-carry-set],[data-deposit-set],[data-card]");
     if (!el) return;
     const d = el.dataset;
-    if (d.shopDismiss !== undefined) state.result = null;
+    if (d.carrySet !== undefined) state.carry = Number(d.carrySet);
+    else if (d.depositSet !== undefined) state.deposit = Number(d.depositSet);
+    else if (d.shopDismiss !== undefined) state.result = null;
     else if (d.shopClose !== undefined) state.selected = null;
     else if (d.shopOpen) state.selected = d.shopOpen;
     else if (d.card && !(ev.target as HTMLElement).closest("button")) state.selected = d.card;
@@ -501,18 +527,13 @@ export function mountShop(host: ShopHost): Shop {
   root.addEventListener("input", (ev) => {
     const el = ev.target as HTMLInputElement;
     const d = el.dataset;
+    // Typed amounts update the tiles as you type; the deposit waits for Enter or blur (see "change"),
+    // because it lives in the drawer, which rebuilds when the numbers change.
     if (d.spend) {
-      state.spend[d.spend as SpendCategory] = Number(el.value);
-      const v = root.querySelector(`[data-spend-v="${d.spend}"]`);
-      if (v) v.textContent = usd(Number(el.value));
+      state.spend[d.spend as SpendCategory] = typedDollars(el.value, 0, 20_000);
       updateNumbers();
     } else if (d.carry !== undefined) {
-      state.carry = Number(el.value);
-      const v = root.querySelector("[data-carry-v]");
-      if (v) v.textContent = usd(state.carry);
-      updateNumbers();
-    } else if (d.deposit !== undefined) {
-      state.deposit = Number(el.value);
+      state.carry = typedDollars(el.value, 0, 100_000);
       updateNumbers();
     } else if (d.planQ !== undefined) {
       state.planQuery = el.value;
@@ -528,8 +549,21 @@ export function mountShop(host: ShopHost): Shop {
 
   // Re-sort tiles once a spending slider is released, not while dragging.
   root.addEventListener("change", (ev) => {
-    const d = (ev.target as HTMLElement).dataset;
-    if ((d.spend || d.carry !== undefined) && state.sort === "value") render();
+    const el = ev.target as HTMLInputElement;
+    const d = el.dataset;
+    if (d.deposit !== undefined) {
+      state.deposit = typedDollars(el.value, 200, 2_000);
+      render();
+    } else if (d.spend || d.carry !== undefined) {
+      // Show the cleaned-up amount, and re-sort once the typing is done.
+      el.value = usd(d.spend ? state.spend[d.spend as SpendCategory] : state.carry);
+      if (state.sort === "value" || state.sort === "match") render();
+    }
+  });
+
+  root.addEventListener("keydown", (ev) => {
+    const el = ev.target as HTMLElement;
+    if (ev.key === "Enter" && el.matches("input[data-spend], input[data-carry], input[data-deposit]")) (el as HTMLInputElement).blur();
   });
 
   root.addEventListener("keydown", (ev) => {
@@ -560,7 +594,13 @@ export function mountShop(host: ShopHost): Shop {
     }
   });
 
-  return { refresh, render };
+  function select(slug: string): void {
+    state.selected = slug;
+    state.result = null;
+    state.view = "featured";
+  }
+
+  return { refresh, render, select };
 }
 
 function labelFor(c: EarnCategory): string {

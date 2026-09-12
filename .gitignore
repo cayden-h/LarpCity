@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+!server/.env.test
+# Public build settings for the deployed game; no secrets.
+!.env.production
 .env.local
 
 # OS and editors

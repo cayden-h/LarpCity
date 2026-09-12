@@ -1,22 +1,26 @@
 // Money desk (/debt.html): the player's money in Robinhood's shape. Home shows
 // net worth as one big number over one scrubbable chart, then rows that open
-// Investing, Debt, Credit, and Cards. Each tab repeats the pattern: a big
+// Cash, Investing, Debt, Credit, and Cards. Each tab repeats the pattern: a big
 // number, one chart, one suggested move, then rows. It runs the same
 // PlayerLife the city scene runs (paychecks, rent for the state, the accounts
 // ledger, the debt engine, and brokerage holdings on the seeded market path)
 // on the game's Clock. Research: research/12-credit-desk-ui.md.
 
 import "./desk.css";
-import { mountBigChart, spark, thin, type ChartPt } from "./chart.ts";
+import { mountBigChart, spark, thin, type ChartPt, type ChartLine } from "./chart.ts";
 import { mountShop } from "./shop.ts";
 import type { MoneyHost } from "../ui/phone.ts";
 import { Clock } from "../engine/clock.ts";
+import { CURATED } from "../data/cards-curated.ts";
 import { MARKET } from "../data/market.ts";
 import { STATES } from "../data/states.ts";
-import { PlayerLife, seriesOn, type LifeEvent, type LifeSnapshot } from "../sim/life/index.ts";
+import { PlayerLife, STARTER_PORTFOLIO, seriesOn, type LifeEvent, type LifeSnapshot } from "../sim/life/index.ts";
 import { INSTRUMENTS, MarketPath, instrument, type InstrumentId } from "../sim/market/index.ts";
+import { fetchRecoveryLesson } from "../net/recap.ts";
+import { RunRecorder } from "../sim/record/index.ts";
 import {
   compareStrategies,
+  effectiveApr,
   enrollHardship,
   fileBankruptcy,
   isOpen,
@@ -29,7 +33,7 @@ import {
   type Strategy,
 } from "../sim/debt/index.ts";
 
-type Tab = "home" | "investing" | "debt" | "credit" | "cards";
+type Tab = "home" | "cash" | "investing" | "debt" | "credit" | "cards";
 type Range = "1W" | "1M" | "3M" | "1Y" | "ALL";
 type Tone = "up" | "down" | "flat";
 interface FeedItem {
@@ -38,6 +42,15 @@ interface FeedItem {
   amount?: number;
   tone: Tone;
 }
+/** One line on the Cash tab's bank statement: money into or out of cash, or a move between cash accounts. */
+interface BankTxn {
+  day: number;
+  name: string;
+  category: string;
+  icon: string;
+  amount: number;
+  kind: "in" | "out" | "move";
+}
 interface Decision {
   title: string;
   body: string;
@@ -45,7 +58,8 @@ interface Decision {
 }
 interface ChartSpec {
   pts: ChartPt[];
-  ghost?: ChartPt[];
+  lines?: ChartLine[];
+  zero?: boolean;
   baseline?: boolean;
   minSpan?: number;
   tone: Tone;
@@ -53,6 +67,7 @@ interface ChartSpec {
   fmt: (y: number) => string;
   change: (p: ChartPt, scrubbing: boolean) => string;
   label: (p: ChartPt) => string;
+  mainLabel?: string;
 }
 interface Page {
   main: string;
@@ -65,6 +80,7 @@ const HOME = STATES.find((s) => s.abbr === "TX")!;
 const MOVES = ["TX", "CA", "NY", "FL", "OH", "WA", "CO"].map((a) => STATES.find((s) => s.abbr === a)!).filter(Boolean);
 const TABS: [Tab, string][] = [
   ["home", "Home"],
+  ["cash", "Cash"],
   ["investing", "Investing"],
   ["debt", "Debt"],
   ["credit", "Credit"],
@@ -100,6 +116,18 @@ const market = host?.life().market ?? new MarketPath();
 let rateShock = 0;
 let life = host ? host.life() : makeLife();
 if (host) life.onEvents(onLifeEvents);
+// Standalone, the desk records its own run in Tiger Data; inside the city, the city's recorder already records this life.
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api`;
+let recorder = host ? null : startRecorder();
+
+function startRecorder(): RunRecorder {
+  const r = new RunRecorder({ life, seed: market.seed, base: API_BASE });
+  void r.begin();
+  return r;
+}
+
+/** The recorder that owns this life's run: the desk's own, or the city's inside the city. */
+const runRecorder = () => (host ? host.recorder() : recorder);
 const feed: FeedItem[] = [];
 let decision: Decision | null = null;
 let resumeSpeed = 1;
@@ -111,9 +139,30 @@ let amount = 100;
 let tradeMsg: { text: string; bad: boolean } | null = null;
 let menuOpen = false;
 let shopShown = false;
+/** The last bear market and what the player chose, for the recovery card and the recap. */
+let crash: { day: number; drop: number; choice: string } | null = null;
+/** The last recovery: how the three lines came through. */
+let recovery: { day: number; you: number; held: number; autopilot: number } | null = null;
+/** Gemini's lesson for the last recovery, when the server has one. */
+let recap: { headline: string; lesson: string } | null = null;
+const bank: BankTxn[] = [];
+let xferOpen = false;
+const xfer = { from: "checking", to: "savings", amount: 100 };
+let xferMsg: { text: string; bad: boolean } | null = null;
+const search = { q: "", sel: 0, open: false };
+const PAGE_SUB: Record<Tab, string> = {
+  home: "Net worth",
+  cash: "Checking, savings, and transfers",
+  investing: "Stocks and funds",
+  debt: "Your payoff plan",
+  credit: "Your score and what moves it",
+  cards: "Your card and the Card Shop",
+};
+/** Preset extra payments, Monzo-style; the amount next to them takes anything else. */
+const EXTRA_PRESETS = [0, 100, 300, 500, 1_000];
 
 function makeLife(): PlayerLife {
-  const l = new PlayerLife({ place: HOME, day: clock.day, market, cashRate: (d) => seriesOn("DFF", d) / 100 + rateShock });
+  const l = new PlayerLife({ place: HOME, day: clock.day, market, cashRate: (d) => seriesOn("DFF", d) / 100 + rateShock, holdings: STARTER_PORTFOLIO });
   l.onEvents(onLifeEvents);
   return l;
 }
@@ -121,12 +170,13 @@ function makeLife(): PlayerLife {
 // ---- Formatting ----------------------------------------------------------------
 
 const num = (n: number, d = 0) => Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
-const usd = (n: number, d = 0) => `${n < 0 ? "−" : ""}$${num(n, d)}`;
+/** Money always shows cents, like a bank; pass 0 only for round amounts the player picks ("Pay $100"). */
+const usd = (n: number, d = 2) => `${n < 0 ? "−" : ""}$${num(n, d)}`;
 const signedUsd = (n: number, d = 2) => `${n >= 0 ? "+" : "−"}$${num(n, d)}`;
 const pctOf = (f: number, d = 2) => `${(f * 100).toFixed(d)}%`;
 const signedPct = (f: number, d = 2) => `${f >= 0 ? "+" : "−"}${Math.abs(f * 100).toFixed(d)}%`;
-/** "24%" or "6.9%": enough precision to tell rates apart without APR noise. */
-const rate = (f: number) => `${(f * 100).toFixed(f >= 0.1 ? 0 : 1).replace(/\.0$/, "")}%`;
+/** APRs to two decimals, the way issuers and the Card Shop print them (23.96%). */
+const rate = (f: number) => `${(f * 100).toFixed(2)}%`;
 const dateOf = (day: number) => {
   const d = new Date(clock.start);
   d.setDate(d.getDate() + day);
@@ -139,6 +189,8 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 // Balances are rounded to cents and changes are often fractions (0.0024 = 0.24%), so only
 // a true zero reads as flat.
 const dirTone = (delta: number, goodWhenUp = true): Tone => (Math.abs(delta) < 1e-6 ? "flat" : delta > 0 === goodWhenUp ? "up" : "down");
+/** A typed dollar amount: digits only, whole dollars, never negative. */
+const typedDollars = (s: string, max = 100_000) => Math.max(0, Math.min(max, Math.round(Number(s.replace(/[^0-9.]/g, "")) || 0)));
 
 // ---- Events --------------------------------------------------------------------
 
@@ -147,20 +199,35 @@ function log(day: number, text: string, tone: Tone, amt?: number) {
   if (feed.length > 120) feed.length = 120;
 }
 
+function bankLog(t: BankTxn) {
+  if (Math.abs(t.amount) < 0.005) return;
+  bank.unshift(t);
+  if (bank.length > 300) bank.length = 300;
+}
+
+const debtIcon = (d?: Debt) => (d?.kind === "credit_card" ? "💳" : d?.kind === "student_federal" ? "🎓" : d?.kind === "auto" ? "🚗" : "🧾");
+
 function onLifeEvents(events: LifeEvent[]) {
   for (const e of events) {
     const d = "debtId" in e ? life.book.debts.find((x) => x.id === e.debtId) : undefined;
     switch (e.type) {
       case "paycheck":
         log(e.day, `Paycheck${e.unemployed ? " (unemployment)" : ""}${e.garnished ? `, ${usd(e.garnished)} garnished` : ""}`, "up", e.takeHome);
+        bankLog({ day: e.day, name: e.unemployed ? "Unemployment benefits" : "Payroll direct deposit", category: "Income", icon: "💼", amount: e.takeHome, kind: "in" });
         break;
       case "bill": {
         const short = e.amount - e.paid;
         log(e.day, `${e.name}${short > 0.5 ? `, short by ${usd(short)}` : ""}`, short > 0.5 ? "down" : "flat", -e.paid);
+        const rent = e.name === "Rent";
+        bankLog({ day: e.day, name: rent ? "Rent" : "Groceries, gas, and bills", category: rent ? "Housing" : "Living costs", icon: rent ? "🏠" : "🛒", amount: -e.paid, kind: "out" });
         break;
       }
       case "savings_interest":
         log(e.day, "Savings interest", "up", e.amount);
+        bankLog({ day: e.day, name: "Interest paid", category: "Savings interest", icon: "💰", amount: e.amount, kind: "in" });
+        break;
+      case "payment":
+        bankLog({ day: e.day, name: d?.name ?? "Loan payment", category: d?.kind === "credit_card" ? "Card payment" : "Loan payment", icon: debtIcon(d), amount: -e.amount, kind: "out" });
         break;
       case "moved":
         log(e.day, `Moved to ${e.to}: rent is now ${usd(e.rent)} a month`, "flat");
@@ -170,6 +237,7 @@ function onLifeEvents(events: LifeEvent[]) {
         break;
       case "trade":
         log(e.day, `${e.side === "buy" ? "Bought" : "Sold"} ${e.id}${e.recurring ? " (auto-invest)" : ""}`, e.side === "buy" ? "flat" : "up", e.side === "buy" ? -e.amount : e.amount);
+        bankLog({ day: e.day, name: `${e.side === "buy" ? "Bought" : "Sold"} ${e.id}`, category: e.recurring ? "Auto-invest" : "Investing", icon: "📈", amount: e.side === "buy" ? -e.amount : e.amount, kind: e.side === "buy" ? "out" : "in" });
         break;
       case "trade_skipped":
         log(e.day, `Auto-invest skipped: ${e.reason.toLowerCase()}`, "down");
@@ -177,8 +245,9 @@ function onLifeEvents(events: LifeEvent[]) {
       case "missed":
         log(e.day, `Missed the ${d?.name ?? ""} payment${e.fee ? ` and paid a ${usd(e.fee)} late fee` : ""}`, "down", e.fee ? -e.fee : undefined);
         break;
+      // Inside the city, the city hands decision moments to the phone, which opens this window on them (showParkedDecisions).
       case "cannot_cover":
-        if (!decision && d) askCannotCover(d, e.due, e.available);
+        if (!host && !decision && d) askCannotCover(d, e.due, e.available);
         break;
       case "late_mark":
         log(e.day, `${d?.name} reported ${e.severity} days late; score ${e.scoreBefore} → ${e.scoreAfter}`, "down");
@@ -202,7 +271,17 @@ function onLifeEvents(events: LifeEvent[]) {
         if (Math.abs(e.to - e.from) >= 3) log(e.day, `Credit score ${e.from} → ${e.to}`, e.to > e.from ? "up" : "down");
         break;
       case "bankruptcy_eligible":
-        if (!decision) askBankruptcy(e.reason);
+        if (!host && !decision) askBankruptcy(e.reason);
+        break;
+      case "bear_market":
+        log(e.day, `Stocks are down ${pctOf(e.drop, 0)} from their high`, "down");
+        if (!host && !decision) askBearMarket(e.day, e.drop, e.stocks);
+        break;
+      case "market_recovered":
+        log(e.day, "Stocks are back at their high", "up");
+        recovery = { day: e.day, you: e.you, held: e.held, autopilot: e.autopilot };
+        recap = null;
+        void askRecap(e.day);
         break;
       default:
         break;
@@ -218,10 +297,14 @@ function ctxNow() {
 }
 
 function pay(debtId: string, amt: number) {
-  const name = life.book.debts.find((d) => d.id === debtId)?.name ?? "debt";
+  const debt = life.book.debts.find((d) => d.id === debtId);
+  const name = debt?.name ?? "debt";
   let paid = 0;
   for (const e of payNow(life.book, debtId, amt, ctxNow())) if (e.type === "payment") paid += e.amount;
-  if (paid > 0) log(clock.day, `Extra payment to ${name}`, "flat", -paid);
+  if (paid > 0) {
+    log(clock.day, `Extra payment to ${name}`, "flat", -paid);
+    bankLog({ day: clock.day, name, category: "Extra payment", icon: debtIcon(debt), amount: -paid, kind: "out" });
+  }
 }
 
 function fundEmergency(amt: number) {
@@ -229,7 +312,8 @@ function fundEmergency(amt: number) {
   const from = life.ledger.get("savings").balance >= amt ? "savings" : "checking";
   try {
     life.ledger.transfer(from, "emergency", amt, "internal", ctx);
-    log(clock.day, `Moved ${usd(amt)} to the emergency fund`, "flat");
+    log(clock.day, `Moved ${usd(amt, 0)} to the emergency fund`, "flat");
+    bankLog({ day: clock.day, name: "Transfer to Emergency fund", category: `From ${life.ledger.get(from).name}`, icon: "↔", amount: amt, kind: "move" });
   } catch {
     // The quote failed (not enough money); the card stays as it was.
   }
@@ -245,7 +329,39 @@ function openDecision(dec: Decision) {
 
 function closeDecision() {
   decision = null;
-  clock.speed = resumeSpeed;
+  // Inside the city, time stays paused until the player presses play, as the Money window says.
+  if (!host) clock.speed = resumeSpeed;
+  render();
+}
+
+/** Most important first: bankruptcy, then a payment the player can't cover, then a crash. */
+const DECISION_RANK: Partial<Record<LifeEvent["type"], number>> = { bankruptcy_eligible: 0, cannot_cover: 1, bear_market: 2 };
+
+/**
+ * Inside the city: opens the most important decision the city parked with the phone, and logs the
+ * rest. Runs each time the Money window is shown, and once when the desk first loads, since the
+ * window may open (and park the events) before this page has loaded.
+ */
+function showParkedDecisions() {
+  if (!host) return;
+  const parked = host.takeDecisions().sort((a, b) => (DECISION_RANK[a.type] ?? 9) - (DECISION_RANK[b.type] ?? 9));
+  const deferred: LifeEvent[] = [];
+  for (const e of parked) {
+    if (decision) {
+      // A decision is already open; wait for the desk's next show instead of losing this one.
+      deferred.push(e);
+      continue;
+    }
+    const d = "debtId" in e ? life.book.debts.find((x) => x.id === e.debtId) : undefined;
+    if (e.type === "bankruptcy_eligible") askBankruptcy(e.reason);
+    else if (e.type === "cannot_cover" && d) askCannotCover(d, e.due, e.available);
+    else if (e.type === "bear_market") askBearMarket(e.day, e.drop, e.stocks);
+    if (decision) continue;
+    // The listener already logged the crash itself.
+    if (e.type === "bankruptcy_eligible") log(e.day, "Bankruptcy became an option", "down");
+    else if (e.type === "cannot_cover") log(e.day, `You couldn't cover the ${d?.name ?? ""} payment`, "down");
+  }
+  if (deferred.length) host.parkDecisions(deferred);
   render();
 }
 
@@ -307,14 +423,77 @@ function askBankruptcy(reason: string) {
   });
 }
 
+function askBearMarket(day: number, drop: number, stocks: number) {
+  const spare = Math.floor(Math.max(0, life.ledger.get("checking").balance - life.monthlyExpenses()));
+  const more = Math.min(500, spare);
+  const choose = (choice: string) => {
+    crash = { day, drop, choice };
+    log(clock.day, `In the crash, you ${choice}`, "flat");
+  };
+  /** Sells all or half of every stock holding (bond funds stay); returns the dollars actually sold (tiny legs under the $1 minimum are skipped). */
+  const sellStocks = (share: 1 | 0.5): number => {
+    let sold = 0;
+    for (const pos of life.stockPositions()) {
+      const r = life.sell(pos.id, share === 1 ? "all" : pos.value * share);
+      if (r.ok && r.event.type === "trade") sold += r.event.amount;
+    }
+    return sold;
+  };
+  const options: Decision["options"] = [
+    {
+      label: "Sell everything",
+      lesson: "Locks in the loss. The best days usually come right after the worst.",
+      act: () => {
+        const sold = sellStocks(1);
+        choose(sold > 0 ? `sold everything (${usd(sold)})` : "held");
+      },
+    },
+    {
+      label: "Sell half",
+      lesson: "Halves the pain and halves the rebound.",
+      act: () => {
+        const sold = sellStocks(0.5);
+        choose(sold > 0 ? `sold half (${usd(sold)})` : "held");
+      },
+    },
+    { label: "Hold", lesson: "So far, every US bear market has recovered, and holders got the whole rebound.", good: true, act: () => choose("held") },
+  ];
+  if (more >= 1)
+    options.push({
+      label: `Buy ${usd(more, 0)} more`,
+      lesson: "Stocks are on sale. It works if you won't need this money for years.",
+      act: () => {
+        const r = life.buy("LTM", more);
+        choose(r.ok ? `bought ${usd(more, 0)} more` : "held");
+      },
+    });
+  openDecision({ title: `Stocks are down ${pctOf(drop, 0)} from their high`, body: `Your stocks are worth ${usd(stocks, 0)} now. This is a bear market. What do you do?`, options });
+}
+
+/**
+ * Asks the coach for the recovery lesson. The server reads the run from Tiger Data, so the day's
+ * events have to be there first: this desk can hear market_recovered before the run recorder does
+ * (both listen to the same life), so wait a tick, then send everything, then ask.
+ * Standalone, the desk's own recorder owns the run; inside the city, the city's recorder does.
+ */
+async function askRecap(day: number) {
+  const r = runRecorder();
+  if (!r?.runId) return;
+  await Promise.resolve();
+  await r.idle();
+  await r.tick(true);
+  const got = await fetchRecoveryLesson(r.runId, day);
+  // A newer recovery (or a reset) may have replaced this one while the request was out.
+  if (got && recovery?.day === day && runRecorder() === r) {
+    recap = { headline: got.headline, lesson: got.tip };
+    scheduleRender();
+  }
+}
+
 // ---- Debt helpers ------------------------------------------------------------------
 
-function aprNow(d: Debt): number {
-  if (d.hardshipAprUntil !== undefined && clock.day < d.hardshipAprUntil) return d.hardshipApr ?? d.aprAnnual;
-  if (d.penaltyApr) return Math.max(d.aprAnnual, 0.2999);
-  if (d.promoUntil !== undefined && clock.day < d.promoUntil) return d.promoApr ?? d.aprAnnual;
-  return d.aprAnnual;
-}
+/** Today's APR (hardship, penalty, or promo rate when one applies), from the engine so every screen agrees. */
+const aprNow = (d: Debt): number => effectiveApr(d, clock.day);
 
 /** The next date a payment is due, or null for closed debts and collections. */
 function nextDue(d: Debt): Date | null {
@@ -352,7 +531,9 @@ function freeDate(): string {
 
 function hist(key: keyof Omit<LifeSnapshot, "day">): ChartPt[] {
   const from = clock.day - RANGE_DAYS[range];
-  return thin(life.history.filter((h) => h.day >= from).map((h) => ({ x: h.day, y: h[key] })));
+  // Before the run began, the starting balances ride the real market on trading days, like the market chart.
+  const past = life.pastSnapshots(from).filter((h) => !weekend(h.day));
+  return thin([...past, ...life.history.filter((h) => h.day >= from)].map((h) => ({ x: h.day, y: h[key] })));
 }
 
 const weekend = (day: number) => [0, 6].includes(dateOf(day).getDay());
@@ -399,6 +580,16 @@ const heroHtml = (eyebrow: string) => `<div class="eyebrow">${eyebrow}</div><div
 const rangesHtml = (keys: Range[] = ["1W", "1M", "3M", "1Y", "ALL"]) =>
   `<div class="ranges" role="group" aria-label="Time range">${keys.map((k) => `<button data-range="${k}" class="${k === range ? "on" : ""}">${k}</button>`).join("")}</div>`;
 
+/** A Robinhood stock row: ticker over a subtitle, today's sparkline, then price over today's move in the same color. */
+function stockRow(id: InstrumentId | "SP500", sub: string): string {
+  const pts = priceSeries(id).slice(-30).map((p) => p.y);
+  const ch = dayChange(id);
+  const index = id === "SP500";
+  const price = index ? num(market.level(clock.day), 2) : usd(market.price(id, clock.day));
+  const tag = index ? "div" : "button";
+  return `<${tag} class="row stock${index ? "" : " link"}" ${index ? "" : `data-fund="${id}"`}><div><b>${index ? "S&amp;P 500" : id}</b><small>${sub}</small></div>${spark(pts, dirTone(ch))}<div class="px"><b>${price}</b><small class="txt-${dirTone(ch)}">${signedPct(ch)}</small></div></${tag}>`;
+}
+
 function row(o: { title: string; sub: string; spark?: string; pill: string; tone: Tone; go?: string; attrs?: string }): string {
   const tag = o.go || o.attrs ? "button" : "div";
   return `<${tag} class="row${o.go || o.attrs ? " link" : ""}" ${o.go ? `data-go="${o.go}"` : ""} ${o.attrs ?? ""}><div><b>${o.title}</b><small>${o.sub}</small></div>${o.spark ?? "<span></span>"}<span class="pill ${o.tone}">${o.pill}</span></${tag}>`;
@@ -431,7 +622,7 @@ function nextMove(): string {
   if (late) {
     const amt = Math.floor(Math.min(late.pastDue, life.cash()));
     moveAct = () => pay(late.id, amt);
-    return nextCard(`Catch up on the ${late.name}`, `${usd(late.pastDue)} is past due. Paying before it's 30 days late keeps it off your credit report.`, { label: `Pay ${usd(amt)}`, act: "move", disabled: amt < 1 });
+    return nextCard(`Catch up on the ${late.name}`, `${usd(late.pastDue)} is past due. Paying before it's 30 days late keeps it off your credit report.`, { label: `Pay ${usd(amt, 0)}`, act: "move", disabled: amt < 1 });
   }
   const card = open.filter((d) => d.kind === "credit_card" && d.creditLimit).sort((a, b) => aprNow(b) - aprNow(a))[0];
   const util = card ? owed(card) / (card.creditLimit ?? 1) : 0;
@@ -440,8 +631,8 @@ function nextMove(): string {
     moveAct = () => pay(card.id, amt);
     return nextCard(
       `Pay down the ${card.name}`,
-      `It costs ${rate(aprNow(card))} a year and it's ${pctOf(util, 0)} maxed, which drags your score down. You can put ${usd(amt)} toward it and still keep a month of rent.`,
-      { label: `Pay ${usd(amt)}`, act: "move" },
+      `It costs ${rate(aprNow(card))} a year and it's ${pctOf(util, 0)} maxed, which drags your score down. You can put ${usd(amt, 0)} toward it and still keep a month of rent.`,
+      { label: `Pay ${usd(amt, 0)}`, act: "move" },
     );
   }
   const month = life.rent + life.living;
@@ -449,7 +640,7 @@ function nextMove(): string {
   if (ef < month && spare >= 100) {
     const amt = Math.floor(Math.min(500, spare, month - ef));
     moveAct = () => fundEmergency(amt);
-    return nextCard("Start an emergency fund", `One month of rent and bills is ${usd(month)}. Money set aside keeps a surprise bill off your credit card.`, { label: `Move ${usd(amt)}`, act: "move" });
+    return nextCard("Start an emergency fund", `One month of rent and bills is ${usd(month)}. Money set aside keeps a surprise bill off your credit card.`, { label: `Move ${usd(amt, 0)}`, act: "move" });
   }
   if (!life.recurring.length) {
     moveAct = () => {
@@ -459,7 +650,7 @@ function nextMove(): string {
     return nextCard("Invest $100 every payday", "Small automatic buys of a total-market fund are how most people build wealth. You can stop anytime.", { label: "Start", act: "move" });
   }
   const each = life.recurring.reduce((s, r) => s + r.amount, 0);
-  return nextCard("You're on track", `Debt-free ${freeDate()} and investing ${usd(each)} every payday.`);
+  return nextCard("You're on track", `Debt-free ${freeDate()} and investing ${usd(each, 0)} every payday.`);
 }
 
 function homePage(): Page {
@@ -477,7 +668,7 @@ function homePage(): Page {
     main: `${heroHtml("Net worth")}${rangesHtml()}
       ${nextMove()}
       <div class="section"><h2>Your money</h2><span>Tap a row for details</span></div>
-      ${row({ title: "Cash", sub: `Checking, savings, and emergency fund · rent ${usd(life.rent)}/mo`, spark: sparkOf(cash), pill: usd(life.cash()), tone: t(cash) })}
+      ${row({ title: "Cash", sub: `Checking, savings, and emergency fund · rent ${usd(life.rent)}/mo`, spark: sparkOf(cash), pill: usd(life.cash()), tone: t(cash), go: "cash" })}
       ${row({ title: "Investing", sub: invested > 0 ? `${life.positions().length} holding${life.positions().length === 1 ? "" : "s"}${life.recurring.length ? " · auto-invest on" : ""}` : "Nothing invested yet", spark: sparkOf(inv), pill: usd(invested), tone: invested > 0 ? t(inv) : "flat", go: "investing" })}
       ${row({ title: "Debt", sub: life.totalDebt() > 0.5 ? `Debt-free ${freeDate()}` : "You're debt-free", spark: sparkOf(debt, false), pill: usd(life.totalDebt()), tone: t(debt, false), go: "debt" })}
       ${row({ title: "Credit score", sub: `${life.scoreBand()}`, spark: sparkOf(score), pill: String(life.book.profile.score), tone: t(score), go: "credit" })}
@@ -487,45 +678,206 @@ function homePage(): Page {
   };
 }
 
+// ---- Cash ---------------------------------------------------------------------------
+
+const CASH_ACCOUNTS = ["checking", "savings", "emergency"] as const;
+/** Months of rent, bills, and minimums the emergency fund aims for without a plan. */
+const EMERGENCY_MONTHS = 3;
+
+/** The Cash tab, laid out like a bank app: balance, quick actions, accounts, then the statement. */
+function cashPage(): Page {
+  const acct = (id: string) => life.ledger.get(id);
+  const apy = (id: string) => `${(acct(id).apy * 100).toFixed(2)}% APY`;
+  const months = life.orders?.emergencyMonths ?? EMERGENCY_MONTHS;
+  const goal = Math.round(months * life.monthlyExpenses());
+  const ef = acct("emergency").balance;
+  const now = clock.date;
+  const earned = (wholeYear: boolean) =>
+    bank
+      .filter((t) => t.category === "Savings interest")
+      .filter((t) => {
+        const d = dateOf(t.day);
+        return d.getFullYear() === now.getFullYear() && (wholeYear || d.getMonth() === now.getMonth());
+      })
+      .reduce((s, t) => s + t.amount, 0);
+  let next = clock.day + 1;
+  while (![1, 15].includes(dateOf(next).getDate())) next++;
+  const payAmt = (life.monthlyTakeHome / 2) * (life.employed ? 1 : 0.4);
+  const accountRow = (id: string, title: string, sub: string, extra = "") =>
+    `<div class="row r2 acct"><div><b>${title} <span class="chip">${apy(id)}</span></b><small>${sub}</small>${extra}</div><span class="amt">${usd(acct(id).balance, 2)}</span></div>`;
+  return {
+    side: true,
+    chart: histChart(hist("cash"), (y) => usd(y, 2)),
+    main: `${heroHtml("Cash · checking, savings, and emergency fund")}${rangesHtml()}
+      <div class="quick">
+        <button class="cta${xferOpen ? " plain" : ""}" data-act="xfer">${xferOpen ? "Close transfer" : "Transfer"}</button>
+        <button class="cta plain" data-go="debt">Pay a card or loan</button>
+      </div>
+      ${xferOpen ? transferHtml() : ""}
+      ${nextCard(`Direct deposit of about ${usd(payAmt, 0)} on ${monthDay(dateOf(next))}`, `${life.employed ? "Your paycheck lands" : "Unemployment benefits land"} in checking. Rent of ${usd(life.rent)} comes out on the 1st and living costs of ${usd(life.living)} on the 15th.`)}
+      <div class="section"><h2>Accounts</h2><span>Interest earned ${usd(earned(false), 2)} this month · ${usd(earned(true), 2)} this year</span></div>
+      ${accountRow("checking", "Checking", "Available to spend · paychecks land here")}
+      ${accountRow("savings", "High-yield savings", "Interest is paid on the 1st of each month")}
+      ${accountRow(
+        "emergency",
+        "Emergency fund",
+        `${usd(ef)} of ${usd(goal)}, ${months} months of rent, bills, and minimums`,
+        `<div class="meter"><span class="good" style="width:${(goal > 0 ? Math.min(100, (ef / goal) * 100) : 100).toFixed(1)}%"></span></div>`,
+      )}
+      <div class="section"><h2>Transactions</h2><span>Newest first</span></div>
+      ${txnsHtml()}
+      ${footHtml()}`,
+  };
+}
+
+function transferHtml(): string {
+  const opts = (sel: string) =>
+    CASH_ACCOUNTS.map((id) => `<option value="${id}" ${id === sel ? "selected" : ""}>${esc(life.ledger.get(id).name)} · ${usd(life.ledger.get(id).balance)}</option>`).join("");
+  return `<div class="card">
+      <b>Move money</b>
+      <p>Between your own accounts, instantly and free.</p>
+      <div class="xfer-row">
+        <label>From <select data-xfer-from aria-label="From account">${opts(xfer.from)}</select></label>
+        <label>To <select data-xfer-to aria-label="To account">${opts(xfer.to)}</select></label>
+        <label class="amt-in">$<input type="number" min="1" step="1" value="${xfer.amount}" data-xfer-amt data-focus="xfer-amt" aria-label="Amount to move"></label>
+        <button class="cta" data-act="xfer-go">Move ${usd(xfer.amount, 0)}</button>
+      </div>
+      ${xferMsg ? `<div class="msg${xferMsg.bad ? " bad" : ""}">${esc(xferMsg.text)}</div>` : ""}
+    </div>`;
+}
+
+function moveMoney() {
+  if (xfer.from === xfer.to) {
+    xferMsg = { text: "Pick two different accounts.", bad: true };
+    return;
+  }
+  const ctx = { day: clock.day, date: clock.date, age: life.age };
+  const q = life.ledger.quote(xfer.from, xfer.to, xfer.amount, "internal", ctx);
+  if (!q.ok) {
+    xferMsg = { text: q.error ?? "That move didn't go through.", bad: true };
+    return;
+  }
+  life.ledger.transfer(xfer.from, xfer.to, xfer.amount, "internal", ctx);
+  const name = (id: string) => life.ledger.get(id).name;
+  bankLog({ day: clock.day, name: `Transfer to ${name(xfer.to)}`, category: `From ${name(xfer.from)}`, icon: "↔", amount: xfer.amount, kind: "move" });
+  log(clock.day, `Moved ${usd(xfer.amount, 0)} from ${name(xfer.from)} to ${name(xfer.to)}`, "flat");
+  xferMsg = { text: [`Moved ${usd(xfer.amount, 2)} to ${name(xfer.to)}.`, ...q.warnings].join(" "), bad: false };
+}
+
+/** The statement: pending moves first, then days newest first, like a bank app. */
+function txnsHtml(): string {
+  const pending = life.ledger.pending;
+  if (!bank.length && !pending.length) return `<ul class="feed"><li class="empty">No transactions yet. Press play: paychecks land on the 1st and 15th.</li></ul>`;
+  const amt = (t: Pick<BankTxn, "amount" | "kind">) =>
+    `<span class="t-amt ${t.kind}">${t.kind === "in" ? "+" : t.kind === "out" ? "−" : ""}$${num(t.amount, 2)}</span>`;
+  const line = (t: BankTxn) => `<div class="txn"><span class="av" aria-hidden="true">${t.icon}</span><div><b>${esc(t.name)}</b><small>${esc(t.category)}</small></div>${amt(t)}</div>`;
+  const dayLabel = (day: number) => (day === clock.day ? "Today" : day === clock.day - 1 ? "Yesterday" : monthDay(dateOf(day)));
+  let html = pending.length
+    ? `<div class="t-day">Pending</div>${pending.map((p) => line({ day: p.day, name: `Transfer to ${life.ledger.get(p.to).name}`, category: `Arrives ${monthDay(dateOf(p.settlesDay))}`, icon: "↔", amount: p.received, kind: "move" })).join("")}`
+    : "";
+  let last: number | null = null;
+  for (const t of bank.slice(0, 40)) {
+    if (t.day !== last) html += `<div class="t-day">${dayLabel(t.day)}</div>`;
+    last = t.day;
+    html += line(t);
+  }
+  return `<div class="txns">${html}</div>`;
+}
+
 // ---- Investing ----------------------------------------------------------------------
 
 function investingPage(): Page {
   if (fund) return fundPage(fund);
   const positions = life.positions();
-  const invested = life.history.some((h) => h.investments > 0) || positions.length > 0;
   const bp = life.buyingPower();
   const top = open0();
   const each = life.recurring.reduce((s, r) => s + r.amount, 0);
-  const chart = invested
-    ? histChart(hist("investments"), (y) => usd(y, 2))
-    : histChart(priceSeries("SP500"), (y) => num(y, 2), {});
-  if (!invested) chart.change = (p, scrubbing) => marketChange(chart.pts, p, scrubbing);
+  // Every life starts with the starter portfolio, so there is always a you line to compare.
   return {
     side: true,
-    chart,
-    main: `${heroHtml(invested ? "Investing" : "Stock market · S&amp;P 500")}${rangesHtml()}
+    chart: twinsChart(),
+    main: `${heroHtml("Investing · you vs if you had held")}${rangesHtml()}
+      ${recoveryCard()}${concentrationCard()}
       ${nextCard(
         `Buying power ${usd(bp, 2)}`,
-        life.recurring.length ? `Auto-invest is on: ${life.recurring.map((r) => `${usd(r.amount)} of ${r.id}`).join(" and ")} every payday (${usd(each)} total).` : "Money in checking you can invest. Auto-invest buys a fund for you every payday, after bills.",
+        life.recurring.length ? `Auto-invest is on: ${life.recurring.map((r) => `${usd(r.amount, 0)} of ${r.id}`).join(" and ")} every payday (${usd(each, 0)} total).` : "Money in checking you can invest. Auto-invest buys a fund for you every payday, after bills.",
         { label: life.recurring.length ? "Stop auto-invest" : "Auto-invest $100", act: "recurring", soft: true },
       )}
       ${positions.length ? `<div class="section"><h2>Your holdings</h2><span>Value · gain since you bought</span></div>${positions
         .map((p) => row({ title: `${p.id} · ${instrument(p.id).name}`, sub: `${num(p.units, 4)} shares · paid ${usd(p.cost, 2)} · ${signedUsd(p.gain)}`, spark: spark(priceSeries(p.id).slice(-30).map((q) => q.y), dirTone(p.gain)), pill: usd(p.value, 2), tone: dirTone(p.gain), attrs: `data-fund="${p.id}"` }))
         .join("")}` : ""}
-      <div class="section"><h2>Funds and stocks</h2><span>Today's move</span></div>
-      ${INSTRUMENTS.map((i) => {
-        const ch = dayChange(i.id);
-        const pts = priceSeries(i.id).slice(-30);
-        return row({ title: i.name, sub: `${i.id} · ${i.kind === "fund" ? `fund, ${pctOf(i.expenseRatio)} yearly fee` : "single stock"}`, spark: spark(pts.map((q) => q.y), dirTone(pts[pts.length - 1].y - pts[0].y)), pill: signedPct(ch), tone: dirTone(ch), attrs: `data-fund="${i.id}"` });
-      }).join("")}
+      ${group("Funds", "Today's move", INSTRUMENTS.filter((i) => i.kind === "fund"))}
+      ${group("Stocks", "Today's move", INSTRUMENTS.filter((i) => i.kind === "stock" && !i.sponsor))}
+      ${group("HackRice sponsors", "Prices are simulated", INSTRUMENTS.filter((i) => i.sponsor))}
       ${top ? nextCard("Pay debt or invest?", aprNow(top) > MARKET_RETURN ? `Your ${top.name} costs ${rate(aprNow(top))} a year. Stocks have averaged about 10%, with big swings. Paying the card is a guaranteed ${rate(aprNow(top))} return, so pay it first. The exception: always take a 401(k) match.` : `Your most expensive debt, the ${top.name}, costs ${rate(aprNow(top))}. That's below the market's long-run ~10%, so investing while you pay it on schedule is reasonable.`) : ""}
       ${footHtml()}`,
   };
 }
 
+function group(title: string, note: string, list: readonly (typeof INSTRUMENTS)[number][]): string {
+  if (!list.length) return "";
+  const sub = (i: (typeof INSTRUMENTS)[number]) => (i.kind === "fund" ? `${i.name} · ${pctOf(i.expenseRatio)} yearly fee` : `${i.name}${i.listed === false ? " · private company" : ""}`);
+  return `<div class="section"><h2>${title}</h2><span>${note}</span></div>${list.map((i) => stockRow(i.id, sub(i))).join("")}`;
+}
+
+function openFund(id: InstrumentId) {
+  tab = "investing";
+  fund = id;
+  tradeMsg = null;
+  window.scrollTo(0, 0);
+}
+
 /** Highest-rate open debt. */
 function open0(): Debt | undefined {
   return life.book.debts.filter(isOpen).sort((a, b) => aprNow(b) - aprNow(a))[0];
+}
+
+/** You, if you had held, and autopilot on one zero-based chart (research/03, three-line chart). */
+function twinsChart(): ChartSpec {
+  const you = hist("you");
+  const held = hist("held");
+  const auto = hist("autopilot");
+  const spec = histChart(you, (y) => usd(y, 2));
+  spec.lines = [
+    { pts: held, cls: "bc-held", label: "If you had held" },
+    { pts: auto, cls: "bc-auto", label: "Autopilot" },
+  ];
+  spec.zero = true;
+  spec.mainLabel = "You";
+  const at = (pts: ChartPt[], x: number) => (pts.find((q) => q.x === x) ?? pts[pts.length - 1]).y;
+  spec.change = (p, scrubbing) => {
+    const gap = p.y - at(held, p.x);
+    const main = Math.abs(gap) < 0.5 ? "Even with if you had held" : `${signedUsd(gap, 0)} vs if you had held`;
+    return `${main} <span class="when">· autopilot ${usd(at(auto, p.x))}${scrubbing ? ` · ${shortDate(dateOf(p.x))}` : ""}</span>`;
+  };
+  const lastYou = you[you.length - 1].y;
+  const lastHeld = at(held, you[you.length - 1].x);
+  spec.tone = dirTone(lastYou - lastHeld) === "down" ? "down" : "up";
+  return spec;
+}
+
+function recoveryCard(): string {
+  if (!recovery || clock.day - recovery.day > 365) return "";
+  const gap = recovery.held - recovery.you;
+  const body =
+    gap > 1
+      ? `Selling cost you ${usd(gap)}. Holding would be worth ${usd(recovery.held)}; you have ${usd(recovery.you)}.`
+      : gap < -1
+        ? `You came out ${usd(-gap)} ahead of holding. Most sellers don't: the rebound often comes fast.`
+        : crash?.choice === "held"
+          ? "You held, so you got the whole rebound."
+          : "You came out about where holding would have left you.";
+  // The decision pauses time until answered, and a new bear market can't start before this one
+  // recovers, so crash.day should already equal this recovery's crash - this guard only protects
+  // against a crash left over from an earlier run of the page (for example after reset).
+  const choice = crash && crash.day <= recovery.day ? ` In the crash, you ${esc(crash.choice)}.` : "";
+  return nextCard(recap ? esc(recap.headline) : "Stocks are back at their high", recap ? esc(recap.lesson) : `${body}${choice}`);
+}
+
+function concentrationCard(): string {
+  const top = life.concentration();
+  if (!top) return "";
+  return nextCard(`${esc(instrument(top.id).name)} is ${pctOf(top.share, 0)} of your investments`, "One company can fall 80%. A fund spreads the risk across hundreds.");
 }
 
 function marketChange(pts: ChartPt[], p: ChartPt, scrubbing: boolean): string {
@@ -542,30 +894,54 @@ function fundPage(id: InstrumentId): Page {
   const recurring = life.recurring.find((r) => r.id === id);
   const bp = life.buyingPower();
   const feeLine = inst.kind === "fund" ? `Its fee is ${pctOf(inst.expenseRatio)} a year, about ${usd(inst.expenseRatio * 1000, 2)} for every $1,000 you hold.` : "It's one company, so it can swing far more than a fund.";
+  const privateLine = inst.listed === false ? ` ${esc(inst.name)} is private in real life, so its Larp City ticker and price are made up.` : "";
+  // Robinhood's detail page: your position, then key statistics from the past year of closes.
+  const year = market.series(id, clock.day - 365, clock.day).filter((p) => !weekend(p.day)).map((p) => p.value);
+  const yearReturn = year.length > 1 ? year[year.length - 1] / year[0] - 1 : 0;
+  const ch = dayChange(id);
+  const colored = (f: number) => `<span class="txt-${dirTone(f)}">${signedPct(f)}</span>`;
+  const stat = (k: string, v: string) => `<div><span>${k}</span><b>${v}</b></div>`;
+  const position = pos
+    ? `<div class="section"><h2>Your position</h2><span>${num(pos.units, 4)} shares</span></div><div class="stats">${[
+        stat("Market value", usd(pos.value)),
+        stat("Average cost", `${usd(pos.cost / pos.units)} a share`),
+        stat("Portfolio share", pctOf(pos.value / Math.max(1, life.investments()), 1)),
+        stat("Today's return", `<span class="txt-${dirTone(ch)}">${signedUsd(pos.units * pos.price * (1 - 1 / (1 + ch)))}</span>`),
+        stat("Total return", `<span class="txt-${dirTone(pos.gain)}">${signedUsd(pos.gain)} (${signedPct(pos.gain / pos.cost)})</span>`),
+        stat("Paid", usd(pos.cost)),
+      ].join("")}</div>`
+    : nextCard("You don't own any yet", "Buy any dollar amount from $1; you get a fraction of a share.");
+  const stats = `<div class="section"><h2>Key statistics</h2><span>Past year of closes</span></div><div class="stats">${[
+    stat("Today", colored(ch)),
+    stat("1-year return", colored(yearReturn)),
+    stat("Type", inst.kind === "fund" ? "Index fund" : inst.listed === false ? "Private company" : "Single stock"),
+    stat("52-week high", usd(Math.max(...year))),
+    stat("52-week low", usd(Math.min(...year))),
+    inst.kind === "fund" ? stat("Yearly fee", pctOf(inst.expenseRatio)) : stat("Swings vs. market", `${inst.beta.toFixed(1)}×`),
+  ].join("")}</div>`;
   return {
     side: true,
     chart,
     main: `<button class="back" data-fund-back>← Investing</button>
       ${heroHtml(`${inst.name} · ${id}`)}${rangesHtml()}
-      ${nextCard(
-        pos ? `You own ${usd(pos.value, 2)}` : "You don't own any yet",
-        pos ? `${num(pos.units, 4)} shares, paid ${usd(pos.cost, 2)}. ${pos.gain >= 0 ? "Up" : "Down"} ${usd(Math.abs(pos.gain), 2)} (${signedPct(pos.gain / pos.cost)}) since you bought.` : esc(inst.blurb),
-      )}
+      ${position}
       <div class="card">
         <b>Buy or sell</b>
         <p>Buying power ${usd(bp, 2)}. Orders fill at today's closing price, in fractions of a share.</p>
-        <div class="amounts">${[25, 100, 500, 1000].map((a) => `<button data-amt="${a}" class="${a === amount ? "on" : ""}">${usd(a)}</button>`).join("")}
-          <label class="slider" style="display:flex;gap:6px;align-items:center">$<input type="number" min="1" step="1" value="${amount}" data-amount data-focus="amount" aria-label="Amount in dollars" style="width:96px;border:1px solid var(--line);border-radius:999px;padding:7px 12px"></label>
+        <div class="amounts">${[25, 100, 500, 1000].map((a) => `<button data-amt="${a}" class="${a === amount ? "on" : ""}">${usd(a, 0)}</button>`).join("")}
+          <label class="amt-in">$<input type="number" min="1" step="1" value="${amount}" data-amount data-focus="amount" aria-label="Amount in dollars"></label>
         </div>
         <div class="trade">
-          <button class="cta" data-trade="buy">Buy ${usd(amount)}</button>
-          <button class="cta plain" data-trade="sell" ${pos ? "" : "disabled"}>Sell ${usd(amount)}</button>
+          <button class="cta" data-trade="buy">Buy ${usd(amount, 0)}</button>
+          <button class="cta plain" data-trade="sell" ${pos ? "" : "disabled"}>Sell ${usd(amount, 0)}</button>
           ${pos ? `<button class="cta plain" data-trade="sell-all">Sell all</button>` : ""}
         </div>
-        <label class="toggle"><input type="checkbox" data-recur ${recurring ? "checked" : ""}> ${recurring ? `Auto-invest ${usd(recurring.amount)} of ${id} every payday` : `Also buy ${usd(amount)} of ${id} every payday`}</label>
+        <label class="toggle"><input type="checkbox" data-recur ${recurring ? "checked" : ""}> ${recurring ? `Auto-invest ${usd(recurring.amount, 0)} of ${id} every payday` : `Also buy ${usd(amount, 0)} of ${id} every payday`}</label>
         ${tradeMsg ? `<div class="msg${tradeMsg.bad ? " bad" : ""}">${esc(tradeMsg.text)}</div>` : ""}
       </div>
-      ${nextCard("About", `${esc(inst.blurb)} ${feeLine}`)}
+      ${stats}
+      <div class="section"><h2>About</h2><span></span></div>
+      <p class="about">${esc(inst.blurb)} ${feeLine}${privateLine}</p>
       ${footHtml()}`,
   };
 }
@@ -597,7 +973,7 @@ function debtPage(): Page {
     total > 0.5 && plan.length > 1
       ? {
           pts: plan,
-          ghost: s === "minimums" ? undefined : mins,
+          lines: s === "minimums" ? undefined : [{ pts: mins, cls: "bc-ghost", label: "Minimums only" }],
           baseline: false,
           tone: p.stuck ? "down" : "up",
           rest: plan[0],
@@ -612,9 +988,9 @@ function debtPage(): Page {
         }
       : undefined;
   const strategies: [Strategy, string][] = [
-    ["avalanche", `${usd(proj.avalanche.interest)} interest · highest rate first`],
+    ["avalanche", `${usd(proj.avalanche.interest, 0)} interest · highest rate first`],
     ["snowball", `First debt gone in ${proj.snowball.payoffs[0]?.month ?? "—"} months`],
-    ["minimums", proj.minimums.stuck ? "Never paid off" : `${(proj.minimums.months / 12).toFixed(0)} years · ${usd(proj.minimums.interest)} interest`],
+    ["minimums", proj.minimums.stuck ? "Never paid off" : `${(proj.minimums.months / 12).toFixed(0)} years · ${usd(proj.minimums.interest, 0)} interest`],
   ];
   return {
     side: true,
@@ -623,9 +999,9 @@ function debtPage(): Page {
     main: `${heroHtml("Total debt")}
       <div class="seg" role="group" aria-label="Payoff strategy">${strategies.map(([k, sub]) => `<button data-strategy="${k}" class="${k === s ? "on" : ""}">${STRATEGY_NAME[k]}<small>${sub}</small></button>`).join("")}</div>
       <div class="card">
-        <div class="slider"><b>Extra each month</b><b>${usd(life.book.extraMonthly)}</b>
-          <input type="range" min="0" max="1500" step="25" value="${life.book.extraMonthly}" data-extra data-focus="extra" aria-label="Extra payment each month"></div>
-        <p>${s === "minimums" ? "Minimums only: the extra isn't used. Pick Avalanche or Snowball to put it to work." : saved > 1 ? `Debt-free ${freeDate()}, and ${usd(saved)} less interest than paying only the minimums.` : `Debt-free ${freeDate()}.`}</p>
+        <div class="field-head"><b>Extra each month</b><label class="amt-edit"><input inputmode="numeric" value="${usd(life.book.extraMonthly, 0)}" data-extra-in data-focus="extra" aria-label="Extra payment each month"></label></div>
+        <div class="chips" role="group" aria-label="Extra payment presets">${EXTRA_PRESETS.map((v) => `<button data-extra-set="${v}" class="${life.book.extraMonthly === v ? "on" : ""}">${v ? usd(v, 0) : "None"}</button>`).join("")}</div>
+        <p>${s === "minimums" ? "Minimums only: the extra isn't used. Pick Avalanche or Snowball to put it to work." : saved > 1 ? `Debt-free ${freeDate()}, and ${usd(saved, 0)} less interest than paying only the minimums.` : `Debt-free ${freeDate()}.`}</p>
       </div>
       <div class="section"><h2>What you owe</h2><span>In the order your plan pays them off</span></div>
       ${debts
@@ -686,8 +1062,13 @@ function cardsPage(): Page {
   const limit = card.creditLimit ?? 0;
   const util = limit ? bal / limit : 0;
   const stmt = card.statementBalance ?? 0;
+  const paidSoFar = Math.min(stmt, card.statementPaid ?? 0);
+  const left = Math.max(0, stmt - paidSoFar);
   const due = nextDue(card);
-  const payAmt = Math.floor(Math.min(stmt, life.cash()) * 100) / 100;
+  // Like Home's suggested move, never spend next month's rent on the card.
+  // The tiny nudge keeps float error ($3,886.74 − $1,435 = 2451.7399…) from shaving a cent.
+  const spare = Math.max(0, Math.floor((life.cash() - life.rent) * 100 + 1e-6) / 100);
+  const payAmt = Math.min(left, spare, bal);
   return {
     side: false,
     tone: util > 0.3 ? "down" : "up",
@@ -697,27 +1078,31 @@ function cardsPage(): Page {
       <div class="change neutral">${usd(Math.max(0, limit - bal))} available of ${usd(limit)} · ${rate(aprNow(card))} a year</div>
       <div class="meter" style="height:10px;margin-top:22px"><span class="${util > 0.3 ? "bad" : "good"}" style="width:${Math.min(100, util * 100).toFixed(1)}%"></span></div>
       <div class="change neutral" style="font-size:13px;margin-top:8px">${pctOf(util, 0)} used · lenders like under 30%</div>
-      ${stmt > 0.5
+      ${stmt > 0.5 && left > 0.5
         ? (() => {
             moveAct = () => pay(card.id, payAmt);
-            return nextCard(`Statement ${usd(stmt, 2)}${due ? ` due ${monthDay(due)}` : ""}`, `Pay it in full and you owe no interest. Paying only the ${usd(card.minimumDue ?? 0, 2)} minimum costs about ${usd((stmt * aprNow(card)) / 12, 2)} in interest next month.`, { label: `Pay ${usd(payAmt, 2)}`, act: "move", disabled: payAmt < 1 });
+            const partly = paidSoFar > 0.5 ? `${usd(paidSoFar)} paid so far, ${usd(left)} left. ` : "";
+            const short = payAmt + 0.005 < left ? ` You can put ${usd(payAmt)} toward it now and still keep a month of rent.` : "";
+            return nextCard(
+              `Statement ${usd(stmt)}${due ? ` due ${monthDay(due)}` : ""}`,
+              `${partly}Pay it in full by the due date and you owe no interest. Paying only the ${usd(card.minimumDue ?? 0)} minimum costs about ${usd((left * aprNow(card)) / 12)} in interest next month.${short}`,
+              { label: `Pay ${usd(payAmt)}`, act: "move", disabled: payAmt < 1 },
+            );
           })()
-        : nextCard("Nothing due yet", "Your next statement closes at the end of the cycle. Pay it in full to skip interest.")}`,
+        : stmt > 0.5
+          ? nextCard("Statement paid in full", `You paid the ${usd(stmt)} statement, so this cycle's purchases don't cost interest.`)
+          : nextCard("Nothing due yet", "Your next statement closes at the end of the cycle. Pay it in full to skip interest.")}`,
   };
 }
 
 // ---- Side panel ------------------------------------------------------------------------
 
 function sideHtml(): string {
-  const watch = (["SP500", ...INSTRUMENTS.map((i) => i.id)] as (InstrumentId | "SP500")[])
-    .map((id) => {
-      const pts = priceSeries(id).slice(-30).map((p) => p.y);
-      const ch = dayChange(id);
-      const value = id === "SP500" ? num(market.level(clock.day), 2) : usd(market.price(id, clock.day), 2);
-      // Like Robinhood's watchlist, the line and the pill share today's color.
-      return row({ title: id === "SP500" ? "S&amp;P 500" : id, sub: value, spark: spark(pts, dirTone(ch)), pill: signedPct(ch), tone: dirTone(ch), attrs: id === "SP500" ? "" : `data-fund="${id}"` });
-    })
-    .join("");
+  // Robinhood's side list: what you own with its share count, then everything else you can buy.
+  const owned = life.positions();
+  const ownedIds = new Set<string>(owned.map((p) => p.id));
+  const mine = owned.map((p) => stockRow(p.id, `${num(p.units, 4)} shares`)).join("");
+  const watch = ["SP500" as const, ...INSTRUMENTS.filter((i) => !ownedIds.has(i.id)).map((i) => i.id)].map((id) => stockRow(id, id === "SP500" ? "Index" : instrument(id).name)).join("");
   const rates = ([["DFF", "Fed funds"], ["MORTGAGE30US", "30-yr mortgage"]] as const)
     .map(([id, name]) => {
       const now = seriesOn(id, clock.date) + (id === "DFF" || id === "MORTGAGE30US" ? rateShock * 100 : 0);
@@ -726,7 +1111,8 @@ function sideHtml(): string {
       return row({ title: name, sub: `${now.toFixed(2)}%`, spark: spark(pts, Math.abs(ch) < 0.005 ? "flat" : ch < 0 ? "up" : "down"), pill: `${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}`, tone: Math.abs(ch) < 0.005 ? "flat" : ch < 0 ? "up" : "down" });
     })
     .join("");
-  return `<h3>Watch list <span>Today</span></h3>${watch}${rates}<h3 class="h3-gap">Upcoming <span>Next 30 days</span></h3>${upcoming()}`;
+  const head = owned.length ? `<h3>Stocks <span>Today</span></h3>${mine}<h3 class="h3-gap">Watch list</h3>` : `<h3>Watch list <span>Today</span></h3>`;
+  return `${head}${watch}${rates}<h3 class="h3-gap">Upcoming <span>Next 30 days</span></h3>${upcoming()}`;
 }
 
 function upcoming(): string {
@@ -757,20 +1143,117 @@ function upcoming(): string {
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const q = <T extends Element = HTMLElement>(sel: string) => app.querySelector(sel) as unknown as T;
 
+// Robinhood's top bar: the logo, a search field, and the sections. The game's time controls
+// float in a dock at the bottom so the bar stays clean.
 app.innerHTML = `
   <header class="top"><div class="top-in">
-    <div class="logo"><i>L</i>Larp City</div>
-    <nav class="tabs" aria-label="Sections">${TABS.map(([id, name]) => `<button data-tab="${id}">${name}</button>`).join("")}</nav>
-    <div class="time">
-      <span class="time-date" data-date></span>
-      <button data-speed="0" aria-label="Pause">❚❚</button><button data-speed="1">1×</button><button data-speed="2">2×</button><button data-speed="4">4×</button>
-      <button data-skip="7" title="Skip a week">+1W</button><button data-skip="30" title="Skip a month">+1M</button><button data-skip="365" title="Skip a year">+1Y</button>
-      <div class="menu-wrap"><button data-menu aria-label="Scenarios" aria-expanded="false">⋯</button><div class="menu" data-menu-panel hidden></div></div>
+    <button class="logo" data-tab="home" aria-label="Larp City, home"><i>L</i></button>
+    <div class="search" data-search>
+      <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M13 13l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="search" placeholder="Search stocks, cards, and pages" data-search-q aria-label="Search" autocomplete="off" spellcheck="false">
+      <kbd aria-hidden="true">/</kbd>
+      <div class="search-pop" data-search-pop role="listbox" hidden></div>
     </div>
+    <nav class="tabs" aria-label="Sections">${TABS.map(([id, name]) => `<button data-tab="${id}">${name}</button>`).join("")}</nav>
   </div></header>
   <main class="page" data-page></main>
   <div class="shop shop-panel" data-shop hidden></div>
+  <div class="dock time" role="toolbar" aria-label="Game time">
+    <span class="time-date" data-date></span>
+    <span class="dock-sep" aria-hidden="true"></span>
+    <button data-speed="0" aria-label="Pause">❚❚</button><button data-speed="1">1×</button><button data-speed="2">2×</button><button data-speed="4">4×</button>
+    <span class="dock-sep" aria-hidden="true"></span>
+    <button data-skip="7" title="Skip a week">+1W</button><button data-skip="30" title="Skip a month">+1M</button><button data-skip="365" title="Skip a year">+1Y</button>
+    <div class="menu-wrap"><button data-menu aria-label="Scenarios" aria-expanded="false">⋯</button><div class="menu" data-menu-panel hidden></div></div>
+  </div>
   <div data-sheet></div>`;
+
+// ---- Search ----------------------------------------------------------------------------
+
+interface SearchHit {
+  section: string;
+  title: string;
+  sub: string;
+  right?: string;
+  run: () => void;
+}
+
+/** Stripe-style grouped results: stocks, Card Shop cards, your debts, then pages. */
+function searchHits(query: string): SearchHit[] {
+  const s = query.trim().toLowerCase();
+  const has = (...xs: string[]) => !s || xs.some((x) => x.toLowerCase().includes(s));
+  const hits: SearchHit[] = [];
+  // With nothing typed, suggest the sponsors and the total-market fund.
+  const stocks = INSTRUMENTS.filter((i) => has(i.id, i.name) && (s || i.sponsor || i.id === "LTM"));
+  for (const i of stocks.slice(0, 6)) {
+    const ch = dayChange(i.id);
+    hits.push({ section: s ? "Stocks and funds" : "Suggested", title: i.id, sub: i.name, right: `${usd(market.price(i.id, clock.day))} <span class="txt-${dirTone(ch)}">${signedPct(ch)}</span>`, run: () => openFund(i.id) });
+  }
+  if (s) {
+    for (const c of CURATED.filter((c) => has(c.name, c.issuer)).slice(0, 4))
+      hits.push({ section: "Cards", title: c.name, sub: c.issuer, run: () => {
+        go("cards");
+        shop.select(c.slug);
+      } });
+    for (const d of life.book.debts.filter((d) => isOpen(d) && has(d.name, KIND_NAME[d.kind])).slice(0, 3))
+      hits.push({ section: "Your debts", title: d.name, sub: `${KIND_NAME[d.kind]} · ${usd(owed(d))}`, run: () => go("debt") });
+  }
+  for (const [id, name] of TABS.filter(([id, name]) => has(name, PAGE_SUB[id]))) hits.push({ section: "Pages", title: name, sub: PAGE_SUB[id], run: () => go(id) });
+  return hits;
+}
+
+function renderSearch() {
+  const pop = q("[data-search-pop]");
+  pop.hidden = !search.open;
+  if (!search.open) return;
+  const hits = searchHits(search.q);
+  search.sel = Math.max(0, Math.min(search.sel, hits.length - 1));
+  if (!hits.length) {
+    pop.innerHTML = `<div class="sr-empty">Nothing matches “${esc(search.q)}”</div>`;
+    return;
+  }
+  let html = "";
+  let section = "";
+  hits.forEach((h, i) => {
+    if (h.section !== section) html += `<div class="sr-h">${h.section}</div>`;
+    section = h.section;
+    html += `<button class="sr${i === search.sel ? " on" : ""}" data-sr="${i}" role="option" aria-selected="${i === search.sel}"><b>${esc(h.title)}</b><small>${esc(h.sub)}</small>${h.right ? `<span class="sr-r">${h.right}</span>` : ""}</button>`;
+  });
+  pop.innerHTML = html;
+  pop.querySelector(".sr.on")?.scrollIntoView({ block: "nearest" });
+}
+
+function closeSearch() {
+  search.open = false;
+  search.q = "";
+  search.sel = 0;
+  const input = q<HTMLInputElement>("[data-search-q]");
+  input.value = "";
+  input.blur();
+  renderSearch();
+}
+
+function runHit(hit: SearchHit | undefined) {
+  if (!hit) return;
+  closeSearch();
+  hit.run();
+  render();
+}
+
+// Clicking a result must not blur the field first, or the list would close under the pointer.
+q("[data-search-pop]").addEventListener("pointerdown", (ev) => ev.preventDefault());
+app.addEventListener("focusin", (ev) => {
+  if ((ev.target as HTMLElement).matches("[data-search-q]")) {
+    search.open = true;
+    renderSearch();
+  }
+});
+app.addEventListener("focusout", (ev) => {
+  if ((ev.target as HTMLElement).matches("[data-search-q]")) {
+    search.open = false;
+    renderSearch();
+  }
+});
 
 const shopEl = q("[data-shop]");
 const shop = mountShop({ root: shopEl, life: () => life, clock, log: (day, _tag, text, tone) => log(day, text, tone === "info" ? "flat" : tone), onChange: () => render() });
@@ -811,10 +1294,12 @@ function wireChart(c: ChartSpec) {
   show(c.rest, false);
   mountBigChart(q("[data-chart]"), {
     pts: c.pts,
-    ghost: c.ghost,
+    lines: c.lines,
+    zero: c.zero,
     baseline: c.baseline,
     minSpan: c.minSpan,
     label: c.label,
+    mainLabel: c.mainLabel,
     onScrub: (p) => {
       scrubbing = p !== null;
       show(p ?? c.rest, p !== null);
@@ -858,7 +1343,7 @@ function render() {
   const sel = active instanceof HTMLInputElement && active.type === "number" ? null : null;
   void sel;
   renderTop();
-  const pages: Record<Tab, () => Page> = { home: homePage, investing: investingPage, debt: debtPage, credit: creditPage, cards: cardsPage };
+  const pages: Record<Tab, () => Page> = { home: homePage, cash: cashPage, investing: investingPage, debt: debtPage, credit: creditPage, cards: cardsPage };
   const page = pages[tab]();
   const el = q("[data-page]");
   el.className = `page${page.side ? "" : " wide"}`;
@@ -892,6 +1377,7 @@ function skip(days: number) {
   clock.skipping = true;
   for (let i = 0; i < days && !decision; i++) clock.advanceDays(1);
   clock.skipping = false;
+  void recorder?.tick(true);
   render();
 }
 
@@ -912,6 +1398,7 @@ app.addEventListener("click", (ev) => {
     return;
   }
   const ds = el.dataset;
+  if (ds.sr !== undefined) return runHit(searchHits(search.q)[Number(ds.sr)]);
   if (ds.option !== undefined && decision) {
     decision.options[Number(ds.option)].act();
     closeDecision();
@@ -925,12 +1412,8 @@ app.addEventListener("click", (ev) => {
   if (ds.speed !== undefined) clock.speed = Number(ds.speed);
   if (ds.skip) return skip(Number(ds.skip));
   if (ds.range) range = ds.range as Range;
-  if (ds.fund) {
-    tab = "investing";
-    fund = ds.fund as InstrumentId;
-    tradeMsg = null;
-    window.scrollTo(0, 0);
-  }
+  if (ds.fund) openFund(ds.fund as InstrumentId);
+  if (ds.extraSet !== undefined) life.book.extraMonthly = Number(ds.extraSet);
   if (ds.fundBack !== undefined) {
     fund = null;
     tradeMsg = null;
@@ -946,6 +1429,13 @@ app.addEventListener("click", (ev) => {
   switch (ds.act) {
     case "move":
       moveAct?.();
+      break;
+    case "xfer":
+      xferOpen = !xferOpen;
+      xferMsg = null;
+      break;
+    case "xfer-go":
+      moveMoney();
       break;
     case "go-debt":
       go("debt");
@@ -968,8 +1458,12 @@ app.addEventListener("click", (ev) => {
       break;
     case "reset":
       feed.length = 0;
+      bank.length = 0;
+      xferMsg = null;
       rateShock = 0;
       life = makeLife();
+      recorder = startRecorder();
+      crash = recovery = recap = null;
       menuOpen = false;
       shopShown = false;
       break;
@@ -979,27 +1473,40 @@ app.addEventListener("click", (ev) => {
 
 app.addEventListener("input", (ev) => {
   const el = ev.target as HTMLInputElement;
-  if (el.dataset.extra !== undefined) {
-    life.book.extraMonthly = Number(el.value);
-    // Update the label live without a render so the drag keeps its pointer capture.
-    const label = el.parentElement?.querySelectorAll("b")[1];
-    if (label) label.textContent = usd(life.book.extraMonthly);
-    deferred = true;
+  if (el.dataset.searchQ !== undefined) {
+    search.q = el.value;
+    search.sel = 0;
+    search.open = true;
+    renderSearch();
+    return;
+  }
+  if (el.dataset.xferAmt !== undefined) {
+    xfer.amount = Math.max(0, Math.round(Number(el.value) || 0));
+    xferMsg = null;
+    const go = app.querySelector<HTMLButtonElement>('[data-act="xfer-go"]');
+    if (go) go.textContent = `Move ${usd(xfer.amount, 0)}`;
   }
   if (el.dataset.amount !== undefined) {
     amount = Math.max(0, Math.round(Number(el.value) || 0));
     app.querySelectorAll<HTMLButtonElement>("[data-amt]").forEach((b) => b.classList.toggle("on", Number(b.dataset.amt) === amount));
     const buy = app.querySelector<HTMLButtonElement>('[data-trade="buy"]');
     const sell = app.querySelector<HTMLButtonElement>('[data-trade="sell"]');
-    if (buy) buy.textContent = `Buy ${usd(amount)}`;
-    if (sell) sell.textContent = `Sell ${usd(amount)}`;
+    if (buy) buy.textContent = `Buy ${usd(amount, 0)}`;
+    if (sell) sell.textContent = `Sell ${usd(amount, 0)}`;
   }
 });
 
 app.addEventListener("change", (ev) => {
   const el = ev.target as HTMLInputElement | HTMLSelectElement;
-  if (el.dataset.extra !== undefined) {
-    deferred = false;
+  // Typed amounts commit on Enter or leaving the field, so a render never interrupts typing.
+  if (el.dataset.extraIn !== undefined) {
+    life.book.extraMonthly = typedDollars(el.value, 20_000);
+    render();
+  }
+  if (el.dataset.xferFrom !== undefined || el.dataset.xferTo !== undefined) {
+    if (el.dataset.xferFrom !== undefined) xfer.from = el.value;
+    else xfer.to = el.value;
+    xferMsg = null;
     render();
   }
   if (el.dataset.move !== undefined) {
@@ -1011,7 +1518,7 @@ app.addEventListener("change", (ev) => {
     const id = fund;
     life.recurring = life.recurring.filter((r) => r.id !== id);
     if (el.checked && amount >= 1) life.recurring.push({ id, amount });
-    log(clock.day, el.checked ? `Auto-investing ${usd(amount)} of ${id} every payday` : `Stopped auto-investing in ${id}`, "flat");
+    log(clock.day, el.checked ? `Auto-investing ${usd(amount, 0)} of ${id} every payday` : `Stopped auto-investing in ${id}`, "flat");
     render();
   }
 });
@@ -1029,6 +1536,29 @@ document.addEventListener("pointercancel", () => {
 });
 
 window.addEventListener("keydown", (ev) => {
+  const target = ev.target as HTMLElement;
+  if (target.matches?.("[data-search-q]")) {
+    const hits = searchHits(search.q);
+    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+      ev.preventDefault();
+      search.sel = (search.sel + (ev.key === "ArrowDown" ? 1 : -1) + hits.length) % Math.max(1, hits.length);
+      renderSearch();
+    } else if (ev.key === "Enter") {
+      ev.preventDefault();
+      runHit(hits[search.sel]);
+    } else if (ev.key === "Escape") {
+      closeSearch();
+    }
+    return;
+  }
+  // "/" (Robinhood) or ⌘K / Ctrl+K (Stripe) jumps to search from anywhere but a text field.
+  const typing = target.closest?.("input, select, textarea");
+  if ((ev.key === "/" && !typing) || ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "k")) {
+    ev.preventDefault();
+    q<HTMLInputElement>("[data-search-q]").focus();
+    return;
+  }
+  if (ev.code === "Enter" && target.matches?.("[data-extra-in]")) (target as HTMLInputElement).blur();
   if (ev.code === "Escape" && menuOpen) {
     menuOpen = false;
     render();
@@ -1043,12 +1573,42 @@ window.addEventListener("resize", () => render());
 
 // ---- Start -----------------------------------------------------------------------------
 
+/** The phone's Stocks app links straight to a stock page as /debt.html#stock=COF. */
+function openFromHash(): boolean {
+  const id = new URLSearchParams(location.hash.slice(1)).get("stock");
+  if (!id || !INSTRUMENTS.some((i) => i.id === id)) return false;
+  openFund(id as InstrumentId);
+  // Clear it, so tapping the same stock again still fires hashchange.
+  history.replaceState(null, "", location.pathname + location.search);
+  return true;
+}
+window.addEventListener("hashchange", () => {
+  if (openFromHash()) render();
+});
+openFromHash();
+
 if (host) {
   // The city's ticker drives the clock and the city calls life.onDay; every day's events
-  // reach onLifeEvents, which re-renders.
-  render();
+  // reach onLifeEvents, which re-renders. Decision moments come through the phone.
+  host.onShow(showParkedDecisions);
+  host.onRewind((day) => {
+    // The city went back to the morning of `day`: drop what the desk showed from then on and show that morning again.
+    const trim = <T extends { day: number }>(list: T[]) => {
+      for (let i = list.length - 1; i >= 0; i--) if (list[i].day >= day) list.splice(i, 1);
+    };
+    trim(feed);
+    trim(bank);
+    if (crash && crash.day >= day) crash = null;
+    if (recovery && recovery.day >= day) recovery = recap = null;
+    decision = null;
+    onLifeEvents(life.log.filter((e) => e.day === day));
+  });
+  showParkedDecisions();
 } else {
-  clock.onDay((day) => life.onDay(day, clock.date));
+  clock.onDay((day) => {
+    life.onDay(day, clock.date);
+    void recorder?.tick();
+  });
   clock.speed = 1;
   let last = performance.now();
   const frame = (now: number) => {
