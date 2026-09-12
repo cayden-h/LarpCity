@@ -12,6 +12,9 @@ Full details and sources are in the research files next to this one:
 - [06-debt-and-credit.md](06-debt-and-credit.md) (credit cards, student loans, auto, mortgage, BNPL, payday, credit score, delinquency, bankruptcy)
 - [07-debt-system-design.md](07-debt-system-design.md) (how the debt engine is built: daily tick, ladder, score, strategies, wiring, diagrams)
 - [08-cards-loans-accounts.md](08-cards-loans-accounts.md) (card applications, perks, loans, moving money, and the real card data in Tiger Data)
+- [09-wellbeing-meter.md](09-wellbeing-meter.md) (a data-backed wellbeing meter and how it combines with retirement readiness into the final score)
+- [10-teleport-and-goal-skips.md](10-teleport-and-goal-skips.md) (the setup screen before a goal fast-forward, what makes decisions while skipping, what interrupts a skip, rewind branches, and the hackathon-sized version; the age teleport parts are superseded)
+- [11-jobs-and-salary-progression.md](11-jobs-and-salary-progression.md) (job categories, level inference from salary, and the salary progression model; in progress)
 
 ## 1. What Larp City is
 
@@ -26,7 +29,8 @@ Core features (updated after the team's 2026-09-11 game design meeting, see [../
 - **Avatar onboarding:** The player takes a selfie, which Persona verifies as a real human aged 18+, and gets a look-alike game avatar.
 - **Multi-state map:** The player can move between US states and live in any of them, each with real cost of living, taxes, and wages, grouped into LCOL, MCOL, and HCOL tiers.
 - **Daily calendar:** The simulation advances one day per tick (Stardew Valley style), with skips to the next day, week, month, or event.
-- **Age teleport:** Jump to a future age (for example 24 to 60) from an annual contribution, return rate, and bond allocation; bankruptcy stops the jump and explains why.
+- **Fast-forward to goals:** set the recurring deposit and related inputs (pre-filled with current habits), then fast-forward until a goal is met; bankruptcy stops it and explains why.
+  The age teleport was removed on 2026-09-12.
 - **Goals and milestones:** Skip until a goal (buy a house, move states) is met and see the year and why; at retirement, look back through the milestones.
 - **Events slow time:** Big market events (crash, AI bubble pop) and life events (layoff, marriage, divorce with a prenup option, kids) pause for a decision, such as selling out of the market or holding.
 - **AI feedback** only at goals, bankruptcy, and big portfolio swings; a newspaper sums up recent days.
@@ -101,9 +105,10 @@ None combines a persistent personal life, real state costs, event-driven decisio
 - **Seeded determinism:** Each source of randomness (market, city, each NPC) is keyed by seed and week, so the player's choices never change the market path.
   That makes rewind exact, and shadow "Held" and "Autopilot" portfolios on the same path give honest "if you had held" comparisons.
 - **Time:** The meeting moved to 1 tick = 1 day (the weekly numbers here convert with daily drift = weekly / 5 and daily volatility = weekly / sqrt(5)).
-  Normal speed is 1 in-game week every 10 real seconds (about 1.4 s per day, 8.7 min per year), so decades are covered by skipping.
-  A detailed newspaper says what happened, where, and what it affects for the player, and becomes a digest after a skip.
-  Skips to the next day, week, month, or event, plus the age teleport, run the same seeded engine headless.
+  Since 2026-09-12, 1x is 1 in-game week every 5 real seconds (about 0.7 s per day, 4.3 min per year), 2x halves that, and decades are covered by skipping.
+  A detailed newspaper says what happened, where, and what it affects for the player; after a skip it unfolds full screen as a digest and is kept in the phone's News app.
+  The phone's Calendar app circles events in red and decisions and milestones in blue; any past circled date can be reviewed and its decision changed, which rewinds to that date and continues on the new branch.
+  +1 month, skip to the next event (the next red circle), and goal fast-forwards run the same seeded engine headless.
   Big events drop to slow motion, then auto-pause for a decision (Paradox-style).
 - **Instruments:** Total-market and S&P-style index funds, bonds, cash/HYSA, a few fictional stocks including an "AI hype" stock that can bubble and pop, and target-date funds in the 401(k).
 - **Accounts:** Checking, savings, emergency fund, Roth IRA, 401(k) with employer match (average 4.7%), and brokerage.
@@ -122,10 +127,10 @@ None combines a persistent personal life, real state costs, event-driven decisio
 - A simplified credit score (300-850) uses FICO's five factors and weights and sets the APR on every new loan.
 - Missed payments walk down a visible ladder (late fee, 30/60/90 days, default, collections, garnishment), with a real recovery option at each step, ending in a Chapter 7 or Chapter 13 bankruptcy choice that also defines when a skip or teleport stops.
 - Rates come from the market's cash rate, so the Rate Shock template raises card APRs and the Housing Crunch cuts credit limits.
-- The teleport gets a debt strategy input (minimums, snowball, or avalanche plus an extra amount), and "become debt-free" is a goal, which keeps AI feedback to the meeting's three triggers.
+- The goal fast-forward setup gets a debt strategy input (minimums, snowball, or avalanche plus an extra amount), and "become debt-free" is a goal, which keeps AI feedback to the meeting's three triggers.
 - Map hook: each debt is a building that shrinks as it is paid and is demolished at $0; late payments set it on fire.
 - Headline lesson: $5,000 at 23.96% takes 19.5 years and $8,871 of interest at the minimum, versus 35 months and $1,995 at $200 a month.
-- **Built on Sep 11** (see [07-debt-system-design.md](07-debt-system-design.md)): a deterministic daily engine in `game/src/sim/debt/` shared by live play, skips, and the teleport; the Credit Desk, a markets-terminal view of the same engine, at `game/debt.html`; 16 tests (`npm test`); and pitch-deck diagrams in `diagrams/debt/`.
+- **Built on Sep 11** (see [07-debt-system-design.md](07-debt-system-design.md)): a deterministic daily engine in `game/src/sim/debt/` shared by live play, skips, and goal fast-forwards; the Credit Desk, a markets-terminal view of the same engine, at `game/debt.html`; 16 tests (`npm test`); and pitch-deck diagrams in `diagrams/debt/`.
   The engine's sample household ($44,500 of debt) takes 22.3 years and $22,425 of interest on minimums, versus 4 years and about $7,200 with $300 a month extra; snowball clears its first debt at month 5, avalanche at month 21, for $92 more interest.
 
 ### Cards, loans, and moving money (added 2026-09-11, see [08-cards-loans-accounts.md](08-cards-loans-accounts.md))
@@ -139,7 +144,7 @@ None combines a persistent personal life, real state costs, event-driven decisio
 ## 7. Tech stack (proposed)
 
 - Vite + TypeScript, PixiJS v8 for the isometric map (the LEGO reference game is itself built on PixiJS), with the DOM/React HUD and modals layered over the canvas.
-- A deterministic seeded daily tick engine in TypeScript, running in the browser, run headless for skips and the age teleport.
+- A deterministic seeded daily tick engine in TypeScript, running in the browser, run headless for skips and goal fast-forwards.
 - Static data: `states.json`, built at build time.
 - Persona Web SDK plus a small server to verify inquiries and redact them.
 - Gemini 3.1 Flash Image for the avatar, with gpt-image-2 as backup.
@@ -170,7 +175,7 @@ Built so far (2026-09-11 night), all in `game/`:
 - **MLH sponsor prizes** ([prize page](https://www.mlh.com/events/hackrice-71/prizes)), each with a role in the game:
   - **Gemini API:** avatar creation, the aged "future you" avatar, recaps, and the "Your Real Plan" text.
   - **ElevenLabs:** the game's narrator (mayor, news anchor, life events such as bankruptcy, eviction, and NPC deaths, handled respectfully), plus sound effects and captions.
-  - **Tiger Data:** time-series database for weekly NPC finances, market, events, and current city data, powering live charts, the leaderboard, and rewind.
+  - **Tiger Data:** time-series database for weekly NPC finances, market, events, and current city data, powering live charts, the leaderboard, and calendar rewind.
   - **Vultr:** hosts the game and backend ($100 MLH credits), with a GPU or serverless inference as a stretch.
   - **Backboard:** player memory across sessions, RAG over our research, and model routing.
   - **GoDaddy Registry:** a domain for the Vultr server.
@@ -179,13 +184,23 @@ Built so far (2026-09-11 night), all in `game/`:
 ## 9. Open questions for the team
 
 Answered in the 2026-09-11 meeting: the player lives their own life, retirement is the end goal, and time runs daily with skips.
+Answered on 2026-09-12 ([../meeting-2026-09-11-game-design.md](../meeting-2026-09-11-game-design.md), "Follow-up decisions"):
+
+- The score mixes retirement readiness (net worth, credit score, debt) with a wellbeing meter (marital status, financial stability, job and salary, closeness to retirement).
+- Events during skips go into a full-screen newspaper; "skip to next event" jumps to the next red circle on the phone's calendar.
+- Unlimited rewind: any past circled date can be reviewed with a recommendation and its decision changed; the game rewinds there, the player continues on the new branch, and the old path stays as a ghost line.
+- No curated demo seeds: the AI Boom and AI Bubble Pop are preset to fixed dates (to be picked) and everything else stays random.
+- The age teleport is removed; before a goal fast-forward, a setup screen pre-filled with the player's current habits lets them change the recurring deposit and related standing inputs (proposal in [10-teleport-and-goal-skips.md](10-teleport-and-goal-skips.md)); the AI Bubble Pop doesn't interrupt it.
+- The score always reflects the current branch and rewinds are never penalized, because it's a learning game.
+- Onboarding asks for gross salary, age, job category, marital status, and location; the job level and future salary path come from real data (in progress: [11-jobs-and-salary-progression.md](11-jobs-and-salary-progression.md)).
+- The rest of the wellbeing factors come from real data (proposal in [09-wellbeing-meter.md](09-wellbeing-meter.md)).
 
 Game design:
 
 1. Do the ~50 NPCs stay as a city backdrop around the player's life?
-2. Is the score net worth at retirement, a mix with a wellbeing meter, or how fast goals are reached?
-3. How does the event system (gacha/random events) work with the time skips, the age teleport, and goal skips?
-4. Is rewind free at any decision point, or limited by "rewind tokens"?
+2. Which date is the AI Bubble Pop preset to, and what are the remaining wellbeing factors and their weights?
+3. (Answered: standing inputs set before a goal fast-forward decide them; the age teleport is removed.)
+4. (Answered: unlimited rewind with branches, see above.)
 5. Should bear markets visibly change the map (shuttered shops, grey palette, fewer cars)?
 6. Is under-18 a hard block or a restricted learning mode?
 
@@ -193,7 +208,7 @@ Simulation:
 
 7. Flat simplified tax rates or real brackets?
 8. Crypto as an asset, only as a FOMO event, or not at all?
-9. Should demo seeds be curated to guarantee an AI Bubble Pop and one crash by minute 5?
+9. (Answered: the AI Bubble Pop is preset to a fixed date, see above.)
 10. Are recaps templated strings, LLM-written, or LLM with a templated fallback?
 
 Avatar and art:

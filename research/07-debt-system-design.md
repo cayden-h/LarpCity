@@ -9,7 +9,7 @@ Mirrored to Notion on 2026-09-11 as the "🛠️ Research: Debt System Design" s
 ## TL;DR
 
 - One pure TypeScript engine, `tickDay(book, ctx)`, runs once per game day.
-  The live calendar calls it at 1 in-game week per 10 s, and skips, the age teleport, and the ghost lines call the same function headless, so every number the player sees comes from one code path.
+  The live calendar calls it at 1 in-game week per 10 s, and skips, goal fast-forwards, and the ghost lines call the same function headless, so every number the player sees comes from one code path.
 - Inputs are the player's debts, the market's cash rate (seeded and decision-independent), the calendar date, and a `Wallet` (the game's shortfall waterfall).
 - Output is a list of typed events (`payment`, `missed`, `late_mark`, `penalty_apr`, `repossessed`, `collections`, `default`, `paid_off`, `cannot_cover`, `bankruptcy_eligible`, `score_change`) that the HUD, map, decision prompts, newspaper, and AI feedback subscribe to.
 - It is deterministic: the same book, dates, and wallet produce identical events (tested), which keeps rewind exact.
@@ -84,7 +84,7 @@ The score feeds `offeredApr`, so a missed payment today raises the price of the 
 ![Payoff strategies](../diagrams/debt/05-payoff-strategies.png)
 
 `project(debts, strategy, extra)` runs month by month with the real card minimum, and pays `extra` plus every freed-up payment to the target debt.
-It powers the payment slider's debt-free date, the ghost lines, and the age teleport's debt input.
+It powers the payment slider's debt-free date, the ghost lines, and the goal fast-forward's debt input.
 For the sample household ($44,500 across four debts, $300 extra): minimums take 22.3 years and $22,425 of interest; snowball and avalanche both take 4.0 years, at $7,280 and $7,188, and snowball clears its first debt at month 5 versus 21.
 
 ## Wired into the city scene (`src/sim/life/`)
@@ -96,7 +96,7 @@ Done on 2026-09-11: `PlayerLife` (`src/sim/life/player.ts`) owns the player's mo
 - **Each day:** settle pending transfers; paychecks on the 1st and 15th (40% while unemployed, minus any garnishment); rent on the 1st and living costs on the 15th, scaled to the current state (national median rent $1,487 × the state's housing price parity, $950 × its goods parity); then `tickDay`; then savings interest on the 1st.
 - **Rates:** the engine's cash rate is the real effective Fed funds rate from the FRED snapshot (`src/sim/life/rates.ts`, 3.63% on 2026-09-10), held at the last value past the snapshot until the seeded market path drives it.
 - **City hooks in `main.ts`:** `clock.onDay` calls `player.onDay`; a `bankruptcy_eligible` event stops the skip time-lapse and pauses time; the hero's home tier follows `player.homeTier()` (tent after bankruptcy or collections, then studio, small house, townhouse, large house, villa at $25k / $100k / $250k / $1M of net worth); moving states calls `player.setPlace` so rent changes; `window.larp.player` exposes it for the console.
-- **Headless:** `player.runHeadless(fromDay, days, startDate)` runs skips and the age teleport and stops at bankruptcy.
+- **Headless:** `player.runHeadless(fromDay, days, startDate)` runs skips (and will run goal fast-forwards) and stops at bankruptcy.
 - **Not yet in the city UI:** the HUD numbers, decision prompts, and the Debt District on the map. `player.needsDecision(events)` flags the events that should pause for a prompt once the UI exists.
 - **Persistence (Tiger Data, planned):** one `debt_daily` row per debt per day and a `credit_score_monthly` row on the 1st.
 - **Nessie (unverified):** mirror cards as `Credit Card` accounts and loans as Nessie loans behind an adapter with a mock.

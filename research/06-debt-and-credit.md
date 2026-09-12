@@ -2,7 +2,7 @@
 
 Research on how debt works in the US in 2026 and how to build it into Larp City as a first-class system next to the stock market.
 Written 2026-09-11 during HackRice 2026.
-It follows the 2026-09-11 game design meeting ([../meeting-2026-09-11-game-design.md](../meeting-2026-09-11-game-design.md)): daily ticks, one player life, retirement as the goal, skips and the age teleport, and AI feedback only at goals, bankruptcy, and big swings.
+It follows the 2026-09-11 game design meeting ([../meeting-2026-09-11-game-design.md](../meeting-2026-09-11-game-design.md)): daily ticks, one player life, retirement as the goal, skips and fast-forwarding to goals (the age teleport was removed on 2026-09-12), and AI feedback only at goals, bankruptcy, and big swings.
 Where this doc conflicts with the meeting, the meeting wins.
 Mirrored to the team Notion page on 2026-09-11: a "💳 Debt & Credit" toggle section after Stock Market & Simulation, a "💳 Research: Debt & Credit" sub-page under Research & Docs, a "Debt & credit" group under Open Questions (each with a 💡 Suggested answer), and a debt section in the ChatGPT Brief.
 
@@ -242,14 +242,15 @@ Rates come from the market path, which is seeded and decision-independent, so de
 - **Housing Crunch (2008) template:** already "credit tightens"; make that mean card limits are cut by 20-40% (utilization jumps and the score drops with no action by the player), approvals need a score 40 points higher, and home values fall, so some players owe more than the house is worth.
 - **Pandemic Plunge (2020):** a relief event offers forbearance on student loans for a period, like real 2020.
 
-### Skips, the age teleport, and goals
+### Skips and goal fast-forwards
 
 This answers part of the meeting's open question on events during skips.
+The age teleport was removed on 2026-09-12; what was designed for it here now applies to fast-forwarding until a goal.
 
 - **Skip to next event** also stops when D1 fires (a payment you can't cover), because that is a real decision.
-- **Age teleport inputs** add a debt strategy: minimums only, avalanche, or snowball, plus an extra monthly amount.
-  During the teleport, debt decisions auto-resolve by that strategy; D5 (payday) is auto-declined and D1 is auto-resolved down the waterfall.
-- **Bankruptcy** stops the teleport at the trigger in Section 4, and the recap shows the ladder step by step.
+- **Goal fast-forward inputs** add a debt strategy: minimums only, avalanche, or snowball, plus an extra monthly amount.
+  During the fast-forward, debt decisions auto-resolve by that strategy; D5 (payday) is auto-declined and D1 is auto-resolved down the waterfall.
+- **Bankruptcy** stops the fast-forward at the trigger in Section 4, and the recap shows the ladder step by step.
 - **"Become debt-free"** is offered as a goal, so "skip until a goal is met" works for it, and the meeting-approved goal feedback covers it ("you could have been debt-free 21 months sooner with an extra $150 a month").
   This keeps AI feedback to the three meeting triggers instead of adding a fourth.
 - **Counterfactual twins:** add a "Minimums only" ghost and an "Avalanche + $X" ghost next to doc 03's "Held" and "Autopilot" twins, so the recap can say what the player's debt choices cost or saved.

@@ -205,7 +205,7 @@ export async function provisionPlayer(playerId: string) {
   Life events (new job, loan, big purchase) post immediately.
 - Put the game date in `description` (for example `larpcity:<player>:G2047-03:paycheck`) and keep `transaction_date` as today, because back-dated and future dates are UNVERIFIED.
 - The in-game bank dashboard reads balances and history from Nessie and shows the game date from `description`.
-- Age teleports and long skips do not post to Nessie; after the jump, post one summary deposit or withdrawal so the balance matches the sim.
+- Goal fast-forwards and long skips do not post to Nessie; after the jump, post one summary deposit or withdrawal so the balance matches the sim.
 - Queue at most one sync per player per month, with retry and backoff (no published rate limit).
 
 ### 6. Test first
@@ -474,7 +474,7 @@ Rewind and milestone replay: `WHERE run_id = $1 AND day <= $2`.
 - The client posts end-of-day state to `/api/snapshot` (batched every in-game week at normal speed, and in bulk after skips).
 - Net-worth and portfolio charts read the weekly and monthly continuous aggregates.
 - The leaderboard (verified humans only, thanks to Persona) reads the latest snapshot per run.
-- Rewind, the bankruptcy "look back", and the retirement milestone replay query by day.
+- Calendar rewind (restore the snapshot at that day, then re-run with the changed decision as a new branch), the ghost line of the old branch, the bankruptcy "look back", and the retirement milestone replay query by day.
 
 ### 6. Test first
 

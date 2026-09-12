@@ -12,11 +12,18 @@ The player lives their own financial life, from today to retirement.
 
 - **Retirement is the end goal.**
 - **Personalized:** The player enters their real finances, so the challenge scales to them (no preset jobs or salaries); anyone who just wants to play can make up a scenario.
+  Onboarding asks for gross salary, age, job category, marital status, and location; the game infers a job level from real salary ranges and projects a realistic salary path.
 - **Avatar onboarding:** The player takes a selfie, which is verified through Persona (sponsor), and gets a game avatar that resembles them (3D or Pixi game-style).
-- **Daily calendar:** Time advances day by day, Stardew Valley style, at 1 in-game week every 10 real seconds, with fast-forward to the next day, week, or month and a "Skip to next event" button.
-- **Detailed news:** Each story says what happened, where (state, city, or sector), and what it affects for the player; after a skip, the paper is a digest of what was skipped.
-- **Age teleport:** Jump ahead to a future age (for example 24 to 60) using an annual contribution, return rate, and bond allocation.
-  A bankruptcy along the way stops the jump and shows why.
+- **Daily calendar:** Time advances day by day, Stardew Valley style, at 1 in-game week every 5 real seconds (1x), with 2x, +1 month, and a "Skip to next event" button.
+  The phone's Calendar app circles events in red and big decisions and milestones in blue.
+- **Review and rewind:** Tapping a past circled date shows what happened, the outcome, and how to do better next time.
+  The player can change that decision: time rewinds to that date on the same market and luck, they keep playing the new branch, and the old path stays as a ghost line to compare against (unlimited rewinds).
+- **Detailed news:** Each story says what happened, where (state, city, or sector), and what it affects for the player; after a skip, a full-screen newspaper digests what was skipped and is kept in the phone's News app.
+- **Score:** retirement readiness (net worth, credit score, debt) plus a wellbeing meter (marital status, financial stability, job and salary, closeness to retirement).
+  It always reflects the current branch, and rewinds are never penalized: it's a learning game, so players should get better.
+- **Fast-forward to goals:** Set the recurring investment deposit and related inputs (pre-filled with your current habits), then fast-forward until a goal is met.
+  A bankruptcy along the way stops it and shows why.
+  The age teleport was removed on 2026-09-12.
 - **Goals and milestones:** Goals like buying a house or moving states; skip until one is met and see the year and why.
   At retirement, look back through the milestones (stretch).
 - **Big events slow time down:** Major events (market crash, layoff, AI bubble pop) and life events (layoff, marriage, divorce with a prenup option, kids) pause the simulation and ask the player to decide.
@@ -95,8 +102,8 @@ What we confirmed by loading it and reading its shipped JS bundles:
 | Day/night, city growth | A daily calendar, with seasons and map changes as months and years pass |
 
 Events are probabilistic, each with its own likelihood and timing.
-Some are one-offs, like the AI bubble pop, which can only happen once per run.
-Replay/rewind lets the player go back to a decision point and try the other choice.
+Some are one-offs, like the AI bubble pop, which can only happen once per run; it and the AI Boom before it are preset to fixed dates so they always show up in the demo.
+The calendar lets the player review any past event or decision, change it, and see on the same market path what actually works.
 
 ## Tech plan
 
@@ -106,8 +113,8 @@ Replay/rewind lets the player go back to a decision point and try the other choi
 - **App:** Vite + TypeScript.
   The HUD and modals (bank dashboard, decision prompts, "what went wrong") can be DOM/React overlaid on the canvas, which is faster to build than Pixi UI.
 - **Simulation:** A deterministic, seeded daily tick engine for the player's life, with preloaded persistent data and a reset option.
-  Seeded RNG gives us replay/rewind for free: store the seed plus the player's decisions and re-simulate.
-  The same engine run headless powers the time skips, the age teleport, and goal skips.
+  Seeded RNG gives us exact rewind for free: store the seed plus the player's decisions and re-simulate.
+  The same engine run headless powers the time skips and goal fast-forwards.
   Built so far: the debt engine (`game/src/sim/debt/`), accounts, cards, and loans (`game/src/sim/money/`), and the player's daily money life that ties them to the city clock (`game/src/sim/life/`).
 - **Market data:** a year of real FRED rates and index levels ships with the game (`game/src/data/market.ts`); live Alpha Vantage quotes are optional through the dev server.
 - **Backend:** A small Node server holds every API key; the browser only calls our own `/api/*` routes (see [SETUP.md](SETUP.md)).
@@ -128,7 +135,7 @@ All of these stack on one Devpost submission, on top of the track, Capital One, 
 | --- | --- | --- |
 | Best Use of Gemini API | Google swag kits | Avatar creation from the verified selfie, the aged "future you" avatar, "what went wrong" recaps, and "Your Real Plan" text |
 | Best Use of ElevenLabs | Wireless earbuds | The game's narrator: mayor onboarding, news-anchor alerts for crashes and disasters, and big life moments (bankruptcy, eviction, an NPC's death), plus sound effects and captions |
-| Best Use of Tiger Data | Stream Deck Mini | Time-series database for weekly NPC finances, market, events, and current city data, powering live charts, the leaderboard, and rewind (free tier, 750 MB) |
+| Best Use of Tiger Data | Stream Deck Mini | Time-series database for weekly NPC finances, market, events, and current city data, powering live charts, the leaderboard, and calendar rewind (free tier, 750 MB) |
 | Best Use of Vultr | Portable screens | Hosts the game and backend with API keys server-side ($100 MLH credits); stretch: GPU or serverless inference for NPC dialogue |
 | Best Use of Backboard | Tile Essentials Pack | Player memory across sessions, RAG over our research and 2026 rules, and routing between small and large models |
 | Best Domain Name (GoDaddy Registry) | Digital gift card | A domain like larpcity.xyz for the Vultr server |
@@ -143,21 +150,25 @@ NPC deaths should be handled as a respectful lesson about life insurance, emerge
 2. Isometric map of one district, pan and zoom.
 3. Daily tick engine with paychecks, bills, and the five account types from the notes.
 4. Random event system with per-event probabilities, at least one one-off (AI bubble pop), and life events (layoff, marriage, divorce).
-5. HUD: net worth, date, next day/week/month and "Skip to next event", event alerts like the LEGO police and fire badges.
+5. HUD: net worth, date, pause / 1x / 2x / +1 month and "Skip to next event", event alerts like the LEGO police and fire badges; a Calendar app in the phone with red (event) and blue (decision, milestone) circles.
 6. Decision modal when an event hits the player.
-7. Age teleport with bankruptcy stopping the jump, and the "what went wrong" breakdown.
+7. Fast-forward to a goal with bankruptcy stopping it, and the "what went wrong" breakdown.
 8. AI feedback at goals, bankruptcy, and big portfolio swings.
 
-Stretch: voice onboarding, Nessie/Plaid integration, seasons, a second district, rewind, milestone replay at retirement.
+Stretch: voice onboarding, Nessie/Plaid integration, seasons, a second district, milestone replay at retirement.
 
-Status (2026-09-11 night): 2 is built for every state; 3 exists as `PlayerLife` (paychecks, bills, checking, savings, emergency fund, brokerage, and debts) running on the city clock; 6 exists in the Credit Desk; the HUD for money, the event system, the age teleport, and AI feedback are next.
+Status (2026-09-11 night): 2 is built for every state; 3 exists as `PlayerLife` (paychecks, bills, checking, savings, emergency fund, brokerage, and debts) running on the city clock; 6 exists in the Credit Desk; the HUD for money, the event system, goal fast-forwards, and AI feedback are next.
 
 ## Open questions
 
 Answered in the 2026-09-11 meeting: time runs daily with skips, the goal is retirement, and the player lives their own life.
+Answered on 2026-09-12 (see the meeting file's "Follow-up decisions"): events during skips, scoring, unlimited rewind from the calendar, run speeds, and a preset AI Bubble Pop date instead of curated demo seeds.
 Still open:
 
-- How the event system (gacha/random events) works with time skips, the age teleport, and goal skips.
+- The dates of the preset AI Boom and AI Bubble Pop.
+- The full list of wellbeing factors and their weights, from real data (research/09).
+- The setup screen before a goal fast-forward (recurring deposit and related inputs) and which events interrupt it (research/10).
+- The job categories and salary progression model (research/11).
 - Whether the ~50 NPCs stay as a city backdrop.
 - How much of the milestone replay to build.
 - Whether to frame it as a finance game or a finance LARP.

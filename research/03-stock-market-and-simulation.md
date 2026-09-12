@@ -457,8 +457,12 @@ Annual rates for personal events are design choices tuned for drama, not statist
 ## Open questions for the team
 
 Update from the 2026-09-11 game design meeting ([../meeting-2026-09-11-game-design.md](../meeting-2026-09-11-game-design.md)): the player lives their own life (question 1), retirement is the end goal (question 7), and 1 tick is now 1 day, not 1 week.
-Normal speed is 1 in-game week every 10 real seconds, which replaces the speed table in Section 5; skips (next day/week/month/event, until a goal, teleport to an age) cover the long stretches.
+Normal speed was set to 1 in-game week every 10 real seconds (changed to 5 seconds on 2026-09-12, below), which replaces the speed table in Section 5; skips (+1 month, next event, and fast-forward until a goal; the age teleport was removed on 2026-09-12) cover the long stretches.
 The weekly calibration above still holds; divide weekly drift by 5 and weekly volatility by sqrt(5) for trading days, and use `dailyProb = 1 - (1 - annualProb) ** (1/365)` for events.
+
+Update from 2026-09-12 (the meeting file's "Follow-up decisions"): 1x is now 1 week every 5 seconds, 2x is 1 week every 2.5 seconds, and +1 month is the only fixed skip (question 6: rewind is unlimited from any circled date on the phone's calendar; changing a decision re-runs from that date and the player continues on the new branch, with the old path as a ghost line).
+The score mixes retirement readiness (net worth, credit score, debt) with a wellbeing meter (question 2).
+Instead of curated seeds, the AI Boom (event 3) and AI Bubble Pop (event 4) are preset to fixed calendar dates in every run (dates to be picked) and other events stay random (question 5); this overrides their scheduled window and `requires` trigger in the event table.
 
 1. Does the player control one "focus" citizen (their own life from the voice interview) with 49 NPCs as the city backdrop, or does the player manage all 50? This decides who gets decision modals.
 2. Is the scoring goal net worth at a fixed age, citizens kept housed, or a mix with a wellbeing meter?

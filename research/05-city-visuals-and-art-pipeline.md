@@ -12,7 +12,7 @@ Where this conflicts with the meeting, the meeting wins.
   Each city gets 4 plates: day, golden hour, night, and overcast.
   Rain, snow, fog, storms, and smoke are runtime effects layered on top, so we don't need 20 images per city.
 - **Everything that moves or changes is code:** procedural brick buildings (the player's home upgrades or decays with their net worth), SVG landmarks with animated parts, SVG water, road and bridge graphs, cars, boats, and weather particles.
-- **The sky runs its own clock:** the meeting set normal speed to 1 game week per 10 real seconds (about 1.4 s per game day), which would strobe as a real day/night cycle, so the prototype gives the sky a cosmetic 72-second day; skips hold a steady daytime look.
+- **The sky runs its own clock:** normal speed is 1 game week per 5 real seconds since 2026-09-12 (about 0.7 s per game day; it was 10 s), which would strobe as a real day/night cycle, so the prototype gives the sky a cosmetic 72-second day; skips hold a steady daytime look.
   Seasons follow the calendar; weather is rolled per city per day from a climate table with the seeded RNG, and events such as Hurricane or Snow Storm force the matching weather.
 - **Prototype:** a working build of all of this lives in [game/](../game/) (see its README); section 11 lists what it does today.
 - **Scope:** 6 hand-made cities (Houston home base, San Francisco, New York, Dallas, Austin, Miami) plus 7 regional templates that cover the other 44 states and DC.
@@ -144,11 +144,11 @@ Hawaii can reuse the Miami template with a volcano prompt, so this is 7 new temp
 
 ### Clock
 
-- The meeting chose a daily calendar (Stardew Valley style) at 1 game week per 10 real seconds, so a game day lasts about 1.4 s.
+- The meeting chose a daily calendar (Stardew Valley style); since 2026-09-12, 1x is 1 game week per 5 real seconds (a game day lasts about 0.7 s) and 2x is 1 week per 2.5 s.
   A day/night cycle that fast would strobe, so the sky runs on its own cosmetic clock (72 real seconds per visual day, `Clock.visualDaySeconds`), while seasons and weather follow game days.
 - While a decision modal is open, the clock pauses but clouds, water, and cars keep moving, so the city still feels alive.
 - **Fast-forward and skips become a time-lapse:** at "next week" or "next month" speed the sky stops crossfading every day and instead holds a blended daytime look, while the sun sweeps quickly and seasons change on the ground.
-  During "skip to next event", the age teleport, and goal skips, the city visibly ages: seasons flash by, the player's home rebuilds tier by tier, cranes put up new towers in boom years, and the newspaper headlines scroll past, so skipping 36 years feels like watching a life happen.
+  During "skip to next event" and goal fast-forwards, the city visibly ages: seasons flash by, the player's home rebuilds tier by tier, cranes put up new towers in boom years, and the newspaper headlines scroll past, so skipping 36 years feels like watching a life happen.
 - The cycle crossfades plates: night, golden (dawn), day, golden (dusk), night.
 - Each plate stores a matching tint for the live layers in `city.json`, applied with a `ColorMatrixFilter`, so SVG buildings don't look pasted onto a night sky.
 - At night: building windows turn on in a staggered way (a random delay per building), bridges and landmarks light up, and cars show headlights (small additive glow sprites).

@@ -137,7 +137,7 @@ Report the score as a percent and explain it in one line, e.g. "Selling in the c
 **C. Counterfactual "ghost" path.**
 Because the sim is seeded and deterministic, re-run the same seed with the optimal policy (or "you, but you held during the crash") and plot both net worth lines on one chart.
 The dollar delta at retirement age ("that one panic sale cost future-you $41,000") is the single most memorable demo moment.
-This directly uses the rewind idea already in the README.
+This is the calendar rewind decided on 2026-09-12: the player can change any past decision, and the path they left stays on the chart as the ghost line.
 
 **D. Behavior-aligned metrics, not just points.**
 Track emergency fund months, debt-to-income, savings rate, retirement on-track flag and "panic sells" count, the same concepts the Fed and FINRA measure, so in-game outcomes map onto real-world outcomes.

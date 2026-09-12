@@ -171,7 +171,7 @@ New events, using doc 06's numbering and the meeting's decision rules:
 | C6 | Transfer screen | Anytime | Pick accounts and rail; the quote shows fee, penalty, tax, and landing day before confirming |
 | C7 | Annual fee due | Card anniversary | Keep, downgrade to the no-fee version, or close (utilization warning) |
 
-Time skips and the age teleport: prequalification and the transfer quote are pure functions, so skips use the player's standing choices (no new applications; scheduled transfers keep running), and `cannot_cover` from the debt engine still stops for a decision.
+Time skips and goal fast-forwards: prequalification and the transfer quote are pure functions, so skips use the player's standing choices (no new applications; scheduled transfers keep running), and `cannot_cover` from the debt engine still stops for a decision.
 
 ### The Card Shop (built 2026-09-11)
 
