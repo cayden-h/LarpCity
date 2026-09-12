@@ -23,7 +23,7 @@ Out of scope: retirement accounts in the desk, capital gains tax, new funds, pro
 
 New file `game/src/sim/life/twins.ts`, owned by `PlayerLife`.
 
-- Every buy that goes through `PlayerLife.fill()` (manual, auto-invest, or the fast-forward crash rule's buy-back) is also applied to both twins at the same day and price.
+- Every buy that goes through `PlayerLife.fill()` (manual, auto-invest, or the fast-forward crash rule's buy-back) is also applied to both twins at the same day and price, but only its new money: a buy first uses up any sale proceeds still counted on the player's line, because the twins never sold those dollars and would otherwise invest them twice.
 - **Held** buys the same instrument and ignores every sell.
 - **Autopilot** splits the same dollars 90% LTM and 10% BOND and ignores every sell.
 - Sells (manual, Sell all/half from the popup, or the crash rule) never touch the twins.
