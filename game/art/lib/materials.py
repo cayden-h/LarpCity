@@ -182,6 +182,7 @@ def image(name, path, strength=1.2, glow=True, alpha=False, rough=0.5, top_lit=F
     alpha: transparent where the image is. top_lit: brighter at the top, like a billboard under floodlights.
     brick: a photo texture id whose relief shows through (paint on a brick wall)."""
     m, nt, out = _base(name)
+    m["sign"] = True  # the pixel pass keeps sign detail and draws no inner lines across it
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.inputs["Roughness"].default_value = rough
     tex = nt.nodes.new("ShaderNodeTexImage")

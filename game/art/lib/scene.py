@@ -6,7 +6,7 @@ from mathutils import Vector
 
 from .iso import HALF_H, HALF_W, PX_PER_BU, VIEW_DIR, ground_at_screen
 
-SCALE = 2          # render at 2x; the game draws sprites at 1 / SCALE
+SCALE = 4          # render at 4x; art/pixelize.py shrinks to 1x game pixels
 PAD = 8            # game px of air around the footprint
 SHADOW_PAD = 28    # extra room on the right and bottom for the cast shadow
 SKY_STRENGTH = 0.35
@@ -29,7 +29,7 @@ def reset() -> None:
         sc.cycles.device = "GPU"
     except Exception as e:  # CPU still works, just slower
         print("[art] GPU unavailable:", e)
-    sc.cycles.samples = 64
+    sc.cycles.samples = 32
     sc.cycles.use_denoising = True
     sc.render.film_transparent = True
     sc.render.image_settings.file_format = "PNG"
@@ -125,3 +125,60 @@ def mask_to_alpha(path) -> None:
 def render(path) -> None:
     bpy.context.scene.render.filepath = str(path)
     bpy.ops.render.render(write_still=True)
+
+
+SIGN_ID = (1.0, 0.0, 1.0, 1.0)  # lib/pixel.py SIGN_ID after the Standard view transform
+
+
+def _id_material(name: str, index: int, sign: bool):
+    """Flat emission for the id pass. Signs get SIGN_ID. Anything else: red from the object's index,
+    green from whether the face points right (+X) or left (-Y), blue from whether it points up."""
+    m = bpy.data.materials.new(f"id-{name}")
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    em = nt.nodes.new("ShaderNodeEmission")
+    nt.links.new(em.outputs[0], out.inputs["Surface"])
+    if sign:
+        em.inputs["Color"].default_value = SIGN_ID
+        return m
+    normal = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(nt.nodes.new("ShaderNodeNewGeometry").outputs["Normal"], normal.inputs[0])
+
+    def node(op, a, b):
+        n = nt.nodes.new("ShaderNodeMath")
+        n.operation = op
+        for i, v in enumerate((a, b)):
+            if isinstance(v, (int, float)):
+                n.inputs[i].default_value = v
+            else:
+                nt.links.new(v, n.inputs[i])
+        return n.outputs[0]
+
+    right = node("GREATER_THAN", normal.outputs[0], node("MULTIPLY", normal.outputs[1], -1.0))
+    up = node("GREATER_THAN", normal.outputs[2], 0.5)
+    color = nt.nodes.new("ShaderNodeCombineColor")
+    color.inputs[0].default_value = ((index * 37) % 251 + 2) / 256
+    nt.links.new(node("ADD", node("MULTIPLY", right, 0.5), 0.25), color.inputs[1])
+    nt.links.new(node("ADD", node("MULTIPLY", up, 0.5), 0.25), color.inputs[2])
+    nt.links.new(color.outputs[0], em.inputs["Color"])
+    return m
+
+
+def set_ids() -> None:
+    """Id pass, always the last render of a sprite (it replaces every material): each object's faces glow one
+    flat color per face direction, with no lights, sky, shadow catcher, noise, or anti-aliasing."""
+    set_night(True)
+    sc = bpy.context.scene
+    sc.view_settings.exposure = 0.0
+    sc.cycles.samples = 1
+    sc.cycles.use_denoising = False
+    sc.cycles.filter_width = 0.01
+    sc.render.dither_intensity = 0.0  # the 8-bit dither would scatter +-1 neighbors around every id
+    meshes = sorted((o for o in sc.objects if o.type == "MESH" and not o.get("shadow_catcher")), key=lambda o: o.name)
+    for i, o in enumerate(meshes):
+        sign = any(s.material and s.material.get("sign") for s in o.material_slots)
+        mat = _id_material(o.name, i, sign)
+        o.data.materials.clear()
+        o.data.materials.append(mat)
