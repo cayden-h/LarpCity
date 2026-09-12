@@ -20,6 +20,8 @@ export interface ResidentSeed {
   age: number;
   /** Shown as this resident's thought instead of a mood-pool line — their `story` from data/npcs.ts. */
   story: string;
+  /** Primary-tier NPCs get the visible gold-ring marker (markResident); background NPCs blend into the crowd like ambient extras but are still real, clickable residents. */
+  marked: boolean;
 }
 
 export interface NpcInfo {
@@ -211,7 +213,7 @@ export class People {
       residentId: r.id,
       fixedThought: r.story,
     };
-    markResident(w.view);
+    if (r.marked) markResident(w.view);
     w.view.alpha = 1;
     this.walkers.push(w);
     this.objects.addChild(w.view);

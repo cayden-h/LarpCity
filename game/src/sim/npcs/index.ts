@@ -4,6 +4,7 @@
 // city clock and catches them up after a goal fast-forward, which runs only
 // the player (a decade takes a few milliseconds per life).
 
+import { BACKGROUND_NPCS } from "../../data/background-npcs.ts";
 import { NPCS, type NpcProfile } from "../../data/npcs.ts";
 import { creditCard, installment, newBook, studentLoan } from "../debt/factory.ts";
 import type { Debt } from "../debt/types.ts";
@@ -39,7 +40,7 @@ export class NpcTown {
 
   constructor(o: { place: Place; day: number; market: MarketPath; start: Date; roster?: NpcProfile[] }) {
     this.start = o.start;
-    for (const p of o.roster ?? NPCS) {
+    for (const p of o.roster ?? [...NPCS, ...BACKGROUND_NPCS]) {
       this.profiles.set(p.id, p);
       this.lives.set(p.id, npcLife(p, o));
     }
