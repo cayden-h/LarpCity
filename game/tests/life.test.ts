@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PlayerLife, STARTER_PORTFOLIO, cashRateOn, seriesOn, US_MEDIAN_RENT, type Place } from "../src/sim/life/index.ts";
+import { PlayerLife, STARTER_PORTFOLIO, cashRateOn, seriesOn, US_MEDIAN_RENT, type Place, type LifeEvent } from "../src/sim/life/index.ts";
 import { MARKET } from "../src/data/market.ts";
 
 const TX: Place = { abbr: "TX", name: "Texas", rpp: { all: 97.4, goods: 97.0, housing: 88.6 } };
@@ -107,7 +107,7 @@ test("spend() withdraws through the wallet waterfall and emits a spend event", (
   const life = new PlayerLife({ place: TX, day: 0, monthlyTakeHome: 4_000 });
   const checking = life.ledger.get("checking");
   checking.balance = 50;
-  const events: typeof import("../src/sim/life/index.ts").LifeEvent[] = [];
+  const events: LifeEvent[] = [];
   life.onEvents((e) => events.push(...e));
 
   const event = life.spend(10, "Dining out", 30);
