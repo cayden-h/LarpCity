@@ -98,6 +98,7 @@ button:disabled {
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
+  justify-content: flex-end;
 }
 .tabs::-webkit-scrollbar {
   display: none;
@@ -178,11 +179,144 @@ button:disabled {
   margin: 6px 0;
 }
 
+/* Search: Robinhood's field in the top bar, Stripe's grouped results under it. */
+.search {
+  position: relative;
+  flex: 0 1 440px;
+  min-width: 200px;
+}
+.search > svg {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  color: var(--sub);
+  pointer-events: none;
+}
+.search input {
+  width: 100%;
+  height: 40px;
+  padding: 0 40px 0 38px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--soft);
+  font-size: 14px;
+  outline: none;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.search input::-webkit-search-cancel-button {
+  display: none;
+}
+.search input:focus {
+  background: var(--bg);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(11, 11, 12, 0.07);
+}
+.search kbd {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  transform: translateY(-50%);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--sub);
+  font: 600 12px/1 inherit;
+  pointer-events: none;
+}
+.search input:focus ~ kbd {
+  display: none;
+}
+.search-pop {
+  position: absolute;
+  z-index: 10;
+  top: 46px;
+  left: 0;
+  right: 0;
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(11, 11, 12, 0.14);
+}
+.sr-h {
+  padding: 10px 10px 4px;
+  color: var(--sub);
+  font-size: 12px;
+  font-weight: 600;
+}
+.sr {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  text-align: left;
+}
+.sr b {
+  font-weight: 600;
+}
+.sr small {
+  overflow: hidden;
+  color: var(--sub);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sr-r {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sr.on,
+.sr:hover {
+  background: var(--soft);
+}
+.sr-empty {
+  padding: 14px 10px;
+  color: var(--sub);
+}
+
+/* Time dock: the game's clock, floating at the bottom so the top bar stays clean. */
+.dock {
+  position: fixed;
+  z-index: 7;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  padding: 6px 6px 6px 16px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(11, 11, 12, 0.12), 0 2px 6px rgba(11, 11, 12, 0.06);
+}
+.dock-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--line);
+}
+.dock .menu {
+  top: auto;
+  bottom: 46px;
+}
+
 /* Layout ------------------------------------------------------------------- */
 .page {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 28px 24px 64px;
+  /* Room at the bottom for the time dock. */
+  padding: 28px 24px 104px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 48px;
@@ -203,6 +337,10 @@ button:disabled {
   .top-in .tabs {
     order: 3;
     flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+  .search {
+    flex: 1 1 auto;
   }
 }
 
@@ -521,16 +659,117 @@ button:disabled {
   border-color: var(--accent);
   color: var(--accent);
 }
-.slider {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px 12px;
+/* Typed amounts instead of sliders (Monarch, Copilot): the number is the control. It reads as
+   plain text, shows a field on hover, and a firm ring while you type. */
+.field-head {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
-.slider input {
-  grid-column: 1 / -1;
-  width: 100%;
-  accent-color: var(--accent);
+.amt-edit {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: text;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.amt-edit:hover {
+  background: var(--soft);
+  border-color: var(--line);
+}
+.amt-edit:focus-within {
+  background: var(--bg);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(11, 11, 12, 0.07);
+}
+.amt-edit input {
+  width: 7ch;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+/* Preset amounts (Monzo, Robinhood order entry); the chosen one fills black. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.chips button {
+  padding: 6px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.chips button:hover {
+  border-color: #cfd2d8;
+}
+.chips button.on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+/* Stock rows: price over today's move, colored like the sparkline (Robinhood's list). */
+.row.stock .px {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  white-space: nowrap;
+}
+.row.stock .px b {
+  font-weight: 600;
+}
+.row.stock .px small {
+  font-size: 13px;
+  font-weight: 600;
+}
+.txt-up {
+  color: var(--brand-ink);
+}
+.txt-down {
+  color: #c43d00;
+}
+.txt-flat {
+  color: var(--sub);
+}
+
+/* Stock page: position and key statistics as a label-over-value grid. */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 24px;
+}
+.stats > div {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.stats > div > span {
+  display: block;
+  color: var(--sub);
+  font-size: 13px;
+}
+.stats b {
+  font-size: 16px;
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.about {
+  margin: 8px 0 0;
+  line-height: 1.55;
 }
 .amounts {
   display: flex;
@@ -681,13 +920,17 @@ button:disabled {
 }
 
 /* Side panel --------------------------------------------------------------- */
+/* Taller than the screen, so it scrolls on its own and ends above the time dock. */
 .side {
   position: sticky;
   top: 84px;
   align-self: start;
+  max-height: calc(100vh - 172px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
   border: 1px solid var(--line);
   border-radius: 12px;
-  overflow: hidden;
 }
 .side h3 {
   margin: 0;
