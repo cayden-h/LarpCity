@@ -1611,12 +1611,7 @@ In the standalone start block, change `clock.onDay((day) => life.onDay(day, cloc
   });
 ```
 
-In the `reset` case, after `life = makeLife();` add:
-
-```ts
-      recorder = startRecorder();
-      crash = recovery = recap = null;
-```
+In the `reset` case, after `life = makeLife();` add `recorder = startRecorder();` (the Task 5 review fix already clears `crash`, `recovery`, and `recap` there).
 
 - [ ] **Step 5: Verify.** `cd game && npx tsc --noEmit && npm test` (3 more tests than the Task 3.5 baseline, all passing).
 
