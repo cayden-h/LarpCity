@@ -8,6 +8,7 @@ import { fileReturn } from "../src/sim/tax/filing.ts";
 
 const TX: Place = { abbr: "TX", name: "Texas", rpp: { all: 97.4, goods: 97.0, housing: 88.6 } };
 const CA: Place = { abbr: "CA", name: "California", rpp: { all: 110.72, goods: 106.098, housing: 154.346 } };
+const WA: Place = { abbr: "WA", name: "Washington", rpp: { all: 100.9, goods: 99.6, housing: 116.6 } };
 const START = new Date(2026, 8, 11);
 const dateOf = (day: number) => {
   const d = new Date(START);
@@ -135,6 +136,35 @@ test("a tax_ready event fires on April 15 for the prior year's wages, and time i
   assert.ok(life.pendingTaxReturn() !== null);
   assert.equal(life.pendingTaxReturn()!.year, 2026);
   assert.equal(life.needsDecision(events), false); // the deadline never pauses time
+});
+
+test("a January 1 reset does not erase the prior year's wages before the following April 15 files them (a full calendar year's wages, not ~3.5 months)", () => {
+  // Life starts Sept 11, 2026 (day 0). 2027 is the first calendar year this
+  // life lives through in full (Jan 1 - Dec 31), so its April 15, 2028 filing
+  // is the one that should reflect a FULL year of wages. Before the fix, the
+  // January 1, 2028 reset (which happens ~105 days before that April 15)
+  // zeroed the accumulators and only Jan 1 - Apr 15, 2028's ~7 paydays had
+  // re-accumulated by the time the filing check ran, so `wages` came out to
+  // roughly 3.5 months' worth instead of a full year's.
+  const grossAnnual = 60_000;
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual }); // TX: no state tax, so wages isn't muddied by state withholding quirks
+  const firstEvents = live(life, 220);
+  assert.ok(firstEvents.some((e) => e.type === "tax_ready" && e.year === 2026));
+  life.fileTaxes(life.today + 1); // clear 2026's (partial-year) pending return so 2027's can come due
+  const laterEvents = live(life, 380, 220);
+  const ready2027 = laterEvents.find((e) => e.type === "tax_ready" && e.year === 2027);
+  assert.ok(ready2027, "expected a tax_ready event for 2027");
+
+  const ret = life.pendingTaxReturn()!;
+  assert.ok(ret !== null);
+  assert.equal(ret.year, 2027);
+  // 24 paydays (the 1st and 15th of every month) make up a full calendar
+  // year, computed independently of the buggy accumulator path.
+  const expectedFullYearWages = round2((grossAnnual / 24) * 24);
+  assert.ok(
+    Math.abs(ret.wages - expectedFullYearWages) < 1,
+    `expected ~a full year's wages (${expectedFullYearWages}), got ${ret.wages} (looks like ~3.5 months, the pre-fix bug)`,
+  );
 });
 
 test("fileTaxes() applies a refund to checking and clears the pending return", () => {
@@ -412,4 +442,42 @@ test("once converted to a Debt, the shadow unpaidTax balance stops escalating (n
   assert.equal(life.unpaidTaxBalance(), null);
   const events = live(life, 90, day + 1 + 210);
   assert.ok(!events.some((e) => e.type === "tax_penalty"));
+});
+
+// day 220 (START is Sept 11, 2026) lands well past the April 15, 2027 deadline,
+// but that return is for calendar year 2026 - and this life only started on
+// Sept 11, 2026, so 2026 itself is a partial year for it (~6 paychecks), not
+// a "full year of level paychecks". Withholding is computed per-paycheck as
+// if annualizing a full year's employment, while fileReturn's standard
+// deduction is a full annual amount applied against only a partial year's
+// wages, so a partial first year does NOT reconcile close to $0 (it
+// legitimately produces a real refund, same as a real new hire's first
+// partial year often does) - that's not the scenario this test is after.
+// Instead, run into the following year (2027), which this life lives
+// through in full, and check that return.
+test("a full year of level paychecks in a no-tax state reconciles to a small refund or owed amount, never wildly off", () => {
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 60_000 });
+  live(life, 220);
+  life.fileTaxes(life.today + 1); // clear 2026's (partial-year) pending return so 2027's can come due
+  live(life, 380, 220);
+  const ret = life.pendingTaxReturn()!;
+  assert.equal(ret.year, 2027);
+  const total = Math.abs(ret.federalRefundOrOwed + ret.stateRefundOrOwed);
+  // Annualize-and-divide should track the real annual liability closely for a level salary.
+  assert.ok(total < 500, `expected a close reconciliation, got ${total}`);
+});
+
+test("an unemployed player (UNEMPLOYMENT_SHARE pay) still gets a filed return with lower wages", () => {
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 60_000 });
+  life.setEmployed(false, 1);
+  live(life, 220);
+  const ret = life.pendingTaxReturn()!;
+  assert.ok(ret.wages < 60_000);
+});
+
+test("a no-income-tax state never produces a state tax liability regardless of income", () => {
+  const life = new PlayerLife({ place: WA, day: 0, grossAnnual: 300_000 });
+  live(life, 220);
+  const ret = life.pendingTaxReturn()!;
+  assert.equal(ret.stateTax, 0);
 });

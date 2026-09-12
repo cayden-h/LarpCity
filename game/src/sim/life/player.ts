@@ -211,6 +211,20 @@ export class PlayerLife {
   private wagesYtdAmount = 0;
   private federalWithheldYtd = 0;
   private stateWithheldYtd = 0;
+  /**
+   * The just-closed calendar year's final wages/withholding, snapshotted at
+   * the January 1 reset so the April 15 filing check (which runs after that
+   * reset, in the same new year) reads the year that actually closed, not
+   * whatever has re-accumulated since. `priorYearSnapshotYear` records which
+   * year the snapshot is *for*, so the April 15 block can tell a real
+   * snapshot apart from "no reset has ever happened" (e.g. a life whose very
+   * first April 15 arrives before its first January 1) and fall back to the
+   * live accumulators in that case.
+   */
+  private priorYearWages = 0;
+  private priorYearFederalWithheld = 0;
+  private priorYearStateWithheld = 0;
+  private priorYearSnapshotYear: number | null = null;
   private pendingReturn: TaxReturn | null = null;
   /** The day the pending return became ready (~April 15) — the reference point penalties.ts measures lateness from, independent of when (or whether) the player actually files. */
   private taxReadyDay: number | null = null;
@@ -448,6 +462,12 @@ export class PlayerLife {
     if (payday) {
       const year = date.getFullYear();
       if (year !== this.taxYear) {
+        if (this.taxYear !== 0) {
+          this.priorYearWages = this.wagesYtdAmount;
+          this.priorYearFederalWithheld = this.federalWithheldYtd;
+          this.priorYearStateWithheld = this.stateWithheldYtd;
+          this.priorYearSnapshotYear = this.taxYear;
+        }
         this.taxYear = year;
         this.wagesYtdAmount = 0;
         this.federalWithheldYtd = 0;
@@ -500,12 +520,18 @@ export class PlayerLife {
 
     if (date.getMonth() === 3 && date.getDate() === 15 && !this.pendingReturn) {
       const priorYear = date.getFullYear() - 1;
+      // Normally the January 1 reset already snapshotted the year that just
+      // closed. But if this life's first April 15 arrives before its first
+      // January 1 (it started partway through its very first year, and that
+      // year hasn't closed yet), there is no snapshot for `priorYear` — the
+      // live accumulators still hold that partial year's data, so use them.
+      const useSnapshot = this.priorYearSnapshotYear === priorYear;
       this.pendingReturn = fileReturn({
         year: priorYear,
         state: this.place.abbr,
-        wagesYtd: this.wagesYtdAmount, // the year that just closed on Dec 31 is what accumulated since the last reset
-        federalWithheldYtd: this.federalWithheldYtd,
-        stateWithheldYtd: this.stateWithheldYtd,
+        wagesYtd: useSnapshot ? this.priorYearWages : this.wagesYtdAmount,
+        federalWithheldYtd: useSnapshot ? this.priorYearFederalWithheld : this.federalWithheldYtd,
+        stateWithheldYtd: useSnapshot ? this.priorYearStateWithheld : this.stateWithheldYtd,
       });
       this.taxReadyDay = day;
       events.push({ type: "tax_ready", day, year: priorYear });
