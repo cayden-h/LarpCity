@@ -1,37 +1,35 @@
-// The player's phone: the hub where the game's "apps" live (Stocks and Goals
-// now; News, Mail, and Bank next). It docks on the left edge of the city and
-// can be tucked away. Stocks shows the market from the FRED snapshot (plus
+// The player's phone: the hub where the game's apps live. It pulls up from the
+// bottom-right corner. Stocks shows the market from the FRED snapshot (plus
 // live Alpha Vantage quotes when the dev server has a key) and opens the Money
 // desk (/debt.html) in a window over the city, sharing the city's player and
 // clock through window.larpMoney. Goals opens the fast-forward setup screen
 // (ui/skip-setup.ts).
 
 import "./phone.css";
+import { pixelIcon } from "./pixel-icons";
 import type { Clock } from "../engine/clock";
 import { MARKET, type SeriesId } from "../data/market";
+import type { SceneStatus } from "../engine/scene";
+import type { CityDef, StateInfo, WeatherKind } from "../engine/types";
 import { latest, type PlayerLife } from "../sim/life";
 
 interface AppDef {
-  id: "stocks" | "goals" | "news" | "mail" | "bank";
+  id: "stocks" | "goals" | "map" | "weather" | "timeline" | "news" | "mail" | "bank";
   name: string;
   icon: string;
   ready: boolean;
 }
 
-const ICONS = {
-  stocks: `<svg viewBox="0 0 60 60" aria-hidden="true"><defs><linearGradient id="ph-st" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2c2e"/><stop offset="1" stop-color="#050505"/></linearGradient></defs><rect width="60" height="60" rx="14" fill="url(#ph-st)"/><path d="M10 40h40M10 30h40M10 20h40" stroke="#3a3a3c" stroke-width="1"/><polyline points="10,42 19,36 26,39 34,26 41,30 50,17" fill="none" stroke="#30d158" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  news: `<svg viewBox="0 0 60 60" aria-hidden="true"><rect width="60" height="60" rx="14" fill="#fff"/><rect x="13" y="14" width="34" height="32" rx="4" fill="#ff375f"/><rect x="17" y="18" width="12" height="10" rx="1.5" fill="#fff"/><path d="M32 19h11M32 24h11M17 32h26M17 37h26M17 42h18" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>`,
-  mail: `<svg viewBox="0 0 60 60" aria-hidden="true"><defs><linearGradient id="ph-ml" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5ac8fa"/><stop offset="1" stop-color="#0a64d8"/></linearGradient></defs><rect width="60" height="60" rx="14" fill="url(#ph-ml)"/><rect x="11" y="18" width="38" height="25" rx="4" fill="#fff"/><path d="M12 20l18 13 18-13" fill="none" stroke="#1c7ce0" stroke-width="2.6" stroke-linejoin="round"/></svg>`,
-  goals: `<svg viewBox="0 0 60 60" aria-hidden="true"><defs><linearGradient id="ph-gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd84d"/><stop offset="1" stop-color="#f29a00"/></linearGradient></defs><rect width="60" height="60" rx="14" fill="url(#ph-gl)"/><path d="M19 12v36" stroke="#16233b" stroke-width="3.4" stroke-linecap="round"/><path d="M20.5 14h22l-5.5 7.5 5.5 7.5h-22z" fill="#fff"/><path d="M26 40l6 4-6 4zM34 40l6 4-6 4z" fill="#16233b"/></svg>`,
-  bank: `<svg viewBox="0 0 60 60" aria-hidden="true"><defs><linearGradient id="ph-bk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4cd964"/><stop offset="1" stop-color="#1e8e3e"/></linearGradient></defs><rect width="60" height="60" rx="14" fill="url(#ph-bk)"/><path d="M30 11l19 10H11z" fill="#fff"/><path d="M15 25v14M23 25v14M37 25v14M45 25v14" stroke="#fff" stroke-width="4" stroke-linecap="round"/><rect x="11" y="42" width="38" height="5" rx="2" fill="#fff"/></svg>`,
-} as const;
 
 const APPS: AppDef[] = [
-  { id: "stocks", name: "Stocks", icon: ICONS.stocks, ready: true },
-  { id: "goals", name: "Goals", icon: ICONS.goals, ready: true },
-  { id: "news", name: "News", icon: ICONS.news, ready: false },
-  { id: "mail", name: "Mail", icon: ICONS.mail, ready: false },
-  { id: "bank", name: "Bank", icon: ICONS.bank, ready: false },
+  { id: "stocks", name: "Stocks", icon: pixelIcon("stocks"), ready: true },
+  { id: "goals", name: "Goals", icon: pixelIcon("goals"), ready: true },
+  { id: "map", name: "Map", icon: pixelIcon("map"), ready: true },
+  { id: "weather", name: "Weather", icon: pixelIcon("weather"), ready: true },
+  { id: "timeline", name: "Timeline", icon: pixelIcon("calendar"), ready: true },
+  { id: "news", name: "News", icon: pixelIcon("news"), ready: false },
+  { id: "mail", name: "Mail", icon: pixelIcon("mail"), ready: false },
+  { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: false },
 ];
 
 const WATCHLIST: { id: SeriesId; ticker: string; name: string }[] = [
@@ -49,6 +47,41 @@ interface LiveQuote {
   change: number;
   changePct: number;
 }
+
+interface WorldSnapshot {
+  state: StateInfo;
+  city: CityDef;
+  status: SceneStatus | null;
+}
+
+const WEATHER_NAME: Record<WeatherKind, string> = {
+  clear: "Clear skies",
+  cloudy: "Cloudy",
+  rain: "Rain",
+  storm: "Storm",
+  snow: "Snow",
+  fog: "Fog",
+  heat: "Heat wave",
+  smoke: "Smoky",
+};
+
+const WEATHER_SYMBOL: Record<WeatherKind, string> = {
+  clear: "☀",
+  cloudy: "☁",
+  rain: "☂",
+  storm: "ϟ",
+  snow: "❄",
+  fog: "≋",
+  heat: "☀",
+  smoke: "≋",
+};
+
+const SEASON_NOTE = {
+  spring: "New growth and milder days",
+  summer: "Long days and warm weather",
+  fall: "Cooler air and changing leaves",
+  winter: "Short days and colder weather",
+} as const;
 
 const OPEN_KEY = "larp.phone.open";
 
@@ -76,7 +109,7 @@ function sparkline(values: number[], up: boolean): string {
   const min = Math.min(...values);
   const max = Math.max(...values);
   const pts = values.map((v, i) => `${((i / (values.length - 1)) * w).toFixed(1)},${(h - ((v - min) / (max - min || 1)) * h).toFixed(1)}`).join(" ");
-  return `<svg class="spark" viewBox="0 -1 ${w} ${h + 2}" width="${w}" height="${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${up ? "#30d158" : "#ff453a"}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+  return `<svg class="spark" viewBox="0 -1 ${w} ${h + 2}" width="${w}" height="${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${up ? "#30d158" : "#ff453a"}" stroke-width="1.6" shape-rendering="crispEdges" stroke-linejoin="miter" stroke-linecap="square"/></svg>`;
 }
 
 const fmtIndex = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -92,6 +125,9 @@ export interface PhoneDeps {
   player: PlayerLife;
   /** Opens the goal fast-forward setup screen. */
   openFastForward?: () => void;
+  openMap?: () => void;
+  skip?: (days: number) => void;
+  getWorld: () => WorldSnapshot;
 }
 
 /**
@@ -150,7 +186,6 @@ export class Phone {
     const pts = MARKET.series[home.id].points.slice(-60).map((p) => p[1]);
     const up = pts[pts.length - 1] >= pts[0];
     return `
-      <button class="phone-tab" data-toggle aria-label="Show phone"><span class="phone-tab-icon"></span></button>
       <div class="phone-body">
         <div class="phone-screen">
           <div class="island"></div>
@@ -191,12 +226,69 @@ export class Phone {
             <button class="st-open" data-desk>Open Money <span aria-hidden="true">↗</span></button>
           </section>
 
+          <section class="view view-map-app" data-view="map" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">Map</div><div class="st-sub">Your place in the country</div></div>
+            </header>
+            <div class="map-place-card">
+              ${pixelIcon("pin", "map-place-pin")}
+              <div class="map-place-copy">
+                <div class="map-place-title"><strong data-map-city></strong><span class="tier" data-map-tier></span></div>
+                <p data-map-tagline></p>
+              </div>
+            </div>
+            <div class="map-place-facts">
+              <span>State</span><strong data-map-state></strong>
+              <span>Cost of living</span><strong data-map-cost></strong>
+            </div>
+            <button class="map-open-button" data-open-map>${pixelIcon("map")} Open U.S. map</button>
+          </section>
+
+          <section class="view view-weather" data-view="weather" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">Weather</div><div class="st-sub" data-weather-place></div></div>
+            </header>
+            <div class="weather-now">
+              <span class="weather-symbol" data-weather-symbol></span>
+              <strong data-weather-name></strong>
+              <span data-weather-event></span>
+            </div>
+            <div class="season-card">
+              <span class="season-kicker">Current season</span>
+              <strong data-season-name></strong>
+              <span data-season-note></span>
+            </div>
+            <div class="weather-date" data-weather-date></div>
+          </section>
+
+          <section class="view view-timeline" data-view="timeline" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">Timeline</div><div class="st-sub">Control city time</div></div>
+            </header>
+            <div class="timeline-date"><span data-timeline-dow></span><strong data-timeline-date></strong></div>
+            <div class="timeline-section">
+              <span class="timeline-label">Speed</span>
+              <div class="timeline-speeds">
+                <button data-tl-speed="0" aria-label="Pause timeline">Ⅱ</button>
+                <button data-tl-speed="1">1×</button>
+                <button data-tl-speed="2">2×</button>
+                <button data-tl-speed="4">4×</button>
+              </div>
+            </div>
+            <div class="timeline-section">
+              <span class="timeline-label">Jump ahead</span>
+              <button class="timeline-jump" data-tl-skip="7">+1 week</button>
+              <button class="timeline-jump" data-tl-skip="30">+1 month</button>
+            </div>
+          </section>
+
           <button class="home-bar" data-home aria-label="Go home"></button>
         </div>
-        <button class="phone-hide" data-toggle aria-label="Put the phone away">
-          <svg viewBox="0 0 12 12" width="10" height="10"><path d="M8 2L4 6l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-      </div>`;
+      </div>
+      <button class="phone-toggle-zone" data-toggle aria-label="Put the phone away"></button>`;
   }
 
   private q<T extends HTMLElement = HTMLElement>(sel: string): T {
@@ -206,6 +298,7 @@ export class Phone {
   private setOpen(open: boolean, remember = true) {
     this.el.classList.toggle("open", open);
     this.el.classList.toggle("closed", !open);
+    this.q<HTMLButtonElement>("[data-toggle]").ariaLabel = open ? "Put the phone away" : "Show phone";
     if (remember) saveOpen(open);
   }
 
@@ -222,11 +315,25 @@ export class Phone {
   }
 
   private onClick(ev: MouseEvent) {
+    if (this.el.classList.contains("closed")) {
+      this.setOpen(true);
+      return;
+    }
     const btn = (ev.target as HTMLElement).closest<HTMLElement>("button");
     if (!btn) return;
     if (btn.dataset.toggle !== undefined) return this.setOpen(!this.el.classList.contains("open"));
     if (btn.dataset.home !== undefined) return this.show("home");
     if (btn.dataset.desk !== undefined) return this.openDesk();
+    if (btn.dataset.openMap !== undefined) return this.deps.openMap?.();
+    if (btn.dataset.tlSpeed !== undefined) {
+      this.deps.clock.speed = Number(btn.dataset.tlSpeed);
+      this.renderStatus();
+      return;
+    }
+    if (btn.dataset.tlSkip !== undefined) {
+      this.deps.skip?.(Number(btn.dataset.tlSkip));
+      return;
+    }
     const id = btn.dataset.app as AppDef["id"] | undefined;
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;
@@ -255,6 +362,28 @@ export class Phone {
     const d = clock.date;
     this.q("[data-dow]").textContent = d.toLocaleDateString("en-US", { weekday: "long" });
     this.q("[data-date]").textContent = d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+    this.q("[data-timeline-dow]").textContent = d.toLocaleDateString("en-US", { weekday: "long" });
+    this.q("[data-timeline-date]").textContent = d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const { state, city, status } = this.deps.getWorld();
+    const weather = status?.weather ?? "clear";
+    const season = status?.season ?? clock.season;
+    this.q("[data-map-city]").textContent = `${city.name}, ${state.abbr}`;
+    const tier = this.q("[data-map-tier]");
+    tier.textContent = state.tier;
+    tier.className = `tier ${state.tier.toLowerCase()}`;
+    this.q("[data-map-tagline]").textContent = city.tagline;
+    this.q("[data-map-state]").textContent = state.name;
+    this.q("[data-map-cost]").textContent = `${state.rpp.all.toFixed(1)} · ${state.tier}`;
+    this.q("[data-weather-place]").textContent = `${city.name}, ${state.abbr}`;
+    this.q("[data-weather-symbol]").textContent = WEATHER_SYMBOL[weather];
+    this.q("[data-weather-name]").textContent = WEATHER_NAME[weather];
+    this.q("[data-weather-event]").textContent = status?.event ?? "Current conditions";
+    this.q("[data-season-name]").textContent = season[0].toUpperCase() + season.slice(1);
+    this.q("[data-season-note]").textContent = SEASON_NOTE[season];
+    this.q("[data-weather-date]").textContent = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    this.el.querySelectorAll<HTMLButtonElement>("[data-tl-speed]").forEach((button) =>
+      button.classList.toggle("on", Number(button.dataset.tlSpeed) === clock.speed),
+    );
   }
 
   private renderStocks() {
