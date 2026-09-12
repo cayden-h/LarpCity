@@ -22,6 +22,7 @@ const { personaRouter, personaWebhookRouter } = await import("./routes/persona.j
 const { nessieRouter } = await import("./routes/nessie.js");
 const { voiceRouter } = await import("./routes/voice.js");
 const { aiRouter } = await import("./routes/ai.js");
+const { coachRouter } = await import("./routes/coach.js");
 const { runMigrations } = await import("./db.js");
 const { sessionMiddleware } = await import("./session.js");
 
@@ -42,6 +43,7 @@ app.use("/api/persona", strictLimiter, personaRouter);
 app.use("/api/bank", nessieRouter);
 app.use("/api/voice", strictLimiter, voiceRouter);
 app.use("/api", aiRouter);
+app.use("/api/coach", coachRouter);
 
 app.use(errorHandler);
 
