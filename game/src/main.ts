@@ -20,6 +20,7 @@ import { NpcCard } from "./ui/npccard";
 import { Phone } from "./ui/phone";
 import { FastForward } from "./ui/skip-setup";
 import { UsMap } from "./ui/usmap";
+import "./ui/pixel-theme.css";
 
 // The world is big: skip drawing whatever is off-screen.
 extensions.add(CullerPlugin);
@@ -126,42 +127,61 @@ async function open(next: StateInfo): Promise<void> {
   app.stage.addChild(scene.root);
   scene.resize(app.screen.width, app.screen.height);
   npcCard.hide();
-  hud.setCity(next, city);
   const home = STATES.find((s) => s.abbr === next.abbr);
   history.replaceState(null, "", `#${home && home.cityId !== next.cityId ? next.cityId : next.abbr}`);
 }
 
 const npcCard = new NpcCard(document.getElementById("npc")!);
 
+function skipDays(days: number): void {
+  if (skipping) return;
+  skipping = days;
+  clock.skipping = true;
+  const step = Math.max(40, 1400 / days);
+  const timer = setInterval(() => {
+    clock.advanceDays(1);
+    if (--skipping <= 0) {
+      clearInterval(timer);
+      clock.skipping = false;
+    }
+  }, step);
+}
+
 const hud = new Hud(document.getElementById("hud")!, {
-  speed: (m) => (clock.speed = m),
-  skip: (days) => {
-    // Play the skip as a quick time-lapse instead of a jump cut.
-    if (skipping) return;
-    skipping = days;
-    clock.skipping = true;
-    const step = Math.max(40, 1400 / days);
-    const timer = setInterval(() => {
-      clock.advanceDays(1);
-      if (--skipping <= 0) {
-        clearInterval(timer);
-        clock.skipping = false;
-      }
-    }, step);
-  },
   tier: (delta) => scene?.hero?.setTier(scene.hero.tier + delta),
-  event: (id) => {
-    scene?.trigger(id);
-    if (id === "crash" || id === "boom") narrator.cue(id);
-    else if (id !== "clear") narrator.cue("disaster");
-  },
-  sky: (v) => (clock.pinnedTimeOfDay = v),
-  zoom: (f) => (f === "reset" ? scene?.resetCamera() : scene?.zoomBy(f)),
-  openMap: () => map.open(state),
   focusHome: () => scene?.focusHome(),
 });
 
 const map = new UsMap(document.getElementById("map")!, STATES, (s) => void open(s));
+
+function captureCityPreview(): string | null {
+  try {
+    // Capture the real rendered city rather than the separate photographic plates.
+    app.render();
+    const source = app.canvas;
+    const preview = document.createElement("canvas");
+    preview.width = 560;
+    preview.height = 315;
+    const context = preview.getContext("2d");
+    if (!context || !source.width || !source.height) return null;
+
+    const targetRatio = preview.width / preview.height;
+    const sourceRatio = source.width / source.height;
+    let sx = 0, sy = 0, sw = source.width, sh = source.height;
+    if (sourceRatio > targetRatio) {
+      sw = source.height * targetRatio;
+      sx = (source.width - sw) / 2;
+    } else {
+      sh = source.width / targetRatio;
+      sy = (source.height - sh) / 2;
+    }
+    context.imageSmoothingEnabled = false;
+    context.drawImage(source, sx, sy, sw, sh, 0, 0, preview.width, preview.height);
+    return preview.toDataURL("image/webp", 0.84);
+  } catch {
+    return null;
+  }
+}
 
 // Fast-forward to a goal: the setup screen runs the days headless, then the calendar jumps.
 const fastForward = new FastForward({
@@ -179,8 +199,17 @@ const fastForward = new FastForward({
   },
 });
 
-// The player's phone: the hub for the game's apps (Stocks opens the Credit Desk; Goals opens the fast-forward).
-const phone = new Phone({ clock, player, recorder, openFastForward: () => fastForward.open() });
+// The player's phone is the hub for market, goals, travel, and timeline controls
+// (Stocks opens the Money desk; Goals opens the fast-forward).
+const phone = new Phone({
+  clock,
+  player,
+  recorder,
+  openFastForward: () => fastForward.open(),
+  openMap: () => map.open(state, captureCityPreview()),
+  skip: skipDays,
+  getWorld: () => ({ state, city: scene?.city ?? cityFor(state), status: scene?.status() ?? null }),
+});
 
 app.renderer.on("resize", (w: number, h: number) => scene?.resize(w, h));
 app.ticker.add((ticker) => {
@@ -188,7 +217,7 @@ app.ticker.add((ticker) => {
   clock.update(dt);
   scene?.update(dt);
 });
-setInterval(() => hud.render(clock, scene?.status() ?? null, scene?.hero?.tier ?? null), 200);
+setInterval(() => hud.render(scene?.hero?.tier ?? null), 200);
 
 // Shared links and back/forward change only the hash, so follow it.
 window.addEventListener("hashchange", () => {
