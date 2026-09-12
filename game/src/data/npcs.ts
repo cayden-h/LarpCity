@@ -9,6 +9,15 @@
 // living costs, so the numbers below are monthly take-home pay against about
 // $2,240 of Texas rent and living costs. Each tells one lesson.
 
+export type JobCategoryId =
+  | "management" | "business_finance" | "tech" | "engineering" | "science"
+  | "social_services" | "legal" | "education" | "arts_media" | "healthcare_pro"
+  | "healthcare_support" | "protective" | "food_service" | "cleaning_grounds"
+  | "personal_care" | "sales_retail" | "office_admin" | "farming" | "construction"
+  | "repair" | "production" | "transport";
+
+export type JobLevel = "entry" | "mid" | "senior" | "lead" | "top";
+
 export type NpcDebtKind = "card" | "student" | "auto" | "personal";
 
 export interface NpcDebtSpec {
@@ -32,6 +41,13 @@ export interface NpcProfile {
   last: string;
   age: number;
   job: string;
+  /**
+   * Optional so Task 11's procedurally generated background roster
+   * (background-npcs.ts) — out of this task's scope — keeps typechecking
+   * without being tagged. Every one of the 12 primary NPCs below sets both.
+   */
+  categoryId?: JobCategoryId;
+  level?: JobLevel;
   monthlyTakeHome: number;
   accounts: { checking: number; savings: number; emergency: number };
   debts: NpcDebtSpec[];
@@ -48,6 +64,8 @@ export const NPCS: NpcProfile[] = [
     last: "Nguyen",
     age: 31,
     job: "nurse",
+    categoryId: "healthcare_pro",
+    level: "senior",
     monthlyTakeHome: 4_900,
     accounts: { checking: 2_400, savings: 6_000, emergency: 9_000 },
     debts: [{ kind: "card", name: "Everyday Visa", balance: 1_200, limit: 8_000, apr: 0.219 }],
@@ -61,6 +79,8 @@ export const NPCS: NpcProfile[] = [
     last: "Garcia",
     age: 24,
     job: "barista",
+    categoryId: "food_service",
+    level: "entry",
     monthlyTakeHome: 2_550,
     accounts: { checking: 350, savings: 0, emergency: 0 },
     debts: [{ kind: "card", name: "Store card", balance: 3_100, limit: 3_500, apr: 0.2499 }],
@@ -74,6 +94,8 @@ export const NPCS: NpcProfile[] = [
     last: "Patel",
     age: 28,
     job: "software developer",
+    categoryId: "tech",
+    level: "senior",
     monthlyTakeHome: 7_600,
     accounts: { checking: 5_200, savings: 18_000, emergency: 20_000 },
     debts: [{ kind: "card", name: "Travel rewards card", balance: 9_400, limit: 20_000, apr: 0.2249 }],
@@ -87,6 +109,8 @@ export const NPCS: NpcProfile[] = [
     last: "Johnson",
     age: 35,
     job: "teacher",
+    categoryId: "education",
+    level: "senior",
     monthlyTakeHome: 3_700,
     accounts: { checking: 900, savings: 2_500, emergency: 1_500 },
     debts: [
@@ -103,6 +127,8 @@ export const NPCS: NpcProfile[] = [
     last: "Martinez",
     age: 42,
     job: "small business owner",
+    categoryId: "sales_retail",
+    level: "lead",
     monthlyTakeHome: 6_200,
     accounts: { checking: 8_000, savings: 12_000, emergency: 5_000 },
     debts: [
@@ -119,6 +145,8 @@ export const NPCS: NpcProfile[] = [
     last: "Tanaka",
     age: 26,
     job: "delivery driver",
+    categoryId: "transport",
+    level: "mid",
     monthlyTakeHome: 2_900,
     accounts: { checking: 600, savings: 0, emergency: 0 },
     debts: [
@@ -135,6 +163,8 @@ export const NPCS: NpcProfile[] = [
     last: "Okafor",
     age: 38,
     job: "pharmacist",
+    categoryId: "healthcare_pro",
+    level: "senior",
     monthlyTakeHome: 8_900,
     accounts: { checking: 6_500, savings: 40_000, emergency: 25_000 },
     debts: [{ kind: "auto", name: "Car loan", balance: 22_000, apr: 0.059, months: 60 }],
@@ -148,6 +178,8 @@ export const NPCS: NpcProfile[] = [
     last: "Hernandez",
     age: 29,
     job: "electrician",
+    categoryId: "construction",
+    level: "senior",
     monthlyTakeHome: 5_100,
     accounts: { checking: 1_900, savings: 4_000, emergency: 2_000 },
     debts: [
@@ -164,6 +196,8 @@ export const NPCS: NpcProfile[] = [
     last: "Brooks",
     age: 23,
     job: "retail associate",
+    categoryId: "sales_retail",
+    level: "entry",
     monthlyTakeHome: 2_300,
     accounts: { checking: 400, savings: 100, emergency: 0 },
     debts: [{ kind: "card", name: "First card", balance: 900, limit: 1_000, apr: 0.2699 }],
@@ -177,6 +211,8 @@ export const NPCS: NpcProfile[] = [
     last: "Ruiz",
     age: 33,
     job: "rideshare driver",
+    categoryId: "transport",
+    level: "entry",
     monthlyTakeHome: 3_300,
     accounts: { checking: 250, savings: 0, emergency: 0 },
     debts: [{ kind: "personal", name: "Emergency repair loan", balance: 2_400, apr: 0.329, months: 18 }],
@@ -190,6 +226,8 @@ export const NPCS: NpcProfile[] = [
     last: "Kim",
     age: 61,
     job: "retiree",
+    categoryId: "management",
+    level: "top",
     monthlyTakeHome: 3_100,
     accounts: { checking: 4_200, savings: 65_000, emergency: 30_000 },
     debts: [],
@@ -203,6 +241,8 @@ export const NPCS: NpcProfile[] = [
     last: "Ahmed",
     age: 27,
     job: "accountant",
+    categoryId: "business_finance",
+    level: "mid",
     monthlyTakeHome: 4_400,
     accounts: { checking: 3_100, savings: 9_000, emergency: 6_000 },
     debts: [{ kind: "student", name: "Student loans", balance: 14_000, apr: 0.045, payment: 145 }],
