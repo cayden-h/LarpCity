@@ -3,6 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { BACKGROUND_NPCS } from "../src/data/background-npcs.ts";
 import { MIRROR_ENTITIES, NPCS } from "../src/data/npcs.ts";
 import type { Place } from "../src/sim/life/index.ts";
 import { MarketPath } from "../src/sim/market/index.ts";
@@ -30,6 +31,13 @@ test("every NPC lives a year on the city clock", () => {
   const maya = town.lives.get("npc-maya")!;
   assert.ok(maya.totalDebt() < 1_200, "Maya pays her card down");
   assert.ok(maya.cash() > 17_400, "and keeps saving");
+});
+
+test("the background roster also runs a year on the city clock without throwing", () => {
+  const town = new NpcTown({ place: TX, day: 0, market: new MarketPath(11, START), start: START, roster: [...NPCS, ...BACKGROUND_NPCS] });
+  for (let day = 1; day <= 365; day++) town.onDay(day);
+  assert.equal(town.lives.size, NPCS.length + BACKGROUND_NPCS.length);
+  for (const [id, life] of town.lives) assert.ok(Number.isFinite(life.netWorth()), id);
 });
 
 test("after a fast-forward, the town catches every NPC up to the new day", () => {
