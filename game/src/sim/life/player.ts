@@ -153,6 +153,8 @@ export interface LifeSave {
   recurring: RecurringBuy[];
   today: number;
   history: LifeSnapshot[];
+  /** Events from the same recent days as daily history, so the calendar's past and a rewind's fork survive a reload. */
+  log: LifeEvent[];
   book: DebtBook;
   ledger: LedgerSave;
   twins: TwinsSave;
@@ -237,7 +239,10 @@ export class PlayerLife {
   readonly history: LifeSnapshot[] = [];
   /** Every event the life has emitted, in order (the calendar reads it; a rewind truncates it). */
   readonly log: LifeEvent[] = [];
-  /** True while days replay for a rewind: events still go in the log, but no listener hears them. */
+  /**
+   * True while days replay for a rewind: events still go in the log, but no listener hears them.
+   * Not saved: it is only true inside `quietly`, and a save is never taken there.
+   */
   private muted = false;
   /** Shadow portfolios of the player's buys, for "if you had held" and "autopilot". */
   readonly twins: Twins;
@@ -292,6 +297,7 @@ export class PlayerLife {
       this.inBear = s.inBear;
       this.startUnits.push(...s.startUnits);
       this.history.push(...s.history);
+      this.log.push(...s.log);
       this.startSnap = s.startSnap;
       return;
     }
@@ -336,6 +342,7 @@ export class PlayerLife {
       recurring: this.recurring,
       today: this.today,
       history: compactHistory(this.history, this.today, keepDaily),
+      log: this.log.filter((e) => e.day > this.today - keepDaily),
       book: this.book,
       ledger: this.ledger.toSave(),
       twins: this.twins.toSave(),
