@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PlayerLife, cashRateOn, seriesOn, US_MEDIAN_RENT, type Place } from "../src/sim/life/index.ts";
+import { PlayerLife, STARTER_PORTFOLIO, cashRateOn, seriesOn, US_MEDIAN_RENT, type Place } from "../src/sim/life/index.ts";
 import { MARKET } from "../src/data/market.ts";
 
 const TX: Place = { abbr: "TX", name: "Texas", rpp: { all: 97.4, goods: 97.0, housing: 88.6 } };
@@ -75,6 +75,25 @@ test("home tier follows net worth", () => {
   assert.equal(life.homeTier(), 1); // about -$40k net worth: studio
   life.ledger.get("savings").balance = 200_000;
   assert.equal(life.homeTier(), 3); // about $160k: townhouse
+});
+
+test("a starter portfolio moves net worth with the market and gives charts a past", () => {
+  const plain = new PlayerLife({ place: TX, day: 0 });
+  const life = new PlayerLife({ place: TX, day: 0, holdings: STARTER_PORTFOLIO });
+  const total = Object.values(STARTER_PORTFOLIO).reduce((s, v) => s + v, 0);
+  assert.ok(Math.abs(life.investments() - total) < 0.02, `investments ${life.investments()}`);
+  assert.ok(Math.abs(life.netWorth() - (plain.netWorth() + total)) < 0.02);
+  // Bought a year ago at that day's real price, so the positions carry a gain or loss.
+  assert.ok(life.positions().every((p) => p.cost > 0 && p.cost !== p.value));
+
+  const past = life.pastSnapshots(-30);
+  assert.deepEqual([past[0].day, past.at(-1)!.day, past.length], [-30, -1, 30]);
+  // The past follows the real market: holdings move while cash and debt hold still.
+  assert.ok(new Set(past.map((p) => p.investments)).size > 5);
+  assert.ok(past.every((p) => p.cash === life.history[0].cash && p.debt === life.history[0].debt));
+  assert.ok(plain.pastSnapshots(-30).every((p) => p.netWorth === plain.netWorth()));
+  // The past is separate from the days lived.
+  assert.equal(life.history.length, 1);
 });
 
 test("the life is deterministic", () => {

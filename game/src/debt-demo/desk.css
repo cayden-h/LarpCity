@@ -1,13 +1,15 @@
 /* Money desk (/debt.html) in Robinhood's look: white ground, one accent that
    follows the direction of the big number (green #00C805 up, orange-red
    #FF5000 down, the orange hint keeping a down day from reading as an error),
-   tabular numbers, and no chrome. The Card Shop keeps the city game's look
-   inside its own panel (shop.css). */
+   tabular numbers, and no chrome. Action buttons stay green on down days so
+   "Buy" never reads as a warning. The Card Shop (shop.css) uses the same look. */
 
 :root {
   --up: #00c805;
   --down: #ff5000;
   --accent: var(--up);
+  --brand: var(--up);
+  --brand-ink: #0a7a12;
   --ink: #0b0b0c;
   --sub: #6b7280;
   --line: #ececef;
@@ -95,6 +97,10 @@ button:disabled {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
 }
 .tabs button {
   padding: 8px 0;
@@ -192,6 +198,11 @@ button:disabled {
   .top-in {
     flex-wrap: wrap;
     gap: 12px 20px;
+  }
+  /* The section tabs get their own row under the logo and the time controls. */
+  .top-in .tabs {
+    order: 3;
+    flex: 1 1 100%;
   }
 }
 
@@ -328,16 +339,19 @@ button:disabled {
 }
 .cta {
   flex: none;
-  background: var(--accent);
+  background: var(--brand);
   color: #fff;
   font-weight: 600;
   padding: 10px 22px;
   border-radius: 999px;
   white-space: nowrap;
 }
+.cta:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
 .cta.soft {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand-ink);
 }
 .cta.plain {
   background: var(--soft);
@@ -534,6 +548,26 @@ button:disabled {
   border-color: var(--accent);
   color: var(--accent);
 }
+.amt-in {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-weight: 600;
+}
+.amt-in:focus-within {
+  border-color: var(--accent);
+}
+.amt-in input {
+  width: 72px;
+  padding: 8px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-weight: 600;
+}
 .trade {
   display: flex;
   gap: 10px;
@@ -559,6 +593,91 @@ button:disabled {
 }
 .msg.bad {
   color: #b33a00;
+}
+
+/* Cash tab: quick actions, accounts, the statement ------------------------------ */
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+.acct .amt {
+  font-weight: 600;
+  font-size: 16px;
+  white-space: nowrap;
+}
+.acct b .chip {
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+.xfer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.xfer-row label:not(.amt-in) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--sub);
+  font-size: 14px;
+}
+.xfer-row select {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink);
+  font-weight: 600;
+}
+.t-day {
+  margin-top: 14px;
+  padding: 8px 0 6px;
+  border-bottom: 1px solid var(--line);
+  color: var(--sub);
+  font-size: 13px;
+  font-weight: 600;
+}
+.txn {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.txn .av {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--soft);
+  font-size: 17px;
+}
+.txn b {
+  display: block;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.txn small {
+  color: var(--sub);
+  font-size: 13px;
+}
+.t-amt {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.t-amt.in {
+  color: var(--brand-ink);
+}
+.t-amt.move {
+  color: var(--sub);
 }
 
 /* Side panel --------------------------------------------------------------- */
@@ -644,15 +763,9 @@ button:disabled {
   vertical-align: 1px;
 }
 
-/* Card Shop panel keeps the city game's look ---------------------------------- */
+/* The Card Shop sits under the Cards page in the same column. */
 .page.wide {
-  padding-bottom: 28px;
-}
-.shop-panel {
-  margin: 0 24px 24px;
-  border-radius: 16px;
-  overflow: hidden;
-  background: linear-gradient(180deg, #8cc6f2 0%, #bfe0fb 55%, #dcefff 100%);
+  padding-bottom: 8px;
 }
 
 /* Decision sheet ------------------------------------------------------------- */
