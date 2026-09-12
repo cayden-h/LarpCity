@@ -560,6 +560,11 @@ export class PlayerLife {
     return this.pendingReturn;
   }
 
+  /** Any unpaid tax balance still owed (accumulates across unresolved years); null once paid off. */
+  unpaidTaxBalance(): { originalOwed: number; amount: number; dueDay: number; filedDay: number | null; penaltyCharged: number } | null {
+    return this.unpaidTax;
+  }
+
   /**
    * Files the pending return: applies a refund to checking, or withdraws what's
    * owed (partially, if checking can't cover it). A shortfall becomes or
@@ -581,8 +586,16 @@ export class PlayerLife {
       checking.balance = round2(checking.balance - paid);
       const unpaid = round2(owed - paid);
       if (unpaid > 0) {
-        if (this.unpaidTax) this.unpaidTax.filedDay = day; // Task 11's tick already started tracking it
-        else this.unpaidTax = { originalOwed: unpaid, amount: unpaid, dueDay: this.taxReadyDay ?? day, filedDay: day, penaltyCharged: 0 };
+        if (this.unpaidTax) {
+          // A prior year's shortfall is still outstanding; this year's adds to it
+          // rather than overwriting, so the balance a later penalty-escalation
+          // feature reads never silently shrinks.
+          this.unpaidTax.originalOwed = round2(this.unpaidTax.originalOwed + unpaid);
+          this.unpaidTax.amount = round2(this.unpaidTax.amount + unpaid);
+          this.unpaidTax.filedDay = day;
+        } else {
+          this.unpaidTax = { originalOwed: unpaid, amount: unpaid, dueDay: this.taxReadyDay ?? day, filedDay: day, penaltyCharged: 0 };
+        }
       }
     }
     ret.filedDay = day;

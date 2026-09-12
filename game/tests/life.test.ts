@@ -13,6 +13,7 @@ const dateOf = (day: number) => {
   d.setDate(d.getDate() + day);
   return d;
 };
+const round2 = (x: number) => Math.round(x * 100) / 100;
 const live = (life: PlayerLife, days: number, from = 0) => {
   const all = [];
   for (let day = from + 1; day <= from + days; day++) all.push(...life.onDay(day, dateOf(day)));
@@ -151,4 +152,67 @@ test("runHeadless auto-files at the deadline instead of leaving it pending", () 
   const result = life.runHeadless(0, 220, dateOf(0));
   assert.ok(result.events.some((e) => e.type === "tax_filed" && e.auto === true));
   assert.equal(life.pendingTaxReturn(), null);
+});
+
+test("a second year's shortfall adds to an unresolved first year's unpaidTax instead of overwriting it", () => {
+  // A player who never moves reconciles close to $0 (withholding tracks the
+  // real liability), so whether they owe or get a refund is close to a coin
+  // flip. To force a deterministic, repeatable shortfall two years running,
+  // this player lives in TX (no state withholding) all year, then moves to
+  // CA the day before the April 15 deadline: the return is filed against
+  // CA's state tax on wages that were withheld at 0%, which reliably owes
+  // more than the (structurally refund-leaning) federal side gives back.
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 2_000_000 });
+  const checking = life.ledger.get("checking");
+
+  let day = 0;
+  for (day = 1; day <= 230; day++) {
+    const d = dateOf(day);
+    if (d.getFullYear() === 2027 && d.getMonth() === 3 && d.getDate() === 15) {
+      life.setPlace(CA, day - 1);
+      life.onDay(day, d);
+      break;
+    }
+    life.onDay(day, d);
+  }
+  const ret1 = life.pendingTaxReturn();
+  assert.ok(ret1 !== null);
+  const year1Unpaid = round2(-(ret1!.federalRefundOrOwed + ret1!.stateRefundOrOwed));
+  assert.ok(year1Unpaid > 0, `expected year 1 to owe money, got ${year1Unpaid}`);
+
+  checking.balance = 0; // drain checking so none of the shortfall gets paid
+  life.fileTaxes(day + 1);
+  const afterYear1 = life.unpaidTaxBalance();
+  assert.ok(afterYear1 !== null);
+  assert.equal(afterYear1!.amount, year1Unpaid);
+  assert.equal(afterYear1!.originalOwed, year1Unpaid);
+
+  // Year 2: back to TX, then to CA again right before the next April 15 -
+  // the same trick, guaranteeing another shortfall on top of the
+  // still-unresolved year 1 balance.
+  life.setPlace(TX, day + 1);
+  let day2 = day + 2;
+  for (; day2 <= 700; day2++) {
+    const d = dateOf(day2);
+    if (d.getFullYear() === 2028 && d.getMonth() === 3 && d.getDate() === 15) {
+      life.setPlace(CA, day2 - 1);
+      life.onDay(day2, d);
+      break;
+    }
+    life.onDay(day2, d);
+  }
+  const ret2 = life.pendingTaxReturn();
+  assert.ok(ret2 !== null);
+  const year2Unpaid = round2(-(ret2!.federalRefundOrOwed + ret2!.stateRefundOrOwed));
+  assert.ok(year2Unpaid > 0, `expected year 2 to owe money, got ${year2Unpaid}`);
+
+  checking.balance = 0; // drain checking again before the second filing
+  life.fileTaxes(day2 + 1);
+  const afterYear2 = life.unpaidTaxBalance();
+  assert.ok(afterYear2 !== null);
+  // The bug this guards against: overwriting `amount`/`originalOwed` with just
+  // year2Unpaid instead of adding it to the still-outstanding year 1 balance.
+  assert.equal(afterYear2!.amount, round2(year1Unpaid + year2Unpaid));
+  assert.equal(afterYear2!.originalOwed, round2(year1Unpaid + year2Unpaid));
+  assert.equal(afterYear2!.filedDay, day2 + 1);
 });
