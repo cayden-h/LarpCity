@@ -316,6 +316,61 @@ test("a second year's shortfall filed inside the 180-day conversion window merge
   assert.equal(afterYear2!.filedDay, day2);
 });
 
+test("a second tax year's unfiled shortfall is still tracked after an earlier year's already converted to an IRS balance Debt", () => {
+  // Regression test: tickTaxPenalty()'s lazy-creation guard used to check
+  // `!this.book.debts.some((d) => d.name === "IRS balance")` to decide whether
+  // a fresh unpaidTax could be started. That's a name-based proxy for "has
+  // THIS balance already converted", but Debt names aren't unique across tax
+  // years - once year 1 converted to its own "IRS balance" Debt, that check
+  // stayed permanently true and silently blocked year 2's distinct shortfall
+  // from ever being tracked (no unpaidTax, no tax_penalty events), even though
+  // year 2's dueDay is completely different from year 1's. The fix tracks
+  // converted due days individually (convertedTaxDueDays) instead of asking
+  // "does any IRS Debt exist at all".
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 2_000_000 });
+  const checking = life.ledger.get("checking");
+  const day = moveToCARightBeforeDeadline(life);
+  const ret1 = life.pendingTaxReturn();
+  assert.ok(ret1 !== null);
+
+  // Never file year 1: let tickTaxPenalty's lazy-creation guard start
+  // unpaidTax on its own, then escalate it all the way into a real Debt.
+  checking.balance = 0;
+  live(life, 210, day); // past the 180-day conversion threshold
+  assert.ok(life.book.debts.some((d) => d.name === "IRS balance"), "year 1's shortfall should have converted to a Debt");
+  assert.equal(life.unpaidTaxBalance(), null, "year 1's shadow tracker should be cleared once it becomes a Debt");
+
+  // Attach year 2's return directly (same trick the merge-branch test above
+  // uses), well after year 1's conversion, with a distinct dueDay/taxReadyDay.
+  const ret2 = fileReturn({
+    year: 2028,
+    state: "CA",
+    wagesYtd: ret1!.wages,
+    federalWithheldYtd: ret1!.federalWithheld,
+    stateWithheldYtd: ret1!.stateWithheld,
+  });
+  const year2Unpaid = round2(-(ret2.federalRefundOrOwed + ret2.stateRefundOrOwed));
+  assert.ok(year2Unpaid > 0, `expected year 2 to owe money, got ${year2Unpaid}`);
+  const day2 = day + 210 + 30;
+  (life as unknown as { pendingReturn: unknown }).pendingReturn = ret2;
+  (life as unknown as { taxReadyDay: number }).taxReadyDay = day2 - 1;
+
+  checking.balance = 0;
+  // Never file year 2 either: let the deadline pass so the lazy-creation
+  // guard is what's responsible for starting to track it. A full 90 days
+  // guarantees at least two monthly (dom === 1) ticks past creation, since
+  // the first tick that creates unpaidTax computes 0 months overdue.
+  const events = live(life, 90, day2 - 1);
+
+  assert.ok(events.some((e) => e.type === "tax_penalty"), "year 2's shortfall should be tracked and escalate, despite year 1's Debt still existing");
+  const afterYear2 = life.unpaidTaxBalance();
+  assert.ok(afterYear2 !== null, "year 2's shortfall should have been picked up by the lazy-creation guard");
+  assert.equal(afterYear2!.originalOwed, year2Unpaid);
+  assert.equal(afterYear2!.dueDay, day2 - 1);
+  // Year 1's Debt must still be there, untouched, alongside year 2's live tracker.
+  assert.ok(life.book.debts.some((d) => d.name === "IRS balance"), "year 1's Debt should still be on the books");
+});
+
 test("an unpaid tax balance accrues failure-to-file penalties if the deadline passes with no filing", () => {
   const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 2_000_000 });
   const day = moveToCARightBeforeDeadline(life);

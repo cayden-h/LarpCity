@@ -225,6 +225,9 @@ export class PlayerLife {
    */
   private unpaidTax: { originalOwed: number; amount: number; dueDay: number; filedDay: number | null; penaltyCharged: number } | null = null;
 
+  /** dueDay values whose unpaid tax has already converted to a Debt, so a later year's distinct balance is never blocked by an older year's still-open "IRS balance" Debt. */
+  private convertedTaxDueDays = new Set<number>();
+
   /** Gross wages earned so far in the current calendar year (resets each January 1 payday); shown on the Taxes tab. */
   wagesYtd(): number {
     return this.wagesYtdAmount;
@@ -628,7 +631,7 @@ export class PlayerLife {
       this.pendingReturn &&
       this.taxReadyDay !== null &&
       day > this.taxReadyDay &&
-      !this.book.debts.some((d) => d.name === "IRS balance")
+      !this.convertedTaxDueDays.has(this.taxReadyDay)
     ) {
       const owed = round2(-(this.pendingReturn.federalRefundOrOwed + this.pendingReturn.stateRefundOrOwed));
       if (owed > 0) this.unpaidTax = { originalOwed: owed, amount: owed, dueDay: this.taxReadyDay, filedDay: null, penaltyCharged: 0 };
@@ -643,10 +646,20 @@ export class PlayerLife {
       this.unpaidTax.amount = round2(this.unpaidTax.amount + delta);
       events.push({ type: "tax_penalty", day, amount: delta });
     }
-    if (monthsSinceDue >= 6 && !this.book.debts.some((d) => d.name === "IRS balance")) {
+    if (monthsSinceDue >= 6 && !this.convertedTaxDueDays.has(this.unpaidTax.dueDay)) {
       this.book.debts.push(
-        installment({ id: `irs-${day}`, kind: "personal", name: "IRS balance", balance: this.unpaidTax.amount, apr: 0.08, months: 36, day, openedDay: day }),
+        installment({
+          id: `irs-${this.unpaidTax.dueDay}`,
+          kind: "personal",
+          name: "IRS balance",
+          balance: this.unpaidTax.amount,
+          apr: 0.08,
+          months: 36,
+          day,
+          openedDay: day,
+        }),
       );
+      this.convertedTaxDueDays.add(this.unpaidTax.dueDay);
       // From here the balance lives entirely as a normal Debt (its own accrual,
       // payments, and delinquency via tickDay): clear the shadow tracker so it
       // doesn't keep escalating in parallel, forever diverging from what the
