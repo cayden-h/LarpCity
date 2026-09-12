@@ -126,3 +126,29 @@ test("wagesYtd resets to 0 on January 1", () => {
   live(life, 7, 105);
   assert.ok(life.wagesYtd() < beforeReset);
 });
+
+test("a tax_ready event fires on April 15 for the prior year's wages, and time is not paused by it", () => {
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 60_000 });
+  const events = live(life, 220);
+  assert.ok(life.pendingTaxReturn() !== null);
+  assert.equal(life.pendingTaxReturn()!.year, 2026);
+  assert.equal(life.needsDecision(events), false); // the deadline never pauses time
+});
+
+test("fileTaxes() applies a refund to checking and clears the pending return", () => {
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 20_000 }); // low income, likely a refund after EIC
+  live(life, 220);
+  const before = life.cash();
+  const ret = life.pendingTaxReturn()!;
+  const event = life.fileTaxes(life.today + 1);
+  assert.equal(event.type, "tax_filed");
+  assert.equal(life.pendingTaxReturn(), null);
+  if (ret.federalRefundOrOwed + ret.stateRefundOrOwed > 0) assert.ok(life.cash() > before);
+});
+
+test("runHeadless auto-files at the deadline instead of leaving it pending", () => {
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 60_000 });
+  const result = life.runHeadless(0, 220, dateOf(0));
+  assert.ok(result.events.some((e) => e.type === "tax_filed" && e.auto === true));
+  assert.equal(life.pendingTaxReturn(), null);
+});

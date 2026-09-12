@@ -24,6 +24,8 @@ import { Ledger } from "../money/accounts.ts";
 import type { Account, Holding } from "../money/types.ts";
 import { CrashWatch, PANIC_DRAWDOWN } from "../skip/crash.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
+import { fileReturn } from "../tax/filing.ts";
+import type { TaxReturn } from "../tax/types.ts";
 import { withholdingForPaycheck } from "../tax/withholding.ts";
 import { cashRateOn } from "./rates.ts";
 import { Twins } from "./twins.ts";
@@ -72,7 +74,9 @@ export type LifeEvent =
   | { type: "trade"; day: number; id: InstrumentId; side: "buy" | "sell"; amount: number; units: number; price: number; recurring: boolean }
   | { type: "trade_skipped"; day: number; id: InstrumentId; amount: number; reason: string }
   | { type: "bear_market"; day: number; drop: number; stocks: number }
-  | { type: "market_recovered"; day: number; you: number; held: number; autopilot: number };
+  | { type: "market_recovered"; day: number; you: number; held: number; autopilot: number }
+  | { type: "tax_ready"; day: number; year: number }
+  | { type: "tax_filed"; day: number; year: number; refundOrOwed: number; auto: boolean };
 
 export interface LifeSnapshot {
   day: number;
@@ -204,6 +208,19 @@ export class PlayerLife {
   private wagesYtdAmount = 0;
   private federalWithheldYtd = 0;
   private stateWithheldYtd = 0;
+  private pendingReturn: TaxReturn | null = null;
+  /** The day the pending return became ready (~April 15) — the reference point penalties.ts measures lateness from, independent of when (or whether) the player actually files. */
+  private taxReadyDay: number | null = null;
+  /**
+   * `originalOwed` is fixed (the actual unpaid tax) — `penaltyFor` (Task 11)
+   * always computes off this, never off the inflated running balance, so
+   * penalties are never charged on top of previously-added penalties. `amount`
+   * is the running balance (original + all penalties/interest so far) that
+   * becomes the eventual Debt's opening balance. `penaltyCharged` is how much
+   * of `penaltyFor`'s cumulative total has already been folded into `amount`,
+   * so each monthly tick adds only that month's new increment.
+   */
+  private unpaidTax: { originalOwed: number; amount: number; dueDay: number; filedDay: number | null; penaltyCharged: number } | null = null;
 
   /** Gross wages earned so far in the current calendar year (resets each January 1 payday); shown on the Taxes tab. */
   wagesYtd(): number {
@@ -473,6 +490,20 @@ export class PlayerLife {
       if (interest > 0) events.push({ type: "savings_interest", day, amount: interest });
       if (this.orders) events.push(...this.onFirstOfMonth(day));
     }
+
+    if (date.getMonth() === 3 && date.getDate() === 15 && !this.pendingReturn) {
+      const priorYear = date.getFullYear() - 1;
+      this.pendingReturn = fileReturn({
+        year: priorYear,
+        state: this.place.abbr,
+        wagesYtd: this.wagesYtdAmount, // the year that just closed on Dec 31 is what accumulated since the last reset
+        federalWithheldYtd: this.federalWithheldYtd,
+        stateWithheldYtd: this.stateWithheldYtd,
+      });
+      this.taxReadyDay = day;
+      events.push({ type: "tax_ready", day, year: priorYear });
+    }
+
     events.push(...this.watchMarket(day));
     this.record(day);
     this.emit(events);
@@ -492,6 +523,7 @@ export class PlayerLife {
       date.setDate(date.getDate() + 1);
       const events = this.onDay(fromDay + i, new Date(date));
       all.push(...events);
+      if (this.pendingReturn) all.push(this.fileTaxes(fromDay + i, true));
       if (this.stopsSkip(events)) return { daysRun: i, stoppedBy: "bankruptcy", events: all };
     }
     return { daysRun: days, stoppedBy: null, events: all };
@@ -519,6 +551,43 @@ export class PlayerLife {
     this.employed = employed;
     this.book.monthlyTakeHome = this.monthlyTakeHome * (employed ? 1 : UNEMPLOYMENT_SHARE);
     const e: LifeEvent = { type: "job", day, employed };
+    this.emit([e]);
+    return e;
+  }
+
+  /** The prior year's tax return, once ready (around April 15), until the player files it. */
+  pendingTaxReturn(): TaxReturn | null {
+    return this.pendingReturn;
+  }
+
+  /**
+   * Files the pending return: applies a refund to checking, or withdraws what's
+   * owed (partially, if checking can't cover it). A shortfall becomes or
+   * updates `unpaidTax` — same object Task 11's monthly tick creates if the
+   * deadline passes with nothing filed yet, so the two paths never double-track
+   * the same balance. Real-world-accurate detail this preserves: failure-to-pay
+   * and interest run from the original April 15 due date regardless of when
+   * (or whether) the player files; only failure-to-file stops the moment you file.
+   */
+  fileTaxes(day: number, auto = false): LifeEvent {
+    const ret = this.pendingReturn;
+    if (!ret) throw new Error("No pending tax return to file.");
+    const refundOrOwed = round2(ret.federalRefundOrOwed + ret.stateRefundOrOwed);
+    const checking = this.ledger.get("checking");
+    if (refundOrOwed >= 0) checking.balance = round2(checking.balance + refundOrOwed);
+    else {
+      const owed = -refundOrOwed;
+      const paid = Math.min(owed, checking.balance);
+      checking.balance = round2(checking.balance - paid);
+      const unpaid = round2(owed - paid);
+      if (unpaid > 0) {
+        if (this.unpaidTax) this.unpaidTax.filedDay = day; // Task 11's tick already started tracking it
+        else this.unpaidTax = { originalOwed: unpaid, amount: unpaid, dueDay: this.taxReadyDay ?? day, filedDay: day, penaltyCharged: 0 };
+      }
+    }
+    ret.filedDay = day;
+    this.pendingReturn = null;
+    const e: LifeEvent = { type: "tax_filed", day, year: ret.year, refundOrOwed, auto };
     this.emit([e]);
     return e;
   }
