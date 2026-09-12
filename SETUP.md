@@ -590,12 +590,8 @@ larpcity.example, www.larpcity.example {
 }
 ```
 
-Deploy:
-
-```bash
-cd game && npm run build && rsync -az --delete dist/ larp@IP:/var/www/larp-city/
-ssh larp@IP 'cd larp-city && git pull && cd server && npm ci && npm run build && sudo systemctl restart larp-server'
-```
+Deploy: the box has no git checkout, so build locally, copy both halves to staging folders, check the real secrets against the new server, then swap and restart with a health-check rollback.
+The full procedure and the box's layout are in [server/README.md](server/README.md) (Deploy).
 
 First time only: `sudo systemctl daemon-reload && sudo systemctl enable --now larp-server && sudo systemctl reload caddy`.
 
@@ -677,7 +673,7 @@ VITE_PERSONA_TEMPLATE_ID=itmpl_
 VITE_PERSONA_ENVIRONMENT_ID=env_
 ```
 
-## Setup status (2026-09-11, night)
+## Setup status (updated 2026-09-12)
 
 Keys live in `Larp City/.env` on Cayden's laptop (mode 600, gitignored at the repo root and in `game/`); ask Cayden by DM, never paste them in Notion or git.
 All accounts are on sixtyfourandten@gmail.com (Nessie is on the `cayden-h` GitHub login).
@@ -690,7 +686,7 @@ All accounts are on sixtyfourandten@gmail.com (Nessie is on the `cayden-h` GitHu
 | Capital One Nessie | Done; API probed and bank mirror built (Sep 12) | Key from the `cayden-h` GitHub login; the 8 NPC customers, player customers per session, and two probe customers | Every endpoint we use (see the Nessie section); the mirror's statements matched the game's balances end to end |
 | Gemini | Done | Three keys in `GEMINI_API_KEYS`, rotated on 429 or 503; no OpenAI (we use Claude Code and ChatGPT in the browser for anything else) | All three: list models 200 (includes `gemini-3.8-flash` and `gemini-3.1-flash-image`), `gemini-3.8-flash` replies (key 2 needed one retry after a 503). Image generation billing not tested |
 | Persona | Teammate | | |
-| Vultr | Key saved, IP not allowed yet | `VULTR_API_KEY` in `.env` | Returns 401 "Unauthorized IP address" from the Rice network (168.5.164.0); add that IP (or the VPS IP) under Account > API > Access Control |
+| Vultr | Done; live, running `main` | VPS `larp-city` (Dallas, vc2-2c-4gb, Ubuntu 24.04) on Tri Nguyen's account, serving https://144-202-68-33.sslip.io; `VULTR_API_KEY` in `.env` (its IP allow list needs each deployer's IP) | `/api/health` 200 through Caddy; on 2026-09-12 the intake, the city, `/debt.html`, run recording, and the Nessie mirror were checked in a browser |
 | Domain | Waiting on the MLH code | | |
 
 ## Setup checklist (who does what)
@@ -702,9 +698,9 @@ All accounts are on sixtyfourandten@gmail.com (Nessie is on the `cayden-h` GitHu
 - [x] Gemini: three rotating keys in `GEMINI_API_KEYS` (image generation billing still to confirm).
 - [x] Tiger Data: ~~trial service~~ (done), ~~save `DATABASE_URL`~~ (done), ~~run the schema~~ (done: `python3 game/db/load.py` applies `game/db/schema.sql` and loads the card catalog and FRED rates).
 - [x] Backboard: key, the coach assistant with research docs uploaded (chat needs paid credits).
-- [ ] Vultr: redeem the MLH code, Ubuntu 24.04 VPS, Node 22, Caddy, systemd.
+- [x] Vultr: VPS with Node 22, Caddy, and systemd, live at https://144-202-68-33.sslip.io and running `main` (redeploy steps in `server/README.md`).
 - [ ] Domain: MLH code, A record to the VPS.
-- [ ] Alpha Vantage (optional live quotes on `/debt.html`): free key from https://www.alphavantage.co/support/#api-key as `ALPHAVANTAGE_API_KEY` in `Larp City/.env` (or `game/.env.local`); the Vite dev server proxies `/api/market/*` and caches for the 25-requests-a-day limit (see `game/.env.example` and research/07). Without it the page uses the FRED snapshot.
+- [ ] Alpha Vantage (optional live quotes on `/debt.html`): free key from https://www.alphavantage.co/support/#api-key as `ALPHAVANTAGE_API_KEY` in `Larp City/.env` (or `game/.env.local`); the Vite dev server proxies `/api/market/*` and caches for the 25-requests-a-day limit (see `game/.env.example` and research/07). Without it the page uses the FRED snapshot. The production server doesn't serve `/api/market/*` yet, so the deployed game always uses the snapshot.
 - [x] Repo: `server/` (Express, keys from the root `.env`) and `.env.example`; the root `.env` also needs a `SESSION_SECRET`.
 - [ ] Share secrets through a password manager or DM, never in Notion or git.
 

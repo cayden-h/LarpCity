@@ -10,9 +10,9 @@ obtain each provider's keys.
 1. Fill in the repo-root `.env` (copy `.env.example`; see `SETUP.md` for where each key comes from).
    Persona is optional for now: without its keys the server still boots and `/api/persona/*` answers 503.
 2. `npm install`
-3. `npm run dev` — starts on `PORT` (default 3000), applies additive migrations on boot, and
+3. `npm run dev` starts on `PORT` (default 3000), applies additive migrations on boot, and
    serves `/api/health`.
-4. `cd ../game && npm run dev` — the game calls the server at `VITE_API_BASE_URL` from the root `.env`.
+4. `cd ../game && npm run dev`: the game calls the server at `VITE_API_BASE_URL` from the root `.env`.
 
 To try it without touching the team's Tiger Data, run a local TimescaleDB and point the server at it
 (`sslmode=disable` turns TLS off for a local database):
@@ -88,12 +88,44 @@ run, and a new run deletes the session's old ones. The probe results behind thes
 
 ## Tests
 
-`npm test` runs `node --import tsx --test` over every `*.test.ts` file. These are adapter-level
-unit tests with mocked `fetch`/injected fake clients — no live database or external API calls are
-made during `npm test`.
+`npm test` runs `node --import tsx --test` over every `*.test.ts` file.
+Most are unit tests with mocked `fetch` or injected fake clients, so no external API is called.
+The store and local-Nessie tests (`*.db.test.ts`) run against a real TimescaleDB only when
+`TEST_DATABASE_URL` is set (see "Run data" above); otherwise they are skipped.
 
 ## Deploy
 
-See `deploy/Caddyfile` and `deploy/larp-server.service`, and the Vultr section of `../SETUP.md`
-for the full VPS provisioning steps (Node 22, Caddy, systemd, `/etc/larp-city/server.env` at
-mode 600).
+The game and this server are live at https://144-202-68-33.sslip.io on a Vultr VPS (Ubuntu 24.04,
+Node 22, Tri Nguyen's account), running `main` since 2026-09-12.
+Provisioning is in the Vultr section of `../SETUP.md`, with the unit and proxy files in `deploy/`.
+
+On the box (SSH as `larp@144.202.68.33` with the team's deploy key; ask Cayden):
+
+| What | Where |
+| --- | --- |
+| Game (static files, served by Caddy) | `/var/www/larp-city` |
+| This server (systemd `larp-server`, runs `dist/index.js`) | `/home/larp/larp-city/server` |
+| Secrets (root, mode 600) | `/etc/larp-city/server.env` |
+| Caddy's domain | `/etc/systemd/system/caddy.service.d/domain.conf` (`DOMAIN=...`) |
+
+The box has no git checkout: deploy by building locally and copying.
+Stage both halves first and swap only once both are ready, so the live site never mixes versions:
+
+1. Build `main` from a clean worktree: `npm ci && npm test && npm run build` in `game/` (the committed root
+   `.env.production` keeps API calls relative, so `dist/` must not contain `localhost:3000`), and
+   `npm ci && npm test` in `server/`.
+2. Copy `server/` without `node_modules`, `dist`, `.cache`, or `.env*` to `~/larp-city/server-next`,
+   then run `npm ci && npm run build` there.
+3. Check the real secrets satisfy the new settings (as root):
+   `cd /home/larp/larp-city/server-next && set -a && . /etc/larp-city/server.env && set +a && node -e "import('./dist/env.js')"`.
+4. Copy `game/dist/` to `~/web-next`.
+5. Swap: `mv server server-prev-<time> && mv server-next server`, `sudo systemctl restart larp-server`,
+   and poll `curl localhost:3000/api/health`; if it never answers, move the old folder back and restart.
+6. `rsync -a --delete ~/web-next/ /var/www/larp-city/` (keep a copy of the old web root first).
+7. Check `journalctl -u larp-server` (as root) shows "server migrations applied", then load the site and
+   `/debt.html` in a browser.
+
+Migrations run against the shared Tiger Data on every boot, so they must stay additive and idempotent.
+macOS's `rsync` is Apple's `openrsync`: give the remote destination as an absolute path.
+The production server doesn't serve `/api/market/*` (live quotes exist only in the Vite dev server),
+so the deployed game uses the FRED snapshot.

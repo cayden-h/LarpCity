@@ -1,6 +1,7 @@
 # 12 - Simplifying the Credit Desk UI
 
 Research on making the Credit Desk (`game/debt.html`) and the market views simpler to see, use, and understand.
+The desk was rebuilt from this research as the Money desk on 2026-09-12; [game/README.md](../game/README.md) describes it as it is now.
 Written 2026-09-12 during HackRice 2026.
 The Card Shop (`game/src/debt-demo/shop.ts`) is the reference for what "good" looks like; the Desk view (`game/src/debt-demo/main.ts`) is what needs work.
 Mockups: `.lavish/credit-desk-mockups.html` (three directions plus a recommended hybrid).

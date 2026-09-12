@@ -19,6 +19,7 @@ Everything else (`research/`, `docs/`, `diagrams/`, `reference/`) is design docs
 
 `main` holds everything: it was assembled on 2026-09-12 from the team's integration branch `Tri` (PRs #1-#12) plus Eric's UI branch, and `Tri` was fast-forwarded to match.
 Other people and sessions push to this repository at the same time, so fetch and check `origin/main` before starting and before opening a PR.
+The live site at https://144-202-68-33.sslip.io runs `main` on a Vultr VPS; redeploy with the steps in [server/README.md](server/README.md) (Deploy).
 
 ## Commands
 

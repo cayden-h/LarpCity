@@ -36,13 +36,15 @@ Research for each area lives in [research/](research/); where it conflicts with 
 City art direction (backgrounds with day/night/weather, landmarks, traffic, the states map) is in [research/05-city-visuals-and-art-pipeline.md](research/05-city-visuals-and-art-pipeline.md).
 The playable city prototype (every state, 6 hand-made cities, generated backgrounds, weather, traffic) is in [game/](game/): `cd game && npm install && npm run dev`.
 Debt and credit (card, student, auto, mortgage, BNPL, payday loans, credit score, delinquency, bankruptcy) is in [research/06-debt-and-credit.md](research/06-debt-and-credit.md), mirrored to Notion as the "💳 Debt & Credit" section and research sub-page.
-The debt engine is built and wired into the city: design in [research/07-debt-system-design.md](research/07-debt-system-design.md), engine in `game/src/sim/debt/`, the player's money life (paychecks, state rent, accounts, debt) in `game/src/sim/life/` running on every game day, a markets-terminal Credit Desk at `/debt.html` in the city game's look (opened from the phone's Stocks app) (real FRED rates and index history, optional live Alpha Vantage quotes via `ALPHAVANTAGE_API_KEY` in `game/.env.local`), tests via `npm test`, and pitch-deck diagrams in [diagrams/debt/](diagrams/debt/).
+The debt engine is built and wired into the city: design in [research/07-debt-system-design.md](research/07-debt-system-design.md), engine in `game/src/sim/debt/`, the player's money life (paychecks, state rent, accounts, debt) in `game/src/sim/life/` running on every game day, the Money desk at `/debt.html` (opened from the phone's Stocks app; real FRED rates and index history, plus live Alpha Vantage quotes in local development when `ALPHAVANTAGE_API_KEY` is set), tests via `npm test`, and pitch-deck diagrams in [diagrams/debt/](diagrams/debt/).
 Card applications, perks, loans, and moving money between accounts are in [research/08-cards-loans-accounts.md](research/08-cards-loans-accounts.md), with a real card catalog (663 CFPB plans, 175 bonus offers, FRED rates) in Tiger Data (`game/db/`) and the engine in `game/src/sim/money/`, mirrored to Notion as the "🏦 Cards, Loans & Accounts" section.
-The Card Shop is playable in the Credit Desk (`/debt.html`, **Card Shop** in the top bar): 23 real cards with official art, issuer-page earn rates and offers, CFPB terms, year-one value on your spending, and soft-pull odds before a hard-pull application that opens the card as a real debt.
+The Card Shop is playable on the Money desk's **Cards** tab (`/debt.html`): 23 real cards with official art, issuer-page earn rates and offers, CFPB terms, year-one value on your spending, and soft-pull odds before a hard-pull application that opens the card as a real debt.
 Investing in the Money desk (**Investing**, in the city from the phone's Stocks app or standalone at `/debt.html`) charts the player against "if you had held" and a 90/10 autopilot on the same seeded market, starting all three at the starter portfolio's value; when a bear market starts it pauses time and opens a decision (in the city, the phone opens the desk on it), and at the recovery shows what the choice cost, with a lesson from the Gemini coach written from the run's own Tiger Data ([spec](docs/superpowers/specs/2026-09-12-investing-twins-design.md)).
 How to set up Persona and every other API (keys, env vars, the backend we need, signup checklist) is in [SETUP.md](SETUP.md), mirrored to Notion as the "🔌 Setup & API Keys" section.
 
-The player's phone (the hub for the game's apps: Stocks now, News, Mail, and Bank next) docks on the left edge of the city; see `game/src/ui/phone.ts`.
+The player's phone (the hub for the game's apps: Stocks, Goals, Map, Weather, and Timeline now; News, Mail, and Bank next) pulls up from the bottom-right corner of the city, in Eric's pixel theme; see `game/src/ui/phone.ts`.
+
+Everything above is merged into `main` (2026-09-12) and live at https://144-202-68-33.sslip.io on a Vultr VPS; [server/README.md](server/README.md) has the redeploy steps.
 
 ## Repository layout
 
@@ -50,7 +52,10 @@ Everything for Larp City lives in this folder, which is the private GitHub repos
 
 | Path | What it is |
 | --- | --- |
-| `game/` | The playable app (Vite + PixiJS + TypeScript): the city at `/`, the Credit Desk at `/debt.html`, the simulation in `game/src/sim/`, tests in `game/tests/`, and build scripts in `game/scripts/`. See [game/README.md](game/README.md). `game/plates-src/` (95 MB of regenerable plate sources) is gitignored. |
+| `game/` | The playable app (Vite + PixiJS + TypeScript): the city at `/`, the Money desk at `/debt.html`, the simulation in `game/src/sim/`, tests in `game/tests/`, and build scripts in `game/scripts/`. See [game/README.md](game/README.md). `game/plates-src/` (95 MB of regenerable plate sources) is gitignored. |
+| `server/` | The API server (Express + Zod + pg over Tiger Data): holds every key from the root `.env` and serves `/api/*` (runs and history, the Nessie bank mirror, the voice intake, the Gemini coach and newspaper). See [server/README.md](server/README.md), including how to deploy. |
+| `docs/superpowers/` | Specs and plans for feature work (the backend, the investing twins, the Nessie fallback, and more). |
+| `CLAUDE.md` | Commands and architecture for Claude Code sessions working in this repository. |
 | `research/` | Research and design docs (start with [research/SUMMARY.md](research/SUMMARY.md)), plus the data builders and their raw inputs in `research/data/` (the card-art upscaler weights go in the gitignored `research/data/cards/models/`). |
 | `requirements.txt` | Python dependencies for the data builders and loaders (the game itself is Node: `cd game && npm install`). |
 | `diagrams/` | Pitch-deck diagrams (SVG sources and PNG exports), currently for the debt system. |
@@ -117,14 +122,14 @@ The calendar lets the player review any past event or decision, change it, and s
   Seeded RNG gives us exact rewind for free: store the seed plus the player's decisions and re-simulate.
   The same engine run headless powers the time skips and goal fast-forwards.
   Built so far: the debt engine (`game/src/sim/debt/`), accounts, cards, and loans (`game/src/sim/money/`), and the player's daily money life that ties them to the city clock (`game/src/sim/life/`).
-- **Market data:** a year of real FRED rates and index levels ships with the game (`game/src/data/market.ts`); live Alpha Vantage quotes are optional through the dev server.
+- **Market data:** a year of real FRED rates and index levels ships with the game (`game/src/data/market.ts`); live Alpha Vantage quotes are optional through the Vite dev server only (the production server doesn't serve `/api/market/*` yet, so the deployed game uses the snapshot).
 - **Backend:** A small Node server holds every API key; the browser only calls our own `/api/*` routes (see [SETUP.md](SETUP.md)).
   Persona's template and environment ids are the only provider values that are safe in the browser.
 - **Bank data:** Capital One Nessie as the fake bank API (the "fake nestlie api" in the notes), with Plaid Sandbox as a stretch "connect your real bank" idea.
 - **Voice:** ElevenLabs for the owl narrator: the onboarding interview (a voice agent) and the voiced lines for big moments (text to speech with word timings).
 - **Feedback:** An LLM turns the event log into the "what went wrong" post-mortem when an NPC goes broke.
 - **Database:** Tiger Data (Postgres with TimescaleDB) stores every week of NPC finances, market prices, events, and current city data.
-- **Hosting:** Vultr runs the game and backend at a public URL, with a GoDaddy Registry domain pointing at it.
+- **Hosting:** Vultr runs the game and backend at https://144-202-68-33.sslip.io (Caddy serves the game over HTTPS and proxies `/api/*` to the Node server under systemd); the GoDaddy Registry domain is still to come.
 - **AI memory:** Backboard remembers each player's past decisions and answers questions from our research docs.
 
 ## Sponsor prize plan (MLH)
@@ -159,6 +164,13 @@ NPC deaths should be handled as a respectful lesson about life insurance, emerge
 Stretch: voice onboarding, Nessie/Plaid integration, seasons, a second district, milestone replay at retirement.
 
 Status (2026-09-11 night): 2 is built for every state; 3 exists as `PlayerLife` (paychecks, bills, checking, savings, emergency fund, brokerage, and debts) running on the city clock; 6 exists in the Credit Desk; the HUD for money, the event system, goal fast-forwards, and AI feedback are next.
+
+Status (2026-09-12): everything is merged into `main` and deployed.
+1 is built as the owl's voice or typed intake, and 2 as every state's city in Eric's pixel UI.
+3 runs every day with the starter portfolio, and the market crash and recovery are the first scripted events (4).
+6 is the Money desk: the city opens it on a crash, a payment it can't cover, or bankruptcy, and keeps time paused until play.
+7 is built (goal fast-forwards), and 8 covers the Gemini coach's recovery lesson, written from the run's Tiger Data.
+Still to come: the Calendar app with "Skip to next event", life events (marriage, divorce, kids), and the rest of the random event table.
 
 ## Open questions
 
