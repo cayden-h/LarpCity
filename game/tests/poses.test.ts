@@ -3,22 +3,29 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { CUES, stripTags } from "../src/narration/lines.ts";
 import { EXPRESSIONS, MOOD_POSES, pickPose, TAG_REACH, wordMoods, type Mood } from "../src/narration/poses.ts";
 
-test("each pose strip's eight frames are classified exactly once", () => {
+/** Frame counts per strip, from the manifest the slicer writes (game/art/owl/slice.py). */
+const manifest = JSON.parse(readFileSync(new URL("../public/owl/owl.json", import.meta.url), "utf8")) as {
+  animations: Record<string, { frames: number }>;
+};
+const framesOf = (strip: string) => manifest.animations[strip].frames;
+
+test("each pose strip's frames are classified exactly once", () => {
   for (const [strip, groups] of Object.entries(EXPRESSIONS)) {
     const frames = Object.values(groups as Record<string, readonly number[]>).flat().sort((a, b) => a - b);
-    assert.deepEqual(frames, [0, 1, 2, 3, 4, 5, 6, 7], strip);
+    assert.deepEqual(frames, [...Array(framesOf(strip)).keys()], strip);
   }
 });
 
-test("talking poses all come from the first sheet, so the vest never changes mid-sentence", () => {
+test("talking poses all come from the idle and talk sheets, so the vest never changes mid-sentence", () => {
   for (const [mood, poses] of Object.entries(MOOD_POSES)) {
     assert.ok(poses.length >= 3, `${mood} needs a few poses to vary`);
     for (const p of poses) {
       assert.ok(p.anim === "talk" || p.anim === "idle", `${mood}: ${p.anim}`);
-      assert.ok(p.frame >= 0 && p.frame < 8, `${mood}: frame ${p.frame}`);
+      assert.ok(p.frame >= 0 && p.frame < framesOf(p.anim), `${mood}: frame ${p.frame}`);
     }
   }
 });

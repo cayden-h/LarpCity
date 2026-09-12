@@ -36,6 +36,8 @@ interface Strip {
   frames: number;
   anchorX: number;
   anchorY: number;
+  /** The owl's own height in this strip (hat to feet); sheets come at different resolutions. */
+  owlHeight?: number;
 }
 
 interface Manifest {
@@ -46,15 +48,31 @@ interface Manifest {
 type RestAnim = "idle" | "think" | "proud";
 const REST: Record<RestAnim, { calm: readonly number[]; blink: readonly number[]; wink: readonly number[] }> = {
   idle: EXPRESSIONS.idle,
-  think: { calm: EXPRESSIONS.think.calm, blink: EXPRESSIONS.think.wink, wink: EXPRESSIONS.think.wink },
+  think: { calm: EXPRESSIONS.think.calm, blink: EXPRESSIONS.think.squint, wink: EXPRESSIONS.think.wink },
   proud: { calm: EXPRESSIONS.proud.calm, blink: EXPRESSIONS.proud.smug, wink: EXPRESSIONS.proud.wink },
 };
 const isRest = (anim: OwlAnim): anim is RestAnim => anim in REST;
 
 const BASE = `${import.meta.env.BASE_URL}owl/`;
-/** Motions play in order at these speeds, about a second for a wave or a hat tip. */
-const FPS: Partial<Record<OwlAnim, number>> = { cheer: 9, hop: 9, fly: 10, run: 12, read: 5, type: 7, sleep: 3 };
-const DEFAULT_FPS = 8;
+/**
+ * How long one pass of each motion takes, in milliseconds, whatever its frame
+ * count: 8 and 16-frame sheets play at the same pace. One-shots (a wave, a
+ * hat tip) take a second or so; loops (typing, sleeping) take a full cycle.
+ */
+const DURATION_MS: Partial<Record<OwlAnim, number>> = {
+  wave: 1_400,
+  cheer: 1_100,
+  hop: 1_000,
+  "tip-hat": 1_100,
+  magic: 1_200,
+  fly: 900,
+  run: 700,
+  step: 1_000,
+  read: 1_800,
+  type: 1_300,
+  sleep: 2_800,
+};
+const DEFAULT_DURATION_MS = 1_000;
 /** Without a word to react to, a talking pose still changes after a while. */
 const BEAT_CHANCE = 0.45;
 
@@ -169,7 +187,7 @@ export class Owl {
           this.settle = null;
           resolve();
           void this.play(then);
-        }, 1000 / (FPS[anim] ?? DEFAULT_FPS));
+        }, (DURATION_MS[anim] ?? DEFAULT_DURATION_MS) / frames);
         if (!then) resolve();
       });
     });
@@ -273,7 +291,8 @@ export class Owl {
     const m = this.manifest;
     if (!m) return;
     const strip = m.animations[anim];
-    const s = this.size / m.animations.idle.frameHeight;
+    // Scale by the owl's own height in this strip, so it stands the same size whichever sheet a pose came from.
+    const s = this.size / (strip.owlHeight ?? m.animations.idle.frameHeight);
     if (this.laidOut !== anim) {
       const st = this.sprite.style;
       st.width = `${strip.frameWidth * s}px`;
