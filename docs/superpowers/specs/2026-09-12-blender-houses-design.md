@@ -9,7 +9,7 @@ This is the first of four sub-projects from the 2026-09-12 brainstorm, in this o
 1. Pixel art city, houses, and the home choice (this spec).
 2. Commercial fill: every remaining SF lot gets a sprite (warehouses, mid-rises, corner shops; reference: a stepped pixel office tower with balconies).
 3. Water: texture and animation.
-4. Streets: traffic lights, crosswalks, cars obeying signals, and pedestrians crossing.
+4. Streets: traffic lights, crosswalks, cars obeying signals, and pedestrians crossing. This moved to the roads effort ([2026-09-12-roads-traffic-design.md](2026-09-12-roads-traffic-design.md), branch `roads-traffic`), which also widens some SF streets; SF's hand-placed home lots (Milestone 2) are placed against that new layout once it lands.
 
 Each of the others gets its own spec, plan, and build, and each follows the art direction below (water, boats, cars, and props included).
 
@@ -77,7 +77,7 @@ Seeded functions beside the existing archetypes, using the pixel materials.
 | `suburban` | 1x1 | 1-2 | 4: ranch, split-level, two-story colonial, craftsman bungalow | House set back behind a lawn, driveway, fence, mailbox, sometimes a parked car |
 | `walkup` | 1x1 and 2x1 | 3-4 | 3 | Fire escapes, stacked bays, buzzer door, rooftop water heaters |
 
-That is 19 models.
+That is 16 models (64 sprites in four facings).
 Every model is finished on all four sides, because rotation shows each side as the front in one of the facings.
 Painted surfaces (siding, stucco, painted trim panels) use materials named `paint*`, rendered in neutral greys so the palette tint reads as paint; trim, glass, roofs, stairs, and yards keep their colors.
 
@@ -167,16 +167,16 @@ The multipliers live in one table in `sim/life/homes.ts` next to the home math, 
 - The down payment defaults to 20% and the player can pick 3.5%, 10%, or 20%.
 - Net worth counts the home's value minus its mortgage; home value stays flat (no appreciation model in this spec).
 - The tier is whatever the player chose; `HOME_TIER_NET_WORTH` and the net-worth rule in `homeTier()` are removed.
-- Bankruptcy or a mortgage in collections forces the tent (foreclosure), and so does a `cannot_cover` rent bill in two months running (eviction); both emit a `home` event.
+- Bankruptcy, or a mortgage 120 or more days past due (foreclosure; the debt engine never sends a secured mortgage to collections), forces the tent, and so does a rent bill paid short two months running (eviction); each emits a `home` event.
 - Onboarding sets the starting home: a stated rent at or under 1x the state median starts in the studio; a higher one starts renting the townhouse. Either way the stated rent stays the rent anchor, so the starting rent is what the player said.
 - `setPlace` (moving states) sells an owned home with the same selling costs and starts the player renting the studio in the new state.
 - `RunRecorder` records the `home` event like every other life event, and the server's coach facts (`server/src/ai/facts.ts`) describe it.
 
 ### City (`game/src/cities/`, `game/src/engine/`)
 
-- `CityDef` gains `homes?: { tier: number; x: number; y: number }[]`, replacing the single `h` layout tile for SF.
-- SF's six lots are placed by hand at the locations in the table, each next to a road and kept clear of landmarks' sightlines.
-- Cities without `homes` place them automatically: studio in midtown near the core, townhouse in the inner residential zone, small house on the existing `h` lot, large house in the suburb ring, villa on a coast or edge lot, tent at a park edge beside a road.
+- `CityDef` gains `homes?: { tier: number; x: number; y: number; where?: string }[]`; tiers a city leaves out are placed by rule.
+- SF places five lots by hand at the locations in the table, each next to a road and kept clear of landmarks' sightlines; the large house is placed by rule, because the suburb ring is generated outside the hand-made core.
+- The rule, for every tier a city does not place: studio in midtown near the core, townhouse in the inner residential zone, small house on the existing `h` lot, large house in the suburb ring, villa on a coast or edge lot, tent at a park edge beside a road.
 - Every home lot shows its tier's hero model; the ones the player does not live in carry a small pixel "For sale" or "For rent" sign (a sign prop rendered through the pixel pass).
 - The current home has the ring and the pin; the yard-clearing rule in `scene.ts` applies to every home lot.
 
