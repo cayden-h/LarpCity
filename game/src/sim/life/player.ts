@@ -24,6 +24,7 @@ import { Ledger } from "../money/accounts.ts";
 import type { Account, Holding } from "../money/types.ts";
 import { CrashWatch, PANIC_DRAWDOWN } from "../skip/crash.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
+import { withholdingForPaycheck } from "../tax/withholding.ts";
 import { cashRateOn } from "./rates.ts";
 import { Twins } from "./twins.ts";
 
@@ -63,7 +64,7 @@ const ACCOUNT_NAMES = { emergency: "Emergency fund", k401: "401(k)" } as const;
 
 export type LifeEvent =
   | DebtEvent
-  | { type: "paycheck"; day: number; takeHome: number; garnished: number; unemployed: boolean; retirement?: number }
+  | { type: "paycheck"; day: number; takeHome: number; garnished: number; unemployed: boolean; retirement?: number; federalWithheld: number; stateWithheld: number }
   | { type: "bill"; day: number; name: string; amount: number; paid: number }
   | { type: "savings_interest"; day: number; amount: number }
   | { type: "moved"; day: number; from: string; to: string; rent: number; living: number }
@@ -199,6 +200,15 @@ export class PlayerLife {
   private lastFirst: { stock: number; bond: number } | null = null;
   private k401Year = -1;
   private k401Ytd = 0;
+  private taxYear = 0; // 0 is a sentinel meaning "not initialized yet"; set on first payday
+  private wagesYtdAmount = 0;
+  private federalWithheldYtd = 0;
+  private stateWithheldYtd = 0;
+
+  /** Gross wages earned so far in the current calendar year (resets each January 1 payday); shown on the Taxes tab. */
+  wagesYtd(): number {
+    return this.wagesYtdAmount;
+  }
   /** Highest LTM close seen, for the bear-market line. */
   private ltmPeak: number;
   /** A bear_market event fired and the market hasn't set a new high since. */
@@ -413,13 +423,28 @@ export class PlayerLife {
     const payday = dom === 1 || dom === 15;
 
     if (payday) {
-      const pay = (this.monthlyTakeHome / 2) * (this.employed ? 1 : UNEMPLOYMENT_SHARE);
+      const year = date.getFullYear();
+      if (year !== this.taxYear) {
+        this.taxYear = year;
+        this.wagesYtdAmount = 0;
+        this.federalWithheldYtd = 0;
+        this.stateWithheldYtd = 0;
+      }
+      const grossThisPeriod = (this.grossAnnual / 24) * (this.employed ? 1 : UNEMPLOYMENT_SHARE);
+      const withheld = withholdingForPaycheck({ state: this.place.abbr, wagesThisPeriod: grossThisPeriod, wagesYtdBefore: this.wagesYtdAmount });
+      this.wagesYtdAmount = round2(this.wagesYtdAmount + grossThisPeriod);
+      this.federalWithheldYtd = round2(this.federalWithheldYtd + withheld.federalIncomeTax);
+      this.stateWithheldYtd = round2(this.stateWithheldYtd + withheld.stateIncomeTax);
+      const pay = round2(grossThisPeriod - withheld.federalIncomeTax - withheld.fica - withheld.stateIncomeTax);
       const garnished = round2(pay * garnishmentRate(this.book));
       const retirement = this.contribute401k(date);
       const takeHome = round2(pay - retirement.cost - garnished);
       const checking = this.ledger.get("checking");
       checking.balance = round2(checking.balance + takeHome);
-      events.push({ type: "paycheck", day, takeHome, garnished, unemployed: !this.employed, retirement: retirement.added });
+      events.push({
+        type: "paycheck", day, takeHome, garnished, unemployed: !this.employed, retirement: retirement.added,
+        federalWithheld: withheld.federalIncomeTax, stateWithheld: withheld.stateIncomeTax,
+      });
     }
     // Rent on the 1st and living costs on the 15th come before debt payments.
     const bill = dom === 1 ? { name: "Rent", amount: this.rent } : dom === 15 ? { name: "Living costs", amount: this.living } : null;

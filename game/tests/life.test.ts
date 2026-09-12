@@ -102,3 +102,27 @@ test("the life is deterministic", () => {
   assert.deepEqual(live(a, 300), live(b, 300));
   assert.deepEqual(a.history, b.history);
 });
+
+test("payday withholds real federal + state tax instead of the flat 80% approximation", () => {
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 60_000 }); // TX: no state tax
+  const events = live(life, 5); // START is Sept 11, 2026 (day 0); day 4 (Sept 15) is the first payday
+  const paycheck = events.find((e) => e.type === "paycheck");
+  assert.ok(paycheck);
+  if (paycheck?.type === "paycheck") {
+    assert.ok(paycheck.federalWithheld > 0);
+    assert.equal(paycheck.stateWithheld, 0); // TX has no income tax
+    // Take-home should no longer just be 80% of the half-month gross.
+    assert.notEqual(paycheck.takeHome, Math.round((60_000 / 24) * 0.8 * 100) / 100);
+  }
+});
+
+test("wagesYtd resets to 0 on January 1", () => {
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 60_000 });
+  live(life, 105); // START is Sept 11, 2026 (day 0); day 105 (Dec 25 2026) lands after 7 paydays, still in 2026
+  const beforeReset = life.wagesYtd();
+  assert.ok(beforeReset > 0);
+  // Day 112 (Jan 1, 2027) is the first payday of the new year: the reset should
+  // make wagesYtd just that one paycheck's gross, not the 2026 total plus it.
+  live(life, 7, 105);
+  assert.ok(life.wagesYtd() < beforeReset);
+});
