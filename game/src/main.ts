@@ -1,8 +1,11 @@
 import "./style.css";
 import { Application, CullerPlugin, extensions } from "pixi.js";
+import { BankClient } from "./api/bank";
 import { cityFor, LANDMARKS, stateForPin } from "./cities";
+import { NPCS } from "./data/npcs";
 import { STATES } from "./data/states";
 import { Clock } from "./engine/clock";
+import type { ResidentSeed } from "./engine/people";
 import { CityScene } from "./engine/scene";
 import { loadSpriteSet } from "./engine/sprites";
 import type { StateInfo } from "./engine/types";
@@ -12,6 +15,7 @@ import { lifeFromIntake } from "./sim/life/intake";
 import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
 import { NpcTown } from "./sim/npcs";
+import { describeHabit } from "./sim/npcs/habits";
 import { RunRecorder } from "./sim/record";
 import { Hud } from "./ui/hud";
 import { runIntake } from "./ui/intake";
@@ -73,6 +77,15 @@ const narrator = new Narrator();
 // server, one statement per game month (off when the server isn't running).
 const town = new NpcTown({ place: state, day: clock.day, market: player.market, start: clock.start });
 const api = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api`;
+const residents: ResidentSeed[] = NPCS.map((n) => ({
+  id: n.id,
+  first: n.first,
+  last: n.last,
+  job: n.job,
+  age: n.age,
+  story: `${n.story} ${describeHabit(n.id)}`,
+}));
+const bankClient = new BankClient(`${api}/bank`);
 const bank = new BankSync({ run: `${seed}-${Date.now().toString(36)}`, start: clock.start, base: `${api}/bank` });
 bank.add("player", "Player", player);
 for (const [id, life] of town.lives) bank.add(id, town.profiles.get(id)!.first, life);
@@ -121,7 +134,7 @@ async function open(next: StateInfo): Promise<void> {
   state = next;
   const city = cityFor(next);
   const sprites = await loadSpriteSet(city.id);
-  scene = new CityScene(app, city, clock, LANDMARKS, sprites);
+  scene = new CityScene(app, city, clock, LANDMARKS, sprites, undefined, residents);
   if (tier !== undefined) scene.hero?.setTier(tier);
   scene.onPick = (npc, sx, sy) => npcCard.show(npc, sx, sy);
   app.stage.addChild(scene.root);
@@ -131,7 +144,7 @@ async function open(next: StateInfo): Promise<void> {
   history.replaceState(null, "", `#${home && home.cityId !== next.cityId ? next.cityId : next.abbr}`);
 }
 
-const npcCard = new NpcCard(document.getElementById("npc")!);
+const npcCard = new NpcCard(document.getElementById("npc")!, bankClient);
 
 function skipDays(days: number): void {
   if (skipping) return;
