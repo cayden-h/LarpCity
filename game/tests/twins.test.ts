@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PlayerLife, Twins, type Place } from "../src/sim/life/index.ts";
+import { PlayerLife, STARTER_PORTFOLIO, Twins, type Place } from "../src/sim/life/index.ts";
 import { MarketPath } from "../src/sim/market/index.ts";
 
 const START = new Date(2026, 8, 11);
@@ -126,4 +126,18 @@ test("no stocks, no bear-market decision", () => {
   const events = live(life, 0, m.presets.popEndDay);
   assert.equal(events.filter((e) => e.type === "bear_market").length, 0);
   assert.equal(life.needsDecision([{ type: "bear_market", day: 1, drop: 0.2, stocks: 1 }]), true);
+});
+
+test("the starter portfolio starts every line in the same place", () => {
+  const m = earlyMarket();
+  const life = new PlayerLife({ place: TX, day: 0, market: m, holdings: STARTER_PORTFOLIO });
+  const s = life.history[0];
+  assert.ok(Math.abs(s.you - 6_800) < 0.01 && Math.abs(s.held - s.you) < 0.01, `you ${s.you} held ${s.held}`);
+  assert.equal(life.twins.cashOut, 0);
+  // Autopilot put the same dollars paid a year earlier into 90/10 LTM/BOND.
+  const paid = life.twins.invested;
+  const auto = (paid * 0.9 / m.price("LTM", -365)) * m.price("LTM", 0) + (paid * 0.1 / m.price("BOND", -365)) * m.price("BOND", 0);
+  assert.ok(Math.abs(s.autopilot - auto) < 0.01, `autopilot ${s.autopilot} vs ${auto}`);
+  const past = life.pastSnapshots(-30);
+  assert.ok(past.length > 0 && past.every((p) => Math.abs(p.you - p.held) < 0.01 && p.brokerage > 0));
 });

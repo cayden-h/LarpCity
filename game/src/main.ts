@@ -6,7 +6,7 @@ import { Clock } from "./engine/clock";
 import { CityScene } from "./engine/scene";
 import { loadSpriteSet } from "./engine/sprites";
 import type { StateInfo } from "./engine/types";
-import { PlayerLife } from "./sim/life";
+import { PlayerLife, STARTER_PORTFOLIO } from "./sim/life";
 import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
 import { NpcTown } from "./sim/npcs";
@@ -40,8 +40,8 @@ const seed = Number(new URLSearchParams(location.search).get("seed")) || 2026091
 
 // The player's money life: paychecks, rent for the current state, and the
 // debt engine run once per game day (research/07-debt-system-design.md);
-// investments move with the seeded market.
-const player = new PlayerLife({ place: state, day: clock.day, market: new MarketPath(seed, clock.start) });
+// investments (a starter portfolio from day one) move with the seeded market.
+const player = new PlayerLife({ place: state, day: clock.day, market: new MarketPath(seed, clock.start), holdings: STARTER_PORTFOLIO });
 
 // The named NPCs' money lives on the same market (src/data/npcs.ts), and the
 // bank mirror posts the player's and theirs to Capital One Nessie through the

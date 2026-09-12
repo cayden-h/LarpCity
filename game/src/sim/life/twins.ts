@@ -42,6 +42,16 @@ export class Twins {
     for (const [i, w] of AUTOPILOT_MIX) this.add(this.autoUnits, i, fresh * w, day);
   }
 
+  /**
+   * A position the player already owns when the life starts, so every line starts in the same place:
+   * Held gets the same units, and Autopilot gets the dollars the player paid (`cost`) at `boughtDay`'s prices.
+   */
+  seedHolding(id: InstrumentId, units: number, cost: number, boughtDay: number): void {
+    this.invested = round2(this.invested + cost);
+    this.heldUnits[id] = (this.heldUnits[id] ?? 0) + units;
+    for (const [i, w] of AUTOPILOT_MIX) this.add(this.autoUnits, i, cost * w, boughtDay);
+  }
+
   sell(proceeds: number): void {
     this.cashOut = round2(this.cashOut + proceeds);
   }

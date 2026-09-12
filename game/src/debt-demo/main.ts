@@ -1,6 +1,6 @@
 // Money desk (/debt.html): the player's money in Robinhood's shape. Home shows
 // net worth as one big number over one scrubbable chart, then rows that open
-// Investing, Debt, Credit, and Cards. Each tab repeats the pattern: a big
+// Cash, Investing, Debt, Credit, and Cards. Each tab repeats the pattern: a big
 // number, one chart, one suggested move, then rows. It runs the same
 // PlayerLife the city scene runs (paychecks, rent for the state, the accounts
 // ledger, the debt engine, and brokerage holdings on the seeded market path)
@@ -13,7 +13,7 @@ import type { MoneyHost } from "../ui/phone.ts";
 import { Clock } from "../engine/clock.ts";
 import { MARKET } from "../data/market.ts";
 import { STATES } from "../data/states.ts";
-import { PlayerLife, seriesOn, type LifeEvent, type LifeSnapshot } from "../sim/life/index.ts";
+import { PlayerLife, STARTER_PORTFOLIO, seriesOn, type LifeEvent, type LifeSnapshot } from "../sim/life/index.ts";
 import { INSTRUMENTS, MarketPath, instrument, type InstrumentId } from "../sim/market/index.ts";
 import { fetchRecoveryLesson } from "../net/recap.ts";
 import { RunRecorder } from "../sim/record/index.ts";
@@ -31,7 +31,7 @@ import {
   type Strategy,
 } from "../sim/debt/index.ts";
 
-type Tab = "home" | "investing" | "debt" | "credit" | "cards";
+type Tab = "home" | "cash" | "investing" | "debt" | "credit" | "cards";
 type Range = "1W" | "1M" | "3M" | "1Y" | "ALL";
 type Tone = "up" | "down" | "flat";
 interface FeedItem {
@@ -39,6 +39,15 @@ interface FeedItem {
   text: string;
   amount?: number;
   tone: Tone;
+}
+/** One line on the Cash tab's bank statement: money into or out of cash, or a move between cash accounts. */
+interface BankTxn {
+  day: number;
+  name: string;
+  category: string;
+  icon: string;
+  amount: number;
+  kind: "in" | "out" | "move";
 }
 interface Decision {
   title: string;
@@ -69,6 +78,7 @@ const HOME = STATES.find((s) => s.abbr === "TX")!;
 const MOVES = ["TX", "CA", "NY", "FL", "OH", "WA", "CO"].map((a) => STATES.find((s) => s.abbr === a)!).filter(Boolean);
 const TABS: [Tab, string][] = [
   ["home", "Home"],
+  ["cash", "Cash"],
   ["investing", "Investing"],
   ["debt", "Debt"],
   ["credit", "Credit"],
@@ -130,9 +140,13 @@ let crash: { day: number; drop: number; choice: string } | null = null;
 let recovery: { day: number; you: number; held: number; autopilot: number } | null = null;
 /** Gemini's lesson for the last recovery, when the server has one. */
 let recap: { headline: string; lesson: string } | null = null;
+const bank: BankTxn[] = [];
+let xferOpen = false;
+const xfer = { from: "checking", to: "savings", amount: 100 };
+let xferMsg: { text: string; bad: boolean } | null = null;
 
 function makeLife(): PlayerLife {
-  const l = new PlayerLife({ place: HOME, day: clock.day, market, cashRate: (d) => seriesOn("DFF", d) / 100 + rateShock });
+  const l = new PlayerLife({ place: HOME, day: clock.day, market, cashRate: (d) => seriesOn("DFF", d) / 100 + rateShock, holdings: STARTER_PORTFOLIO });
   l.onEvents(onLifeEvents);
   return l;
 }
@@ -166,20 +180,35 @@ function log(day: number, text: string, tone: Tone, amt?: number) {
   if (feed.length > 120) feed.length = 120;
 }
 
+function bankLog(t: BankTxn) {
+  if (Math.abs(t.amount) < 0.005) return;
+  bank.unshift(t);
+  if (bank.length > 300) bank.length = 300;
+}
+
+const debtIcon = (d?: Debt) => (d?.kind === "credit_card" ? "💳" : d?.kind === "student_federal" ? "🎓" : d?.kind === "auto" ? "🚗" : "🧾");
+
 function onLifeEvents(events: LifeEvent[]) {
   for (const e of events) {
     const d = "debtId" in e ? life.book.debts.find((x) => x.id === e.debtId) : undefined;
     switch (e.type) {
       case "paycheck":
         log(e.day, `Paycheck${e.unemployed ? " (unemployment)" : ""}${e.garnished ? `, ${usd(e.garnished)} garnished` : ""}`, "up", e.takeHome);
+        bankLog({ day: e.day, name: e.unemployed ? "Unemployment benefits" : "Payroll direct deposit", category: "Income", icon: "💼", amount: e.takeHome, kind: "in" });
         break;
       case "bill": {
         const short = e.amount - e.paid;
         log(e.day, `${e.name}${short > 0.5 ? `, short by ${usd(short)}` : ""}`, short > 0.5 ? "down" : "flat", -e.paid);
+        const rent = e.name === "Rent";
+        bankLog({ day: e.day, name: rent ? "Rent" : "Groceries, gas, and bills", category: rent ? "Housing" : "Living costs", icon: rent ? "🏠" : "🛒", amount: -e.paid, kind: "out" });
         break;
       }
       case "savings_interest":
         log(e.day, "Savings interest", "up", e.amount);
+        bankLog({ day: e.day, name: "Interest paid", category: "Savings interest", icon: "💰", amount: e.amount, kind: "in" });
+        break;
+      case "payment":
+        bankLog({ day: e.day, name: d?.name ?? "Loan payment", category: d?.kind === "credit_card" ? "Card payment" : "Loan payment", icon: debtIcon(d), amount: -e.amount, kind: "out" });
         break;
       case "moved":
         log(e.day, `Moved to ${e.to}: rent is now ${usd(e.rent)} a month`, "flat");
@@ -189,6 +218,7 @@ function onLifeEvents(events: LifeEvent[]) {
         break;
       case "trade":
         log(e.day, `${e.side === "buy" ? "Bought" : "Sold"} ${e.id}${e.recurring ? " (auto-invest)" : ""}`, e.side === "buy" ? "flat" : "up", e.side === "buy" ? -e.amount : e.amount);
+        bankLog({ day: e.day, name: `${e.side === "buy" ? "Bought" : "Sold"} ${e.id}`, category: e.recurring ? "Auto-invest" : "Investing", icon: "📈", amount: e.side === "buy" ? -e.amount : e.amount, kind: e.side === "buy" ? "out" : "in" });
         break;
       case "trade_skipped":
         log(e.day, `Auto-invest skipped: ${e.reason.toLowerCase()}`, "down");
@@ -247,10 +277,14 @@ function ctxNow() {
 }
 
 function pay(debtId: string, amt: number) {
-  const name = life.book.debts.find((d) => d.id === debtId)?.name ?? "debt";
+  const debt = life.book.debts.find((d) => d.id === debtId);
+  const name = debt?.name ?? "debt";
   let paid = 0;
   for (const e of payNow(life.book, debtId, amt, ctxNow())) if (e.type === "payment") paid += e.amount;
-  if (paid > 0) log(clock.day, `Extra payment to ${name}`, "flat", -paid);
+  if (paid > 0) {
+    log(clock.day, `Extra payment to ${name}`, "flat", -paid);
+    bankLog({ day: clock.day, name, category: "Extra payment", icon: debtIcon(debt), amount: -paid, kind: "out" });
+  }
 }
 
 function fundEmergency(amt: number) {
@@ -259,6 +293,7 @@ function fundEmergency(amt: number) {
   try {
     life.ledger.transfer(from, "emergency", amt, "internal", ctx);
     log(clock.day, `Moved ${usd(amt)} to the emergency fund`, "flat");
+    bankLog({ day: clock.day, name: "Transfer to Emergency fund", category: `From ${life.ledger.get(from).name}`, icon: "↔", amount: amt, kind: "move" });
   } catch {
     // The quote failed (not enough money); the card stays as it was.
   }
@@ -450,7 +485,9 @@ function freeDate(): string {
 
 function hist(key: keyof Omit<LifeSnapshot, "day">): ChartPt[] {
   const from = clock.day - RANGE_DAYS[range];
-  return thin(life.history.filter((h) => h.day >= from).map((h) => ({ x: h.day, y: h[key] })));
+  // Before the run began, the starting balances ride the real market on trading days, like the market chart.
+  const past = life.pastSnapshots(from).filter((h) => !weekend(h.day));
+  return thin([...past, ...life.history.filter((h) => h.day >= from)].map((h) => ({ x: h.day, y: h[key] })));
 }
 
 const weekend = (day: number) => [0, 6].includes(dateOf(day).getDay());
@@ -575,7 +612,7 @@ function homePage(): Page {
     main: `${heroHtml("Net worth")}${rangesHtml()}
       ${nextMove()}
       <div class="section"><h2>Your money</h2><span>Tap a row for details</span></div>
-      ${row({ title: "Cash", sub: `Checking, savings, and emergency fund · rent ${usd(life.rent)}/mo`, spark: sparkOf(cash), pill: usd(life.cash()), tone: t(cash) })}
+      ${row({ title: "Cash", sub: `Checking, savings, and emergency fund · rent ${usd(life.rent)}/mo`, spark: sparkOf(cash), pill: usd(life.cash()), tone: t(cash), go: "cash" })}
       ${row({ title: "Investing", sub: invested > 0 ? `${life.positions().length} holding${life.positions().length === 1 ? "" : "s"}${life.recurring.length ? " · auto-invest on" : ""}` : "Nothing invested yet", spark: sparkOf(inv), pill: usd(invested), tone: invested > 0 ? t(inv) : "flat", go: "investing" })}
       ${row({ title: "Debt", sub: life.totalDebt() > 0.5 ? `Debt-free ${freeDate()}` : "You're debt-free", spark: sparkOf(debt, false), pill: usd(life.totalDebt()), tone: t(debt, false), go: "debt" })}
       ${row({ title: "Credit score", sub: `${life.scoreBand()}`, spark: sparkOf(score), pill: String(life.book.profile.score), tone: t(score), go: "credit" })}
@@ -583,6 +620,112 @@ function homePage(): Page {
       ${feedHtml(8)}
       ${footHtml()}`,
   };
+}
+
+// ---- Cash ---------------------------------------------------------------------------
+
+const CASH_ACCOUNTS = ["checking", "savings", "emergency"] as const;
+/** Months of rent, bills, and minimums the emergency fund aims for without a plan. */
+const EMERGENCY_MONTHS = 3;
+
+/** The Cash tab, laid out like a bank app: balance, quick actions, accounts, then the statement. */
+function cashPage(): Page {
+  const acct = (id: string) => life.ledger.get(id);
+  const apy = (id: string) => `${(acct(id).apy * 100).toFixed(2)}% APY`;
+  const months = life.orders?.emergencyMonths ?? EMERGENCY_MONTHS;
+  const goal = Math.round(months * life.monthlyExpenses());
+  const ef = acct("emergency").balance;
+  const now = clock.date;
+  const earned = (wholeYear: boolean) =>
+    bank
+      .filter((t) => t.category === "Savings interest")
+      .filter((t) => {
+        const d = dateOf(t.day);
+        return d.getFullYear() === now.getFullYear() && (wholeYear || d.getMonth() === now.getMonth());
+      })
+      .reduce((s, t) => s + t.amount, 0);
+  let next = clock.day + 1;
+  while (![1, 15].includes(dateOf(next).getDate())) next++;
+  const payAmt = (life.monthlyTakeHome / 2) * (life.employed ? 1 : 0.4);
+  const accountRow = (id: string, title: string, sub: string, extra = "") =>
+    `<div class="row r2 acct"><div><b>${title} <span class="chip">${apy(id)}</span></b><small>${sub}</small>${extra}</div><span class="amt">${usd(acct(id).balance, 2)}</span></div>`;
+  return {
+    side: true,
+    chart: histChart(hist("cash"), (y) => usd(y, 2)),
+    main: `${heroHtml("Cash · checking, savings, and emergency fund")}${rangesHtml()}
+      <div class="quick">
+        <button class="cta${xferOpen ? " plain" : ""}" data-act="xfer">${xferOpen ? "Close transfer" : "Transfer"}</button>
+        <button class="cta plain" data-go="debt">Pay a card or loan</button>
+      </div>
+      ${xferOpen ? transferHtml() : ""}
+      ${nextCard(`Direct deposit of about ${usd(payAmt)} on ${monthDay(dateOf(next))}`, `${life.employed ? "Your paycheck lands" : "Unemployment benefits land"} in checking. Rent of ${usd(life.rent)} comes out on the 1st and living costs of ${usd(life.living)} on the 15th.`)}
+      <div class="section"><h2>Accounts</h2><span>Interest earned ${usd(earned(false), 2)} this month · ${usd(earned(true), 2)} this year</span></div>
+      ${accountRow("checking", "Checking", "Available to spend · paychecks land here")}
+      ${accountRow("savings", "High-yield savings", "Interest is paid on the 1st of each month")}
+      ${accountRow(
+        "emergency",
+        "Emergency fund",
+        `${usd(ef)} of ${usd(goal)}, ${months} months of rent, bills, and minimums`,
+        `<div class="meter"><span class="good" style="width:${(goal > 0 ? Math.min(100, (ef / goal) * 100) : 100).toFixed(1)}%"></span></div>`,
+      )}
+      <div class="section"><h2>Transactions</h2><span>Newest first</span></div>
+      ${txnsHtml()}
+      ${footHtml()}`,
+  };
+}
+
+function transferHtml(): string {
+  const opts = (sel: string) =>
+    CASH_ACCOUNTS.map((id) => `<option value="${id}" ${id === sel ? "selected" : ""}>${esc(life.ledger.get(id).name)} · ${usd(life.ledger.get(id).balance)}</option>`).join("");
+  return `<div class="card">
+      <b>Move money</b>
+      <p>Between your own accounts, instantly and free.</p>
+      <div class="xfer-row">
+        <label>From <select data-xfer-from aria-label="From account">${opts(xfer.from)}</select></label>
+        <label>To <select data-xfer-to aria-label="To account">${opts(xfer.to)}</select></label>
+        <label class="amt-in">$<input type="number" min="1" step="1" value="${xfer.amount}" data-xfer-amt data-focus="xfer-amt" aria-label="Amount to move"></label>
+        <button class="cta" data-act="xfer-go">Move ${usd(xfer.amount)}</button>
+      </div>
+      ${xferMsg ? `<div class="msg${xferMsg.bad ? " bad" : ""}">${esc(xferMsg.text)}</div>` : ""}
+    </div>`;
+}
+
+function moveMoney() {
+  if (xfer.from === xfer.to) {
+    xferMsg = { text: "Pick two different accounts.", bad: true };
+    return;
+  }
+  const ctx = { day: clock.day, date: clock.date, age: life.age };
+  const q = life.ledger.quote(xfer.from, xfer.to, xfer.amount, "internal", ctx);
+  if (!q.ok) {
+    xferMsg = { text: q.error ?? "That move didn't go through.", bad: true };
+    return;
+  }
+  life.ledger.transfer(xfer.from, xfer.to, xfer.amount, "internal", ctx);
+  const name = (id: string) => life.ledger.get(id).name;
+  bankLog({ day: clock.day, name: `Transfer to ${name(xfer.to)}`, category: `From ${name(xfer.from)}`, icon: "↔", amount: xfer.amount, kind: "move" });
+  log(clock.day, `Moved ${usd(xfer.amount)} from ${name(xfer.from)} to ${name(xfer.to)}`, "flat");
+  xferMsg = { text: [`Moved ${usd(xfer.amount, 2)} to ${name(xfer.to)}.`, ...q.warnings].join(" "), bad: false };
+}
+
+/** The statement: pending moves first, then days newest first, like a bank app. */
+function txnsHtml(): string {
+  const pending = life.ledger.pending;
+  if (!bank.length && !pending.length) return `<ul class="feed"><li class="empty">No transactions yet. Press play: paychecks land on the 1st and 15th.</li></ul>`;
+  const amt = (t: Pick<BankTxn, "amount" | "kind">) =>
+    `<span class="t-amt ${t.kind}">${t.kind === "in" ? "+" : t.kind === "out" ? "−" : ""}$${num(t.amount, 2)}</span>`;
+  const line = (t: BankTxn) => `<div class="txn"><span class="av" aria-hidden="true">${t.icon}</span><div><b>${esc(t.name)}</b><small>${esc(t.category)}</small></div>${amt(t)}</div>`;
+  const dayLabel = (day: number) => (day === clock.day ? "Today" : day === clock.day - 1 ? "Yesterday" : monthDay(dateOf(day)));
+  let html = pending.length
+    ? `<div class="t-day">Pending</div>${pending.map((p) => line({ day: p.day, name: `Transfer to ${life.ledger.get(p.to).name}`, category: `Arrives ${monthDay(dateOf(p.settlesDay))}`, icon: "↔", amount: p.received, kind: "move" })).join("")}`
+    : "";
+  let last: number | null = null;
+  for (const t of bank.slice(0, 40)) {
+    if (t.day !== last) html += `<div class="t-day">${dayLabel(t.day)}</div>`;
+    last = t.day;
+    html += line(t);
+  }
+  return `<div class="txns">${html}</div>`;
 }
 
 // ---- Investing ----------------------------------------------------------------------
@@ -613,7 +756,8 @@ function investingPage(): Page {
       ${INSTRUMENTS.map((i) => {
         const ch = dayChange(i.id);
         const pts = priceSeries(i.id).slice(-30);
-        return row({ title: i.name, sub: `${i.id} · ${i.kind === "fund" ? `fund, ${pctOf(i.expenseRatio)} yearly fee` : "single stock"}`, spark: spark(pts.map((q) => q.y), dirTone(pts[pts.length - 1].y - pts[0].y)), pill: signedPct(ch), tone: dirTone(ch), attrs: `data-fund="${i.id}"` });
+        // Like the watch list, the line and the pill share today's color.
+        return row({ title: i.name, sub: `${i.id} · ${i.kind === "fund" ? `fund, ${pctOf(i.expenseRatio)} yearly fee` : "single stock"}`, spark: spark(pts.map((q) => q.y), dirTone(ch)), pill: signedPct(ch), tone: dirTone(ch), attrs: `data-fund="${i.id}"` });
       }).join("")}
       ${top ? nextCard("Pay debt or invest?", aprNow(top) > MARKET_RETURN ? `Your ${top.name} costs ${rate(aprNow(top))} a year. Stocks have averaged about 10%, with big swings. Paying the card is a guaranteed ${rate(aprNow(top))} return, so pay it first. The exception: always take a 401(k) match.` : `Your most expensive debt, the ${top.name}, costs ${rate(aprNow(top))}. That's below the market's long-run ~10%, so investing while you pay it on schedule is reasonable.`) : ""}
       ${footHtml()}`,
@@ -696,13 +840,13 @@ function fundPage(id: InstrumentId): Page {
       ${heroHtml(`${inst.name} · ${id}`)}${rangesHtml()}
       ${nextCard(
         pos ? `You own ${usd(pos.value, 2)}` : "You don't own any yet",
-        pos ? `${num(pos.units, 4)} shares, paid ${usd(pos.cost, 2)}. ${pos.gain >= 0 ? "Up" : "Down"} ${usd(Math.abs(pos.gain), 2)} (${signedPct(pos.gain / pos.cost)}) since you bought.` : esc(inst.blurb),
+        pos ? `${num(pos.units, 4)} shares, paid ${usd(pos.cost, 2)}. ${pos.gain >= 0 ? "Up" : "Down"} ${usd(Math.abs(pos.gain), 2)} (${signedPct(pos.gain / pos.cost)}) since you bought.` : "Buy any dollar amount from $1; you get a fraction of a share.",
       )}
       <div class="card">
         <b>Buy or sell</b>
         <p>Buying power ${usd(bp, 2)}. Orders fill at today's closing price, in fractions of a share.</p>
         <div class="amounts">${[25, 100, 500, 1000].map((a) => `<button data-amt="${a}" class="${a === amount ? "on" : ""}">${usd(a)}</button>`).join("")}
-          <label class="slider" style="display:flex;gap:6px;align-items:center">$<input type="number" min="1" step="1" value="${amount}" data-amount data-focus="amount" aria-label="Amount in dollars" style="width:96px;border:1px solid var(--line);border-radius:999px;padding:7px 12px"></label>
+          <label class="amt-in">$<input type="number" min="1" step="1" value="${amount}" data-amount data-focus="amount" aria-label="Amount in dollars"></label>
         </div>
         <div class="trade">
           <button class="cta" data-trade="buy">Buy ${usd(amount)}</button>
@@ -1007,7 +1151,7 @@ function render() {
   const sel = active instanceof HTMLInputElement && active.type === "number" ? null : null;
   void sel;
   renderTop();
-  const pages: Record<Tab, () => Page> = { home: homePage, investing: investingPage, debt: debtPage, credit: creditPage, cards: cardsPage };
+  const pages: Record<Tab, () => Page> = { home: homePage, cash: cashPage, investing: investingPage, debt: debtPage, credit: creditPage, cards: cardsPage };
   const page = pages[tab]();
   const el = q("[data-page]");
   el.className = `page${page.side ? "" : " wide"}`;
@@ -1097,6 +1241,13 @@ app.addEventListener("click", (ev) => {
     case "move":
       moveAct?.();
       break;
+    case "xfer":
+      xferOpen = !xferOpen;
+      xferMsg = null;
+      break;
+    case "xfer-go":
+      moveMoney();
+      break;
     case "go-debt":
       go("debt");
       break;
@@ -1118,6 +1269,8 @@ app.addEventListener("click", (ev) => {
       break;
     case "reset":
       feed.length = 0;
+      bank.length = 0;
+      xferMsg = null;
       rateShock = 0;
       life = makeLife();
       recorder = startRecorder();
@@ -1138,6 +1291,12 @@ app.addEventListener("input", (ev) => {
     if (label) label.textContent = usd(life.book.extraMonthly);
     deferred = true;
   }
+  if (el.dataset.xferAmt !== undefined) {
+    xfer.amount = Math.max(0, Math.round(Number(el.value) || 0));
+    xferMsg = null;
+    const go = app.querySelector<HTMLButtonElement>('[data-act="xfer-go"]');
+    if (go) go.textContent = `Move ${usd(xfer.amount)}`;
+  }
   if (el.dataset.amount !== undefined) {
     amount = Math.max(0, Math.round(Number(el.value) || 0));
     app.querySelectorAll<HTMLButtonElement>("[data-amt]").forEach((b) => b.classList.toggle("on", Number(b.dataset.amt) === amount));
@@ -1152,6 +1311,12 @@ app.addEventListener("change", (ev) => {
   const el = ev.target as HTMLInputElement | HTMLSelectElement;
   if (el.dataset.extra !== undefined) {
     deferred = false;
+    render();
+  }
+  if (el.dataset.xferFrom !== undefined || el.dataset.xferTo !== undefined) {
+    if (el.dataset.xferFrom !== undefined) xfer.from = el.value;
+    else xfer.to = el.value;
+    xferMsg = null;
     render();
   }
   if (el.dataset.move !== undefined) {

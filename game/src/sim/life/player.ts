@@ -105,6 +105,8 @@ export interface LifeOptions {
   cashRate?: (date: Date) => number;
   /** Prices for brokerage holdings; defaults to a market path with the default seed. */
   market?: MarketPath;
+  /** Dollars of each fund or stock already held on the first day, bought a year earlier. */
+  holdings?: Partial<Record<InstrumentId, number>>;
 }
 
 /** A position valued at a day's price. */
@@ -133,6 +135,13 @@ export function defaultAccounts(day: number): Account[] {
     { id: "k401", kind: "k401", name: "401(k)", balance: 0, apy: 0, openedDay: day },
   ];
 }
+
+/**
+ * The player's starting brokerage: a total-market fund and a little of the
+ * hyped AI stock, bought a year before the game starts, so net worth moves
+ * with the market from the first day the way a real portfolio does.
+ */
+export const STARTER_PORTFOLIO: Partial<Record<InstrumentId, number>> = { LTM: 6_000, NNST: 800 };
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const CASH_KINDS = new Set(["checking", "savings", "emergency"]);
@@ -180,6 +189,10 @@ export class PlayerLife {
   private ltmPeak: number;
   /** A bear_market event fired and the market hasn't set a new high since. */
   private inBear = false;
+  /** Units of each starting holding, for pastSnapshots. */
+  private readonly startUnits: [InstrumentId, number][] = [];
+  /** Balances on the first day, before anything the player does that day. */
+  private readonly startSnap: LifeSnapshot;
 
   constructor(o: LifeOptions) {
     this.place = o.place;
@@ -197,7 +210,40 @@ export class PlayerLife {
     this.ltmPeak = this.market.price("LTM", o.day);
     this.cashRate = o.cashRate ?? cashRateOn;
     this.twins = new Twins(this.market);
+    if (o.holdings) this.seedHoldings(o.holdings, o.day);
+    this.startSnap = this.snapshot(o.day);
     this.record(o.day);
+  }
+
+  /**
+   * Snapshots for the days before the life began, so charts have a past: cash,
+   * debt, and score as they were on the first day, and the starting holdings at
+   * each day's real price. Separate from `history`, which holds only days lived.
+   */
+  pastSnapshots(from: number): LifeSnapshot[] {
+    const first = this.startSnap;
+    const held = (d: number) => this.startUnits.reduce((s, [id, units]) => s + units * this.market.price(id, d), 0);
+    const other = first.investments - held(this.startDay);
+    const otherBrokerage = first.brokerage - held(this.startDay);
+    const out: LifeSnapshot[] = [];
+    for (let d = Math.max(from, this.market.firstDay); d < this.startDay; d++) {
+      const investments = round2(other + held(d));
+      const brokerage = round2(otherBrokerage + held(d));
+      out.push({
+        day: d,
+        cash: first.cash,
+        investments,
+        debt: first.debt,
+        netWorth: round2(first.cash + investments - first.debt),
+        score: first.score,
+        brokerage,
+        // Nothing was sold before the start, so you and if you had held are the starting holdings.
+        you: this.twins.you(brokerage),
+        held: this.twins.held(d),
+        autopilot: this.twins.autopilot(d),
+      });
+    }
+    return out;
   }
 
   /** Monthly rent for the current state. */
@@ -512,6 +558,22 @@ export class PlayerLife {
       this.ledger.accounts.set(id, a);
     }
     return a;
+  }
+
+  /** Opens the starting positions, bought a year before `day` at that day's real prices. */
+  private seedHoldings(dollars: Partial<Record<InstrumentId, number>>, day: number): void {
+    const acct = this.brokerage();
+    if (!acct) return;
+    acct.holdings ??= {};
+    for (const [id, amount] of Object.entries(dollars) as [InstrumentId, number][]) {
+      if (!(amount > 0)) continue;
+      const units = amount / this.market.price(id, day);
+      const cost = round2(units * this.market.price(id, day - 365));
+      acct.holdings[id] = { units, cost };
+      this.startUnits.push([id, units]);
+      // The twins start where the player starts.
+      this.twins.seedHolding(id, units, cost, day - 365);
+    }
   }
 
   private brokerage(): Account | undefined {
