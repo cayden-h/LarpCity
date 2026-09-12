@@ -7,7 +7,7 @@
 // on the game's Clock. Research: research/12-credit-desk-ui.md.
 
 import "./desk.css";
-import { mountBigChart, spark, thin, type ChartPt } from "./chart.ts";
+import { mountBigChart, spark, thin, type ChartPt, type ChartLine } from "./chart.ts";
 import { mountShop } from "./shop.ts";
 import type { MoneyHost } from "../ui/phone.ts";
 import { Clock } from "../engine/clock.ts";
@@ -45,7 +45,7 @@ interface Decision {
 }
 interface ChartSpec {
   pts: ChartPt[];
-  lines?: { pts: ChartPt[]; cls: string; label?: string }[];
+  lines?: ChartLine[];
   zero?: boolean;
   baseline?: boolean;
   minSpan?: number;
