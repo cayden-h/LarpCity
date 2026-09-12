@@ -137,9 +137,14 @@ test("withholdingForPaycheck's federal income tax roughly matches the full year'
   const periods = 24;
   const perPeriod = 4_000;
   const w = withholdingForPaycheck({ state: "TX", wagesThisPeriod: perPeriod, periodsPerYear: periods });
-  const annualWages = perPeriod * periods;
-  const annualTaxable = Math.max(0, annualWages - 16_100);
-  const annualFederalTax = federalTax(annualTaxable);
+  const annualWages = perPeriod * periods; // 96,000
+  const annualTaxable = Math.max(0, annualWages - FEDERAL_STANDARD_DEDUCTION_SINGLE_2026); // 79,900
+  // Hand-computed tax on $79,900 using 2026 single-filer brackets:
+  // 10%: $0-$12,400 → $1,240
+  // 12%: $12,400-$50,400 → $4,560
+  // 22%: $50,400-$79,900 → $6,490
+  // Total: $12,290
+  const expectedAnnualTax = 12_290;
   // Within a few dollars: rounding happens once at the annual level, once per paycheck here.
-  assert.ok(Math.abs(w.federalIncomeTax * periods - annualFederalTax) < 5);
+  assert.ok(Math.abs(w.federalIncomeTax * periods - expectedAnnualTax) < 5);
 });
