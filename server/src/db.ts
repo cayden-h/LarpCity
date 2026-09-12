@@ -10,7 +10,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const pool = new pg.Pool({
   connectionString: env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  // Tiger Data requires TLS; a local Postgres (a DATABASE_URL with sslmode=disable) doesn't speak it.
+  ssl: /[?&]sslmode=disable\b/.test(env.DATABASE_URL) ? false : { rejectUnauthorized: false },
   max: 10,
 });
 

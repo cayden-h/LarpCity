@@ -11,6 +11,10 @@ export const personaRouter = Router();
 const completeBody = z.object({ inquiryId: z.string().min(1).max(200) });
 
 personaRouter.post("/complete", async (req, res) => {
+  if (!env.PERSONA_API_KEY) {
+    res.status(503).json({ error: "persona_not_configured" });
+    return;
+  }
   const parsed = completeBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "invalid body" });
@@ -36,9 +40,14 @@ const seenEventIds = new Set<string>();
 export const personaWebhookRouter = Router();
 
 personaWebhookRouter.post("/webhook", raw({ type: "*/*" }), (req, res) => {
+  const secret = env.PERSONA_WEBHOOK_SECRET;
+  if (!secret) {
+    res.status(503).end();
+    return;
+  }
   const signatureHeader = req.header("Persona-Signature");
   const rawBody = (req.body as Buffer).toString("utf8");
-  if (!signatureHeader || !verifyWebhookSignature(signatureHeader, rawBody, env.PERSONA_WEBHOOK_SECRET)) {
+  if (!signatureHeader || !verifyWebhookSignature(signatureHeader, rawBody, secret)) {
     res.status(401).end();
     return;
   }
