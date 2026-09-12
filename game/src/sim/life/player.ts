@@ -22,6 +22,7 @@ import {
 import { instrument, MarketPath, type InstrumentId } from "../market/index.ts";
 import { Ledger, type LedgerSave } from "../money/accounts.ts";
 import type { Account, Holding } from "../money/types.ts";
+import { deepCopy } from "../rewind/copy.ts";
 import { CrashWatch, PANIC_DRAWDOWN, type CrashSave } from "../skip/crash.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
 import { cashRateOn } from "./rates.ts";
@@ -88,6 +89,17 @@ export interface LifeSnapshot {
   held: number;
   /** The same dollars at 90/10 LTM/BOND, never sold. */
   autopilot: number;
+}
+
+/** A life's state on one day, for rewinding (sim/rewind). */
+export interface LifeCheckpoint {
+  day: number;
+  /** A detached copy (no listeners, history, or log). */
+  state: PlayerLife;
+  historyLength: number;
+  /** The day's history row as it was then; a trade later that day replaces it in place. */
+  lastSnapshot: LifeSnapshot | null;
+  logLength: number;
 }
 
 export interface LifeOptions {
@@ -192,6 +204,8 @@ export const CONCENTRATION_LIMIT = 0.2;
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const CASH_KINDS = new Set(["checking", "savings", "emergency"]);
+/** Fields a detached copy starts empty: it runs on its own and keeps no past. */
+const FRESH_ON_COPY = new Set(["history", "log", "listeners"]);
 /** Smallest trade the brokerage accepts, like most apps' $1 fractional minimum. */
 export const MIN_TRADE = 1;
 
@@ -221,6 +235,10 @@ export class PlayerLife {
   /** The latest game day the life has seen; holdings are valued at this day's prices. */
   today: number;
   readonly history: LifeSnapshot[] = [];
+  /** Every event the life has emitted, in order (the calendar reads it; a rewind truncates it). */
+  readonly log: LifeEvent[] = [];
+  /** True while days replay for a rewind: events still go in the log, but no listener hears them. */
+  private muted = false;
   /** Shadow portfolios of the player's buys, for "if you had held" and "autopilot". */
   readonly twins: Twins;
   private readonly startDay: number;
@@ -508,6 +526,47 @@ export class PlayerLife {
     this.listeners.push(fn);
   }
 
+  /** Runs `fn` (days replayed for a rewind) without telling any listener; the log still records. */
+  quietly(fn: () => void): void {
+    const was = this.muted;
+    this.muted = true;
+    try {
+      fn();
+    } finally {
+      this.muted = was;
+    }
+  }
+
+  /** A copy of this life that runs on its own: the same state, but no listeners, history, or log. */
+  detached(): PlayerLife {
+    const self = this as unknown as Record<string, unknown>;
+    const copy = Object.create(PlayerLife.prototype) as Record<string, unknown>;
+    const seen = new Map<unknown, unknown>();
+    for (const k of Object.keys(self)) copy[k] = FRESH_ON_COPY.has(k) ? [] : deepCopy(self[k], seen);
+    return copy as unknown as PlayerLife;
+  }
+
+  /** Today's state, to come back to later with `restore`. Taken right after a day's tick, it's that day's morning. */
+  checkpoint(): LifeCheckpoint {
+    const last = this.history[this.history.length - 1];
+    return { day: this.today, state: this.detached(), historyLength: this.history.length, lastSnapshot: last ? { ...last } : null, logLength: this.log.length };
+  }
+
+  /**
+   * Puts a checkpoint's state back into this same life, so everything holding
+   * it (the desk, the recorder, the bank mirror) keeps working. History and
+   * the log are cut back to where they were; the checkpoint stays reusable.
+   */
+  restore(cp: LifeCheckpoint): void {
+    const from = cp.state.detached() as unknown as Record<string, unknown>;
+    const self = this as unknown as Record<string, unknown>;
+    for (const k of Object.keys(from)) if (!FRESH_ON_COPY.has(k)) self[k] = from[k];
+    this.history.length = cp.historyLength;
+    // A trade later that day replaced the day's row; put the morning's back.
+    if (cp.lastSnapshot) this.history[cp.historyLength - 1] = { ...cp.lastSnapshot };
+    this.log.length = cp.logLength;
+  }
+
   /** One game day. `date` is the calendar date of `day`. */
   onDay(day: number, date: Date): LifeEvent[] {
     const events: LifeEvent[] = [];
@@ -753,6 +812,8 @@ export class PlayerLife {
   }
 
   private emit(events: LifeEvent[]) {
+    this.log.push(...events);
+    if (this.muted) return;
     for (const fn of this.listeners) fn(events, this);
   }
 

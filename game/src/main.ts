@@ -13,6 +13,7 @@ import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
 import { NpcTown } from "./sim/npcs";
 import { RunRecorder } from "./sim/record";
+import { LifeTimeline } from "./sim/rewind";
 import { Hud } from "./ui/hud";
 import { runIntake } from "./ui/intake";
 import { Narrator } from "./ui/narrator";
@@ -38,7 +39,8 @@ document.getElementById("app")!.appendChild(app.canvas);
 const clock = new Clock();
 let scene: CityScene | null = null;
 let state: StateInfo = STATES.find((s) => s.abbr === "TX")!;
-let skipping = 0;
+/** The time-lapse skip's interval, or 0 when no skip is playing. */
+let skipTimer = 0;
 
 // The run's seed: the market path and every random draw hang off it (?seed= to replay one).
 const seed = Number(new URLSearchParams(location.search).get("seed")) || 20260912;
@@ -80,6 +82,8 @@ void bank.begin();
 // The player's daily snapshots and life events, recorded in Tiger Data for charts, history, and the leaderboard.
 const recorder = new RunRecorder({ life: player, seed, base: api });
 void recorder.begin();
+// A checkpoint every game day, so the Calendar can go back to any past day (sim/rewind).
+const timeline = new LifeTimeline(player, { start: clock.start });
 
 let shownTier = -1;
 function syncHomeTier() {
@@ -95,12 +99,12 @@ clock.onDay((day) => {
   if (player.needsDecision(events)) {
     // A crash, a payment the player can't cover, or bankruptcy: stop the time-lapse and open the
     // Money desk on the decision (opening it pauses the clock), instead of pausing time behind it.
-    skipping = 0;
+    stopSkip();
     phone.showDecision(events.filter((e) => player.needsDecision([e])));
   }
   if (player.stopsSkip(events)) {
     // Bankruptcy stops skips and pauses time (the game design meeting's rule).
-    skipping = 0;
+    stopSkip();
     clock.speed = 0;
   }
   const cue = cueForEvents(events);
@@ -133,18 +137,39 @@ async function open(next: StateInfo): Promise<void> {
 
 const npcCard = new NpcCard(document.getElementById("npc")!);
 
-function skipDays(days: number): void {
-  if (skipping) return;
-  skipping = days;
+/** Most steps a time-lapse skip takes (at least 40 ms each), however far it goes. */
+const SKIP_STEPS = 60;
+
+function stopSkip(): void {
+  clearInterval(skipTimer);
+  skipTimer = 0;
+  clock.skipping = false;
+}
+
+/** Plays the days up to `target` as a time-lapse (the Calendar's "Skip to"); a decision on the way stops it there. */
+function skipTo(target: number): void {
+  if (skipTimer || target <= clock.day) return;
+  const days = target - clock.day;
+  const perStep = Math.ceil(days / SKIP_STEPS);
   clock.skipping = true;
-  const step = Math.max(40, 1400 / days);
-  const timer = setInterval(() => {
-    clock.advanceDays(1);
-    if (--skipping <= 0) {
-      clearInterval(timer);
-      clock.skipping = false;
-    }
-  }, step);
+  skipTimer = window.setInterval(() => {
+    for (let i = 0; i < perStep && skipTimer && clock.day < target; i++) clock.advanceDays(1);
+    if (clock.day >= target) stopSkip();
+  }, Math.max(40, 1400 / days));
+}
+
+/** Goes back to the morning of a past day (the Calendar's "Go back"): everything after it is undone, and time pauses. */
+function rewindTo(day: number): void {
+  if (day >= clock.day || day < timeline.firstDay) return;
+  stopSkip();
+  clock.speed = 0;
+  timeline.rewindTo(day);
+  clock.jumpTo(day);
+  town.rewind(day);
+  bank.rewind(day);
+  void recorder.rewind(day);
+  syncHomeTier();
+  phone.rewound(day, player.log.filter((e) => e.day === day && player.needsDecision([e])));
 }
 
 const hud = new Hud(document.getElementById("hud")!, {
@@ -199,15 +224,17 @@ const fastForward = new FastForward({
   },
 });
 
-// The player's phone is the hub for market, goals, travel, and timeline controls
-// (Stocks opens the Money desk; Goals opens the fast-forward).
+// The player's phone is the hub for market, goals, travel, and the calendar
+// (Stocks opens the Money desk; Goals opens the fast-forward; Calendar goes back and skips ahead).
 const phone = new Phone({
   clock,
   player,
   recorder,
   openFastForward: () => fastForward.open(),
   openMap: () => map.open(state, captureCityPreview()),
-  skip: skipDays,
+  skipTo,
+  rewindTo,
+  firstDay: () => timeline.firstDay,
   getWorld: () => ({ state, city: scene?.city ?? cityFor(state), status: scene?.status() ?? null }),
 });
 

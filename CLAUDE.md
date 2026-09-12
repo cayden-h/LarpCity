@@ -70,6 +70,8 @@ That is what makes rewind, fast-forward, and "what if" comparisons possible: sto
 - `sim/market/` (`MarketPath`): real FRED history before game day 0, then a bull/bear regime model on trading days with the preset AI Boom and AI Bubble Pop, pricing LTM, BOND, NNST, and the HackRice sponsor stocks.
 - `sim/skip/`: goal fast-forwards: standing orders, goals and price tags, the shared crash rule, a 100-future preview in a Web Worker (`futures.worker.ts`), and the headless run.
 - `sim/record/` (`RunRecorder`): sends the run's daily snapshots and every life event to the server (Tiger Data); `sim/npcs/` and `sim/mirror/` run the named NPCs and the Capital One Nessie bank mirror.
+- `sim/rewind/` (`LifeTimeline`): a checkpoint of a life for every game day, restored into the same `PlayerLife`, so the Calendar goes back to any past day exactly; `rewindTo` in `src/main.ts` rewinds the clock, NPCs, bank mirror, and recorder (which forks the run on the server) with it.
+- `sim/calendar/`: the Calendar's day chips (`marksFor`), each future day's scheduled money (`scheduleFor`, matching the debt engine's due days), and the next decision day (`nextDecisionDay`, a detached copy run ahead).
 
 **Rendering and world (`game/src/engine/`, `game/src/cities/`)**: a PixiJS v8 isometric renderer.
 `engine/world.ts` wraps each city in generated suburbs, farms, and terrain; `engine/bricks.ts` is the procedural building builder where no sprite set exists; `cities/` holds the 6 hand-made cities (Houston, Dallas, Austin, San Francisco, New York, Miami) plus per-state "vibe" templates.
@@ -77,7 +79,7 @@ Cities with a sprite set draw pre-rendered Blender sprites (`engine/sprite-pick.
 Everything random is seeded, so a city's weather and traffic replay identically.
 
 **UI (`game/src/ui/`)**: DOM over the canvas, in Eric's pixel theme (`pixel-theme.css`, the Pixelify Sans font, `pixel-icons.ts`).
-The HUD (`hud.ts`) is just the "Your home" card; the phone (`phone.ts`, pulled up from the bottom-right) is the hub: Stocks (sponsor stocks and markets, opens the Money desk), Goals (the fast-forward, `skip-setup.ts`), Map (the pixel U.S. map, `usmap.ts`), Weather, and Timeline (speed and skips).
+The HUD (`hud.ts`) is just the "Your home" card; the phone (`phone.ts`, pulled up from the bottom-right) is the hub: Stocks (sponsor stocks and markets, opens the Money desk), Goals (the fast-forward, `skip-setup.ts`), Map (the pixel U.S. map, `usmap.ts`), Weather, and Calendar (`calendar.ts`: the month and year views, going back to a past day, skipping to the next decision day, and the speed).
 Add new phone apps to `APPS`.
 `intake.ts` is the onboarding (voice interview through ElevenLabs, or a typed form), and `narrator.ts` with `src/narration/lines.ts` is the owl narrator and its pre-voiced lines.
 Scene events, camera reset, and the pinned sky time have no buttons anymore; use them from the console (`larp.scene().trigger("crash")`).

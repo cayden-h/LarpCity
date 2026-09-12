@@ -1591,6 +1591,18 @@ if (host) {
   // The city's ticker drives the clock and the city calls life.onDay; every day's events
   // reach onLifeEvents, which re-renders. Decision moments come through the phone.
   host.onShow(showParkedDecisions);
+  host.onRewind((day) => {
+    // The city went back to the morning of `day`: drop what the desk showed from then on and show that morning again.
+    const trim = <T extends { day: number }>(list: T[]) => {
+      for (let i = list.length - 1; i >= 0; i--) if (list[i].day >= day) list.splice(i, 1);
+    };
+    trim(feed);
+    trim(bank);
+    if (crash && crash.day >= day) crash = null;
+    if (recovery && recovery.day >= day) recovery = recap = null;
+    decision = null;
+    onLifeEvents(life.log.filter((e) => e.day === day));
+  });
   showParkedDecisions();
 } else {
   clock.onDay((day) => {
