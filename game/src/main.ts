@@ -5,6 +5,7 @@ import { cityFor, LANDMARKS, stateForPin } from "./cities";
 import { BACKGROUND_NPCS } from "./data/background-npcs";
 import { NPCS } from "./data/npcs";
 import { STATES } from "./data/states";
+import { stateUniversity } from "./data/state-universities";
 import { Clock } from "./engine/clock";
 import type { ResidentSeed } from "./engine/people";
 import { CityScene } from "./engine/scene";
@@ -80,10 +81,19 @@ const town = new NpcTown({ place: state, day: clock.day, market: player.market, 
 const api = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api`;
 const primaryBase = `${api}/bank`;
 const backgroundBase = `${api}/bank-bg`;
-const residents: ResidentSeed[] = [
-  ...NPCS.map((n) => ({ id: n.id, first: n.first, last: n.last, job: n.job, age: n.age, story: `${n.story} ${describeHabit(n.id)}`, marked: true, bankBase: primaryBase })),
-  ...BACKGROUND_NPCS.map((n) => ({ id: n.id, first: n.first, last: n.last, job: n.job, age: n.age, story: `${n.story} ${describeHabit(n.id)}`, marked: false, bankBase: backgroundBase })),
-];
+// Marcus's story (data/npcs.ts) carries a {{stateUniversity}} placeholder, resolved here
+// against the current state rather than baked into the profile, so it tracks a move the
+// same way rent already does (see buildResidents's call site in open()).
+function resolveStory(story: string): string {
+  return story.replaceAll("{{stateUniversity}}", stateUniversity(state.abbr));
+}
+function buildResidents(): ResidentSeed[] {
+  return [
+    ...NPCS.map((n) => ({ id: n.id, first: n.first, last: n.last, job: n.job, age: n.age, story: `${resolveStory(n.story)} ${describeHabit(n.id)}`, marked: true, bankBase: primaryBase })),
+    ...BACKGROUND_NPCS.map((n) => ({ id: n.id, first: n.first, last: n.last, job: n.job, age: n.age, story: `${resolveStory(n.story)} ${describeHabit(n.id)}`, marked: false, bankBase: backgroundBase })),
+  ];
+}
+let residents: ResidentSeed[] = buildResidents();
 const bankClient = new BankClient(primaryBase);
 const bank = new BankSync({ run: `${seed}-${Date.now().toString(36)}`, start: clock.start, base: primaryBase });
 bank.add("player", "Player", player);
@@ -132,6 +142,7 @@ async function open(next: StateInfo): Promise<void> {
     narrator.cue("moved");
   }
   state = next;
+  residents = buildResidents();
   const city = cityFor(next);
   const sprites = await loadSpriteSet(city.id);
   scene = new CityScene(app, city, clock, LANDMARKS, sprites, undefined, residents);
