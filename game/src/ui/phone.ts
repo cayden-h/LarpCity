@@ -252,7 +252,7 @@ export class Phone {
 
           <section class="view view-stocks" data-view="stocks" hidden>
             <header class="st-head">
-              <button class="st-back" data-home aria-label="Back to home"><svg viewBox="0 0 10 16" width="9" height="15"><path d="M8 2L2 8l6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
               <div><div class="st-title">Stocks</div><div class="st-sub" data-st-sub></div></div>
             </header>
             <ul class="st-list" data-st-list></ul>

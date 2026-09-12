@@ -1,6 +1,7 @@
 /* The goal fast-forward setup screen: a window over the city in the HUD's
-   look (white borders, blue title bar, Fredoka), with three columns for the
-   goal, the plan, and the preview. */
+   pixel theme (square panels with dark pixel edges, blue title bar, Pixelify
+   Sans; ui/pixel-theme.css), with three columns for the goal, the plan, and
+   the preview. */
 
 .ff-overlay {
   position: fixed;
@@ -24,8 +25,8 @@
   width: min(1240px, 100%);
   height: min(800px, 100%);
   overflow: hidden;
-  border: 3px solid #fff;
-  border-radius: 20px;
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
   background: #e6f0fd;
   box-shadow: 0 30px 80px rgba(10, 30, 70, 0.45);
 }
@@ -38,7 +39,7 @@
   height: 44px;
   padding: 0 8px 0 16px;
   background: linear-gradient(180deg, #2d6fd6 0%, #1f4e9c 100%);
-  border-bottom: 3px solid #fff;
+  border-bottom: 3px solid var(--edge, #101a23);
   color: #fff;
   font-size: 16px;
 }
@@ -51,9 +52,9 @@
 .ff-dot {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--yellow, #ffcf33);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 0 2px var(--edge, #101a23);
 }
 .ff-hint {
   margin-left: auto;
@@ -63,16 +64,17 @@
 .ff-close {
   width: 30px;
   height: 30px;
-  border: 2px solid rgba(255, 255, 255, 0.7);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: #0966ae;
+  box-shadow: inset 2px 2px #56b5ec, inset -2px -2px #00487d;
   color: #fff;
   font: inherit;
   font-size: 14px;
   cursor: pointer;
 }
 .ff-close:hover {
-  background: rgba(255, 255, 255, 0.25);
+  filter: brightness(1.12);
 }
 
 .ff-body {
@@ -87,10 +89,10 @@
   min-height: 0;
   overflow: auto;
   padding: 14px 16px;
-  border: 3px solid #fff;
-  border-radius: 16px;
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
   background: #fff;
-  box-shadow: 0 3px 0 rgba(10, 30, 70, 0.1);
+  box-shadow: 0 3px 0 #07263c;
 }
 .ff-h {
   display: flex;
@@ -105,7 +107,8 @@
   place-items: center;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
+  border: 2px solid var(--edge, #101a23);
+  border-radius: 0;
   background: var(--blue, #1f4e9c);
   color: #fff;
   font-size: 13px;
@@ -114,8 +117,8 @@
 .ff-overlay select,
 .ff-overlay input[type="number"] {
   padding: 4px 8px;
-  border: 2px solid #cfdcf2;
-  border-radius: 9px;
+  border: 2px solid var(--edge, #101a23);
+  border-radius: 0;
   background: #fff;
   color: inherit;
   font: inherit;
@@ -137,8 +140,8 @@
   align-items: center;
   gap: 6px 8px;
   padding: 10px 12px;
-  border: 2px solid #dbe5f5;
-  border-radius: 14px;
+  border: 2px solid #b9c9df;
+  border-radius: 0;
   background: #f6f9ff;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
@@ -173,8 +176,8 @@
 .ff-tag {
   margin-top: 12px;
   padding: 10px 12px;
-  border: 2px solid #ffe7a3;
-  border-radius: 12px;
+  border: 2px solid #e0b640;
+  border-radius: 0;
   background: #fff8e1;
   font-size: 13px;
   line-height: 1.45;
@@ -183,7 +186,7 @@
   height: 8px;
   margin-top: 8px;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 0;
   background: #f3e6bd;
 }
 .ff-meter i {
@@ -215,8 +218,8 @@
 .ff-presets button,
 .ff-seg button {
   padding: 7px 8px;
-  border: 2px solid #cfdcf2;
-  border-radius: 10px;
+  border: 2px solid #9fb3cf;
+  border-radius: 0;
   background: #f6f9ff;
   color: inherit;
   font: inherit;
@@ -293,7 +296,7 @@
   bottom: -14px;
   margin-top: 10px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: 0;
   /* A white fade above it hides the rows scrolling underneath. */
   box-shadow: 0 -18px 14px -2px #fff;
   font-size: 13px;
@@ -329,7 +332,7 @@
   display: grid;
   place-items: center;
   aspect-ratio: 460 / 214;
-  border-radius: 12px;
+  border-radius: 0;
   background: #f6f9ff;
   color: #5b6b85;
   font-size: 13px;
@@ -395,7 +398,7 @@
   width: 14px;
   height: 8px;
   margin-right: 5px;
-  border-radius: 3px;
+  border-radius: 0;
   vertical-align: middle;
 }
 .ff-legend .sw.band {
@@ -421,8 +424,8 @@
 }
 .ff-stats li {
   padding: 8px 12px;
-  border: 2px solid #e3ecfa;
-  border-radius: 12px;
+  border: 2px solid #c9d6ea;
+  border-radius: 0;
   background: #f6f9ff;
   font-size: 13px;
 }
@@ -450,10 +453,10 @@
 .ff-go {
   margin-top: auto;
   padding: 12px 16px;
-  border: 3px solid #fff;
-  border-radius: 14px;
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
   background: var(--yellow, #ffcf33);
-  box-shadow: 0 4px 0 var(--yellow-2, #f2b200), 0 8px 18px rgba(10, 30, 70, 0.18);
+  box-shadow: inset 3px 3px #fff5b2, inset -3px -3px #c58910, 0 4px var(--edge, #101a23);
   color: var(--ink, #16233b);
   font: inherit;
   font-size: 17px;
@@ -469,7 +472,7 @@
 }
 .ff-go:active {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 var(--yellow-2, #f2b200);
+  box-shadow: inset 3px 3px #fff5b2, inset -3px -3px #c58910, 0 1px var(--edge, #101a23);
 }
 .ff-go:disabled {
   background: #e8eef8;
@@ -480,7 +483,7 @@
 }
 .ff-go.warn {
   background: #ff7b6b;
-  box-shadow: 0 4px 0 #d9564a;
+  box-shadow: inset 3px 3px #ffb3a9, inset -3px -3px #d9564a, 0 4px var(--edge, #101a23);
   color: #fff;
 }
 .ff-fine {
@@ -497,10 +500,10 @@
   justify-self: center;
   width: min(520px, 100%);
   padding: 28px;
-  border: 3px solid #fff;
-  border-radius: 20px;
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
   background: #fff;
-  box-shadow: 0 3px 0 rgba(10, 30, 70, 0.1);
+  box-shadow: 0 4px 0 #07263c;
   text-align: center;
 }
 .ff-result-icon {

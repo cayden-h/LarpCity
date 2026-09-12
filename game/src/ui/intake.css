@@ -1,6 +1,7 @@
 /* The onboarding interview: the owl narrator's welcome card over a blurred
-   plate of the starting city, in the HUD's look (blue card, white border,
-   yellow buttons, Pixelify Sans), after reference/screenshots/02-onboarding-mayor.jpg. */
+   plate of the starting city, in the HUD's pixel theme (square blue card with
+   dark pixel edges, yellow buttons, Pixelify Sans; ui/pixel-theme.css), after
+   reference/screenshots/02-onboarding-mayor.jpg. */
 
 .in-overlay {
   position: fixed;
@@ -32,10 +33,10 @@
   position: relative;
   width: min(620px, 100%);
   padding: 46px 30px 22px;
-  border: 4px solid #fff;
-  border-radius: 22px;
-  background: linear-gradient(180deg, #2d6fd6 0%, var(--blue, #1f4e9c) 100%);
-  box-shadow: var(--shadow);
+  border: 4px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: var(--panel, linear-gradient(180deg, #2d6fd6 0%, #1f4e9c 100%));
+  box-shadow: inset 0 4px #a4eaff, inset 4px 0 #57c1fb, inset -4px 0 #003f7b, inset 0 -4px #004d8a, var(--shadow);
   color: #fff;
   text-align: center;
 }
@@ -47,10 +48,11 @@
   margin: 0;
   padding: 8px 28px 10px;
   transform: translateX(-50%);
-  border: 3px solid #fff;
-  border-radius: 14px;
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
   background: linear-gradient(180deg, #f25c63 0%, #d93a44 100%);
-  box-shadow: 0 4px 0 #a82630, 0 10px 20px rgba(10, 30, 70, 0.3);
+  box-shadow: inset 3px 3px #ff9ca1, inset -3px -3px #a82630, 0 4px var(--edge, #101a23);
+  text-shadow: 1px 2px #8f1f28;
   font-size: 24px;
   font-weight: 700;
   line-height: 1.1;
@@ -128,7 +130,8 @@
   margin: 0 0 16px;
   padding: 10px 14px;
   overflow: auto;
-  border-radius: 14px;
+  border: 3px solid #06508c;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.12);
   list-style: none;
   text-align: left;
@@ -178,14 +181,14 @@
   align-items: center;
   gap: 6px;
   padding: 0 10px;
-  border: 2px solid #cfdcf2;
-  border-radius: 12px;
-  background: #fff;
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: var(--paper, #fff);
+  box-shadow: inset 2px 2px #d7cba8;
   color: var(--ink, #16233b);
 }
 .in-input:focus-within {
-  border-color: var(--yellow, #ffcf33);
-  box-shadow: 0 0 0 3px rgba(255, 207, 51, 0.45);
+  box-shadow: inset 2px 2px #d7cba8, 0 0 0 3px var(--yellow, #ffcf33);
 }
 .in-input input {
   flex: 1;

@@ -253,7 +253,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   padding: 0 0 10px;
   border-bottom: 3px solid #aac2c9;
 }
-.phone-app-head .st-back {
+/* The square pixel back button, in every app (Stocks keeps its own header). */
+.phone-app-head .st-back,
+.st-head .st-back {
   flex: none;
   width: 32px;
   height: 32px;
@@ -265,6 +267,11 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   line-height: 20px;
   box-shadow: inset 2px 2px #8cddff, inset -2px -2px #07539e;
   cursor: pointer;
+}
+.phone-app-head .st-back:hover,
+.st-head .st-back:hover {
+  background: var(--panel);
+  filter: brightness(1.12);
 }
 .timeline-date {
   display: grid;
