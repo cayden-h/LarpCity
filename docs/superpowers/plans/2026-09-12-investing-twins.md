@@ -857,7 +857,7 @@ git commit -m "Server: you, held, and autopilot snapshot columns; resent days ov
 
 ---
 
-### Task 7: Gemini crash recap
+### Task 7: Gemini crash recap (superseded: see "Amendments 2" at the end)
 
 **Files:**
 - Modify: `server/src/adapters/gemini.ts`
@@ -1422,7 +1422,7 @@ In `history`'s daily query, select `debt, you, held, autopilot`.
 
 - [ ] **Step 4: Commit.** `git add server/src/migrations.sql server/src/routes/snapshot.ts server/src/store/runs.ts server/src/routes/snapshot.test.ts server/src/store/runs.db.test.ts && git commit -m "Server: you, held, and autopilot on daily snapshots"`
 
-### Task 7 (amendment): the route uses Tri's helpers
+### Task 7 (amendment): the route uses Tri's helpers (superseded: see "Amendments 2" at the end)
 
 Keep Task 7's adapter, tests, and `recapBody`, but write the route with `handle` and `parse` from `server/src/http.ts`, like `routes/snapshot.ts`:
 
@@ -1621,3 +1621,255 @@ In the `reset` case, after `life = makeLife();` add `recorder = startRecorder();
 
 Step 1 is only `ln -s ../../.env .env` in the worktree root: the root `.env` already has `VITE_API_BASE_URL`, and `game/vite.config.ts` now reads `VITE_*` values from the repo root (`envDir`), so no `game/.env.local` is needed.
 In Step 4, if `psql` is missing, check the rows from the desk's browser console with `fetch(API_BASE + "/history/" + runId + "?bucket=day", { credentials: "include" })`, using the run id the desk's recorder logged or holds.
+
+---
+
+## Amendments 2 (2026-09-12, after `origin/Tri` gained the Gemini coach, e725df6)
+
+`origin/Tri` now writes Gemini feedback only from the run's own Tiger Data (`server/src/ai/facts.ts`, `server/src/ai/coach.ts`, `POST /api/feedback { runId, trigger, day }`), with a plain-text fallback for every answer, and the old `callGemini` helper is gone.
+Decision (2026-09-12): the crash recap becomes a fourth trigger, `recovery`, on that route.
+This replaces Task 7 and its amendment, and the recap parts of Task 8 (amended): the `fetchRecap` client, its test, and `askRecap`.
+The desk sends only `{ runId, trigger: "recovery", day }`; the server reads the bear-market, recovery, and trade events the run recorder already stores, plus the snapshot lines from Task 6.
+
+### Task 7 (amended 2): a `recovery` trigger for the coach
+
+**Files:**
+- Modify: `server/src/ai/facts.ts`, `server/src/ai/coach.ts`, `server/src/routes/ai.ts`
+- Test: `server/src/ai/facts.test.ts`, `server/src/ai/coach.test.ts`
+
+- [ ] **Step 1: Failing tests.** In `server/src/ai/facts.test.ts`, add `recoveryFacts` to the import from `./facts.js`, then append:
+
+```ts
+test("recovery facts compare the player with holding, from the run's own events", () => {
+  const events = [
+    ev(100, "bear_market", { drop: 0.23, stocks: 900 }),
+    ev(120, "trade", { side: "sell", amount: 700, id: "LTM", recurring: false }),
+    ev(130, "trade", { side: "buy", amount: 100, id: "LTM", recurring: true }),
+    ev(400, "market_recovered", { you: 850, held: 1400, autopilot: 1300 }),
+  ];
+  const f = feedbackFacts("recovery", 400, [snap(400)], [], undefined, events);
+  assert.deepEqual(f.recovery, { dropPct: 23, months: 10, choice: "sold", sold: 700, bought: 0, you: 850, held: 1400, autopilot: 1300, costOfSelling: 550 });
+  assert.equal(recoveryFacts(99, events), null, "no recovery yet");
+  assert.deepEqual(templateFeedback(f), {
+    headline: "Selling cost you $550",
+    tip: "Stocks fell 23% and took 10 months to get back to their high. You have $850; holding would be worth $1,400. Money you won't need for years can ride out a drop.",
+    mood: "console",
+  });
+
+  const heldRun = [events[0], ev(400, "market_recovered", { you: 1400, held: 1400, autopilot: 1300 })];
+  const h = feedbackFacts("recovery", 400, [snap(400)], [], undefined, heldRun);
+  assert.equal(h.recovery?.choice, "held");
+  assert.equal(templateFeedback(h).headline, "You rode it out");
+  assert.equal(templateFeedback(feedbackFacts("recovery", 400, [snap(400)], [])).headline, "Stocks are back at their high", "no crash on record still says something true");
+});
+```
+
+In `server/src/ai/coach.test.ts`, append:
+
+```ts
+test("the recovery prompt asks for the cost of the player's crash choice", () => {
+  const events = [
+    { key: "10:0", day: 10, kind: "bear_market", payload: { drop: 0.25 } },
+    { key: "90:0", day: 90, kind: "market_recovered", payload: { you: 900, held: 1500, autopilot: 1400 } },
+  ];
+  const p = coachPrompt(feedbackFacts("recovery", 90, snaps, [], undefined, events));
+  assert.match(p, /old high after a crash/);
+  assert.match(p, /"costOfSelling":600/);
+});
+```
+
+Run `cd server && npm test`; expected: FAIL (`recoveryFacts` is not exported; `feedbackFacts` ignores the sixth argument).
+
+- [ ] **Step 2: Facts** (`server/src/ai/facts.ts`).
+
+Widen the trigger type, keeping its doc comment and adding the new moment:
+
+```ts
+/** The meeting's three feedback moments (2026-09-11): a goal, bankruptcy, and a big portfolio swing; plus the market's recovery after a crash. */
+export type Trigger = "goal" | "bankruptcy" | "swing" | "recovery";
+```
+
+Add after `FeedbackFacts`, and give `FeedbackFacts` an optional field:
+
+```ts
+  /** Recovery only: the last crash and how each investing line came through. */
+  recovery?: RecoveryFacts;
+```
+
+```ts
+/** A crash and its recovery, from the run's bear_market, trade, and market_recovered events (game/src/sim/life/player.ts). */
+export interface RecoveryFacts {
+  /** How far stocks fell from their high, in whole percent. */
+  dropPct: number;
+  /** Months from the crash to the new high. */
+  months: number;
+  /** What the player did in between, read from their trades (auto-invest buys don't count). */
+  choice: "held" | "sold" | "bought more";
+  sold: number;
+  bought: number;
+  /** The player's investing line, the same buys never sold, and the 90/10 autopilot, at the recovery. */
+  you: number;
+  held: number;
+  autopilot: number;
+  /** held minus you: what selling cost (negative when the player came out ahead). */
+  costOfSelling: number;
+}
+
+/** The last recovery at or before `day` and the bear market before it; null when the run has no such pair. */
+export function recoveryFacts(day: number, events: EventRow[]): RecoveryFacts | null {
+  const sorted = [...events].sort((a, b) => a.day - b.day);
+  const rec = sorted.filter((e) => e.kind === "market_recovered" && e.day <= day).at(-1);
+  const bear = rec && sorted.filter((e) => e.kind === "bear_market" && e.day <= rec.day).at(-1);
+  if (!rec || !bear) return null;
+  const trades = sorted.filter((e) => e.kind === "trade" && e.day >= bear.day && e.day <= rec.day && e.payload.recurring !== true);
+  const total = (side: string) => trades.filter((e) => e.payload.side === side).reduce((s, e) => s + num(e.payload.amount), 0);
+  const sold = total("sell");
+  const bought = total("buy");
+  const p = rec.payload;
+  return {
+    dropPct: Math.round(num(bear.payload.drop) * 100),
+    months: Math.max(0, Math.round((rec.day - bear.day) / 30.44)),
+    choice: sold > 0 ? "sold" : bought > 0 ? "bought more" : "held",
+    sold: whole(sold),
+    bought: whole(bought),
+    you: whole(num(p.you)),
+    held: whole(num(p.held)),
+    autopilot: whole(num(p.autopilot)),
+    costOfSelling: whole(num(p.held) - num(p.you)),
+  };
+}
+```
+
+Give `feedbackFacts` a sixth parameter and the field (update its doc comment: `recoveryEvents` are the run's `bear_market`, `market_recovered`, and `trade` events far enough back to include the last crash, defaulting to `events`):
+
+```ts
+export function feedbackFacts(trigger: Trigger, day: number, snapshots: SnapshotRow[], events: EventRow[], goal?: string, recoveryEvents: EventRow[] = events): FeedbackFacts {
+  // ...existing body...
+  const recovery = trigger === "recovery" ? recoveryFacts(day, recoveryEvents) : null;
+  return {
+    // ...existing fields...
+    ...(recovery ? { recovery } : {}),
+  };
+}
+```
+
+In `templateFeedback`, before the goal fallback at the end:
+
+```ts
+  if (f.trigger === "recovery") {
+    const r = f.recovery;
+    if (!r) return { headline: "Stocks are back at their high", tip: "Holding through a drop is how investors get the rebound.", mood: "cheer" };
+    const back = `Stocks fell ${r.dropPct}% and took ${r.months} month${r.months === 1 ? "" : "s"} to get back to their high.`;
+    if (r.costOfSelling > 1) return { headline: `Selling cost you ${money(r.costOfSelling)}`, tip: `${back} You have ${money(r.you)}; holding would be worth ${money(r.held)}. Money you won't need for years can ride out a drop.`, mood: "console" };
+    if (r.costOfSelling < -1) return { headline: `You came out ${money(-r.costOfSelling)} ahead`, tip: `${back} You beat holding this time, but most people who sell in a crash miss the rebound.`, mood: "warn" };
+    return { headline: "You rode it out", tip: `${back} Holding through it got you the whole rebound: ${money(r.you)} now.`, mood: "cheer" };
+  }
+```
+
+- [ ] **Step 3: Coach** (`server/src/ai/coach.ts`): add to `MOMENT`:
+
+```ts
+  recovery:
+    "Stocks just got back to their old high after a crash. Compare what the player has now with what holding and the autopilot would have, name what their choice cost or earned in dollars, and say what that teaches about crashes.",
+```
+
+- [ ] **Step 4: Route** (`server/src/routes/ai.ts`): add `"recovery"` to `feedbackBody`'s trigger enum, and in the handler read the recovery events far enough back (a crash and its recovery can be years apart, beyond the 180-day window):
+
+```ts
+      const recoveryEvents =
+        b.trigger === "recovery" ? await listEvents(pool, runId, { from: Math.max(0, b.day - 3650), to: b.day, kinds: ["bear_market", "market_recovered", "trade"] }) : events;
+      const facts = feedbackFacts(b.trigger, b.day, snaps, events, b.goal, recoveryEvents);
+```
+
+(Keep the existing 180-day `events` query for the `recent` counts.) Update the route table comment at the top of the file to list `recovery`.
+
+- [ ] **Step 5: Verify.** `cd server && TEST_DATABASE_URL='postgres://postgres:larp@127.0.0.1:5433/postgres' npm test && npx tsc --noEmit -p tsconfig.json` (0 fail, 0 skipped).
+
+- [ ] **Step 6: Commit.** `git add server/src/ai/facts.ts server/src/ai/coach.ts server/src/routes/ai.ts server/src/ai/facts.test.ts server/src/ai/coach.test.ts && git commit -m "Coach: a recovery trigger that compares the player with holding"`
+
+### Task 8 (amended 2): the desk asks the coach at a recovery
+
+Everything in Task 8 (amended) stands except the recap client and `askRecap`, which become:
+
+`game/src/net/recap.ts`:
+
+```ts
+// Asks the coach for the recovery lesson (POST /api/feedback, trigger "recovery"; server/src/routes/ai.ts).
+// The server writes it from the run's own data in Tiger Data, so the desk sends only the run and the day.
+// Null when the server can't answer; the desk keeps its own lesson text.
+
+import { apiFetch } from "./api.ts";
+
+export type Api = <T>(path: string, init?: RequestInit) => Promise<T>;
+
+export interface CoachAnswer {
+  headline: string;
+  tip: string;
+  mood: "cheer" | "warn" | "console";
+  source: "gemini" | "template";
+}
+
+export async function fetchRecoveryLesson(runId: string, day: number, api: Api = apiFetch): Promise<CoachAnswer | null> {
+  try {
+    return await api<CoachAnswer>("/feedback", { method: "POST", body: JSON.stringify({ runId, trigger: "recovery", day }) });
+  } catch {
+    return null;
+  }
+}
+```
+
+`game/tests/recap.test.ts`:
+
+```ts
+// Recovery lesson client tests: only the run and the day go to the coach, and a failing server means no lesson.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { fetchRecoveryLesson, type Api } from "../src/net/recap.ts";
+
+test("the client sends only the run, the trigger, and the day", async () => {
+  let seen: { path: string; init?: RequestInit } | null = null;
+  const api: Api = async <T,>(path: string, init?: RequestInit) => {
+    seen = { path, init };
+    return { headline: "Selling cost you $550", tip: "Holding got the rebound.", mood: "console", source: "template" } as T;
+  };
+  const r = await fetchRecoveryLesson("run-1", 400, api);
+  assert.equal(r?.headline, "Selling cost you $550");
+  assert.equal(seen!.path, "/feedback");
+  assert.equal(seen!.init?.method, "POST");
+  assert.deepEqual(JSON.parse(String(seen!.init?.body)), { runId: "run-1", trigger: "recovery", day: 400 });
+});
+
+test("no server, no lesson", async () => {
+  const api: Api = async () => {
+    throw new Error("offline");
+  };
+  assert.equal(await fetchRecoveryLesson("run-1", 400, api), null);
+});
+```
+
+In the desk (`game/src/debt-demo/main.ts`), import `fetchRecoveryLesson` from `../net/recap.ts` (instead of `fetchRecap`) and use this `askRecap`:
+
+```ts
+/**
+ * Asks the coach for the recovery lesson. The server reads the run from Tiger Data, so the day's
+ * events have to be there first: this desk hears market_recovered before the run recorder does
+ * (both listen to the same life), so wait a tick, then send everything, then ask.
+ * Inside the city, the city's recorder owns the run, so only the standalone desk asks.
+ */
+async function askRecap(day: number) {
+  const r = recorder;
+  if (!r?.runId) return;
+  await Promise.resolve();
+  await r.idle();
+  await r.tick(true);
+  const got = await fetchRecoveryLesson(r.runId, day);
+  // A newer recovery (or a reset) may have replaced this one while the request was out.
+  if (got && recovery?.day === day && recorder === r) {
+    recap = { headline: got.headline, lesson: got.tip };
+    scheduleRender();
+  }
+}
+```
+
+and in the `market_recovered` case call `void askRecap(e.day);` after `recap = null;`.
