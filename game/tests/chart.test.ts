@@ -22,3 +22,8 @@ test("labels at the bottom edge are pulled back inside", () => {
 test("labels above the top edge are pushed inside", () => {
   assert.deepEqual(placeTags([0], 14, 226, 16), [14]);
 });
+
+test("too many labels still stay inside the plot", () => {
+  const ys = placeTags(new Array(20).fill(100), 14, 226, 16);
+  assert.ok(ys.every((y) => y >= 14 && y <= 226), ys.join(","));
+});

@@ -104,7 +104,7 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 export function placeTags(ys: number[], top: number, bottom: number, gap: number): number[] {
   const order = ys.map((y, i) => ({ y, i })).sort((a, b) => a.y - b.y);
   for (let k = 0; k < order.length; k++) order[k].y = Math.max(order[k].y, top, k ? order[k - 1].y + gap : top);
-  for (let k = order.length - 1; k >= 0; k--) order[k].y = Math.min(order[k].y, k < order.length - 1 ? order[k + 1].y - gap : bottom);
+  for (let k = order.length - 1; k >= 0; k--) order[k].y = Math.max(top, Math.min(order[k].y, k < order.length - 1 ? order[k + 1].y - gap : bottom));
   const out: number[] = new Array(ys.length);
   for (const o of order) out[o.i] = o.y;
   return out;
