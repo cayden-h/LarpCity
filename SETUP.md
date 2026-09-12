@@ -193,18 +193,23 @@ There is no published rate limit and no bulk endpoint.
 
 ### 5. How it maps to Larp City (option B, built 2026-09-12)
 
-- **The player plus 8 named NPCs** (Maya the nurse, Jordan the barista, Priya, Marcus, Sofia, Kenji, Amara, and Diego) each have a Nessie customer with Checking, Savings (savings plus the emergency fund), and Credit Card (what the cards owe, as a positive number) accounts.
+**Two-tier NPC roster (Sep 12, Task 10–15):**
+
+- **Primary roster: 12 named NPCs.** The player plus 12 marked NPCs (Maya the nurse, Jordan the barista, Priya, Marcus, Sofia, Kenji, Amara, Diego, Oscar, Hannah, Tariq, and Grace) each have a real Nessie customer with Checking, Savings (savings plus the emergency fund), and Credit Card (what the cards owe, as a positive number) accounts.
   Each NPC is a full money life (paychecks, state rent, debts) on the same seeded market, and each tells one lesson.
-  The 8 NPCs appear as marked residents in the city and clicking any of them shows their real bank statement with recent spending across categories like Dining out and Coffee (see `game/src/ui/npccard.ts` for the statement UI and `game/src/sim/npcs/habits.ts` for their spending habits).
-  The rest of the city's walkers stay a backdrop with no Nessie data.
-- **Customers are created once and reused**, because they can't be deleted: NPC customers are shared by every game session (capped at 12), and a player gets one customer per browser session.
-  Accounts are per session and run; a new run deletes that session's old accounts.
+  In the city, primary NPCs render with a visible gold-ring marker and clicking any of them shows their real bank statement with recent spending across categories like Dining out and Coffee (see `game/src/ui/npccard.ts` for the statement UI and `game/src/sim/npcs/habits.ts` for their spending habits).
+  Nessie customers are created once and reused across sessions because they can't be deleted (capped at 12 by the shared sandbox limit); accounts are per session and run, deleted on a new run.
+- **Background roster: ~38 fallback-only NPCs.** `BACKGROUND_NPC_COUNT` (38, in `game/src/data/background-npcs.ts`) procedurally generated background walkers appear in the city unmarked and un-clickable during play, but if a player stops to inspect one, they see a real, distinct local-only statement with the same categories.
+  These NPCs are explicitly permanent fallback-only because the Nessie sandbox is shared world-readable (anyone on any team can access `/enterprise/*` routes), has undeletable customers, and caps our roster at 12 live accounts.
+  Background NPCs land in Tiger Data with `local_only=true` and `nessie_id=NULL`, so their statements are computed from the local game state (like the player's own ledger) rather than synced to live Nessie; this keeps the roster open-ended without burning the 12-customer cap or risking PII leakage to the shared sandbox.
+  Generated once from fixed archetypes rather than hand-authored, so growing the roster in future playtests is a one-line count change.
 - No real names or PII: NPC names are fictional and the player's customer is "Player".
 - **Mirror monthly.**
-  At each game month's end the game posts one entry per category (paycheck, rent, living costs, card payment, each loan payment, investing, interest) plus one "Transfers and other" entry per account, sized so the balance Nessie implies equals the sim's to the dollar.
+  At each game month's end the game posts one entry per category (paycheck, rent, living costs, card payment, each loan payment, investing, interest) plus one "Transfers and other" entry per account for each primary NPC, sized so the balance Nessie implies equals the sim's to the dollar.
   The game date goes in `transaction_date`, and the entry's key goes in `description` so a retried batch never posts twice.
-- Goal fast-forwards and months when the server was down go out as one summary batch.
-- Verified end to end on 2026-09-12 (local TimescaleDB, live Nessie): after two game months, all 9 statements matched the game's balances exactly.
+  Background NPCs' statements are local only and never posted to Nessie.
+- Goal fast-forwards and months when the server was down go out as one summary batch (primary tier only).
+- Verified end to end on 2026-09-12 (local TimescaleDB, live Nessie): after two game months, all 13 live statements (player + 12 primary NPCs) matched the game's balances exactly; background tier tests confirm a `local_only=true` row with distinct monthly categories.
 
 ### 6. Test first
 
