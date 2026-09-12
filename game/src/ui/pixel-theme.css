@@ -131,7 +131,15 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .state-panel { background: var(--paper); color: var(--ink); }
 .desk-bar, .ff-overlay { font-family: "Pixelify Sans", monospace; }
 .desk-window, .ff-window { box-shadow: var(--shadow); }
-.desk-bar, .ff-bar { background: var(--panel); }
+.ff-bar { background: var(--panel); }
+.desk-bar {
+  background: linear-gradient(180deg, #2a2e31 0%, #101214 100%);
+  box-shadow: inset 3px 3px #4c4f50, inset -3px -3px #000;
+}
+.desk-close {
+  background: #26292a;
+  box-shadow: inset 2px 2px #4c4f50, inset -2px -2px #000, 0 3px #000;
+}
 .ff-window button, .ff-window input, .ff-window select { border-radius: 0; }
 
 @media (max-width: 1200px) {
@@ -410,6 +418,363 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   text-align: center;
 }
 
+/* Mail phone app --------------------------------------------------------- */
+.app-badge-unread {
+  background: #f04b50;
+  color: #fff7dd;
+  border: 1px solid #101a23;
+  min-width: 15px;
+  text-align: center;
+}
+.view-mail,
+.view-mail-detail {
+  padding: 10px 10px 32px;
+  gap: 0;
+  background: var(--paper);
+}
+.mail-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.mail-list::-webkit-scrollbar { display: none; }
+.mail-row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: start;
+  width: 100%;
+  gap: 9px;
+  padding: 10px 4px;
+  border: 0;
+  border-bottom: 3px solid #d9e4c8;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.mail-row:hover {
+  background: #fef6d4;
+}
+.mail-row.unread .mail-row-subject,
+.mail-row.unread .mail-avatar {
+  color: var(--ink);
+}
+.mail-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: 3px solid var(--edge);
+  background: linear-gradient(#2b9cee, #0873c5);
+  color: #fff7dd;
+  font-size: 18px;
+  box-shadow: inset 2px 2px #9ce3ff, inset -2px -2px #075093;
+}
+.mail-row-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.mail-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mail-row-top strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mail-row-date {
+  flex: none;
+  color: #6d8794;
+  font-size: 12px;
+}
+.mail-row-subject {
+  overflow: hidden;
+  color: #17364a;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mail-row.unread .mail-row-subject {
+  font-weight: 900;
+}
+.mail-row-preview {
+  overflow: hidden;
+  color: #6d8794;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mail-dot {
+  align-self: center;
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border: 2px solid var(--edge);
+  background: #f04b50;
+}
+.mail-detail {
+  padding: 12px 4px 0;
+  overflow-y: auto;
+}
+.mail-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.mail-detail-meta {
+  display: grid;
+  gap: 2px;
+}
+.mail-detail-meta strong {
+  font-size: 16px;
+}
+.mail-detail-meta span {
+  color: #6d8794;
+  font-size: 13px;
+}
+.mail-detail-subject {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 3px solid #aac2c9;
+  font-size: 19px;
+  line-height: 1.15;
+}
+.mail-detail-body {
+  margin: 0;
+  color: #17364a;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+/* News phone app ---------------------------------------------------------- */
+.view-news,
+.view-news-detail {
+  padding: 10px 10px 32px;
+  gap: 0;
+  background: var(--paper);
+}
+.news-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.news-list::-webkit-scrollbar { display: none; }
+.news-row {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  padding: 10px 4px;
+  border: 0;
+  border-bottom: 3px solid #d9e4c8;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.news-row:hover {
+  background: #fef6d4;
+}
+.news-tag {
+  justify-self: start;
+  padding: 2px 7px;
+  border: 2px solid var(--edge);
+  color: #fff7dd;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.news-tag-markets { background: #147cc8; }
+.news-tag-economy { background: #c8722f; }
+.news-tag-money { background: #2f9b52; }
+.news-tag-local { background: #7d4fc4; }
+.news-row-headline {
+  color: #17364a;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+.news-row-dek {
+  overflow: hidden;
+  color: #40606d;
+  font-size: 13px;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.news-row-meta {
+  color: #6d8794;
+  font-size: 11px;
+}
+.news-detail {
+  padding: 12px 4px 0;
+  overflow-y: auto;
+}
+.news-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.news-detail-meta {
+  color: #6d8794;
+  font-size: 12px;
+}
+.news-detail-headline {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 3px solid #aac2c9;
+  font-size: 19px;
+  line-height: 1.2;
+}
+.news-detail-body {
+  margin: 0;
+  color: #17364a;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+/* Bank phone app ------------------------------------------------------------ */
+.view-bank {
+  padding: 10px 12px 26px;
+  gap: 10px;
+  background: var(--paper);
+}
+.bank-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 13px 14px;
+  border: 3px solid var(--edge);
+  background: linear-gradient(#2b9cee, #0873c5);
+  color: white;
+  box-shadow: inset 3px 3px #9ce3ff, inset -3px -3px #075093, 0 3px #11283a;
+  text-shadow: 2px 2px #075093;
+}
+.bank-total span { font-size: 15px; }
+.bank-total strong { font-size: 24px; }
+.bank-accounts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bank-account-row {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 4px;
+  border-bottom: 3px solid #d9e4c8;
+}
+.bank-account-row:last-child { border-bottom: 0; }
+.bank-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--edge);
+  color: #fff7dd;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: inset 2px 2px rgba(255, 255, 255, .35), inset -2px -2px rgba(0, 0, 0, .3);
+}
+.bank-account-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.bank-account-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bank-account-top strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bank-account-balance {
+  flex: none;
+  color: var(--ink);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.bank-account-sub {
+  color: #6d8794;
+  font-size: 12px;
+}
+.bank-activity-head {
+  padding: 4px 4px 0;
+  color: #44697c;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+.bank-activity {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.bank-activity::-webkit-scrollbar { display: none; }
+.bank-activity-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 4px;
+  border-bottom: 3px solid #d9e4c8;
+}
+.bank-activity-row:last-child { border-bottom: 0; }
+.bank-activity-body {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.bank-activity-body strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bank-activity-body span {
+  color: #6d8794;
+  font-size: 11px;
+}
+.bank-activity-amount {
+  flex: none;
+  font-size: 14px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.bank-activity-amount.up { color: #1c7a3e; }
+.bank-activity-amount.down { color: #b3391c; }
+.bank-activity-empty {
+  padding: 14px 4px;
+  color: #6d8794;
+  font-size: 13px;
+  text-align: center;
+}
+
 /* Pixel treatment for the full U.S. map ------------------------------------ */
 #map {
   background: rgba(5, 18, 33, .72);
@@ -488,18 +853,43 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   cursor: pointer;
   transition: filter .08s ease-out;
 }
+/* brightness/saturate are per-pixel color remaps, safe on any geometry.
+   drop-shadow rasterizes+blurs the shape first, which on these stair-stepped
+   (many tiny co-linear segments) paths made some states flash solid white
+   on hover in Chromium — so highlighting here stays filter-blur-free. */
 .state:hover {
-  filter: brightness(1.22) saturate(1.15) drop-shadow(0 0 3px #fff);
+  filter: brightness(1.22) saturate(1.15);
 }
 .state.sel {
-  stroke: #ffffff;
-  stroke-width: 3px;
   filter: brightness(1.12);
 }
 .state.current {
+  filter: brightness(1.15);
+}
+
+/* Highlight outlines: a shared border between two states belongs to both
+   paths, so whichever one paints last in the states-layer wins the pixel —
+   a plain per-state stroke only shows on the sides where the highlighted
+   state happens to paint after its neighbor. These three paths live in their
+   own layer above every state's border, so a highlighted state's full
+   outline always wins regardless of paint order. */
+.state-outline {
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: miter;
+  stroke-miterlimit: 2;
+}
+.outline-current {
   stroke: #ffe44b;
   stroke-width: 4px;
-  filter: brightness(1.15) drop-shadow(0 0 4px #ffe44b);
+}
+.outline-sel {
+  stroke: #ffffff;
+  stroke-width: 3px;
+}
+.outline-hover {
+  stroke: #ffffff;
+  stroke-width: 3px;
 }
 
 /* State Abbreviation Labels */
@@ -520,10 +910,16 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 /* Pixel City Pins */
 .pin {
   cursor: pointer;
+  /* Position lives in these custom properties instead of the SVG `transform`
+     attribute: a CSS `transform` on an SVG element replaces that attribute
+     entirely rather than composing with it, so a hover rule that only set
+     `scale()` was discarding the pin's translate and snapping it to the
+     map's origin, then animating back — the "phasing across the screen" bug. */
+  transform: translate(var(--px), var(--py));
   transition: transform .12s cubic-bezier(0.18, 0.89, 0.32, 1.28);
 }
 .pin:hover {
-  transform: scale(1.15);
+  transform: translate(var(--px), var(--py)) scale(1.15);
 }
 .pin-shadow {
   fill: #071c2b;
@@ -547,8 +943,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .pin.handmade .pin-highlight {
   fill: #fff5ab;
 }
-.pin.current .pin-fill {
-  fill: #34d058;
+/* The current-location beacon (below) replaces a pin at the same spot, so it
+   isn't drawn twice. */
+.pin.current {
+  display: none;
 }
 .pin-badge {
   pointer-events: none;
@@ -602,41 +1000,44 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 }
 .compass-n { fill: #e84e47; }
 
-/* Current Location Player Beacon */
+/* Current Location Player Beacon: a planted flag, with the city name on a
+   plaque underneath — deliberately just these two pieces, since a pin
+   graphic, a diamond, a pulsing box, and a label bubble all stacked on the
+   same spot read as visual noise, not a location. The plaque is styled in
+   the flag's own greens rather than reusing the pins' cream/dark-blue look,
+   so this one marker reads as a distinct kind of thing on the map, not just
+   another pin. */
 .current-marker {
   pointer-events: none;
 }
-.current-pulse-box {
-  fill: none;
-  stroke: #ffea52;
-  stroke-width: 2;
-  stroke-dasharray: 4 4;
-  opacity: .8;
-  animation: markerPulse 1.6s infinite linear;
+.flag-shadow {
+  fill: #0c2538;
+  opacity: .35;
 }
-@keyframes markerPulse {
-  0% { transform: scale(0.85); opacity: 0.9; }
-  50% { transform: scale(1.25); opacity: 0.3; }
-  100% { transform: scale(0.85); opacity: 0.9; }
-}
-.current-diamond {
-  fill: #fff7dd;
-  stroke: #101a23;
-  stroke-width: 3;
-}
-.current-diamond-inner {
-  fill: #e84545;
-}
-.current-core-dot {
-  fill: #ffe44b;
-}
-.current-tag-bg { fill: #101a23; }
-.current-tag-fill { fill: #ffd83d; }
-.current-tag-text {
+.flag-pole,
+.flag-ball {
   fill: #101a23;
+}
+.flag-fabric-outline {
+  fill: #101a23;
+}
+.flag-fabric {
+  fill: #1f9e3f;
+}
+.flag-fabric-hi {
+  fill: #34d058;
+}
+.current-plaque-bg {
+  fill: #0b2b1a;
+}
+.current-plaque-border {
+  fill: #2bb35a;
+}
+.current-location-label {
+  fill: #fff7dd;
   font-family: "Pixelify Sans", monospace;
-  font-size: 10px;
-  font-weight: 900;
+  font-size: 11px;
+  font-weight: 800;
   text-anchor: middle;
   dominant-baseline: central;
 }
@@ -671,6 +1072,27 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
   filter: contrast(1.04) saturate(1.08);
+}
+.city-preview.unvisited {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: repeating-linear-gradient(45deg, #0c2035, #0c2035 6px, #0a1c2e 6px, #0a1c2e 12px);
+}
+.preview-placeholder-icon {
+  width: 34px;
+  height: 34px;
+  opacity: .65;
+}
+.preview-placeholder-text {
+  font-family: "Pixelify Sans", monospace;
+  font-size: 12px;
+  font-weight: 800;
+  color: #d9ecf5;
+  text-align: center;
+  padding: 0 10px;
 }
 .preview-scanlines {
   position: absolute;

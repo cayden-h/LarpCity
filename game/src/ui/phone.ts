@@ -11,7 +11,8 @@ import type { Clock } from "../engine/clock";
 import { MARKET, type SeriesId } from "../data/market";
 import type { SceneStatus } from "../engine/scene";
 import type { CityDef, StateInfo, WeatherKind } from "../engine/types";
-import { latest, type PlayerLife } from "../sim/life";
+import { latest, type LifeEvent, type PlayerLife } from "../sim/life";
+import type { AccountKind } from "../sim/money/types";
 
 interface AppDef {
   id: "stocks" | "goals" | "map" | "weather" | "timeline" | "news" | "mail" | "bank";
@@ -27,10 +28,29 @@ const APPS: AppDef[] = [
   { id: "map", name: "Map", icon: pixelIcon("map"), ready: true },
   { id: "weather", name: "Weather", icon: pixelIcon("weather"), ready: true },
   { id: "timeline", name: "Timeline", icon: pixelIcon("calendar"), ready: true },
-  { id: "news", name: "News", icon: pixelIcon("news"), ready: false },
-  { id: "mail", name: "Mail", icon: pixelIcon("mail"), ready: false },
-  { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: false },
+  { id: "news", name: "News", icon: pixelIcon("news"), ready: true },
+  { id: "mail", name: "Mail", icon: pixelIcon("mail"), ready: true },
+  { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: true },
 ];
+
+const BANK_ACCOUNT_ORDER: AccountKind[] = ["checking", "savings", "emergency"];
+
+const BANK_ACCOUNT_META: Partial<Record<AccountKind, { initials: string; sub: string; accent: string }>> = {
+  checking: { initials: "CHK", sub: "Spending", accent: "#147cc8" },
+  savings: { initials: "SAV", sub: "High-yield", accent: "#2f9b52" },
+  emergency: { initials: "EF", sub: "Rainy-day fund", accent: "#c8722f" },
+};
+
+interface BankActivityRow {
+  id: number;
+  day: number;
+  label: string;
+  sub: string;
+  amount: number;
+}
+
+const fmtUsd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+const fmtUsdCents = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 const WATCHLIST: { id: SeriesId; ticker: string; name: string }[] = [
   { id: "SP500", ticker: "S&P 500", name: "Standard & Poor's 500" },
@@ -74,6 +94,160 @@ const WEATHER_SYMBOL: Record<WeatherKind, string> = {
   fog: "≋",
   heat: "☀",
   smoke: "≋",
+};
+
+interface MailMessage {
+  id: string;
+  from: string;
+  subject: string;
+  preview: string;
+  body: string;
+  date: string;
+  unread: boolean;
+}
+
+/** Static placeholder inbox; no backend yet, so this never changes at runtime. */
+const MAIL: MailMessage[] = [
+  {
+    id: "statement",
+    from: "First National Bank",
+    subject: "Your monthly statement is ready",
+    preview: "View your balances, deposits, and any fees from this cycle.",
+    body: "Your account statement for this cycle is ready to view. Balances, deposits, withdrawals, and any fees are itemized on the Bank app.",
+    date: "Today",
+    unread: true,
+  },
+  {
+    id: "payroll",
+    from: "Payroll · Acme Corp",
+    subject: "Direct deposit confirmed",
+    preview: "Your paycheck has been deposited to your checking account.",
+    body: "Your paycheck for this pay period has been deposited to your checking account. Check the Bank app for the running total.",
+    date: "Today",
+    unread: true,
+  },
+  {
+    id: "emergency-fund",
+    from: "Larp City",
+    subject: "Goal reached: 3-month emergency fund",
+    preview: "Nice work — your emergency fund now covers 3 months of expenses.",
+    body: "You've built up enough savings to cover 3 months of living expenses. That's a big cushion against a layoff or surprise bill — keep it up.",
+    date: "Yesterday",
+    unread: true,
+  },
+  {
+    id: "rewards",
+    from: "Card Rewards",
+    subject: "You earned 2,400 points this cycle",
+    preview: "Redeem points for cash back, travel, or statement credit.",
+    body: "You earned 2,400 reward points on this cycle's spending. Points can be redeemed for cash back, travel, or a statement credit from the Card Shop.",
+    date: "2 days ago",
+    unread: false,
+  },
+  {
+    id: "rent",
+    from: "Landlord",
+    subject: "Rent due in 5 days",
+    preview: "Your monthly rent payment is due on the 1st.",
+    body: "This is a reminder that rent is due on the 1st of the month. Late payments may include a fee, so plan your standing orders accordingly.",
+    date: "3 days ago",
+    unread: false,
+  },
+  {
+    id: "tax",
+    from: "IRS",
+    subject: "Reminder: estimated tax payment due",
+    preview: "Quarterly estimated taxes are due soon if you have 1099 income.",
+    body: "If you have freelance or investment income this quarter, your estimated tax payment is due soon. Set aside funds so it doesn't hit your emergency fund.",
+    date: "1 week ago",
+    unread: false,
+  },
+];
+
+type NewsCategory = "Markets" | "Economy" | "Money" | "Local";
+
+interface NewsArticle {
+  id: string;
+  category: NewsCategory;
+  headline: string;
+  dek: string;
+  body: string;
+  source: string;
+  date: string;
+}
+
+/** Static placeholder wire; no backend yet, so this never changes at runtime. */
+const NEWS: NewsArticle[] = [
+  {
+    id: "fed-hold",
+    category: "Economy",
+    headline: "Fed holds rates steady, signals patience on cuts",
+    dek: "Policymakers say they want more data before easing further.",
+    body: "The Federal Reserve left its benchmark rate unchanged this week, with officials saying they want to see a few more months of data before considering another cut. Mortgage and card rates are likely to hold near current levels in the meantime — check the Stocks app for the latest 30-year fixed and Fed funds readings.",
+    source: "Wire Service",
+    date: "Today",
+  },
+  {
+    id: "sp-climb",
+    category: "Markets",
+    headline: "S&P 500 climbs into the afternoon on tech strength",
+    dek: "Broad gains led by large-cap tech; small caps lag.",
+    body: "Major indexes advanced Thursday afternoon as large-cap tech names led the way. Small-cap stocks lagged behind the broader rally. Check the Stocks app for a live look at the S&P 500, Nasdaq, and Dow.",
+    source: "Market Desk",
+    date: "Today",
+  },
+  {
+    id: "layoffs",
+    category: "Economy",
+    headline: "Layoffs tick up across tech and media",
+    dek: "Analysts say an emergency fund is the best defense against a surprise job loss.",
+    body: "A fresh round of layoffs hit tech and media companies this week, continuing a slow drift upward in job cuts. Financial planners point to the same advice every cycle: a cash cushion of three to six months of expenses makes a layoff a setback instead of a crisis. Your emergency fund balance is one tap away in the Bank app.",
+    source: "Wire Service",
+    date: "Yesterday",
+  },
+  {
+    id: "efund-explainer",
+    category: "Money",
+    headline: "How much should you actually keep in an emergency fund?",
+    dek: "The old \"three to six months\" rule, explained.",
+    body: "The classic rule of thumb is three to six months of essential expenses in cash you can reach without penalty. Renters and dual-income households can often lean toward the shorter end; homeowners, single-income households, or anyone with irregular pay should lean longer. The right number is the one that lets you sleep at night during a rough stretch.",
+    source: "Money Desk",
+    date: "Yesterday",
+  },
+  {
+    id: "card-rewards",
+    category: "Money",
+    headline: "Card issuers roll out richer cash-back categories",
+    dek: "New quarterly bonus categories are live — worth a look before you spend.",
+    body: "Several major card issuers refreshed their rotating bonus categories this quarter, with some offering elevated cash back on groceries and streaming. Compare official card offers any time in the Credit Desk's Card Shop.",
+    source: "Money Desk",
+    date: "2 days ago",
+  },
+  {
+    id: "housing-costs",
+    category: "Local",
+    headline: "Housing costs keep climbing across Sun Belt metros",
+    dek: "Rent and cost-of-living gaps between states keep widening.",
+    body: "Rent growth in fast-growing Sun Belt metros continues to outpace the national average, widening the cost-of-living gap between states. Check the Map app to see how your city's cost of living compares to the rest of the country.",
+    source: "Local Desk",
+    date: "3 days ago",
+  },
+  {
+    id: "rate-cut-outlook",
+    category: "Economy",
+    headline: "Economists split on timing of next rate move",
+    dek: "Forecasters diverge on whether cuts resume this year.",
+    body: "A survey of economists shows a wide range of views on when the Fed will move next, with estimates ranging from later this year to well into next. The uncertainty is a reminder to keep debt strategy flexible rather than betting on a single rate path.",
+    source: "Wire Service",
+    date: "1 week ago",
+  },
+];
+
+const NEWS_TAG_CLASS: Record<NewsCategory, string> = {
+  Markets: "news-tag-markets",
+  Economy: "news-tag-economy",
+  Money: "news-tag-money",
+  Local: "news-tag-local",
 };
 
 const SEASON_NOTE = {
@@ -147,6 +321,8 @@ export class Phone {
   private live: LiveQuote[] = [];
   private toastTimer = 0;
   private resumeSpeed = 1;
+  private bankActivity: BankActivityRow[] = [];
+  private bankActivitySeq = 0;
 
   constructor(deps: PhoneDeps) {
     this.deps = deps;
@@ -174,10 +350,32 @@ export class Phone {
       if (ev.key === "Escape" && !this.overlay.hidden) this.closeDesk();
     });
 
+    this.deps.player.onEvents((events) => this.onLifeEvents(events));
+
     this.renderStocks();
     this.renderStatus();
     setInterval(() => this.renderStatus(), 1000);
     void this.loadLive();
+  }
+
+  /** Turns paycheck/bill/interest events into the Bank app's activity feed. No backend: kept in memory for the session. */
+  private onLifeEvents(events: LifeEvent[]) {
+    let touched = false;
+    for (const e of events) {
+      if (e.type === "paycheck" && !e.unemployed) {
+        this.bankActivity.unshift({ id: ++this.bankActivitySeq, day: e.day, label: "Paycheck deposited", sub: "Checking", amount: e.takeHome });
+        touched = true;
+      } else if (e.type === "bill") {
+        this.bankActivity.unshift({ id: ++this.bankActivitySeq, day: e.day, label: e.name, sub: "Checking", amount: -e.paid });
+        touched = true;
+      } else if (e.type === "savings_interest" && e.amount > 0) {
+        this.bankActivity.unshift({ id: ++this.bankActivitySeq, day: e.day, label: "Interest earned", sub: "Savings", amount: e.amount });
+        touched = true;
+      }
+    }
+    if (!touched) return;
+    if (this.bankActivity.length > 25) this.bankActivity.length = 25;
+    if (this.el.querySelector('[data-view="bank"]')?.hasAttribute("hidden") === false) this.renderBank();
   }
 
   private markup(): string {
@@ -206,13 +404,19 @@ export class Phone {
               <div class="w-foot">Stocks · as of ${new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
             </button>
             <div class="app-grid">
-              ${APPS.map(
-                (a) => `<button class="app${a.ready ? "" : " soon"}" data-app="${a.id}" aria-label="${a.name}${a.ready ? "" : " (coming soon)"}">
+              ${APPS.map((a) => {
+                const unread = a.id === "mail" ? MAIL.filter((m) => m.unread).length : 0;
+                const badge = !a.ready
+                  ? `<span class="app-badge">Soon</span>`
+                  : a.id === "mail"
+                    ? `<span class="app-badge app-badge-unread"${unread > 0 ? "" : " hidden"}>${unread}</span>`
+                    : "";
+                return `<button class="app${a.ready ? "" : " soon"}" data-app="${a.id}" aria-label="${a.name}${a.ready ? "" : " (coming soon)"}">
                   <span class="app-icon">${a.icon}</span>
                   <span class="app-name">${a.name}</span>
-                  ${a.ready ? "" : `<span class="app-badge">Soon</span>`}
-                </button>`,
-              ).join("")}
+                  ${badge}
+                </button>`;
+              }).join("")}
             </div>
             <div class="toast" data-toast hidden></div>
           </section>
@@ -285,6 +489,50 @@ export class Phone {
             </div>
           </section>
 
+          <section class="view view-news" data-view="news" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">News</div><div class="st-sub">Markets &amp; money</div></div>
+            </header>
+            <ul class="news-list" data-news-list></ul>
+          </section>
+
+          <section class="view view-news-detail" data-view="news-detail" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-back="news" aria-label="Back to News">‹</button>
+              <div><div class="st-title">News</div><div class="st-sub">Article</div></div>
+            </header>
+            <div class="news-detail" data-news-detail></div>
+          </section>
+
+          <section class="view view-mail" data-view="mail" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">Mail</div><div class="st-sub" data-mail-sub></div></div>
+            </header>
+            <ul class="mail-list" data-mail-list></ul>
+          </section>
+
+          <section class="view view-mail-detail" data-view="mail-detail" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-back="mail" aria-label="Back to Mail">‹</button>
+              <div><div class="st-title">Mail</div><div class="st-sub">Message</div></div>
+            </header>
+            <div class="mail-detail" data-mail-detail></div>
+          </section>
+
+          <section class="view view-bank" data-view="bank" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">Bank</div><div class="st-sub">Checking &amp; savings</div></div>
+            </header>
+            <div class="bank-total"><span>Total cash</span><strong data-bank-total></strong></div>
+            <ul class="bank-accounts" data-bank-accounts></ul>
+            <div class="bank-activity-head">Activity</div>
+            <ul class="bank-activity" data-bank-activity></ul>
+            <button class="st-open" data-desk>Open Money <span aria-hidden="true">↗</span></button>
+          </section>
+
           <button class="home-bar" data-home aria-label="Go home"></button>
         </div>
       </div>
@@ -302,7 +550,7 @@ export class Phone {
     if (remember) saveOpen(open);
   }
 
-  private show(view: "home" | AppDef["id"]) {
+  private show(view: "home" | AppDef["id"] | "mail-detail" | "news-detail") {
     this.el.querySelectorAll<HTMLElement>("[data-view]").forEach((v) => (v.hidden = v.dataset.view !== view));
   }
 
@@ -323,7 +571,10 @@ export class Phone {
     if (!btn) return;
     if (btn.dataset.toggle !== undefined) return this.setOpen(!this.el.classList.contains("open"));
     if (btn.dataset.home !== undefined) return this.show("home");
+    if (btn.dataset.back !== undefined) return this.show(btn.dataset.back as "mail" | "news");
     if (btn.dataset.desk !== undefined) return this.openDesk();
+    if (btn.dataset.mailOpen !== undefined) return this.openMail(btn.dataset.mailOpen);
+    if (btn.dataset.newsOpen !== undefined) return this.openNews(btn.dataset.newsOpen);
     if (btn.dataset.openMap !== undefined) return this.deps.openMap?.();
     if (btn.dataset.tlSpeed !== undefined) {
       this.deps.clock.speed = Number(btn.dataset.tlSpeed);
@@ -339,7 +590,117 @@ export class Phone {
     const app = APPS.find((a) => a.id === id)!;
     if (!app.ready) return this.toast(`${app.name} is coming soon`);
     if (id === "goals") return this.deps.openFastForward?.();
+    if (id === "mail") this.renderMail();
+    if (id === "news") this.renderNews();
+    if (id === "bank") this.renderBank();
     this.show(id);
+  }
+
+  private openNews(id: string) {
+    const article = NEWS.find((a) => a.id === id);
+    if (!article) return;
+    this.q("[data-news-detail]").innerHTML = `
+      <div class="news-detail-head">
+        <span class="news-tag ${NEWS_TAG_CLASS[article.category]}">${article.category}</span>
+        <span class="news-detail-meta">${article.source} · ${article.date}</span>
+      </div>
+      <div class="news-detail-headline">${article.headline}</div>
+      <p class="news-detail-body">${article.body}</p>
+    `;
+    this.show("news-detail");
+  }
+
+  private renderNews() {
+    this.q("[data-news-list]").innerHTML = NEWS.map(
+      (a) => `<li>
+        <button class="news-row" data-news-open="${a.id}">
+          <span class="news-tag ${NEWS_TAG_CLASS[a.category]}">${a.category}</span>
+          <span class="news-row-headline">${a.headline}</span>
+          <span class="news-row-dek">${a.dek}</span>
+          <span class="news-row-meta">${a.source} · ${a.date}</span>
+        </button>
+      </li>`,
+    ).join("");
+  }
+
+  private openMail(id: string) {
+    const msg = MAIL.find((m) => m.id === id);
+    if (!msg) return;
+    msg.unread = false;
+    this.q("[data-mail-detail]").innerHTML = `
+      <div class="mail-detail-head">
+        <div class="mail-avatar">${msg.from[0]}</div>
+        <div class="mail-detail-meta">
+          <strong>${msg.from}</strong>
+          <span>${msg.date}</span>
+        </div>
+      </div>
+      <div class="mail-detail-subject">${msg.subject}</div>
+      <p class="mail-detail-body">${msg.body}</p>
+    `;
+    this.renderMailBadge();
+    this.show("mail-detail");
+  }
+
+  private renderMailBadge() {
+    const unread = MAIL.filter((m) => m.unread).length;
+    const badge = this.el.querySelector<HTMLElement>('[data-app="mail"] .app-badge');
+    if (!badge) return;
+    if (unread > 0) {
+      badge.textContent = String(unread);
+      badge.hidden = false;
+    } else {
+      badge.hidden = true;
+    }
+  }
+
+  private renderMail() {
+    this.q("[data-mail-list]").innerHTML = MAIL.map(
+      (m) => `<li>
+        <button class="mail-row${m.unread ? " unread" : ""}" data-mail-open="${m.id}">
+          <span class="mail-avatar">${m.from[0]}</span>
+          <span class="mail-row-body">
+            <span class="mail-row-top"><strong>${m.from}</strong><span class="mail-row-date">${m.date}</span></span>
+            <span class="mail-row-subject">${m.subject}</span>
+            <span class="mail-row-preview">${m.preview}</span>
+          </span>
+          ${m.unread ? `<span class="mail-dot" aria-hidden="true"></span>` : ""}
+        </button>
+      </li>`,
+    ).join("");
+    const unread = MAIL.filter((m) => m.unread).length;
+    this.q("[data-mail-sub]").textContent = unread > 0 ? `${unread} unread` : "All caught up";
+  }
+
+  private renderBank() {
+    const { player } = this.deps;
+    this.q("[data-bank-total]").textContent = fmtUsd(player.cash());
+    this.q("[data-bank-accounts]").innerHTML = BANK_ACCOUNT_ORDER.map((kind) => {
+      const meta = BANK_ACCOUNT_META[kind]!;
+      const account = [...player.ledger.accounts.values()].find((a) => a.kind === kind);
+      if (!account) return "";
+      return `<li class="bank-account-row">
+        <span class="bank-avatar" style="background:${meta.accent}">${meta.initials}</span>
+        <span class="bank-account-body">
+          <span class="bank-account-top"><strong>${account.name}</strong><span class="bank-account-balance">${fmtUsdCents(account.balance)}</span></span>
+          <span class="bank-account-sub">${meta.sub} · ${(account.apy * 100).toFixed(2)}% APY</span>
+        </span>
+      </li>`;
+    }).join("");
+    const list = this.q("[data-bank-activity]");
+    if (!this.bankActivity.length) {
+      list.innerHTML = `<li class="bank-activity-empty">No activity yet — check back after your next payday.</li>`;
+    } else {
+      list.innerHTML = this.bankActivity
+        .map((row) => {
+          const up = row.amount >= 0;
+          return `<li class="bank-activity-row">
+            <span class="bank-activity-body"><strong>${row.label}</strong><span>${row.sub}</span></span>
+            <span class="bank-activity-amount ${up ? "up" : "down"}">${up ? "+" : "−"}${fmtUsd(Math.abs(row.amount))}</span>
+          </li>`;
+        })
+        .join("");
+    }
   }
 
   private openDesk() {

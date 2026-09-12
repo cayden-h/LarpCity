@@ -5,6 +5,7 @@ import { STATES } from "./data/states";
 import { Clock } from "./engine/clock";
 import { CityScene } from "./engine/scene";
 import { loadSpriteSet } from "./engine/sprites";
+import { prerenderCityThumbnails } from "./engine/thumbnails";
 import type { StateInfo } from "./engine/types";
 import { PlayerLife } from "./sim/life";
 import { MarketPath } from "./sim/market";
@@ -61,6 +62,12 @@ clock.onDay((day) => {
 async function open(next: StateInfo): Promise<void> {
   const tier = scene?.hero?.tier;
   scene?.destroy();
+  // `loadSpriteSet` below awaits a network fetch, and the ticker keeps firing
+  // during that gap; without this, `scene` still pointed at the destroyed
+  // scene, so `scene?.update(dt)` kept calling into it every frame and threw
+  // inside a destroyed Graphics context — which broke the render loop for
+  // the rest of the session until a full page reload.
+  scene = null;
   if (next.abbr !== state.abbr) player.setPlace(next, clock.day);
   state = next;
   const city = cityFor(next);
@@ -97,6 +104,14 @@ const hud = new Hud(document.getElementById("hud")!, {
 });
 
 const map = new UsMap(document.getElementById("map")!, STATES, (s) => void open(s));
+
+// Every distinct city (6 hand-made, 8 regional templates) gets a real in-game
+// render in the background so the map never requires a visit to show one.
+prerenderCityThumbnails(
+  STATES,
+  (cityId, url) => map.setPreview(cityId, url),
+  (cityId) => map.hasPreview(cityId),
+);
 
 function captureCityPreview(): string | null {
   try {

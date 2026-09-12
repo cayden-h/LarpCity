@@ -41,7 +41,7 @@ Card applications, perks, loans, and moving money between accounts are in [resea
 The Card Shop is playable in the Credit Desk (`/debt.html`, **Card Shop** in the top bar): 23 real cards with official art, issuer-page earn rates and offers, CFPB terms, year-one value on your spending, and soft-pull odds before a hard-pull application that opens the card as a real debt.
 How to set up Persona and every other API (keys, env vars, the backend we need, signup checklist) is in [SETUP.md](SETUP.md), mirrored to Notion as the "🔌 Setup & API Keys" section.
 
-The player's phone (the hub for the game's apps: Stocks now, News, Mail, and Bank next) docks on the left edge of the city; see `game/src/ui/phone.ts`.
+The player's phone (the hub for the game's apps: Stocks, Goals, Map, Weather, and Timeline now, News, Mail, and Bank next) pulls up from the bottom-right corner of the city; see `game/src/ui/phone.ts`.
 
 ## Repository layout
 
