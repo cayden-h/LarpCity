@@ -54,7 +54,7 @@ state = fromHash() ?? state;
 // Onboarding: the owl's voice interview (or the typed form) sets the player's
 // job, pay, rent, debt, and savings before the first day runs; skipping it
 // keeps the sample household.
-const intake = await runIntake({ backdrop: `${import.meta.env.BASE_URL}cities/${state.cityId}/plates/day.jpg` });
+const intake = await runIntake({ backdrop: `${import.meta.env.BASE_URL}cities/${state.cityId}/plates/day.jpg`, state: state.abbr });
 
 // The player's money life: paychecks, rent for the current state, and the
 // debt engine run once per game day (research/07-debt-system-design.md);

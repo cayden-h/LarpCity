@@ -29,6 +29,8 @@ type Role = "agent" | "user";
 export interface IntakeOptions {
   /** The starting city's daytime plate, blurred behind the card. */
   backdrop: string;
+  /** The player's starting state abbreviation, for the live take-home preview. */
+  state: string;
 }
 
 /** Resolves with the player's answers, or null to start with the sample household. */
@@ -68,6 +70,7 @@ class Intake {
   private readonly el: HTMLDivElement;
   private readonly body: HTMLDivElement;
   private readonly resolve: (answers: IntakeAnswers | null) => void;
+  private readonly state: string;
   private readonly owl = new Owl(OWL_BIG);
   private conversation: VoiceConversation | null = null;
   private conversationId: string | null = null;
@@ -85,6 +88,7 @@ class Intake {
 
   constructor(o: IntakeOptions, resolve: (answers: IntakeAnswers | null) => void) {
     this.resolve = resolve;
+    this.state = o.state;
     this.el = document.createElement("div");
     this.el.className = "in-overlay";
     this.el.style.setProperty("--backdrop", `url("${o.backdrop}")`);
@@ -385,7 +389,7 @@ class Intake {
       derived.textContent = "";
       return;
     }
-    const takeHome = takeHomeFor(a.salary);
+    const takeHome = takeHomeFor(a.salary, this.state);
     derived.textContent =
       a.rent === undefined
         ? `That's about ${money(takeHome)} a month after taxes.`
