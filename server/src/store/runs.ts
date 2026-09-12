@@ -1,8 +1,11 @@
 // server/src/store/runs.ts
 // Run data in Tiger Data: runs, the player's daily snapshots, life events,
 // and the history and leaderboard reads. Sim day N is stored at
-// '2000-01-01' + N days (the schema's convention), so time_bucket and the
-// continuous aggregates in migrations.sql work on it.
+// '2000-01-01' + N days (the schema's convention), so time_bucket works on it.
+// Weekly and monthly history bucket the run's own rows directly rather than
+// reading the continuous aggregates: every run starts at 2000-01-01, so once a
+// long run is materialized, the aggregates' watermark is past all of a newer
+// run's days and real-time aggregation would leave them out until the next refresh.
 import type pg from "pg";
 
 export type Db = pg.Pool;
@@ -53,8 +56,8 @@ export interface LeaderRow {
 
 const AT_DAY = (param: string) => `'2000-01-01'::timestamptz + ${param} * interval '1 day'`;
 const DAY_OF_TS = `(extract(epoch from (ts - '2000-01-01'::timestamptz)) / 86400)::int`;
-/** The continuous aggregates (migrations.sql); a fixed map, never user input, goes into the SQL. */
-const VIEWS = { week: "player_snapshots_weekly", month: "player_snapshots_monthly" } as const;
+/** Bucket widths, the same as the continuous aggregates' (migrations.sql); a fixed map, never user input, goes into the SQL. */
+const WIDTH = { week: "7 days", month: "1 month" } as const;
 
 export async function createRun(db: Db, playerId: string, seed: number): Promise<string> {
   const { rows } = await db.query<{ id: string }>(`INSERT INTO runs (player_id, seed) VALUES ($1, $2) RETURNING id`, [playerId, seed]);
@@ -122,7 +125,10 @@ export async function insertEvents(db: Db, runId: string, entries: EventRow[]): 
   return r.rowCount ?? 0;
 }
 
-/** Daily rows, or weekly and monthly buckets from the continuous aggregates, between two days. */
+/**
+ * Daily rows, or weekly and monthly buckets of the run's own days, between two days.
+ * The buckets use the continuous aggregates' expressions, so they match the views row for row once materialized.
+ */
 export async function history(db: Db, runId: string, bucket: Bucket, from: number, to: number): Promise<(SnapshotRow | HistoryBucket)[]> {
   if (bucket === "day") {
     const { rows } = await db.query<SnapshotRow>(
@@ -132,10 +138,14 @@ export async function history(db: Db, runId: string, bucket: Bucket, from: numbe
     );
     return rows;
   }
+  const width = `time_bucket('${WIDTH[bucket]}', ts)`;
   const { rows } = await db.query<HistoryBucket>(
-    `SELECT first_day AS "firstDay", last_day AS "lastDay", net_worth AS "netWorth", peak, low,
-            checking, savings, brokerage, retirement, debt
-     FROM ${VIEWS[bucket]} WHERE run_id = $1 AND last_day >= $2 AND first_day <= $3 ORDER BY bucket`,
+    `SELECT min(day) AS "firstDay", max(day) AS "lastDay", last(net_worth, ts) AS "netWorth",
+            max(net_worth) AS peak, min(net_worth) AS low, last(checking, ts) AS checking,
+            last(savings, ts) AS savings, last(brokerage, ts) AS brokerage,
+            last(retirement, ts) AS retirement, last(debt, ts) AS debt
+     FROM player_snapshots WHERE run_id = $1
+     GROUP BY ${width} HAVING max(day) >= $2 AND min(day) <= $3 ORDER BY ${width}`,
     [runId, from, to],
   );
   return rows;

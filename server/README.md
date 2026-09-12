@@ -38,11 +38,16 @@ event, sent about once a game month and in 5,000-row chunks after a fast-forward
 | `GET /api/events/:runId` | `?from&to&kinds=a,b` | events oldest first |
 | `GET /api/leaderboard` | | each run's latest net worth; verified players only once `PERSONA_API_KEY` is set |
 
-Weekly and monthly history come from two real-time continuous aggregates over `player_snapshots`
+Weekly and monthly history bucket the run's own rows with `time_bucket`, so a 40-year run charts
+from about 2,100 weekly rows instead of 14,600 daily ones, and its newest days always show.
+They use the same expressions as the two real-time continuous aggregates over `player_snapshots`
 (`player_snapshots_weekly`, `player_snapshots_monthly`, created in `src/migrations.sql` with a
-one-minute refresh policy), so a 40-year run charts from about 2,100 weekly rows instead of 14,600
-daily ones, and the newest days show before they're materialized. Migrations run one statement at a
-time (`src/sql.ts`), because TimescaleDB won't create a continuous aggregate inside a transaction.
+one-minute refresh policy), which stay for cross-run analytics.
+History doesn't read the aggregates because every run starts at 2000-01-01: once a long run is
+materialized, the watermark is past all of a newer run's days, and real-time aggregation would leave
+them out until the next refresh.
+Migrations run one statement at a time (`src/sql.ts`), because TimescaleDB won't create a
+continuous aggregate inside a transaction.
 
 `npm test` skips the database tests unless `TEST_DATABASE_URL` points at a TimescaleDB where they may
 create a throwaway database (the local Docker one above works):

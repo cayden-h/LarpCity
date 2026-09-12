@@ -85,7 +85,11 @@ test("a resent day without the investing lines keeps the stored ones", { skip },
   assert.deepEqual([day.you, day.held, day.autopilot], [10, 12, 11]);
 });
 
-test("weekly and monthly history come from the continuous aggregates, fresh without a refresh", { skip }, async () => {
+test("weekly and monthly history include a run's newest days even after another run was materialized", { skip }, async () => {
+  // Every run's day 0 is 2000-01-01, so once a longer run is materialized, the aggregates' watermark
+  // is past all of a new run's days; history must still show them without waiting for a refresh.
+  await db.query(`CALL refresh_continuous_aggregate('player_snapshots_weekly', NULL, NULL)`);
+  await db.query(`CALL refresh_continuous_aggregate('player_snapshots_monthly', NULL, NULL)`);
   const run = await createRun(db, ALICE, 2);
   await insertSnapshots(db, run, Array.from({ length: 400 }, (_, d) => snap(d)));
   const weeks = (await history(db, run, "week", 0, 100_000)) as HistoryBucket[];
@@ -101,6 +105,15 @@ test("weekly and monthly history come from the continuous aggregates, fresh with
 
   await db.query(`CALL refresh_continuous_aggregate('player_snapshots_weekly', NULL, NULL)`);
   assert.deepEqual(await history(db, run, "week", 0, 100_000), weeks, "materializing changes nothing");
+  await db.query(`CALL refresh_continuous_aggregate('player_snapshots_monthly', NULL, NULL)`);
+  for (const [bucket, view, got] of [["week", "player_snapshots_weekly", weeks], ["month", "player_snapshots_monthly", months]] as const) {
+    const { rows } = await db.query(
+      `SELECT first_day AS "firstDay", last_day AS "lastDay", net_worth AS "netWorth", peak, low, checking, savings, brokerage, retirement, debt
+       FROM ${view} WHERE run_id = $1 ORDER BY bucket`,
+      [run],
+    );
+    assert.deepEqual(got, rows, `${bucket} history matches the continuous aggregate row for row`);
+  }
   // Day 0 (2000-01-01) is a Saturday and week buckets start on Mondays, so weeks run days 2-8, 9-15, ...
   const touching = weeks.filter((w) => w.lastDay >= 100 && w.firstDay <= 120);
   assert.deepEqual(await history(db, run, "week", 100, 120), touching, "a window returns the weeks it touches");

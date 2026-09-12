@@ -95,7 +95,7 @@ Standalone, it runs and records its own life.
 
 Express + Zod + pg in `server/src/`; every provider key stays here and the browser only calls `/api/*` (the Persona template and environment ids are the only values safe client-side).
 Routes use the `handle`/`parse`/`HttpError` helpers in `http.ts`; provider clients are in `adapters/` (Persona, Nessie with a local fallback and replay, ElevenLabs, Gemini with key and model rotation, Backboard).
-Run data lives in Tiger Data (Postgres + TimescaleDB): `store/runs.ts` for runs, snapshots, events, and history (with weekly and monthly continuous aggregates); `migrations.sql` is additive, runs one statement at a time on boot, and must stay idempotent.
+Run data lives in Tiger Data (Postgres + TimescaleDB): `store/runs.ts` for runs, snapshots, events, and history (weekly and monthly buckets of the run's own rows; the continuous aggregates are for cross-run analytics); `migrations.sql` is additive, runs one statement at a time on boot, and must stay idempotent.
 The Gemini coach and newspaper (`ai/facts.ts`, `ai/coach.ts`) write only from the run's stored data, never from browser text, and fall back to plain-text templates; `/api/feedback` triggers are goal, bankruptcy, swing, and recovery.
 The base schema is `game/db/schema.sql` (loader `game/db/load.py`, needs `psycopg`); deployment notes (Caddy, systemd, Vultr) are in `server/deploy/` and `server/README.md`.
 

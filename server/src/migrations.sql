@@ -18,8 +18,10 @@ ALTER TABLE players ADD COLUMN IF NOT EXISTS backboard_thread_id text;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS key text;
 CREATE UNIQUE INDEX IF NOT EXISTS events_key ON events (run_id, ts, key);
 
--- Net worth by week and by month for the charts and the milestone look-back. Real-time
--- (materialized_only = false), so the newest days show before the policy materializes them.
+-- Net worth by week and by month across all runs, for analytics. A single run's history
+-- (store/runs.ts) buckets its own rows with the same expressions instead: every run starts at
+-- 2000-01-01, so once a long run is materialized, the watermark is past a newer run's days and
+-- real-time aggregation would leave them out until the next refresh.
 CREATE MATERIALIZED VIEW IF NOT EXISTS player_snapshots_weekly
   WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
   SELECT time_bucket('7 days', ts) AS bucket, run_id,
