@@ -19,3 +19,43 @@ test("progressiveTax never goes negative and treats 0/negative income as 0 tax",
   assert.equal(progressiveTax(0, SAMPLE), 0);
   assert.equal(progressiveTax(-500, SAMPLE), 0);
 });
+
+import { FEDERAL_STANDARD_DEDUCTION_SINGLE_2026, childlessEic, federalTax, fica } from "../src/sim/tax/federal.ts";
+
+test("federalTax matches the 2026 single-filer brackets at bracket edges (research/02)", () => {
+  assert.equal(federalTax(0), 0);
+  assert.equal(federalTax(12_400), 1_240); // 10% bracket exactly
+  assert.equal(federalTax(50_400), 1_240 + (50_400 - 12_400) * 0.12);
+});
+
+test("FEDERAL_STANDARD_DEDUCTION_SINGLE_2026 is the 2026 single filer amount", () => {
+  assert.equal(FEDERAL_STANDARD_DEDUCTION_SINGLE_2026, 16_100);
+});
+
+test("fica charges 6.2% SS + 1.45% Medicare below the wage base", () => {
+  const tax = fica(0, 10_000);
+  assert.equal(tax, Math.round(10_000 * (0.062 + 0.0145) * 100) / 100);
+});
+
+test("fica stops charging Social Security once YTD wages cross the wage base", () => {
+  const tax = fica(184_500, 10_000); // already at the 2026 wage base
+  assert.equal(tax, Math.round(10_000 * 0.0145 * 100) / 100); // Medicare only, no SS
+});
+
+test("fica charges the additional 0.9% Medicare only above $200,000 YTD", () => {
+  const tax = fica(195_000, 10_000); // crosses $200k mid-period
+  const medicare = 10_000 * 0.0145;
+  const additional = 5_000 * 0.009; // only the $5,000 over $200k
+  assert.equal(tax, Math.round((medicare + additional) * 100) / 100);
+});
+
+test("childlessEic is 0 at zero income, positive mid-range, 0 at/above the income limit", () => {
+  assert.equal(childlessEic(0), 0);
+  assert.ok(childlessEic(8_000) > 0);
+  assert.equal(childlessEic(19_540), 0);
+  assert.equal(childlessEic(30_000), 0);
+});
+
+test("childlessEic never exceeds the 2026 maximum of $664", () => {
+  for (const income of [1_000, 5_000, 8_490, 12_000, 19_000]) assert.ok(childlessEic(income) <= 664);
+});
