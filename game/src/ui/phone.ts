@@ -1,8 +1,9 @@
 // The player's phone: the hub where the game's "apps" live (Stocks now; News,
 // Mail, and Bank next). It docks on the left edge of the city and can be
 // tucked away. Stocks shows the market from the FRED snapshot (plus live
-// Alpha Vantage quotes when the dev server has a key) and opens the full
-// Credit Desk (/debt.html) in a window over the city.
+// Alpha Vantage quotes when the dev server has a key) and opens the Money
+// desk (/debt.html) in a window over the city, sharing the city's player and
+// clock through window.larpMoney.
 
 import "./phone.css";
 import type { Clock } from "../engine/clock";
@@ -88,6 +89,16 @@ export interface PhoneDeps {
   player: PlayerLife;
 }
 
+/**
+ * What the Money desk (/debt.html, in the iframe) reads from the city through
+ * `window.parent.larpMoney`, so it shows the city player's real money and moves
+ * the city's clock instead of running a separate life.
+ */
+export interface MoneyHost {
+  life: () => PlayerLife;
+  clock: Clock;
+}
+
 export class Phone {
   private readonly el: HTMLElement;
   private readonly overlay: HTMLElement;
@@ -106,11 +117,12 @@ export class Phone {
     this.overlay = document.createElement("div");
     this.overlay.className = "desk-overlay";
     this.overlay.hidden = true;
-    this.overlay.innerHTML = `<div class="desk-window" role="dialog" aria-modal="true" aria-label="Credit Desk">
-      <div class="desk-bar"><span class="desk-title"><span class="desk-dot"></span>Credit Desk</span><span class="desk-hint">City time is paused</span><button class="desk-close" data-close aria-label="Close">✕</button></div>
-      <iframe title="Credit Desk" loading="lazy"></iframe>
+    this.overlay.innerHTML = `<div class="desk-window" role="dialog" aria-modal="true" aria-label="Money">
+      <div class="desk-bar"><span class="desk-title"><span class="desk-dot"></span>Money</span><span class="desk-hint">Your city life's money. City time is paused until you press play.</span><button class="desk-close" data-close aria-label="Close">✕</button></div>
+      <iframe title="Money" loading="lazy"></iframe>
     </div>`;
     document.body.appendChild(this.overlay);
+    (window as unknown as { larpMoney?: MoneyHost }).larpMoney = { life: () => this.deps.player, clock: deps.clock };
 
     this.setOpen(readOpen(), false);
     this.el.addEventListener("click", (ev) => this.onClick(ev));
@@ -171,7 +183,7 @@ export class Phone {
               <div><div class="st-title">Stocks</div><div class="st-sub" data-st-sub></div></div>
             </header>
             <ul class="st-list" data-st-list></ul>
-            <button class="st-open" data-desk>Open Credit Desk <span aria-hidden="true">↗</span></button>
+            <button class="st-open" data-desk>Open Money <span aria-hidden="true">↗</span></button>
           </section>
 
           <button class="home-bar" data-home aria-label="Go home"></button>

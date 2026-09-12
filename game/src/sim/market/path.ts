@@ -35,10 +35,36 @@ export const INSTRUMENTS: readonly Instrument[] = [
 
 export const instrument = (id: InstrumentId): Instrument => INSTRUMENTS.find((i) => i.id === id)!;
 
+/**
+ * The meeting fixed the AI Boom and the AI Bubble Pop to the same calendar
+ * dates in every run (research/03 events 3 and 4). These are placeholders
+ * until the team picks the dates.
+ */
+export const AI_BOOM_START = new Date(2027, 2, 1);
+export const AI_BUBBLE_POP_START = new Date(2028, 8, 1);
+/** The pop's fall lasts about 30 weeks (the Dot-Bomb template). */
+const POP_WEEKS = 30;
+
+/** Where the preset AI arc lands in this run, as game days. */
+export interface MarketPresets {
+  boomDay: number;
+  popDay: number;
+  /** First trading day after the fall; the market returns to the bull regime here. */
+  popEndDay: number;
+  /** How many times over NeuralNest multiplies during the boom (3 to 4). */
+  boomMultiple: number;
+  /** How far the whole market falls in the pop (0.2 to 0.3). */
+  popDepth: number;
+  /** How far NeuralNest falls in the pop (0.7 to 0.85). */
+  nnstPopDepth: number;
+}
+
 // Research/03's weekly calibration, divided into 5 trading days (drift / 5, volatility / sqrt 5).
 const BULL = { mu: 0.0038 / 5, sigma: 0.0194 / Math.sqrt(5), exit: 0.0045 / 5 };
 const BEAR = { mu: -0.0105 / 5, sigma: 0.0416 / Math.sqrt(5), exit: 0.024 / 5 };
 const BOND = { mu: 0.0009 / 5, sigma: 0.012 / Math.sqrt(5), corr: -0.2 };
+/** Daily noise during the scripted pop, on top of the steered drift. */
+const POP_SIGMA = BULL.sigma * 1.4;
 /** Bond price sensitivity to the 10-year yield, for the historical part (duration ~8). */
 const BOND_DURATION = 8;
 const T4_SCALE = Math.sqrt(2 / 4);
@@ -83,10 +109,43 @@ export class MarketPath {
   private readonly index: number[] = [SP_LAST];
   private readonly prices: Record<InstrumentId, number[]> = { LTM: [instrument("LTM").start], BOND: [instrument("BOND").start], NNST: [instrument("NNST").start] };
   private readonly regimes: Regime[] = ["bull"];
+  readonly presets: MarketPresets;
 
-  constructor(seed = 20260911, start = new Date(2026, 8, 11)) {
+  constructor(seed = 20260911, start = new Date(2026, 8, 11), dates: { boom?: Date; pop?: Date } = {}) {
     this.seed = seed;
     this.start = start;
+    const u = uniforms(seed, "pop", 0);
+    const popDay = this.weekdayFrom(Math.max(1, this.dayOf(dates.pop ?? AI_BUBBLE_POP_START)));
+    this.presets = {
+      boomDay: Math.max(1, this.dayOf(dates.boom ?? AI_BOOM_START)),
+      popDay,
+      popEndDay: this.weekdayFrom(popDay + POP_WEEKS * 7),
+      boomMultiple: 3 + u[2],
+      popDepth: 0.2 + 0.1 * u[0],
+      nnstPopDepth: 0.7 + 0.15 * u[1],
+    };
+  }
+
+  /** Game day of a calendar date. */
+  dayOf(date: Date): number {
+    const a = new Date(this.start);
+    const b = new Date(date);
+    a.setHours(12, 0, 0, 0);
+    b.setHours(12, 0, 0, 0);
+    return Math.round((b.getTime() - a.getTime()) / DAY_MS);
+  }
+
+  private weekdayFrom(day: number): number {
+    let d = day;
+    while ([0, 6].includes(this.dateOf(d).getDay())) d++;
+    return d;
+  }
+
+  /** Trading days in [from, to). */
+  private tradingDays(from: number, to: number): number {
+    let n = 0;
+    for (let d = from; d < to; d++) if (![0, 6].includes(this.dateOf(d).getDay())) n++;
+    return n;
   }
 
   /** Calendar date of a game day. */
@@ -147,12 +206,23 @@ export class MarketPath {
         for (const i of INSTRUMENTS) this.prices[i.id].push(this.prices[i.id][d - 1]);
         continue;
       }
-      const params = prevRegime === "bull" ? BULL : BEAR;
-      const flip = uniforms(this.seed, "regime", d)[0] < params.exit;
-      const regime: Regime = flip ? (prevRegime === "bull" ? "bear" : "bull") : prevRegime;
+      const pr = this.presets;
+      const inPop = d >= pr.popDay && d < pr.popEndDay;
+      let regime: Regime;
+      if (inPop) regime = "bear";
+      else if (d === pr.popEndDay) regime = "bull";
+      else {
+        const flip = uniforms(this.seed, "regime", d)[0] < (prevRegime === "bull" ? BULL : BEAR).exit;
+        regime = flip ? (prevRegime === "bull" ? "bear" : "bull") : prevRegime;
+      }
       const p = regime === "bull" ? BULL : BEAR;
       const zm = t4(uniforms(this.seed, "market", d));
-      const rm = p.mu + p.sigma * zm;
+      // In the scripted pop the drift steers each day toward the preset depth, and the last
+      // day carries no noise, so the fall always lands exactly on it.
+      const left = inPop ? this.tradingDays(d, pr.popEndDay) : 0;
+      const steer = (now: number, target: number) => Math.log(target / now) / left;
+      const noise = inPop ? (left > 1 ? POP_SIGMA * zm : 0) : p.sigma * zm;
+      const rm = (inPop ? steer(this.index[d - 1], this.index[pr.popDay - 1] * (1 - pr.popDepth)) : p.mu) + noise;
       this.index.push(this.index[d - 1] * Math.exp(rm));
       this.regimes.push(regime);
       for (const i of INSTRUMENTS) {
@@ -163,7 +233,17 @@ export class MarketPath {
           r = BOND.mu + BOND.sigma * (BOND.corr * Math.max(-4, Math.min(4, zm)) + Math.sqrt(1 - BOND.corr ** 2) * zb);
         } else {
           const zi = i.idioVol ? normal(...(uniforms(this.seed, `idio:${i.id}`, d).slice(0, 2) as [number, number])) : 0;
-          r = i.beta * rm + i.idioVol * zi;
+          const inBoom = d >= pr.boomDay && d < pr.popDay;
+          if (i.id === "NNST" && (inPop || inBoom)) {
+            // Both halves of the AI arc are steered like the pop: noise along the way, landing on the preset.
+            const end = inPop ? pr.popEndDay : pr.popDay;
+            const n = this.tradingDays(d, end);
+            const target = inPop ? this.prices.NNST[pr.popDay - 1] * (1 - pr.nnstPopDepth) : this.prices.NNST[pr.boomDay - 1] * pr.boomMultiple;
+            const wobble = n > 1 ? i.beta * (inPop ? noise : p.sigma * zm) + 0.5 * i.idioVol * zi : 0;
+            r = Math.log(target / this.prices.NNST[d - 1]) / n + wobble;
+          } else {
+            r = i.beta * rm + i.idioVol * zi;
+          }
         }
         this.prices[i.id].push(this.prices[i.id][d - 1] * Math.exp(r - i.expenseRatio / 252));
       }

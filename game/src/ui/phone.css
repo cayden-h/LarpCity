@@ -469,7 +469,7 @@
   overflow: hidden;
   border: 3px solid #fff;
   border-radius: 20px;
-  background: #9fd0f5;
+  background: #fff;
   box-shadow: 0 30px 80px rgba(10, 30, 70, 0.45);
 }
 .desk-bar {
@@ -520,7 +520,7 @@
   flex: 1;
   width: 100%;
   border: 0;
-  background: #9fd0f5;
+  background: #fff;
 }
 
 @media (max-height: 600px) {
