@@ -13,9 +13,12 @@ npm run dev
 
 Open the printed URL.
 Add a state to the URL to jump straight there, for example `#CA` or `#NY`; `#TX` (Houston) is the default.
+The first visit opens Mayor Fleck's intake; the voice call needs the server from `../server` running and a microphone, and typing the numbers or skipping works without either.
+The answers are remembered in the browser: add `?intake=1` to do the intake again, or `?intake=0` to skip it (the sample household).
 
 ## What you can do
 
+- **Intake:** before the city opens, Mayor Solomon Fleck (an ElevenLabs voice agent) asks for your job, salary, rent, debt, and savings, real or made up, and you check the numbers before moving in. You can type them instead, or skip to the sample household. Your life starts from those numbers: take-home is 80% of the salary, the rent is what you said (rescaled if you move states), the debt is a credit card for the first $5,000 plus a personal loan for the rest, and the savings sit in high-yield savings.
 - Drag to pan anywhere in the world, scroll to zoom (zoom out to see the suburbs, farms, and the state's terrain), or use the zoom buttons.
 - **NPCs:** click a person on the sidewalk to see their name, job, and what they are thinking about money right now.
 - **States:** a US map shaded by cost-of-living tier (BEA price parities); visit any state for free.

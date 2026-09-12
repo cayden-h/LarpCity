@@ -7,10 +7,12 @@ import { CityScene } from "./engine/scene";
 import { loadSpriteSet } from "./engine/sprites";
 import type { StateInfo } from "./engine/types";
 import { PlayerLife } from "./sim/life";
+import { lifeFromIntake } from "./sim/life/intake";
 import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
 import { NpcTown } from "./sim/npcs";
 import { Hud } from "./ui/hud";
+import { runIntake } from "./ui/intake";
 import { NpcCard } from "./ui/npccard";
 import { Phone } from "./ui/phone";
 import { FastForward } from "./ui/skip-setup";
@@ -37,10 +39,26 @@ let skipping = 0;
 // The run's seed: the market path and every random draw hang off it (?seed= to replay one).
 const seed = Number(new URLSearchParams(location.search).get("seed")) || 20260912;
 
+// The hash is a state (#CA) or a specialized city (#dallas).
+const fromHash = () => {
+  const h = location.hash.slice(1);
+  return STATES.find((s) => s.abbr === h.toUpperCase()) ?? stateForPin(h.toLowerCase(), STATES);
+};
+// Start where the link points, so the rent the player states belongs to that state.
+state = fromHash() ?? state;
+
+// Onboarding: Mayor Fleck's voice interview (or the typed form) sets the
+// player's job, pay, rent, debt, and savings before the first day runs;
+// skipping it keeps the sample household.
+const intake = await runIntake({ backdrop: `${import.meta.env.BASE_URL}cities/${state.cityId}/plates/day.jpg` });
+
 // The player's money life: paychecks, rent for the current state, and the
 // debt engine run once per game day (research/07-debt-system-design.md);
 // investments move with the seeded market.
-const player = new PlayerLife({ place: state, day: clock.day, market: new MarketPath(seed, clock.start) });
+const market = new MarketPath(seed, clock.start);
+const player = intake
+  ? lifeFromIntake(intake, { place: state, day: clock.day, market })
+  : new PlayerLife({ place: state, day: clock.day, market });
 
 // The named NPCs' money lives on the same market (src/data/npcs.ts), and the
 // bank mirror posts the player's and theirs to Capital One Nessie through the
@@ -142,17 +160,14 @@ app.ticker.add((ticker) => {
 });
 setInterval(() => hud.render(clock, scene?.status() ?? null, scene?.hero?.tier ?? null), 200);
 
-// The hash is a state (#CA) or a specialized city (#dallas).
-const fromHash = () => {
-  const h = location.hash.slice(1);
-  return STATES.find((s) => s.abbr === h.toUpperCase()) ?? stateForPin(h.toLowerCase(), STATES);
-};
 // Shared links and back/forward change only the hash, so follow it.
 window.addEventListener("hashchange", () => {
   const s = fromHash();
   if (s && s.cityId !== state.cityId) void open(s);
 });
-await open(fromHash() ?? state);
+await open(state);
+// Show the player's real home from the first frame, not the hero's default tier.
+syncHomeTier();
 
 /** Advance the game by `seconds` of simulated frames and render once. Background tabs throttle rAF, so tests use this. */
 function step(seconds: number) {
