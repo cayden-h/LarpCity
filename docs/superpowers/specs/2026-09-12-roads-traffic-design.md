@@ -78,12 +78,11 @@ Assigned by the classes that meet, highest pair wins:
 | ramp end on a highway | Merge (onto) or diverge (off) |
 | ramp end on a street | Stop sign (off-ramp) or signal when the street is an arterial |
 
-A city may override a node's control in its definition (`controlOverrides`).
 
 ### Rasterization (`roads/raster.ts`)
 
 - Every road stamps its tiles: `=` for street, `B` over water, `t` for tram, and a new `O` for an overpass (a road over another road).
-- The grid gains a lookup from tile to the road pieces on it, so the ground and markings read the network instead of guessing from neighbors.
+- The ground paints markings from the network's segments and nodes (`roads/marks.ts`) instead of guessing from neighboring tiles; tiles keep only asphalt, curbs, and tram rails.
 - Frontage, lots, `populate.ts`, and the houses work keep reading tiles unchanged.
 - `CityGrid.isRoad` includes `O`; `roadLinks` is kept for people and old callers until they move to the network.
 
@@ -94,8 +93,9 @@ A city may override a node's control in its definition (`controlOverrides`).
 - `LayoutBuilder` gains `road(cls, path, opts)`, which records a `RoadDef` and rasterizes it; `roadX` and `roadY` become shorthands for a `local` road.
 - `build()` returns `{ layout, roads }`.
 - Each of the six cities gets 1 to 3 arterials; widening a street to 2 tiles takes one row of frontage lots.
-  - San Francisco: the Embarcadero (y 6) and the Golden Gate approach (y 12) become arterials, and x 28 becomes an arterial from the waterfront to the southern hills.
-  - Houston, Dallas, Austin, New York, Miami: the longest through street crossing the downtown zone, and the street crossing it nearest the downtown zone's center, become arterials.
+  - San Francisco: the Embarcadero (rows 6-7) and the main avenue (columns 27-28, waterfront to the southern hills).
+  - Houston: rows 8-9 across the channel and columns 13-14; Dallas: the doubled streets at rows 12-13 and columns 23-24 become single arterials; Austin: rows 14-15 and columns 24-25; New York: Fifth Avenue (columns 19-20) and rows 24-25; Miami: columns 6-7 and the island spine (columns 24-25).
+  - Every choice was checked against landmark footprints and home tiles; streets whose bridge landmark is one tile wide (the Golden Gate, the Congress Avenue bat bridge, Houston's row 20 crossing) stay two-lane.
 - The state templates (`templates.ts`) get one arterial through their center.
 - Coordination: the houses spec places SF home lots by hand next to roads; SF's widened rows change which lots exist, so home lots are placed after this change lands, against the new layout.
 
@@ -103,7 +103,8 @@ A city may override a node's control in its definition (`controlOverrides`).
 
 The terrain, lots, farms, and features parts stay; the road part is rewritten to emit `RoadDef`s:
 
-- Arterials that leave the core continue straight to the world's edge; more arterials repeat every 12 tiles through the suburb ring.
+- A perimeter road hugs the core, and a frontage road runs along the suburbs' outer edge; suburban collectors end on it.
+- Arterials that leave the core continue straight to the world's edge; more arterials repeat every 12 tiles through the suburb ring and also run on to the edge.
 - A 2-tile highway ring replaces the beltway at the suburb ring's edge, with a diamond interchange (overpass plus 4 ramps) wherever an arterial crosses it.
 - One radial highway leaves the ring along the city's main axis to the world's edge, with an interchange at the ring.
 - Suburbs: collectors every 6 tiles; local streets between them, some ending in cul-de-sacs so blocks are not a perfect grid.
