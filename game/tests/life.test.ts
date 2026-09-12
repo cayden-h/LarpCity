@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { PlayerLife, STARTER_PORTFOLIO, cashRateOn, seriesOn, US_MEDIAN_RENT, type Place } from "../src/sim/life/index.ts";
 import { MARKET } from "../src/data/market.ts";
 import { fileReturn } from "../src/sim/tax/filing.ts";
+import { runSkip, type Goal } from "../src/sim/skip/index.ts";
 
 const TX: Place = { abbr: "TX", name: "Texas", rpp: { all: 97.4, goods: 97.0, housing: 88.6 } };
 const CA: Place = { abbr: "CA", name: "California", rpp: { all: 110.72, goods: 106.098, housing: 154.346 } };
@@ -480,4 +481,49 @@ test("a no-income-tax state never produces a state tax liability regardless of i
   live(life, 220);
   const ret = life.pendingTaxReturn()!;
   assert.equal(ret.stateTax, 0);
+});
+
+test("a chronological, never-filed multi-year run doesn't permanently jam on year 1's pendingReturn once it converts to a Debt", () => {
+  // Regression test for the pendingReturn-never-cleared bug: before the fix,
+  // tickTaxPenalty() converted an unpaid balance to a real "IRS balance" Debt
+  // but left `pendingReturn` pointing at the (now-resolved-via-Debt) return
+  // that fed it. Since onDay()'s April-15 block only creates a new return
+  // when `!this.pendingReturn`, that stale reference permanently blocked
+  // every later year's return from ever being created. This test never calls
+  // fileTaxes() at all - real calendar time (moveToCARightBeforeDeadline plus
+  // `live()`) is what drives year 1 through its 180ish-day conversion and
+  // into year 2's own April 15.
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 2_000_000 });
+  const day = moveToCARightBeforeDeadline(life); // forces year 1 to reliably owe, not reconcile to ~$0
+  const ret1 = life.pendingTaxReturn();
+  assert.ok(ret1 !== null);
+  const year1 = ret1!.year;
+
+  // 400 days: past the ~180-210 day conversion window AND past the next real
+  // April 15 (~365 days after the first), all without ever filing anything.
+  const events = live(life, 400, day);
+
+  assert.ok(life.book.debts.some((d) => d.name === "IRS balance"), "year 1's shortfall should have converted to a real Debt by now");
+  const laterReturn = life.pendingTaxReturn();
+  assert.ok(laterReturn !== null, "a later year's return should have formed once conversion cleared year 1's stale pendingReturn");
+  assert.ok(
+    laterReturn!.year > year1,
+    `expected a later year's return (> ${year1}), got year ${laterReturn!.year} - stuck on year 1 is the permanent-jam bug`,
+  );
+  assert.ok(events.some((e) => e.type === "tax_ready" && e.year === laterReturn!.year));
+});
+
+test("runSkip (the player-facing fast-forward) auto-files when it crosses an April 15 deadline, same as runHeadless", () => {
+  // Regression test for the runSkip-never-auto-files bug: the fix (autoFilePending())
+  // is shared with runHeadless, but the reviewer's finding was specifically that
+  // NPCs' runHeadless had it and the real player's runSkip did not. Exercise
+  // runSkip directly (it takes a PlayerLife and plain options, no UI/goal-tracking
+  // dependencies beyond what's already in sim/skip), across a span that crosses
+  // a real April 15, and confirm it auto-files instead of leaving the return
+  // pending for the player to silently accrue penalties on.
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 60_000 });
+  const neverMet: Goal = { kind: "net_worth", amount: 1e12 };
+  const result = runSkip(life, { goal: neverMet, fromDay: 0, startDate: START, capAge: life.age + 1 });
+  assert.ok(result.counts["tax_filed"] >= 1, `expected at least one tax_filed event, got counts ${JSON.stringify(result.counts)}`);
+  assert.equal(life.pendingTaxReturn(), null, "runSkip should auto-file, not leave a return sitting pending");
 });

@@ -556,7 +556,8 @@ export class PlayerLife {
       date.setDate(date.getDate() + 1);
       const events = this.onDay(fromDay + i, new Date(date));
       all.push(...events);
-      if (this.pendingReturn) all.push(this.fileTaxes(fromDay + i, true));
+      const filed = this.autoFilePending(fromDay + i);
+      if (filed) all.push(filed);
       if (this.stopsSkip(events)) return { daysRun: i, stoppedBy: "bankruptcy", events: all };
     }
     return { daysRun: days, stoppedBy: null, events: all };
@@ -593,6 +594,19 @@ export class PlayerLife {
     return this.pendingReturn;
   }
 
+  /**
+   * Fast-forwards (both `runHeadless` here and the player-facing `runSkip`)
+   * must never silently blow past a filing deadline: if a return is waiting
+   * to be filed, auto-file it with the standard deduction so a multi-year
+   * skip can't rack up failure-to-file/failure-to-pay penalties the player
+   * never saw form. Returns the `tax_filed` event so the caller can fold it
+   * into whatever event list or count it's already collecting, or null if
+   * there was nothing pending.
+   */
+  autoFilePending(day: number): LifeEvent | null {
+    return this.pendingReturn ? this.fileTaxes(day, true) : null;
+  }
+
   /** Any unpaid tax balance still owed (accumulates across unresolved years); null once paid off. */
   unpaidTaxBalance(): { originalOwed: number; amount: number; dueDay: number; filedDay: number | null; penaltyCharged: number } | null {
     return this.unpaidTax;
@@ -618,7 +632,13 @@ export class PlayerLife {
       const paid = Math.min(owed, checking.balance);
       checking.balance = round2(checking.balance - paid);
       const unpaid = round2(owed - paid);
-      if (unpaid > 0) {
+      const dueDay = this.taxReadyDay ?? day;
+      if (unpaid > 0 && this.convertedTaxDueDays.has(dueDay)) {
+        // This due day already converted to a real "IRS balance" Debt (the
+        // player let it sit unfiled past 180 days). Filing late now must not
+        // spin up a second, parallel shadow balance for the same obligation —
+        // the Debt already represents it, so just let this return close out.
+      } else if (unpaid > 0) {
         if (this.unpaidTax) {
           // A prior year's shortfall is still outstanding; this year's adds to it
           // rather than overwriting, so the balance a later penalty-escalation
@@ -691,6 +711,14 @@ export class PlayerLife {
       // doesn't keep escalating in parallel, forever diverging from what the
       // real Debt actually still owes.
       this.unpaidTax = null;
+      // The pending return (if any) that fed this shortfall is now resolved by
+      // the Debt: it will never be filed, so clear it. Otherwise it stays set
+      // forever, which both permanently blocks next April 15's new return (the
+      // `!this.pendingReturn` guard below never re-passes) and, if it somehow
+      // got filed late anyway, would create a second shadow balance for a due
+      // day that's already converted (see the `convertedTaxDueDays` guard in
+      // `fileTaxes`).
+      this.pendingReturn = null;
     }
   }
 
