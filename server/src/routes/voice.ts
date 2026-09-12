@@ -20,8 +20,12 @@ voiceRouter.get("/signed-url", async (_req, res) => {
 
 const ttsBody = z.object({
   text: z.string().min(1).max(2000),
-  voice: z.enum(["mayor", "anchor"]),
+  voice: z.enum(["narrator", "anchor"]),
 });
+
+/** The owl narrates on the expressive model (it performs [sighs] and the like); the news anchor needs speed more than drama. */
+const NARRATOR_MODEL = "eleven_v3";
+const ANCHOR_MODEL = "eleven_flash_v2_5";
 
 voiceRouter.post("/tts", async (req, res) => {
   const parsed = ttsBody.safeParse(req.body);
@@ -29,9 +33,10 @@ voiceRouter.post("/tts", async (req, res) => {
     res.status(400).json({ error: "invalid body" });
     return;
   }
-  const voiceId = parsed.data.voice === "mayor" ? env.ELEVENLABS_VOICE_MAYOR : env.ELEVENLABS_VOICE_ANCHOR;
+  const narrator = parsed.data.voice === "narrator";
+  const voiceId = narrator ? env.ELEVENLABS_VOICE_NARRATOR : env.ELEVENLABS_VOICE_ANCHOR;
   try {
-    const result = await speak(voiceId, parsed.data.text);
+    const result = await speak(voiceId, parsed.data.text, narrator ? NARRATOR_MODEL : ANCHOR_MODEL);
     res.json(result);
   } catch (err) {
     logger.error({ err }, "elevenlabs tts failed");

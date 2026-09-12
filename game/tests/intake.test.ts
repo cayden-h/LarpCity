@@ -1,4 +1,4 @@
-// Onboarding answers: reading what the mayor's tool call, the post-call
+// Onboarding answers: reading what the narrator's tool call, the post-call
 // webhook, or the typed form hands over, and the starting life they build.
 
 import { test } from "node:test";

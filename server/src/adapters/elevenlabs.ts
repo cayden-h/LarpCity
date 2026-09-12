@@ -11,7 +11,17 @@ export function buildCaptions(characters: string[], starts: number[]): { word: s
   const words: { word: string; start: number }[] = [];
   let current = "";
   let wordStart = starts[0] ?? 0;
+  let inTag = false;
   characters.forEach((ch, i) => {
+    // Delivery tags like [sighs] are performed, not spoken, so they stay out of the captions.
+    if (ch === "[") {
+      inTag = true;
+      return;
+    }
+    if (inTag) {
+      if (ch === "]") inTag = false;
+      return;
+    }
     if (ch === " ") {
       if (current) words.push({ word: current, start: wordStart });
       current = "";
@@ -57,9 +67,10 @@ export async function getSignedVoiceUrl(): Promise<string> {
 export async function speak(
   voiceId: string,
   text: string,
+  modelId: string,
 ): Promise<{ audioBase64: string; words: { word: string; start: number }[] }> {
   await mkdir(CACHE_DIR, { recursive: true });
-  const key = createHash("sha256").update(`tts|${voiceId}|eleven_flash_v2_5|${text}`).digest("hex");
+  const key = createHash("sha256").update(`tts|${voiceId}|${modelId}|${text}`).digest("hex");
   const audioFile = path.join(CACHE_DIR, `${key}.mp3`);
   const captionsFile = path.join(CACHE_DIR, `${key}.json`);
 
@@ -69,10 +80,7 @@ export async function speak(
     return { audioBase64: cachedAudio.toString("base64"), words: JSON.parse(cachedCaptions) };
   }
 
-  const result = await client.textToSpeech.convertWithTimestamps(voiceId, {
-    text,
-    modelId: "eleven_flash_v2_5",
-  });
+  const result = await client.textToSpeech.convertWithTimestamps(voiceId, { text, modelId });
   const audioBase64 = result.audioBase64;
   const words = captionsFromResponse(result);
 

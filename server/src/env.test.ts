@@ -11,7 +11,7 @@ const VALID: NodeJS.ProcessEnv = {
   NESSIE_API_KEY: "nessie_x",
   ELEVENLABS_API_KEY: "el_x",
   ELEVENLABS_AGENT_ID: "agent_x",
-  ELEVENLABS_VOICE_MAYOR: "voice_1",
+  ELEVENLABS_VOICE_NARRATOR: "voice_1",
   ELEVENLABS_VOICE_ANCHOR: "voice_2",
   GEMINI_API_KEYS: "key1,key2",
   BACKBOARD_API_KEY: "bb_x",

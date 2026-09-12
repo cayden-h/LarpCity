@@ -1,7 +1,7 @@
-// The onboarding interview. Mayor Solomon Fleck, an ElevenLabs voice agent,
-// asks for the player's job, salary, rent, debt, and savings before the city
-// opens, and the answers become the player's starting money life
-// (sim/life/intake.ts). The agent hands the answers over with its
+// The onboarding interview. The owl, Larp City's narrator (an ElevenLabs
+// voice agent), asks for the player's job, salary, rent, debt, and savings
+// before the city opens, and the answers become the player's starting money
+// life (sim/life/intake.ts). The agent hands the answers over with its
 // submit_finances client tool; if a call ends without it, the server's
 // post-call webhook has the same fields, fetched by conversation id. The
 // player can also type the numbers, or skip to the sample household.
@@ -11,14 +11,18 @@
 import type { VoiceConversation } from "@elevenlabs/client";
 import { apiFetch } from "../net/api";
 import { coerceAnswers, completeAnswers, takeHomeFor, type IntakeAnswers } from "../sim/life/intake";
+import { Owl, preloadOwl } from "./owl";
 import "./intake.css";
 
 const STORAGE_KEY = "larp.intake.v1";
 /** How long to wait for the post-call webhook's notes after a call ends without the tool. */
 const NOTES_WAIT_MS = 20_000;
 const NOTES_POLL_MS = 2_000;
-/** Hang up this long after the answers arrive, in case the mayor keeps talking. */
+/** Hang up this long after the answers arrive, in case the narrator keeps talking. */
 const WRAP_UP_MS = 12_000;
+/** The owl's standing height on the welcome and call screens, and above the form. */
+const OWL_BIG = 150;
+const OWL_SMALL = 96;
 
 type Role = "agent" | "user";
 
@@ -35,6 +39,7 @@ export function runIntake(o: IntakeOptions): Promise<IntakeAnswers | null> {
     const saved = loadSaved();
     if (saved) return Promise.resolve(saved);
   }
+  preloadOwl(["wave", "idle", "talk", "think", "cheer", "type", "read", "tip-hat"]);
   return new Promise((resolve) => new Intake(o, resolve).welcome());
 }
 
@@ -63,13 +68,15 @@ class Intake {
   private readonly el: HTMLDivElement;
   private readonly body: HTMLDivElement;
   private readonly resolve: (answers: IntakeAnswers | null) => void;
+  private readonly owl = new Owl(OWL_BIG);
   private conversation: VoiceConversation | null = null;
   private conversationId: string | null = null;
   /** Answers from the submit_finances tool during the current call. */
   private answers: IntakeAnswers | null = null;
   private lines: { role: Role; text: string }[] = [];
-  /** Set once the mayor starts the goodbye after the answers arrive. */
+  /** Set once the narrator starts the goodbye after the answers arrive. */
   private goodbye = false;
+  private leaving = false;
   private frame = 0;
   private wrapTimer = 0;
   /** Bumped for every call and screen change, so an old call's callbacks can't touch a newer screen. */
@@ -98,16 +105,18 @@ class Intake {
 
   welcome(): void {
     this.show(`
-      <div class="in-mayor" aria-hidden="true">🎩</div>
-      <div class="in-name">Mayor Solomon Fleck</div>
-      <p class="in-lead">Hi there! It's my job to keep Larp City healthy and wealthy. Before I hand you the keys,
-        tell me about your money: your job, salary, rent, debt, and savings. Real numbers or a made-up life both work.</p>
+      <div class="in-owl-slot"></div>
+      <div class="in-name">The Narrator</div>
+      <p class="in-lead">This is the story of a new arrival in Larp City. Before they get the keys, the Narrator needs a few details:
+        job, salary, rent, debt, and savings. Real numbers or a made-up life both work.</p>
       <div class="in-actions">
-        <button type="button" class="btn in-big" data-act="talk">🎙️ Talk to the Mayor</button>
+        <button type="button" class="btn in-big" data-act="talk">🎙️ Talk to the Narrator</button>
         <button type="button" class="btn ghost in-big" data-act="type">Type it instead</button>
       </div>
       <button type="button" class="in-link" data-act="skip">Skip and use a sample life</button>
       <p class="in-fine">The interview uses your microphone. Voice by ElevenLabs.</p>`);
+    this.mountOwl(OWL_BIG);
+    void this.owl.play("wave", { then: "idle" });
     this.focus("[data-act=talk]");
   }
 
@@ -115,16 +124,23 @@ class Intake {
     this.body.innerHTML = html;
   }
 
+  /** Puts the owl into the current screen's slot, at `size`. */
+  private mountOwl(size: number): void {
+    this.owl.setSize(size);
+    this.body.querySelector(".in-owl-slot")?.appendChild(this.owl.el);
+  }
+
   private focus(selector: string): void {
     requestAnimationFrame(() => this.body.querySelector<HTMLElement>(selector)?.focus());
   }
 
   private onClick(ev: MouseEvent): void {
+    if (this.leaving) return;
     const act = (ev.target as HTMLElement).closest<HTMLElement>("[data-act]")?.dataset.act;
     if (act === "talk") void this.talk();
     else if (act === "type") this.typeInstead();
     else if (act === "hangup") void this.hangUp(this.callSeq);
-    else if (act === "skip") this.finish(null);
+    else if (act === "skip") void this.finish(null);
   }
 
   // ---- The call ----
@@ -136,19 +152,21 @@ class Intake {
     this.lines = [];
     this.goodbye = false;
     this.show(`
-      <div class="in-orb" data-mode="connecting" aria-hidden="true"><span></span></div>
-      <p class="in-status" aria-live="polite">Calling City Hall…</p>
+      <div class="in-owl-slot"></div>
+      <p class="in-status" aria-live="polite">Calling the Narrator…</p>
       <ol class="in-transcript" aria-label="Conversation"></ol>
       <div class="in-actions">
         <button type="button" class="btn ghost in-big" data-act="hangup">Hang up</button>
       </div>
       <button type="button" class="in-link" data-act="type">Type it instead</button>`);
+    this.mountOwl(OWL_BIG);
+    void this.owl.play("idle");
 
     let signedUrl: string;
     try {
       ({ signedUrl } = await apiFetch<{ signedUrl: string }>("/voice/signed-url"));
     } catch {
-      if (seq === this.callSeq) this.confirm({}, "City Hall's phone line is down right now. Fill in your numbers by hand.");
+      if (seq === this.callSeq) this.confirm({}, "The Narrator can't take calls right now. Fill in your numbers by hand.");
       return;
     }
     if (seq !== this.callSeq) return;
@@ -172,7 +190,7 @@ class Intake {
         return;
       }
       this.conversation = conversation;
-      this.status("Mayor Fleck is picking up…");
+      this.status("The Narrator is picking up…");
       this.meter(conversation);
     } catch (err) {
       if (seq !== this.callSeq) return;
@@ -181,7 +199,7 @@ class Intake {
         {},
         denied
           ? "No microphone? No problem. Fill in your numbers by hand."
-          : "The call couldn't connect. Fill in your numbers by hand, or try the mayor again.",
+          : "The call couldn't connect. Fill in your numbers by hand, or try the Narrator again.",
       );
     }
   }
@@ -191,21 +209,27 @@ class Intake {
     const answers = completeAnswers(coerceAnswers(params));
     if (!answers) return "Some of the five answers were missing or unclear. Ask for the missing ones, then call submit_finances again.";
     this.answers = answers;
-    this.status("Got it! The mayor is stamping your papers…");
+    this.status("Got it! The Narrator is writing it all down…");
+    void this.owl.play("cheer", { then: "idle" });
     this.wrapTimer = window.setTimeout(() => void this.hangUp(seq), WRAP_UP_MS);
     return "Saved. Tell the player their city is ready in one short sentence, then stop.";
   }
 
   private onMode(seq: number, mode: "speaking" | "listening"): void {
     if (seq !== this.callSeq) return;
-    this.body.querySelector(".in-orb")?.setAttribute("data-mode", mode);
     if (this.answers) {
-      // Hang up once the mayor has said goodbye (a speaking turn that ends).
-      if (mode === "speaking") this.goodbye = true;
-      else if (this.goodbye) window.setTimeout(() => void this.hangUp(seq), 400);
+      // Hang up once the narrator has said goodbye (a speaking turn that ends).
+      if (mode === "speaking") {
+        this.goodbye = true;
+        void this.owl.play("talk");
+      } else if (this.goodbye) {
+        void this.owl.play("idle");
+        window.setTimeout(() => void this.hangUp(seq), 400);
+      }
       return;
     }
-    this.status(mode === "speaking" ? "Mayor Fleck is talking…" : "Your turn. The mayor is listening.");
+    void this.owl.play(mode === "speaking" ? "talk" : "think");
+    this.status(mode === "speaking" ? "The Narrator is talking…" : "Your turn. The Narrator is listening.");
   }
 
   private onLine(seq: number, role: Role, text: string): void {
@@ -215,7 +239,7 @@ class Intake {
     if (!list) return;
     list.innerHTML = this.lines
       .slice(-8)
-      .map((l) => `<li class="${l.role}"><b>${l.role === "agent" ? "Mayor" : "You"}</b>${escapeHtml(l.text)}</li>`)
+      .map((l) => `<li class="${l.role}"><b>${l.role === "agent" ? "Narrator" : "You"}</b>${escapeHtml(l.text)}</li>`)
       .join("");
     list.scrollTop = list.scrollHeight;
   }
@@ -225,13 +249,11 @@ class Intake {
     if (el) el.textContent = text;
   }
 
-  /** Pulses the orb with whoever is talking. */
+  /** Bobs the owl with the narrator's voice. */
   private meter(conversation: VoiceConversation): void {
-    const orb = this.body.querySelector<HTMLElement>(".in-orb");
     const tick = () => {
-      if (this.conversation !== conversation || !orb?.isConnected) return;
-      const level = Math.max(conversation.getOutputVolume(), conversation.getInputVolume());
-      orb.style.setProperty("--level", Math.min(1, level * 1.6).toFixed(3));
+      if (this.conversation !== conversation) return;
+      this.owl.setLevel(Math.min(1, conversation.getOutputVolume() * 1.6));
       this.frame = requestAnimationFrame(tick);
     };
     this.frame = requestAnimationFrame(tick);
@@ -240,6 +262,7 @@ class Intake {
   private async endCall(): Promise<void> {
     clearTimeout(this.wrapTimer);
     cancelAnimationFrame(this.frame);
+    this.owl.setLevel(0);
     const conversation = this.conversation;
     this.conversation = null;
     if (conversation) await conversation.endSession().catch(() => undefined);
@@ -255,12 +278,12 @@ class Intake {
     if (seq !== this.callSeq || this.endedSeq === seq) return;
     this.endedSeq = seq;
     await this.endCall();
-    if (this.answers) return this.confirm(this.answers, "Here's what the mayor wrote down. Fix anything that's off, then move in.");
+    if (this.answers) return this.confirm(this.answers, "Here's what the Narrator wrote down. Fix anything that's off, then move in.");
 
     const id = this.conversationId;
-    if (!id) return this.confirm({}, "The call ended before it started. Fill in your numbers by hand, or try the mayor again.");
-    this.status("Checking the mayor's notes…");
-    this.body.querySelector(".in-orb")?.setAttribute("data-mode", "connecting");
+    if (!id) return this.confirm({}, "The call ended before it started. Fill in your numbers by hand, or try the Narrator again.");
+    this.status("Checking the Narrator's notes…");
+    void this.owl.play("type");
     this.body.querySelector("[data-act=hangup]")?.remove();
     const notes = await this.fetchNotes(seq, id);
     if (seq !== this.callSeq) return;
@@ -268,10 +291,10 @@ class Intake {
     this.confirm(
       notes,
       complete
-        ? "The call ended early, but the mayor's notes came through. Check them over."
+        ? "The call ended early, but the Narrator's notes came through. Check them over."
         : Object.keys(notes).length
-          ? "The mayor caught some of it. Fill in the rest."
-          : "The call ended before the mayor wrote anything down. Fill in your numbers by hand, or talk again.",
+          ? "The Narrator caught some of it. Fill in the rest."
+          : "The call ended before the Narrator wrote anything down. Fill in your numbers by hand, or talk again.",
     );
   }
 
@@ -297,7 +320,10 @@ class Intake {
     const answers = this.answers;
     this.callSeq++;
     void this.endCall();
-    this.confirm(answers ?? {}, answers ? "Here's what the mayor wrote down. Fix anything that's off, then move in." : "Fill in your numbers. Use 0 for none.");
+    this.confirm(
+      answers ?? {},
+      answers ? "Here's what the Narrator wrote down. Fix anything that's off, then move in." : "Fill in your numbers. Use 0 for none.",
+    );
   }
 
   // ---- Confirm and finish ----
@@ -311,6 +337,7 @@ class Intake {
         <span class="in-input"><i>$</i><input name="${key}" type="number" inputmode="numeric" min="0" step="1" value="${value(key)}">${unit ? `<em>${unit}</em>` : ""}</span>
       </label>`;
     this.show(`
+      <div class="in-owl-slot in-owl-small"></div>
       <p class="in-note">${escapeHtml(note)}</p>
       <form class="in-form" novalidate>
         <label class="in-field in-wide">
@@ -325,10 +352,12 @@ class Intake {
         <p class="in-error in-wide" role="alert"></p>
         <div class="in-actions in-wide">
           <button type="submit" class="btn in-big">Move in 🏠</button>
-          <button type="button" class="btn ghost in-big" data-act="talk">🎙️ Talk to the Mayor</button>
+          <button type="button" class="btn ghost in-big" data-act="talk">🎙️ Talk to the Narrator</button>
         </div>
       </form>
       <button type="button" class="in-link" data-act="skip">Skip and use a sample life</button>`);
+    this.mountOwl(OWL_SMALL);
+    void this.owl.play("read");
     this.onInput();
     const missing = NUMBER_FIELDS.find((k) => prefill[k] === undefined);
     this.focus(missing ? `input[name=${missing}]` : ".in-form [type=submit]");
@@ -358,18 +387,26 @@ class Intake {
   }
 
   private onSubmit(): void {
+    if (this.leaving) return;
     const answers = completeAnswers(this.readForm());
     if (!answers) {
       this.body.querySelector(".in-error")!.textContent = "Fill in salary, rent, debt, and savings. Use 0 for none.";
       return;
     }
-    this.finish(answers);
+    void this.finish(answers);
   }
 
-  private finish(answers: IntakeAnswers | null): void {
+  private async finish(answers: IntakeAnswers | null): Promise<void> {
+    this.leaving = true;
     this.callSeq++;
     void this.endCall();
-    if (answers) save(answers);
+    if (answers) {
+      save(answers);
+      // A tip of the hat on the way in.
+      this.el.classList.add("in-leaving");
+      await this.owl.play("tip-hat", { then: "idle" });
+    }
+    this.owl.stop();
     this.el.remove();
     this.resolve(answers);
   }

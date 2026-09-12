@@ -1,4 +1,4 @@
-// Onboarding answers (Mayor Fleck's voice interview or the typed form, see
+// Onboarding answers (the owl narrator's voice interview or the typed form, see
 // ui/intake.ts) and the starting money life they build: gross pay and
 // take-home, the stated rent, the total debt as a credit card plus a personal
 // loan, and savings.

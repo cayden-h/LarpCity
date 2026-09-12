@@ -31,6 +31,15 @@ test("buildCaptions handles a single word with no spaces", () => {
   assert.deepEqual(buildCaptions(chars, starts), [{ word: "ok", start: 1.0 }]);
 });
 
+test("buildCaptions leaves delivery tags like [sighs] out of the captions", () => {
+  const chars = [..."[sighs] So. [slow] Naturally."];
+  const starts = chars.map((_, i) => i / 10);
+  assert.deepEqual(buildCaptions(chars, starts), [
+    { word: "So.", start: 0.8 },
+    { word: "Naturally.", start: 1.9 },
+  ]);
+});
+
 test("buildCaptions returns an empty array for empty input", () => {
   assert.deepEqual(buildCaptions([], []), []);
 });

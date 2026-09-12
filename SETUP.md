@@ -227,11 +227,12 @@ Prizes: 3 months of Scale tier for "impactful use" of ElevenLabs audio, and wire
 
 1. Sign up at elevenlabs.io; the free plan gives 10k credits a month with TTS and Sound Effects (non-commercial, credit ElevenLabs).
 2. Developers > API Keys: create a key for the server.
-3. Voice Library: pick a **mayor** voice and a **news anchor** voice and copy their voice ids.
-4. Agents > New agent > Blank:
-   - System prompt: "You are the Larp City intake clerk. Ask the player, one question at a time, for job title, annual salary, monthly rent, total debt, and savings. Confirm the numbers, then call `submit_finances` exactly once."
-   - First message: "Welcome to Larp City! Before I hand you the keys, what do you do for work?"
-   - Voice: the mayor voice.
+3. Voices: the owl narrator is Daniel, a built-in British voice (`onwK4e9ZLuTAKqWW03F9`); pick a **news anchor** voice too and copy both ids.
+   The free plan can only use built-in voices through the API; Voice Library voices and Voice Design need the Creator plan.
+4. Agents > New agent > Blank (the live one is "Larp City Narrator"):
+   - System prompt: the owl narrator, a dry, deadpan English storyteller who narrates the player in the third person, plus the job: ask, one question at a time, for job title, annual salary, monthly rent, total debt, and savings; confirm the numbers, then call `submit_finances` exactly once. It may use one delivery tag per turn from [sighs], [slow], [whispers], and [laughs].
+   - First message: "This is the story of a new arrival in Larp City. Before they could have the keys, the Narrator needed a few details. So. What do you do for work?"
+   - Voice: Daniel on `eleven_v3_conversational` (Expressive Mode), with those four suggested audio tags.
 5. Agent > Tools > Add Tool, type **Client**: name `submit_finances`, parameters `job` (string), `salary`, `rent`, `debt`, `savings` (numbers), and turn on **Wait for response**.
    Names are case-sensitive and must match the browser code.
 6. Optional backup: Analysis > Data collection with the same five fields; results arrive in the post-call webhook at `analysis.data_collection_results` (signed with an `elevenlabs-signature` header).
@@ -245,7 +246,8 @@ Prizes: 3 months of Scale tier for "impactful use" of ElevenLabs audio, and wire
 | --- | --- |
 | `ELEVENLABS_API_KEY` | all calls (server only) |
 | `ELEVENLABS_AGENT_ID` | signed URL for the interview agent |
-| `ELEVENLABS_VOICE_MAYOR`, `ELEVENLABS_VOICE_ANCHOR` | narrator voices |
+| `ELEVENLABS_VOICE_NARRATOR` | the owl narrator's voice for `/api/voice/tts`, read on `eleven_v3` |
+| `ELEVENLABS_VOICE_ANCHOR` | the news anchor's voice, read on `eleven_flash_v2_5` |
 | `ELEVENLABS_WEBHOOK_SECRET` | verifies the post-call webhook; without it `/api/voice/webhook` answers 503 |
 
 Packages: `@elevenlabs/elevenlabs-js` (server) and `@elevenlabs/client` (browser).
@@ -262,7 +264,8 @@ app.get('/api/voice/signed-url', async (_req, res) => {
 });
 
 // Narrator line with captions, cached on disk by hash(voice|model|text) so repeats cost no credits.
-const out = await el.textToSpeech.convertWithTimestamps(voiceId, { text, modelId: 'eleven_flash_v2_5' });
+// The owl reads on 'eleven_v3', which performs tags like [sighs]; the server leaves tags out of the captions.
+const out = await el.textToSpeech.convertWithTimestamps(voiceId, { text, modelId: 'eleven_v3' });
 // Live alerts: el.textToSpeech.stream(voiceId, { text, modelId: 'eleven_flash_v2_5' }) piped to the response as audio/mpeg.
 // Sound effects: el.textToSoundEffects.convert({ text: 'cash register ding', durationSeconds: 2, promptInfluence: 0.5 }).
 ```
@@ -294,7 +297,7 @@ Captions: group the alignment's character start times into words and show each w
 | Feature | ElevenLabs piece |
 | --- | --- |
 | Onboarding interview (real finances) | Agent + `submit_finances` client tool, with data collection as a backup |
-| Mayor onboarding, bankruptcy, eviction, NPC death (respectful) | TTS with timestamps, `eleven_v3` for the emotional hero lines |
+| The owl narrator's big moments: arrival, a debt paid off, a missed payment, collections, bankruptcy (respectful), a move, a crash | TTS with timestamps on `eleven_v3`; the lines and their timing rules are in `game/src/narration/lines.ts` |
 | Market crash and news alerts | Streaming TTS with `eleven_flash_v2_5` (low latency), anchor voice |
 | Newspaper digest read aloud | TTS of the Gemini-written digest |
 | Cash register, siren, crowd gasp | Sound effects, generated once and cached |
@@ -668,7 +671,7 @@ NESSIE_TAG=larpcity
 
 ELEVENLABS_API_KEY=
 ELEVENLABS_AGENT_ID=
-ELEVENLABS_VOICE_MAYOR=
+ELEVENLABS_VOICE_NARRATOR=
 ELEVENLABS_VOICE_ANCHOR=
 ELEVENLABS_WEBHOOK_SECRET=
 
@@ -704,7 +707,7 @@ All accounts are on sixtyfourandten@gmail.com (Nessie is on the `cayden-h` GitHu
 
 | Service | Status | What exists | Verified |
 | --- | --- | --- | --- |
-| ElevenLabs | Done | Key `larp-city` (unrestricted, auto-disable if leaked); agent "Larp City Intake Clerk" `agent_9101m29rg237f79b0rprqav18hxx` with the `submit_finances` client tool and auth on; mayor voice Bill `pqHfZKP75CvOlQylNhV4`, anchor voice Daniel `onwK4e9ZLuTAKqWW03F9` | `/v1/user` 200 (free tier, 0 / 10,000 credits); signed URL returns `wss://` |
+| ElevenLabs | Done | Key `larp-city` (unrestricted, auto-disable if leaked); agent "Larp City Narrator" `agent_9101m29rg237f79b0rprqav18hxx` (the owl: Daniel on `eleven_v3_conversational`) with the `submit_finances` client tool, five Data collection fields, the post-call webhook, and auth on; narrator and anchor voice Daniel `onwK4e9ZLuTAKqWW03F9` | `/v1/user` 200 (free tier, 0 / 10,000 credits); signed URL returns `wss://` |
 | Tiger Data | Done; schema applied and card data loaded (`game/db/load.py`, Sep 11) | Always-free Shared service `larp-city` in AWS us-east-1 (1 GiB, stays free after the trial), inside the 30-day Performance trial project | `psql` connects; TimescaleDB 2.30.0 |
 | Backboard | Done, chat needs credits | Key; assistant "Larp City Coach" `fe3bc6b8-0c92-45a1-a0c4-d98d7dd2834a` with research 02, 03, 06 indexed; models `anthropic/claude-haiku-4-5-20251001` (small) and `anthropic/claude-sonnet-5` (large) | `billing/balance` 200; docs indexed. **The free $5 covers only memory and RAG, not LLM chat**, so the coach needs paid credits (or route the coach text through another model) |
 | Capital One Nessie | Done; API probed and bank mirror built (Sep 12) | Key from the `cayden-h` GitHub login; the 8 NPC customers, player customers per session, and two probe customers | Every endpoint we use (see the Nessie section); the mirror's statements matched the game's balances end to end |
@@ -718,7 +721,7 @@ All accounts are on sixtyfourandten@gmail.com (Nessie is on the `cayden-h` GitHu
 - [ ] Persona: sandbox account, published selfie template with liveness (+ age if allowed), allowed domains, approve workflow, webhook; share template and environment ids.
 - [ ] Persona booth: ask for production or credits (Saturday morning).
 - [x] Nessie: GitHub login, key, the API probed, and the bank mirror (option B) running against it.
-- [x] ElevenLabs: key, mayor and anchor voices, onboarding Agent with the `submit_finances` client tool; ask for a promo code (promo code still to ask).
+- [x] ElevenLabs: key, narrator and anchor voices, the owl narrator Agent with the `submit_finances` client tool, Data collection, and the post-call webhook; ask for a promo code (promo code still to ask).
 - [x] Gemini: three rotating keys in `GEMINI_API_KEYS` (image generation billing still to confirm).
 - [x] Tiger Data: ~~trial service~~ (done), ~~save `DATABASE_URL`~~ (done), ~~run the schema~~ (done: `python3 game/db/load.py` applies `game/db/schema.sql` and loads the card catalog and FRED rates).
 - [x] Backboard: key, the coach assistant with research docs uploaded (chat needs paid credits).

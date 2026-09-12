@@ -1,0 +1,124 @@
+{
+ "animations": {
+  "idle": {
+   "file": "idle.webp",
+   "frameWidth": 184,
+   "frameHeight": 223,
+   "frames": 8,
+   "anchorX": 94.6,
+   "anchorY": 220.0
+  },
+  "talk": {
+   "file": "talk.webp",
+   "frameWidth": 218,
+   "frameHeight": 217,
+   "frames": 8,
+   "anchorX": 108.0,
+   "anchorY": 214.0
+  },
+  "wave": {
+   "file": "wave.webp",
+   "frameWidth": 212,
+   "frameHeight": 225,
+   "frames": 8,
+   "anchorX": 91.9,
+   "anchorY": 222.0
+  },
+  "think": {
+   "file": "think.webp",
+   "frameWidth": 202,
+   "frameHeight": 236,
+   "frames": 8,
+   "anchorX": 99.4,
+   "anchorY": 232.5
+  },
+  "cheer": {
+   "file": "cheer.webp",
+   "frameWidth": 246,
+   "frameHeight": 225,
+   "frames": 8,
+   "anchorX": 118.1,
+   "anchorY": 220.0
+  },
+  "magic": {
+   "file": "magic.webp",
+   "frameWidth": 284,
+   "frameHeight": 223,
+   "frames": 8,
+   "anchorX": 121.8,
+   "anchorY": 219.5
+  },
+  "step": {
+   "file": "step.webp",
+   "frameWidth": 206,
+   "frameHeight": 227,
+   "frames": 8,
+   "anchorX": 94.2,
+   "anchorY": 224.0
+  },
+  "run": {
+   "file": "run.webp",
+   "frameWidth": 212,
+   "frameHeight": 204,
+   "frames": 8,
+   "anchorX": 130.4,
+   "anchorY": 200.0
+  },
+  "fly": {
+   "file": "fly.webp",
+   "frameWidth": 270,
+   "frameHeight": 185,
+   "frames": 8,
+   "anchorX": 135.5,
+   "anchorY": 181.0
+  },
+  "hop": {
+   "file": "hop.webp",
+   "frameWidth": 238,
+   "frameHeight": 232,
+   "frames": 8,
+   "anchorX": 112.5,
+   "anchorY": 229.0
+  },
+  "tip-hat": {
+   "file": "tip-hat.webp",
+   "frameWidth": 281,
+   "frameHeight": 225,
+   "frames": 8,
+   "anchorX": 128.2,
+   "anchorY": 222.0
+  },
+  "proud": {
+   "file": "proud.webp",
+   "frameWidth": 207,
+   "frameHeight": 213,
+   "frames": 8,
+   "anchorX": 97.5,
+   "anchorY": 210.0
+  },
+  "read": {
+   "file": "read.webp",
+   "frameWidth": 237,
+   "frameHeight": 245,
+   "frames": 8,
+   "anchorX": 109.3,
+   "anchorY": 242.0
+  },
+  "type": {
+   "file": "type.webp",
+   "frameWidth": 262,
+   "frameHeight": 222,
+   "frames": 8,
+   "anchorX": 130.7,
+   "anchorY": 217.0
+  },
+  "sleep": {
+   "file": "sleep.webp",
+   "frameWidth": 270,
+   "frameHeight": 183,
+   "frames": 8,
+   "anchorX": 97.9,
+   "anchorY": 180.0
+  }
+ }
+}
