@@ -177,10 +177,9 @@ def clear_glass(name, tint=(0.86, 0.92, 0.95, 1)):
     return m
 
 
-def image(name, path, strength=1.2, glow=True, alpha=False, rough=0.5, top_lit=False, brick=None):
+def image(name, path, strength=1.2, glow=True, alpha=False, rough=0.5, top_lit=False):
     """An image on a UV-mapped face (ad, sign, mural). Glows with its own colors at night unless glow=False.
-    alpha: transparent where the image is. top_lit: brighter at the top, like a billboard under floodlights.
-    brick: a photo texture id whose relief shows through (paint on a brick wall)."""
+    alpha: transparent where the image is. top_lit: brighter at the top, like a billboard under floodlights."""
     m, nt, out = _base(name)
     m["sign"] = True  # the pixel pass keeps sign detail and draws no inner lines across it
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
@@ -190,8 +189,6 @@ def image(name, path, strength=1.2, glow=True, alpha=False, rough=0.5, top_lit=F
     tex.extension = "CLIP"
     tex.interpolation = "Cubic"
     nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
-    if brick:
-        _normal(nt, _photo(nt, brick, 0.5), bsdf)
     gradient = None
     if top_lit:
         uv = nt.nodes.new("ShaderNodeSeparateXYZ")

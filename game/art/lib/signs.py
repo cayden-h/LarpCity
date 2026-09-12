@@ -11,8 +11,11 @@ from . import materials as M
 from .geo import box, cylinder, face_quad, quad
 from .iso import px
 
-FONT = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
 ADS = Path(__file__).resolve().parent.parent / "ads"
+FONT = ADS.parent.parent / "public" / "fonts" / "pixelify-sans-bold.ttf"  # the game's pixel font, as in the UI
+# 3D letters are seen at 45 degrees, which squeezes their strokes; widen the outline and give them real depth
+# (both as a share of the font size), so a stroke is still a full pixel after the 4x majority downsample.
+LETTER_BOLD, LETTER_DEPTH = 0.035, 0.05
 BULLETIN = 14 / 48  # height / width of a 14 x 48 ft bulletin
 
 
@@ -137,9 +140,10 @@ def monument(image_name, x0, y_front, width=0.46):
 
 
 def mural(image_name, face, w, d, u0, u1, z0, aspect):
-    """Paint on a brick wall: transparent art whose height is (u1 - u0) / aspect, with the brick relief showing through."""
+    """Paint on a wall: transparent art whose height is (u1 - u0) / aspect. Flat paint, with no brick relief:
+    sign regions keep their detail in the pixel pass, so relief would come out as speckle."""
     z1 = z0 + (u1 - u0) / aspect
-    face_quad(f"mural{face}", face, w, d, u0, u1, z0, z1, M.image(f"mu-{image_name}", ADS / image_name, glow=False, alpha=True, rough=0.9, brick="Bricks075A"), off=0.003)
+    face_quad(f"mural{face}", face, w, d, u0, u1, z0, z1, M.image(f"mu-{image_name}", ADS / image_name, glow=False, alpha=True, rough=0.9), off=0.003)
     return z1
 
 
@@ -175,9 +179,10 @@ def letters(text, color, glow, x0, x1, y, z, height_px, strength=8.0, max_scale=
     Returns the scale used, so a second line can match it."""
     cu = bpy.data.curves.new("letters", "FONT")
     cu.body = text
-    cu.font = bpy.data.fonts.load(FONT, check_existing=True)
+    cu.font = bpy.data.fonts.load(str(FONT), check_existing=True)
     cu.size = px(height_px) * 1.35  # cap height is about 0.72 of the font size
-    cu.extrude = 0.012
+    cu.offset = cu.size * LETTER_BOLD
+    cu.extrude = cu.size * LETTER_DEPTH
     cu.align_x = "CENTER"
     ob = bpy.data.objects.new("letters", cu)
     bpy.context.scene.collection.objects.link(ob)
