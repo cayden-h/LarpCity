@@ -8,10 +8,17 @@ import { logger } from "./logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// pg lets an sslmode in the URL override the `ssl` option below, and it treats
+// sslmode=require as verify-full, which rejects Tiger Data's certificate chain.
+// So strip sslmode from the URL and decide TLS here.
+const dbUrl = new URL(env.DATABASE_URL);
+const sslDisabled = dbUrl.searchParams.get("sslmode") === "disable";
+dbUrl.searchParams.delete("sslmode");
+
 export const pool = new pg.Pool({
-  connectionString: env.DATABASE_URL,
+  connectionString: dbUrl.toString(),
   // Tiger Data requires TLS; a local Postgres (a DATABASE_URL with sslmode=disable) doesn't speak it.
-  ssl: /[?&]sslmode=disable\b/.test(env.DATABASE_URL) ? false : { rejectUnauthorized: false },
+  ssl: sslDisabled ? false : { rejectUnauthorized: false },
   max: 10,
 });
 
