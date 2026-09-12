@@ -27,7 +27,7 @@ The player lives their own financial life, from today to retirement.
 - **Goals and milestones:** Goals like buying a house or moving states; skip until one is met and see the year and why.
   At retirement, look back through the milestones (stretch).
 - **Big events slow time down:** Major events (market crash, layoff, AI bubble pop) and life events (layoff, marriage, divorce with a prenup option, kids) pause the simulation and ask the player to decide.
-- **AI feedback** at goals, at bankruptcy, and on big portfolio swings; a newspaper sums up recent days.
+- **AI feedback** at goals, at bankruptcy, on big portfolio swings, and when the market recovers after a crash; a newspaper sums up recent days.
 - **Multi-state map:** The player can move between US states, each in a low, medium, or high cost-of-living tier.
 - **Stock market:** The core system, which needs heavy design work around how the simulation runs.
 
@@ -39,6 +39,7 @@ Debt and credit (card, student, auto, mortgage, BNPL, payday loans, credit score
 The debt engine is built and wired into the city: design in [research/07-debt-system-design.md](research/07-debt-system-design.md), engine in `game/src/sim/debt/`, the player's money life (paychecks, state rent, accounts, debt) in `game/src/sim/life/` running on every game day, a markets-terminal Credit Desk at `/debt.html` in the city game's look (opened from the phone's Stocks app) (real FRED rates and index history, optional live Alpha Vantage quotes via `ALPHAVANTAGE_API_KEY` in `game/.env.local`), tests via `npm test`, and pitch-deck diagrams in [diagrams/debt/](diagrams/debt/).
 Card applications, perks, loans, and moving money between accounts are in [research/08-cards-loans-accounts.md](research/08-cards-loans-accounts.md), with a real card catalog (663 CFPB plans, 175 bonus offers, FRED rates) in Tiger Data (`game/db/`) and the engine in `game/src/sim/money/`, mirrored to Notion as the "🏦 Cards, Loans & Accounts" section.
 The Card Shop is playable in the Credit Desk (`/debt.html`, **Card Shop** in the top bar): 23 real cards with official art, issuer-page earn rates and offers, CFPB terms, year-one value on your spending, and soft-pull odds before a hard-pull application that opens the card as a real debt.
+Investing in the Money desk (**Investing**, in the city from the phone's Stocks app or standalone at `/debt.html`) charts the player against "if you had held" and a 90/10 autopilot on the same seeded market, starting all three at the starter portfolio's value; when a bear market starts it pauses time and opens a decision (in the city, the phone opens the desk on it), and at the recovery shows what the choice cost, with a lesson from the Gemini coach written from the run's own Tiger Data ([spec](docs/superpowers/specs/2026-09-12-investing-twins-design.md)).
 How to set up Persona and every other API (keys, env vars, the backend we need, signup checklist) is in [SETUP.md](SETUP.md), mirrored to Notion as the "🔌 Setup & API Keys" section.
 
 The player's phone (the hub for the game's apps: Stocks now, News, Mail, and Bank next) docks on the left edge of the city; see `game/src/ui/phone.ts`.

@@ -7,7 +7,7 @@
 // on the game's Clock. Research: research/12-credit-desk-ui.md.
 
 import "./desk.css";
-import { mountBigChart, spark, thin, type ChartPt } from "./chart.ts";
+import { mountBigChart, spark, thin, type ChartPt, type ChartLine } from "./chart.ts";
 import { mountShop } from "./shop.ts";
 import type { MoneyHost } from "../ui/phone.ts";
 import { Clock } from "../engine/clock.ts";
@@ -16,6 +16,8 @@ import { MARKET } from "../data/market.ts";
 import { STATES } from "../data/states.ts";
 import { PlayerLife, STARTER_PORTFOLIO, seriesOn, type LifeEvent, type LifeSnapshot } from "../sim/life/index.ts";
 import { INSTRUMENTS, MarketPath, instrument, type InstrumentId } from "../sim/market/index.ts";
+import { fetchRecoveryLesson } from "../net/recap.ts";
+import { RunRecorder } from "../sim/record/index.ts";
 import {
   compareStrategies,
   effectiveApr,
@@ -56,7 +58,8 @@ interface Decision {
 }
 interface ChartSpec {
   pts: ChartPt[];
-  ghost?: ChartPt[];
+  lines?: ChartLine[];
+  zero?: boolean;
   baseline?: boolean;
   minSpan?: number;
   tone: Tone;
@@ -64,6 +67,7 @@ interface ChartSpec {
   fmt: (y: number) => string;
   change: (p: ChartPt, scrubbing: boolean) => string;
   label: (p: ChartPt) => string;
+  mainLabel?: string;
 }
 interface Page {
   main: string;
@@ -112,6 +116,18 @@ const market = host?.life().market ?? new MarketPath();
 let rateShock = 0;
 let life = host ? host.life() : makeLife();
 if (host) life.onEvents(onLifeEvents);
+// Standalone, the desk records its own run in Tiger Data; inside the city, the city's recorder already records this life.
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api`;
+let recorder = host ? null : startRecorder();
+
+function startRecorder(): RunRecorder {
+  const r = new RunRecorder({ life, seed: market.seed, base: API_BASE });
+  void r.begin();
+  return r;
+}
+
+/** The recorder that owns this life's run: the desk's own, or the city's inside the city. */
+const runRecorder = () => (host ? host.recorder() : recorder);
 const feed: FeedItem[] = [];
 let decision: Decision | null = null;
 let resumeSpeed = 1;
@@ -123,6 +139,12 @@ let amount = 100;
 let tradeMsg: { text: string; bad: boolean } | null = null;
 let menuOpen = false;
 let shopShown = false;
+/** The last bear market and what the player chose, for the recovery card and the recap. */
+let crash: { day: number; drop: number; choice: string } | null = null;
+/** The last recovery: how the three lines came through. */
+let recovery: { day: number; you: number; held: number; autopilot: number } | null = null;
+/** Gemini's lesson for the last recovery, when the server has one. */
+let recap: { headline: string; lesson: string } | null = null;
 const bank: BankTxn[] = [];
 let xferOpen = false;
 const xfer = { from: "checking", to: "savings", amount: 100 };
@@ -223,8 +245,9 @@ function onLifeEvents(events: LifeEvent[]) {
       case "missed":
         log(e.day, `Missed the ${d?.name ?? ""} payment${e.fee ? ` and paid a ${usd(e.fee)} late fee` : ""}`, "down", e.fee ? -e.fee : undefined);
         break;
+      // Inside the city, the city hands decision moments to the phone, which opens this window on them (showParkedDecisions).
       case "cannot_cover":
-        if (!decision && d) askCannotCover(d, e.due, e.available);
+        if (!host && !decision && d) askCannotCover(d, e.due, e.available);
         break;
       case "late_mark":
         log(e.day, `${d?.name} reported ${e.severity} days late; score ${e.scoreBefore} → ${e.scoreAfter}`, "down");
@@ -248,7 +271,17 @@ function onLifeEvents(events: LifeEvent[]) {
         if (Math.abs(e.to - e.from) >= 3) log(e.day, `Credit score ${e.from} → ${e.to}`, e.to > e.from ? "up" : "down");
         break;
       case "bankruptcy_eligible":
-        if (!decision) askBankruptcy(e.reason);
+        if (!host && !decision) askBankruptcy(e.reason);
+        break;
+      case "bear_market":
+        log(e.day, `Stocks are down ${pctOf(e.drop, 0)} from their high`, "down");
+        if (!host && !decision) askBearMarket(e.day, e.drop, e.stocks);
+        break;
+      case "market_recovered":
+        log(e.day, "Stocks are back at their high", "up");
+        recovery = { day: e.day, you: e.you, held: e.held, autopilot: e.autopilot };
+        recap = null;
+        void askRecap(e.day);
         break;
       default:
         break;
@@ -296,7 +329,39 @@ function openDecision(dec: Decision) {
 
 function closeDecision() {
   decision = null;
-  clock.speed = resumeSpeed;
+  // Inside the city, time stays paused until the player presses play, as the Money window says.
+  if (!host) clock.speed = resumeSpeed;
+  render();
+}
+
+/** Most important first: bankruptcy, then a payment the player can't cover, then a crash. */
+const DECISION_RANK: Partial<Record<LifeEvent["type"], number>> = { bankruptcy_eligible: 0, cannot_cover: 1, bear_market: 2 };
+
+/**
+ * Inside the city: opens the most important decision the city parked with the phone, and logs the
+ * rest. Runs each time the Money window is shown, and once when the desk first loads, since the
+ * window may open (and park the events) before this page has loaded.
+ */
+function showParkedDecisions() {
+  if (!host) return;
+  const parked = host.takeDecisions().sort((a, b) => (DECISION_RANK[a.type] ?? 9) - (DECISION_RANK[b.type] ?? 9));
+  const deferred: LifeEvent[] = [];
+  for (const e of parked) {
+    if (decision) {
+      // A decision is already open; wait for the desk's next show instead of losing this one.
+      deferred.push(e);
+      continue;
+    }
+    const d = "debtId" in e ? life.book.debts.find((x) => x.id === e.debtId) : undefined;
+    if (e.type === "bankruptcy_eligible") askBankruptcy(e.reason);
+    else if (e.type === "cannot_cover" && d) askCannotCover(d, e.due, e.available);
+    else if (e.type === "bear_market") askBearMarket(e.day, e.drop, e.stocks);
+    if (decision) continue;
+    // The listener already logged the crash itself.
+    if (e.type === "bankruptcy_eligible") log(e.day, "Bankruptcy became an option", "down");
+    else if (e.type === "cannot_cover") log(e.day, `You couldn't cover the ${d?.name ?? ""} payment`, "down");
+  }
+  if (deferred.length) host.parkDecisions(deferred);
   render();
 }
 
@@ -356,6 +421,75 @@ function askBankruptcy(reason: string) {
       { label: "Keep paying what I can", lesson: "Nonprofit credit counseling can still set up a debt management plan.", good: true, act: () => log(clock.day, "You kept paying what you could", "flat") },
     ],
   });
+}
+
+function askBearMarket(day: number, drop: number, stocks: number) {
+  const spare = Math.floor(Math.max(0, life.ledger.get("checking").balance - life.monthlyExpenses()));
+  const more = Math.min(500, spare);
+  const choose = (choice: string) => {
+    crash = { day, drop, choice };
+    log(clock.day, `In the crash, you ${choice}`, "flat");
+  };
+  /** Sells all or half of each stock holding; returns the dollars actually sold (tiny legs under the $1 minimum are skipped). */
+  const sellStocks = (share: 1 | 0.5): number => {
+    let sold = 0;
+    for (const id of ["LTM", "NNST"] as InstrumentId[]) {
+      const pos = life.position(id);
+      if (!pos) continue;
+      const r = life.sell(id, share === 1 ? "all" : pos.value * share);
+      if (r.ok && r.event.type === "trade") sold += r.event.amount;
+    }
+    return sold;
+  };
+  const options: Decision["options"] = [
+    {
+      label: "Sell everything",
+      lesson: "Locks in the loss. The best days usually come right after the worst.",
+      act: () => {
+        const sold = sellStocks(1);
+        choose(sold > 0 ? `sold everything (${usd(sold)})` : "held");
+      },
+    },
+    {
+      label: "Sell half",
+      lesson: "Halves the pain and halves the rebound.",
+      act: () => {
+        const sold = sellStocks(0.5);
+        choose(sold > 0 ? `sold half (${usd(sold)})` : "held");
+      },
+    },
+    { label: "Hold", lesson: "So far, every US bear market has recovered, and holders got the whole rebound.", good: true, act: () => choose("held") },
+  ];
+  if (more >= 1)
+    options.push({
+      label: `Buy ${usd(more)} more`,
+      lesson: "Stocks are on sale. It works if you won't need this money for years.",
+      act: () => {
+        const r = life.buy("LTM", more);
+        choose(r.ok ? `bought ${usd(more)} more` : "held");
+      },
+    });
+  openDecision({ title: `Stocks are down ${pctOf(drop, 0)} from their high`, body: `Your stocks are worth ${usd(stocks)} now. This is a bear market. What do you do?`, options });
+}
+
+/**
+ * Asks the coach for the recovery lesson. The server reads the run from Tiger Data, so the day's
+ * events have to be there first: this desk can hear market_recovered before the run recorder does
+ * (both listen to the same life), so wait a tick, then send everything, then ask.
+ * Standalone, the desk's own recorder owns the run; inside the city, the city's recorder does.
+ */
+async function askRecap(day: number) {
+  const r = runRecorder();
+  if (!r?.runId) return;
+  await Promise.resolve();
+  await r.idle();
+  await r.tick(true);
+  const got = await fetchRecoveryLesson(r.runId, day);
+  // A newer recovery (or a reset) may have replaced this one while the request was out.
+  if (got && recovery?.day === day && runRecorder() === r) {
+    recap = { headline: got.headline, lesson: got.tip };
+    scheduleRender();
+  }
 }
 
 // ---- Debt helpers ------------------------------------------------------------------
@@ -657,18 +791,15 @@ function txnsHtml(): string {
 function investingPage(): Page {
   if (fund) return fundPage(fund);
   const positions = life.positions();
-  const invested = life.history.some((h) => h.investments > 0) || positions.length > 0;
   const bp = life.buyingPower();
   const top = open0();
   const each = life.recurring.reduce((s, r) => s + r.amount, 0);
-  const chart = invested
-    ? histChart(hist("investments"), (y) => usd(y, 2))
-    : histChart(priceSeries("SP500"), (y) => num(y, 2), {});
-  if (!invested) chart.change = (p, scrubbing) => marketChange(chart.pts, p, scrubbing);
+  // Every life starts with the starter portfolio, so there is always a you line to compare.
   return {
     side: true,
-    chart,
-    main: `${heroHtml(invested ? "Investing" : "Stock market · S&amp;P 500")}${rangesHtml()}
+    chart: twinsChart(),
+    main: `${heroHtml("Investing · you vs if you had held")}${rangesHtml()}
+      ${recoveryCard()}${concentrationCard()}
       ${nextCard(
         `Buying power ${usd(bp, 2)}`,
         life.recurring.length ? `Auto-invest is on: ${life.recurring.map((r) => `${usd(r.amount, 0)} of ${r.id}`).join(" and ")} every payday (${usd(each, 0)} total).` : "Money in checking you can invest. Auto-invest buys a fund for you every payday, after bills.",
@@ -701,6 +832,56 @@ function openFund(id: InstrumentId) {
 /** Highest-rate open debt. */
 function open0(): Debt | undefined {
   return life.book.debts.filter(isOpen).sort((a, b) => aprNow(b) - aprNow(a))[0];
+}
+
+/** You, if you had held, and autopilot on one zero-based chart (research/03, three-line chart). */
+function twinsChart(): ChartSpec {
+  const you = hist("you");
+  const held = hist("held");
+  const auto = hist("autopilot");
+  const spec = histChart(you, (y) => usd(y, 2));
+  spec.lines = [
+    { pts: held, cls: "bc-held", label: "If you had held" },
+    { pts: auto, cls: "bc-auto", label: "Autopilot" },
+  ];
+  spec.zero = true;
+  spec.mainLabel = "You";
+  const at = (pts: ChartPt[], x: number) => (pts.find((q) => q.x === x) ?? pts[pts.length - 1]).y;
+  spec.change = (p, scrubbing) => {
+    const gap = p.y - at(held, p.x);
+    const main = Math.abs(gap) < 0.5 ? "Even with if you had held" : `${signedUsd(gap, 0)} vs if you had held`;
+    return `${main} <span class="when">· autopilot ${usd(at(auto, p.x))}${scrubbing ? ` · ${shortDate(dateOf(p.x))}` : ""}</span>`;
+  };
+  const lastYou = you[you.length - 1].y;
+  const lastHeld = at(held, you[you.length - 1].x);
+  spec.tone = dirTone(lastYou - lastHeld) === "down" ? "down" : "up";
+  return spec;
+}
+
+function recoveryCard(): string {
+  if (!recovery || clock.day - recovery.day > 365) return "";
+  const gap = recovery.held - recovery.you;
+  const body =
+    gap > 1
+      ? `Selling cost you ${usd(gap)}. Holding would be worth ${usd(recovery.held)}; you have ${usd(recovery.you)}.`
+      : gap < -1
+        ? `You came out ${usd(-gap)} ahead of holding. Most sellers don't: the rebound often comes fast.`
+        : crash?.choice === "held"
+          ? "You held, so you got the whole rebound."
+          : "You came out about where holding would have left you.";
+  // The decision pauses time until answered, and a new bear market can't start before this one
+  // recovers, so crash.day should already equal this recovery's crash - this guard only protects
+  // against a crash left over from an earlier run of the page (for example after reset).
+  const choice = crash && crash.day <= recovery.day ? ` In the crash, you ${esc(crash.choice)}.` : "";
+  return nextCard(recap ? esc(recap.headline) : "Stocks are back at their high", recap ? esc(recap.lesson) : `${body}${choice}`);
+}
+
+function concentrationCard(): string {
+  const positions = life.positions();
+  const total = positions.reduce((s, p) => s + p.value, 0);
+  const nnst = life.position("NNST")?.value ?? 0;
+  if (total <= 0 || nnst / total <= 0.2) return "";
+  return nextCard(`NeuralNest is ${pctOf(nnst / total, 0)} of your investments`, "One company can fall 80%. A fund spreads the risk across hundreds.");
 }
 
 function marketChange(pts: ChartPt[], p: ChartPt, scrubbing: boolean): string {
@@ -796,7 +977,7 @@ function debtPage(): Page {
     total > 0.5 && plan.length > 1
       ? {
           pts: plan,
-          ghost: s === "minimums" ? undefined : mins,
+          lines: s === "minimums" ? undefined : [{ pts: mins, cls: "bc-ghost", label: "Minimums only" }],
           baseline: false,
           tone: p.stuck ? "down" : "up",
           rest: plan[0],
@@ -1117,10 +1298,12 @@ function wireChart(c: ChartSpec) {
   show(c.rest, false);
   mountBigChart(q("[data-chart]"), {
     pts: c.pts,
-    ghost: c.ghost,
+    lines: c.lines,
+    zero: c.zero,
     baseline: c.baseline,
     minSpan: c.minSpan,
     label: c.label,
+    mainLabel: c.mainLabel,
     onScrub: (p) => {
       scrubbing = p !== null;
       show(p ?? c.rest, p !== null);
@@ -1198,6 +1381,7 @@ function skip(days: number) {
   clock.skipping = true;
   for (let i = 0; i < days && !decision; i++) clock.advanceDays(1);
   clock.skipping = false;
+  void recorder?.tick(true);
   render();
 }
 
@@ -1282,6 +1466,8 @@ app.addEventListener("click", (ev) => {
       xferMsg = null;
       rateShock = 0;
       life = makeLife();
+      recorder = startRecorder();
+      crash = recovery = recap = null;
       menuOpen = false;
       shopShown = false;
       break;
@@ -1407,10 +1593,14 @@ openFromHash();
 
 if (host) {
   // The city's ticker drives the clock and the city calls life.onDay; every day's events
-  // reach onLifeEvents, which re-renders.
-  render();
+  // reach onLifeEvents, which re-renders. Decision moments come through the phone.
+  host.onShow(showParkedDecisions);
+  showParkedDecisions();
 } else {
-  clock.onDay((day) => life.onDay(day, clock.date));
+  clock.onDay((day) => {
+    life.onDay(day, clock.date);
+    void recorder?.tick();
+  });
   clock.speed = 1;
   let last = performance.now();
   const frame = (now: number) => {

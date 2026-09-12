@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { EventRow, SnapshotRow } from "../store/runs.js";
-import { describe, feedbackFacts, gameDate, newsFacts, templateFeedback, templateNews } from "./facts.js";
+import { crashAndRecovery, describe, feedbackFacts, gameDate, newsFacts, recoveryFacts, templateFeedback, templateNews } from "./facts.js";
 
 const snap = (day: number, o: Partial<SnapshotRow> = {}): SnapshotRow => ({ day, netWorth: 1000 + day, checking: 500, savings: 500, brokerage: 100 + day, retirement: 0, debt: 400, ...o });
 const ev = (day: number, kind: string, payload: Record<string, unknown> = {}, n = 0): EventRow => ({ key: `${day}:${n}`, day, kind, payload: { type: kind, day, ...payload } });
@@ -60,7 +60,7 @@ test("news facts summarize the range and keep at most 12 headlines, rare ones fi
 
 test("the fallbacks always say something true for every trigger and for a quiet stretch", () => {
   const snaps = Array.from({ length: 120 }, (_, d) => snap(d));
-  for (const t of ["goal", "bankruptcy", "swing"] as const) {
+  for (const t of ["goal", "bankruptcy", "swing", "recovery"] as const) {
     const fb = templateFeedback(feedbackFacts(t, 119, snaps, [ev(100, "missed", { due: 1, fee: 1 }), ev(110, "bankruptcy_eligible", { reason: "x" })], "an emergency fund"));
     assert.ok(fb.headline && fb.tip && ["cheer", "warn", "console"].includes(fb.mood), t);
   }
@@ -71,4 +71,39 @@ test("the fallbacks always say something true for every trigger and for a quiet 
   const busy = templateNews(newsFacts(0, 119, snaps, [ev(50, "paid_off", { name: "Car loan" })]));
   assert.match(busy[0].title, /^Net worth up \$119$/);
   assert.equal(busy[1].title, "Paid off the Car loan");
+});
+
+test("recovery facts compare the player with holding, from the run's own events", () => {
+  const events = [
+    ev(100, "bear_market", { drop: 0.23, stocks: 900 }),
+    ev(120, "trade", { side: "sell", amount: 700, id: "LTM", recurring: false }),
+    ev(130, "trade", { side: "buy", amount: 100, id: "LTM", recurring: true }),
+    ev(400, "market_recovered", { you: 850, held: 1400, autopilot: 1300 }),
+  ];
+  const f = feedbackFacts("recovery", 400, [snap(400)], [], undefined, events);
+  assert.deepEqual(f.recovery, { dropPct: 23, months: 10, choice: "sold", sold: 700, bought: 0, you: 850, held: 1400, autopilot: 1300, costOfSelling: 550 });
+  assert.equal(recoveryFacts(99, events), null, "no recovery yet");
+  assert.equal(crashAndRecovery(399, events), null, "not until that day's recovery is stored");
+  assert.equal(crashAndRecovery(400, events)?.bear.day, 100);
+  assert.deepEqual(templateFeedback(f), {
+    headline: "Selling cost you $550",
+    tip: "Stocks fell 23% and took 10 months to get back to their high. You have $850; holding would be worth $1,400. Money you won't need for years can ride out a drop.",
+    mood: "console",
+  });
+
+  const heldRun = [events[0], ev(400, "market_recovered", { you: 1400, held: 1400, autopilot: 1300 })];
+  const h = feedbackFacts("recovery", 400, [snap(400)], [], undefined, heldRun);
+  assert.equal(h.recovery?.choice, "held");
+  assert.equal(templateFeedback(h).headline, "You rode it out");
+  assert.equal(templateFeedback(feedbackFacts("recovery", 400, [snap(400)], [])).headline, "Stocks are back at their high", "no crash on record still says something true");
+});
+
+test("the recovery fallback follows what the player did", () => {
+  const bear = ev(100, "bear_market", { drop: 0.3 });
+  const at = (you: number, held: number, trades: EventRow[] = []) => feedbackFacts("recovery", 110, [snap(110)], [], undefined, [bear, ...trades, ev(110, "market_recovered", { you, held, autopilot: held })]);
+  const dip = templateFeedback(at(1600, 1600, [ev(105, "trade", { side: "buy", amount: 500, recurring: false })]));
+  assert.equal(dip.headline, "Buying the dip paid off");
+  assert.match(dip.tip, /less than a month/);
+  assert.equal(templateFeedback(at(1500, 1400, [ev(104, "trade", { side: "sell", amount: 900, recurring: false })])).headline, "Selling paid off by $100");
+  assert.equal(templateFeedback(at(1400, 1400, [ev(104, "trade", { side: "sell", amount: 900, recurring: false })])).headline, "You came out even with holding");
 });

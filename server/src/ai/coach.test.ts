@@ -26,6 +26,7 @@ test("the prompts carry the facts and the rules, and nothing the browser wrote",
   const p = coachPrompt(facts);
   assert.match(p, /reached a goal/);
   assert.match(p, /Use only the facts below/);
+  assert.match(p, /sentence case/);
   assert.ok(p.includes(JSON.stringify(facts)));
   const n = newsPrompt(news);
   assert.match(n, /1 to 4 short stories/);
@@ -56,4 +57,14 @@ test("a bad answer, an error, or no model falls back to the template", async () 
   assert.match(none.feedback.headline, /an emergency fund/);
   assert.equal((await writeNews(model({ stories: [] }), news)).source, "template", "an empty paper isn't a paper");
   assert.equal((await writeNews(null, news)).stories[1].title, "Paid off the Car loan");
+});
+
+test("the recovery prompt asks for the cost of the player's crash choice", () => {
+  const events = [
+    { key: "10:0", day: 10, kind: "bear_market", payload: { drop: 0.25 } },
+    { key: "90:0", day: 90, kind: "market_recovered", payload: { you: 900, held: 1500, autopilot: 1400 } },
+  ];
+  const p = coachPrompt(feedbackFacts("recovery", 90, snaps, [], undefined, events));
+  assert.match(p, /old high after a crash/);
+  assert.match(p, /"costOfSelling":600/);
 });

@@ -96,3 +96,10 @@ CREATE TABLE IF NOT EXISTS voice_interviews (
   received_at     timestamptz,
   created_at      timestamptz NOT NULL DEFAULT now()
 );
+
+-- Investing lines (docs/superpowers/specs/2026-09-12-investing-twins-design.md): the player's
+-- brokerage plus cash sells took out, the same buys never sold, and a 90/10 autopilot. Daily rows only;
+-- the weekly and monthly aggregates above don't carry them.
+ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS you double precision;
+ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS held double precision;
+ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS autopilot double precision;

@@ -32,9 +32,9 @@ event, sent about once a game month and in 5,000-row chunks after a fast-forward
 | Route | Body or query | Returns |
 | --- | --- | --- |
 | `POST /api/runs` | `{ seed }` | `201 { runId }` |
-| `POST /api/snapshot` | `{ runId, entries }` (up to 5,000 days) | `{ stored }`; a re-sent day keeps its latest numbers |
+| `POST /api/snapshot` | `{ runId, entries }` (up to 5,000 days; each may carry `you`, `held`, `autopilot`) | `{ stored }`; a re-sent day keeps its latest numbers, and its stored investing lines when the resend leaves them out |
 | `POST /api/events` | `{ runId, events }` (up to 5,000, keyed `day:sequence`) | `{ stored }`; a retried batch adds nothing |
-| `GET /api/history/:runId` | `?bucket=day\|week\|month&from&to` | daily rows, or weekly/monthly buckets (`firstDay`, `lastDay`, `netWorth`, `peak`, `low`, ...) |
+| `GET /api/history/:runId` | `?bucket=day\|week\|month&from&to` | daily rows (with `you`, `held`, `autopilot`, null on older rows), or weekly/monthly buckets (`firstDay`, `lastDay`, `netWorth`, `peak`, `low`, ...) |
 | `GET /api/events/:runId` | `?from&to&kinds=a,b` | events oldest first |
 | `GET /api/leaderboard` | | each run's latest net worth; verified players only once `PERSONA_API_KEY` is set |
 
@@ -57,7 +57,7 @@ falls back to plain text from the same facts. Answers come back with `source: "g
 
 | Route | Body | Returns |
 | --- | --- | --- |
-| `POST /api/feedback` | `{ runId, trigger: "goal" \| "bankruptcy" \| "swing", day, goal? }` | `{ headline, tip, mood, source, model?, facts }` |
+| `POST /api/feedback` | `{ runId, trigger: "goal" \| "bankruptcy" \| "swing" \| "recovery", day, goal? }` | `{ headline, tip, mood, source, model?, facts }`; `recovery` compares the player with holding after a crash and answers 409 until that day's `market_recovered` event is stored |
 | `POST /api/news` | `{ runId, from, to }` | `{ stories: [{ title, where, blurb, impact }], source, model?, facts }` |
 | `POST /api/avatar` | `{ selfieBase64, styleBase64 }` | `{ imageBase64 }`; 403 until Persona has verified an adult (Gemini's terms) |
 

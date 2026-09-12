@@ -67,6 +67,8 @@ const MOMENT: Record<Trigger, string> = {
   goal: "The player just reached a goal. Say what got them there, and how they could reach the next goal sooner.",
   bankruptcy: "The player just became eligible for bankruptcy. Explain what went wrong and what could have been done differently, kindly.",
   swing: "The player's investments moved a lot in three months. Up or down, nudge them toward diversifying and staying the course.",
+  recovery:
+    "Stocks just got back to their old high after a crash. Compare what the player has now with what holding and the autopilot would have, name what their choice cost or earned in dollars, and say what that teaches about crashes.",
 };
 
 export function coachPrompt(f: FeedbackFacts): string {
@@ -77,7 +79,7 @@ export function coachPrompt(f: FeedbackFacts): string {
     "- Use only the facts below. Don't invent numbers, names, or events.",
     "- Be kind and specific: name what happened, then one concrete thing that would help next time.",
     "- This is education, not financial advice: no product names and no stock picks.",
-    "- headline: at most 8 words. tip: one or two sentences, at most 45 words. mood: cheer for a win, warn for a risk worth fixing, console after a loss.",
+    "- headline: at most 8 words, in sentence case (capitalize only the first word and names). tip: one or two sentences, at most 45 words. mood: cheer for a win, warn for a risk worth fixing, console after a loss.",
     "- Write money as whole dollars with a dollar sign and commas, like $12,345 or -$12,345.",
     "Facts (JSON; money in US dollars; dates are game dates):",
     JSON.stringify(f),

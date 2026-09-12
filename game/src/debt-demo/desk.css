@@ -404,6 +404,30 @@ button:disabled {
   stroke-width: 2;
   stroke-dasharray: 6 6;
 }
+.bc-held {
+  fill: none;
+  stroke: #8a8f98;
+  stroke-width: 2;
+  stroke-dasharray: 7 5;
+}
+.bc-auto {
+  fill: none;
+  stroke: #8a8f98;
+  stroke-width: 2.5;
+  stroke-dasharray: 0.5 6;
+  stroke-linecap: round;
+}
+.bc-tag {
+  position: absolute;
+  right: 0;
+  transform: translateY(calc(-100% - 4px));
+  font-size: 12px;
+  color: var(--sub);
+  background: none;
+  text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 0 0 4px var(--bg);
+  pointer-events: none;
+  white-space: nowrap;
+}
 .bc-cursor {
   stroke: #c7c9cf;
   stroke-width: 1;
