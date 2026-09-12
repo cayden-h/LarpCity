@@ -199,9 +199,9 @@ There is no published rate limit and no bulk endpoint.
   Each NPC is a full money life (paychecks, state rent, debts) on the same seeded market, and each tells one lesson.
   In the city, primary NPCs render with a visible gold-ring marker and clicking any of them shows their real bank statement with recent spending across categories like Dining out and Coffee (see `game/src/ui/npccard.ts` for the statement UI and `game/src/sim/npcs/habits.ts` for their spending habits).
   Nessie customers are created once and reused across sessions because they can't be deleted (capped at 12 by the shared sandbox limit); accounts are per session and run, deleted on a new run.
-- **Background roster: ~38 fallback-only NPCs.** `BACKGROUND_NPC_COUNT` (38, in `game/src/data/background-npcs.ts`) procedurally generated background walkers appear in the city unmarked and un-clickable during play, but if a player stops to inspect one, they see a real, distinct local-only statement with the same categories.
-  These NPCs are explicitly permanent fallback-only because the Nessie sandbox is shared world-readable (anyone on any team can access `/enterprise/*` routes), has undeletable customers, and caps our roster at 12 live accounts.
-  Background NPCs land in Tiger Data with `local_only=true` and `nessie_id=NULL`, so their statements are computed from the local game state (like the player's own ledger) rather than synced to live Nessie; this keeps the roster open-ended without burning the 12-customer cap or risking PII leakage to the shared sandbox.
+- **Background roster: ~38 fallback-only NPCs.** `BACKGROUND_NPC_COUNT` (38, in `game/src/data/background-npcs.ts`) procedurally generated background walkers appear in the city unmarked (no gold ring) but fully clickable, exactly like the primary tier, showing a real, distinct local-only statement with the same categories.
+  These NPCs are explicitly permanent fallback-only because Nessie customers can't be deleted and the sandbox is shared across hackathon teams, so the team self-capped the live tier at 12 rather than permanently littering the shared resource.
+  Background NPCs land in Tiger Data with `local_only=true` and `nessie_id=NULL`; they go through the same monthly MonthMirror/BankSync pipeline as primary NPCs (categorized deposits/withdrawals posted monthly), but are routed through `FailoverNessie` constructed with `{ localOnly: true }`, so statements insert locally and never attempt to reach live Nessie; this keeps the roster open-ended without burning the 12-customer cap or risking PII leakage to the shared sandbox.
   Generated once from fixed archetypes rather than hand-authored, so growing the roster in future playtests is a one-line count change.
 - No real names or PII: NPC names are fictional and the player's customer is "Player".
 - **Mirror monthly.**
@@ -209,7 +209,8 @@ There is no published rate limit and no bulk endpoint.
   The game date goes in `transaction_date`, and the entry's key goes in `description` so a retried batch never posts twice.
   Background NPCs' statements are local only and never posted to Nessie.
 - Goal fast-forwards and months when the server was down go out as one summary batch (primary tier only).
-- Verified end to end on 2026-09-12 (local TimescaleDB, live Nessie): after two game months, all 13 live statements (player + 12 primary NPCs) matched the game's balances exactly; background tier tests confirm a `local_only=true` row with distinct monthly categories.
+- Verified end to end on 2026-09-12 (local TimescaleDB, live Nessie): after two game months, all 9 statements matched the game's balances exactly.
+- Two-tier roster verified on 2026-09-12 (controller QA, real browser + real local Postgres): 50 residents total (12 marked/primary via `/api/bank`, 38 unmarked/background via `/api/bank-bg`); primary walkers render with a gold ring, background walkers don't; a background NPC (Wei Moore) fetched via `/api/bank-bg` shows a real, distinct statement; Postgres confirms background customers land with `local_only=true, nessie_id NULL`, primary customers show `local_only=false`.
 
 ### 6. Test first
 
