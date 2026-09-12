@@ -5,16 +5,16 @@
 // submit_finances client tool; if a call ends without it, the server's
 // post-call webhook has the same fields, fetched by conversation id. The
 // player can also type the numbers, or skip to the sample household.
-// Answers are remembered per browser; ?intake=1 forces a fresh interview and
-// ?intake=0 skips it (for tests).
+// The answers become the player's server profile (main.ts), so the interview
+// runs once per player; ?intake=1 forces it again and ?intake=0 skips it (for tests).
 
 import type { VoiceConversation } from "@elevenlabs/client";
 import { apiFetch } from "../net/api";
 import { coerceAnswers, completeAnswers, takeHomeFor, type IntakeAnswers } from "../sim/life/intake";
+import type { ProfileSource } from "../sim/save/client";
 import { Owl, preloadOwl } from "./owl";
 import "./intake.css";
 
-const STORAGE_KEY = "larp.intake.v1";
 /** How long to wait for the post-call webhook's notes after a call ends without the tool. */
 const NOTES_WAIT_MS = 20_000;
 const NOTES_POLL_MS = 2_000;
@@ -31,33 +31,17 @@ export interface IntakeOptions {
   backdrop: string;
 }
 
-/** Resolves with the player's answers, or null to start with the sample household. */
-export function runIntake(o: IntakeOptions): Promise<IntakeAnswers | null> {
-  const mode = new URLSearchParams(location.search).get("intake");
-  if (mode === "0") return Promise.resolve(null);
-  if (mode !== "1") {
-    const saved = loadSaved();
-    if (saved) return Promise.resolve(saved);
-  }
+export interface IntakeResult {
+  /** The player's answers, or null to start with the sample household. */
+  answers: IntakeAnswers | null;
+  source: ProfileSource;
+}
+
+/** Runs the interview (or the typed form) and resolves with what the player gave. */
+export function runIntake(o: IntakeOptions): Promise<IntakeResult> {
+  if (new URLSearchParams(location.search).get("intake") === "0") return Promise.resolve({ answers: null, source: "skipped" });
   preloadOwl(["wave", "idle", "talk", "think", "cheer", "type", "read", "tip-hat"]);
   return new Promise((resolve) => new Intake(o, resolve).welcome());
-}
-
-function loadSaved(): IntakeAnswers | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? completeAnswers(coerceAnswers(JSON.parse(raw))) : null;
-  } catch {
-    return null;
-  }
-}
-
-function save(answers: IntakeAnswers): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(answers));
-  } catch {
-    // Storage can be off (private windows); the interview just runs again next time.
-  }
 }
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
@@ -67,12 +51,14 @@ const NUMBER_FIELDS = ["salary", "rent", "debt", "savings"] as const;
 class Intake {
   private readonly el: HTMLDivElement;
   private readonly body: HTMLDivElement;
-  private readonly resolve: (answers: IntakeAnswers | null) => void;
+  private readonly resolve: (r: IntakeResult) => void;
   private readonly owl = new Owl(OWL_BIG);
   private conversation: VoiceConversation | null = null;
   private conversationId: string | null = null;
   /** Answers from the submit_finances tool during the current call. */
   private answers: IntakeAnswers | null = null;
+  /** "voice" once the Narrator's call handed over answers; the form alone is "typed". */
+  private source: "voice" | "typed" = "typed";
   private lines: { role: Role; text: string }[] = [];
   /** Set once the narrator starts the goodbye after the answers arrive. */
   private goodbye = false;
@@ -83,7 +69,7 @@ class Intake {
   private callSeq = 0;
   private endedSeq = -1;
 
-  constructor(o: IntakeOptions, resolve: (answers: IntakeAnswers | null) => void) {
+  constructor(o: IntakeOptions, resolve: (r: IntakeResult) => void) {
     this.resolve = resolve;
     this.el = document.createElement("div");
     this.el.className = "in-overlay";
@@ -209,6 +195,7 @@ class Intake {
     const answers = completeAnswers(coerceAnswers(params));
     if (!answers) return "Some of the five answers were missing or unclear. Ask for the missing ones, then call submit_finances again.";
     this.answers = answers;
+    this.source = "voice";
     this.status("Got it! The Narrator is writing it all down…");
     void this.owl.play("cheer", { then: "idle" });
     this.wrapTimer = window.setTimeout(() => void this.hangUp(seq), WRAP_UP_MS);
@@ -313,7 +300,11 @@ class Intake {
           method: "POST",
           body: JSON.stringify({ conversationId }),
         });
-        if (r.ready) return coerceAnswers(r.answers);
+        if (r.ready) {
+          const notes = coerceAnswers(r.answers);
+          if (Object.keys(notes).length) this.source = "voice";
+          return notes;
+        }
       } catch {
         return {};
       }
@@ -407,13 +398,12 @@ class Intake {
     this.callSeq++;
     void this.endCall();
     if (answers) {
-      save(answers);
       // A tip of the hat on the way in.
       this.el.classList.add("in-leaving");
       await this.owl.play("tip-hat", { then: "idle" });
     }
     this.owl.stop();
     this.el.remove();
-    this.resolve(answers);
+    this.resolve(answers ? { answers, source: this.source } : { answers: null, source: "skipped" });
   }
 }

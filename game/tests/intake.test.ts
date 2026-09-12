@@ -116,3 +116,18 @@ test("rent is paid from savings while checking is still empty", () => {
   assert.ok(rent && rent.type === "bill");
   assert.equal(rent.paid, 1_200);
 });
+
+import { answersFromProfile, profileFromIntake } from "../src/sim/life/intake.ts";
+
+test("intake answers become a profile and come back unchanged", () => {
+  const a = { job: "Nurse", salary: 72_000, rent: 1_400, debt: 9_000, savings: 3_000 };
+  const p = profileFromIntake(a, "voice", "TX");
+  assert.deepEqual(p, { ...a, state: "TX", source: "voice" });
+  assert.deepEqual(answersFromProfile({ ...p, displayName: null }), a);
+});
+
+test("a skipped intake is a profile with no numbers, and no answers", () => {
+  const p = profileFromIntake(null, "skipped", "CA");
+  assert.deepEqual(p, { job: null, salary: null, rent: null, debt: null, savings: null, state: "CA", source: "skipped" });
+  assert.equal(answersFromProfile({ ...p, displayName: null }), null);
+});

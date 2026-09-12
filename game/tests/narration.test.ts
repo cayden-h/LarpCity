@@ -74,3 +74,12 @@ test("CueGate spaces lines out, holds each cue's cooldown, and lets urgent cues 
   assert.equal(gate.allow("paid_off", 20_000), false);
   assert.equal(gate.allow("paid_off", 40_000), true);
 });
+
+import { welcomeBackLine } from "../src/narration/lines.ts";
+
+test("the welcome back names the date and, when there is one, the job", () => {
+  const date = new Date(2031, 2, 4);
+  assert.equal(welcomeBackLine("Nurse", date), "Welcome back, nurse. It's March 4, 2031, and your money is right where you left it.");
+  assert.equal(welcomeBackLine(null, date), "Welcome back. It's March 4, 2031, and your money is right where you left it.");
+  assert.equal(welcomeBackLine("  ", date), "Welcome back. It's March 4, 2031, and your money is right where you left it.");
+});

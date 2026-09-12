@@ -348,3 +348,31 @@ test("a whole game on a later day restores through JSON with its letters, NPC li
   assert.deepEqual(back.mail.toSave(), mail.toSave());
   assert.deepEqual(parsed.desk, desk);
 });
+
+import { trimDesk } from "../src/sim/save/desk.ts";
+
+test("a rewind trims the city's copy of the desk to the morning of the day", () => {
+  const desk: DeskState = {
+    feed: [
+      { day: 10, text: "Paid rent", tone: "down" },
+      { day: 20, text: "Laid off", tone: "down" },
+    ],
+    bank: [
+      { day: 19, name: "Rent", category: "Housing", icon: "home", amount: 1200, kind: "out" },
+      { day: 20, name: "Pay", category: "Income", icon: "cash", amount: 2000, kind: "in" },
+    ],
+    crash: { day: 15, drop: 0.22, choice: "hold" },
+    recovery: { day: 25, you: 5000, held: 5100, autopilot: 5300 },
+    recap: { headline: "Holding paid off", lesson: "Selling in a crash locks in the loss." },
+  };
+  const at20 = trimDesk(desk, 20);
+  assert.deepEqual(at20.feed.map((f) => f.day), [10]);
+  assert.deepEqual(at20.bank.map((t) => t.day), [19]);
+  assert.deepEqual(at20.crash, desk.crash);
+  assert.equal(at20.recovery, null);
+  assert.equal(at20.recap, null);
+  const at15 = trimDesk(desk, 15);
+  assert.equal(at15.crash, null);
+  assert.deepEqual(trimDesk(desk, 30), desk);
+  assert.equal(desk.feed.length, 2, "the original is left alone");
+});

@@ -7,6 +7,7 @@ import { creditCard, installment, newBook } from "../debt/factory.ts";
 import type { Debt } from "../debt/types.ts";
 import type { InstrumentId, MarketPath } from "../market/index.ts";
 import { defaultAccounts, PlayerLife, TAKE_HOME_SHARE, type Place } from "./player.ts";
+import type { Profile, ProfileSource } from "../save/client.ts";
 
 export interface IntakeAnswers {
   /** Job title; may be blank. */
@@ -102,4 +103,16 @@ export function lifeFromIntake(a: IntakeAnswers, o: { place: Place; day: number;
     market: o.market,
     holdings: o.holdings,
   });
+}
+
+/** The intake as the server's profile (server/src/routes/save.ts); a skip stores no numbers. */
+export function profileFromIntake(a: IntakeAnswers | null, source: ProfileSource, state: string): Omit<Profile, "displayName"> {
+  if (!a) return { job: null, salary: null, rent: null, debt: null, savings: null, state, source: "skipped" };
+  return { job: a.job, salary: a.salary, rent: a.rent, debt: a.debt, savings: a.savings, state, source };
+}
+
+/** The intake answers a stored profile holds, or null for a skipped intake (the sample household). */
+export function answersFromProfile(p: Profile): IntakeAnswers | null {
+  if (p.source === "skipped") return null;
+  return completeAnswers({ job: p.job ?? "", salary: p.salary ?? undefined, rent: p.rent ?? undefined, debt: p.debt ?? undefined, savings: p.savings ?? undefined });
 }

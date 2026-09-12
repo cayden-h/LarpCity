@@ -252,3 +252,10 @@ export class CueGate {
     return true;
   }
 }
+
+/** The owl's greeting for a returning player: their job (from the intake) and the game date they're back on. */
+export function welcomeBackLine(job: string | null, date: Date): string {
+  const who = job?.trim() ? `, ${job.trim().toLowerCase()}` : "";
+  const when = date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  return `Welcome back${who}. It's ${when}, and your money is right where you left it.`;
+}

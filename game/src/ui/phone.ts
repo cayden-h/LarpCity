@@ -18,6 +18,7 @@ import type { CityDef, StateInfo, WeatherKind } from "../engine/types";
 import { latest, type LifeEvent, type PlayerLife } from "../sim/life";
 import { INSTRUMENTS } from "../sim/market";
 import type { RunRecorder } from "../sim/record";
+import type { DeskState } from "../sim/save/types";
 
 interface AppDef {
   id: "stocks" | "goals" | "map" | "weather" | "calendar" | "news" | "mail" | "bank";
@@ -145,6 +146,10 @@ export interface PhoneDeps {
   firstDay?: () => number;
   /** Where the player is and the city's weather, for the Map and Weather apps. */
   getWorld: () => WorldSnapshot;
+  /** The Money desk changed something the save must keep (a payment, a trade, its feed). */
+  changed: (desk: DeskState) => void;
+  /** What the Money desk last reported, so it comes back when the desk opens. */
+  deskState: () => DeskState | null;
 }
 
 /**
@@ -169,6 +174,10 @@ export interface MoneyHost {
   recorder: () => RunRecorder | null;
   /** Calls `fn` with the day the city went back to, after each rewind. */
   onRewind: (fn: (day: number) => void) => void;
+  /** The desk calls this after anything the player does, with its feed and statement, so the city saves. */
+  changed: (desk: DeskState) => void;
+  /** The desk's feed and statement from the save, to restore on load. */
+  deskState: () => DeskState | null;
 }
 
 export class Phone {
@@ -209,6 +218,8 @@ export class Phone {
       onShow: (fn) => this.showListeners.push(fn),
       recorder: () => this.deps.recorder ?? null,
       onRewind: (fn) => this.rewindListeners.push(fn),
+      changed: (desk) => this.deps.changed(desk),
+      deskState: () => this.deps.deskState(),
     };
     (window as unknown as { larpMoney?: MoneyHost }).larpMoney = host;
     this.calendar = new CalendarApp(this.q('[data-view="calendar"]'), {
