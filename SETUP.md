@@ -195,6 +195,7 @@ There is no published rate limit and no bulk endpoint.
 
 - **The player plus 8 named NPCs** (Maya the nurse, Jordan the barista, Priya, Marcus, Sofia, Kenji, Amara, and Diego) each have a Nessie customer with Checking, Savings (savings plus the emergency fund), and Credit Card (what the cards owe, as a positive number) accounts.
   Each NPC is a full money life (paychecks, state rent, debts) on the same seeded market, and each tells one lesson.
+  The 8 NPCs appear as marked residents in the city and clicking any of them shows their real bank statement with recent spending across categories like Dining out and Coffee (see `game/src/ui/npccard.ts` for the statement UI and `game/src/sim/npcs/habits.ts` for their spending habits).
   The rest of the city's walkers stay a backdrop with no Nessie data.
 - **Customers are created once and reused**, because they can't be deleted: NPC customers are shared by every game session (capped at 12), and a player gets one customer per browser session.
   Accounts are per session and run; a new run deletes that session's old accounts.
