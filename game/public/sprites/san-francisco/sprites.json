@@ -1,0 +1,740 @@
+{
+ "scale": 2,
+ "sprites": [
+  {
+   "id": "salesforce-tower",
+   "w": 2,
+   "d": 2,
+   "floors": 22,
+   "zones": [
+    "downtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 72,
+   "ay": 452,
+   "topZ": 444,
+   "day": "salesforce-tower.png",
+   "night": "salesforce-tower.night.png",
+   "crown": "salesforce-tower.crown.png",
+   "kind": "landmark",
+   "landmark": "sf-glass-tower",
+   "fill": false
+  },
+  {
+   "id": "ferry-building",
+   "w": 4,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "downtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 216,
+   "topZ": 208,
+   "day": "ferry-building.png",
+   "night": "ferry-building.night.png",
+   "kind": "landmark",
+   "landmark": "sf-ferry-building"
+  },
+  {
+   "id": "shop-2x1-f3-capital-one-cafe",
+   "w": 2,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "downtown"
+   ],
+   "unique": true,
+   "brand": "capital-one-cafe",
+   "ax": 40,
+   "ay": 83,
+   "topZ": 75,
+   "day": "shop-2x1-f3-capital-one-cafe.png",
+   "night": "shop-2x1-f3-capital-one-cafe.night.png"
+  },
+  {
+   "id": "shop-2x1-f4-wells-fargo",
+   "w": 2,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "wells-fargo",
+   "ax": 40,
+   "ay": 103,
+   "topZ": 95,
+   "day": "shop-2x1-f4-wells-fargo.png",
+   "night": "shop-2x1-f4-wells-fargo.night.png"
+  },
+  {
+   "id": "hq-2x2-f12-uber",
+   "w": 2,
+   "d": 2,
+   "floors": 12,
+   "zones": [
+    "downtown"
+   ],
+   "unique": true,
+   "brand": "uber",
+   "ax": 72,
+   "ay": 262,
+   "topZ": 254,
+   "day": "hq-2x2-f12-uber.png",
+   "night": "hq-2x2-f12-uber.night.png"
+  },
+  {
+   "id": "hq-2x2-f10-google",
+   "w": 2,
+   "d": 2,
+   "floors": 10,
+   "zones": [
+    "downtown"
+   ],
+   "unique": true,
+   "brand": "google",
+   "ax": 72,
+   "ay": 222,
+   "topZ": 214,
+   "day": "hq-2x2-f10-google.png",
+   "night": "hq-2x2-f10-google.night.png"
+  },
+  {
+   "id": "hq-2x2-f11-openai",
+   "w": 2,
+   "d": 2,
+   "floors": 11,
+   "zones": [
+    "downtown"
+   ],
+   "unique": true,
+   "brand": "openai",
+   "ax": 72,
+   "ay": 242,
+   "topZ": 234,
+   "day": "hq-2x2-f11-openai.png",
+   "night": "hq-2x2-f11-openai.night.png"
+  },
+  {
+   "id": "hq-2x1-f9-meta",
+   "w": 2,
+   "d": 1,
+   "floors": 9,
+   "zones": [
+    "downtown"
+   ],
+   "unique": true,
+   "brand": "meta",
+   "ax": 40,
+   "ay": 203,
+   "topZ": 195,
+   "day": "hq-2x1-f9-meta.png",
+   "night": "hq-2x1-f9-meta.night.png"
+  },
+  {
+   "id": "hq-2x1-f8-goldman-sachs",
+   "w": 2,
+   "d": 1,
+   "floors": 8,
+   "zones": [
+    "downtown"
+   ],
+   "unique": true,
+   "brand": "goldman-sachs",
+   "ax": 40,
+   "ay": 178,
+   "topZ": 170,
+   "day": "hq-2x1-f8-goldman-sachs.png",
+   "night": "hq-2x1-f8-goldman-sachs.night.png"
+  },
+  {
+   "id": "shop-2x1-f2-jenis",
+   "w": 2,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "jenis",
+   "ax": 40,
+   "ay": 58,
+   "topZ": 50,
+   "day": "shop-2x1-f2-jenis.png",
+   "night": "shop-2x1-f2-jenis.night.png"
+  },
+  {
+   "id": "loft-2x1-f4-elevenlabs",
+   "w": 2,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "elevenlabs",
+   "ax": 40,
+   "ay": 123,
+   "topZ": 115,
+   "day": "loft-2x1-f4-elevenlabs.png",
+   "night": "loft-2x1-f4-elevenlabs.night.png"
+  },
+  {
+   "id": "loft-2x1-f3-capital-one",
+   "w": 2,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "capital-one",
+   "ax": 40,
+   "ay": 103,
+   "topZ": 95,
+   "day": "loft-2x1-f3-capital-one.png",
+   "night": "loft-2x1-f3-capital-one.night.png"
+  },
+  {
+   "id": "loft-1x2-f4-persona",
+   "w": 1,
+   "d": 2,
+   "floors": 4,
+   "zones": [
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "persona",
+   "ax": 72,
+   "ay": 123,
+   "topZ": 115,
+   "day": "loft-1x2-f4-persona.png",
+   "night": "loft-1x2-f4-persona.night.png"
+  },
+  {
+   "id": "loft-1x1-f3-nordvpn",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "nordvpn",
+   "ax": 40,
+   "ay": 93,
+   "topZ": 85,
+   "day": "loft-1x1-f3-nordvpn.png",
+   "night": "loft-1x1-f3-nordvpn.night.png"
+  },
+  {
+   "id": "loft-2x1-f5-anthropic",
+   "w": 2,
+   "d": 1,
+   "floors": 5,
+   "zones": [
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "anthropic",
+   "ax": 40,
+   "ay": 143,
+   "topZ": 135,
+   "day": "loft-2x1-f5-anthropic.png",
+   "night": "loft-2x1-f5-anthropic.night.png"
+  },
+  {
+   "id": "pole-1x1-f1-lovable-openai",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "lovable-openai",
+   "ax": 60,
+   "ay": 68,
+   "topZ": 60,
+   "day": "pole-1x1-f1-lovable-openai.png",
+   "night": "pole-1x1-f1-lovable-openai.night.png",
+   "fill": false
+  },
+  {
+   "id": "pole-1x1-f1-anthropic-elevenlabs",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "anthropic-elevenlabs",
+   "ax": 60,
+   "ay": 68,
+   "topZ": 60,
+   "day": "pole-1x1-f1-anthropic-elevenlabs.png",
+   "night": "pole-1x1-f1-anthropic-elevenlabs.night.png",
+   "fill": false
+  },
+  {
+   "id": "loft-1x2-f5-levis",
+   "w": 1,
+   "d": 2,
+   "floors": 5,
+   "zones": [
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "levis",
+   "ax": 72,
+   "ay": 122,
+   "topZ": 114,
+   "day": "loft-1x2-f5-levis.png",
+   "night": "loft-1x2-f5-levis.night.png"
+  },
+  {
+   "id": "loft-1x2-f4-mlh",
+   "w": 1,
+   "d": 2,
+   "floors": 4,
+   "zones": [
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "mlh",
+   "ax": 72,
+   "ay": 102,
+   "topZ": 94,
+   "day": "loft-1x2-f4-mlh.png",
+   "night": "loft-1x2-f4-mlh.night.png"
+  },
+  {
+   "id": "loft-1x1-f4-notability",
+   "w": 1,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "notability",
+   "ax": 40,
+   "ay": 103,
+   "topZ": 95,
+   "day": "loft-1x1-f4-notability.png",
+   "night": "loft-1x1-f4-notability.night.png"
+  },
+  {
+   "id": "loft-1x2-f3-bobatalks",
+   "w": 1,
+   "d": 2,
+   "floors": 3,
+   "zones": [
+    "midtown"
+   ],
+   "unique": true,
+   "brand": "bobatalks",
+   "ax": 72,
+   "ay": 83,
+   "topZ": 75,
+   "day": "loft-1x2-f3-bobatalks.png",
+   "night": "loft-1x2-f3-bobatalks.night.png"
+  },
+  {
+   "id": "shelter-persona-sy",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": "persona",
+   "ax": 40,
+   "ay": 30,
+   "topZ": 24,
+   "day": "shelter-persona-sy.png",
+   "night": "shelter-persona-sy.night.png",
+   "kind": "prop",
+   "prop": "shelter",
+   "side": "sy",
+   "fill": false
+  },
+  {
+   "id": "shelter-persona-sx",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": "persona",
+   "ax": 40,
+   "ay": 30,
+   "topZ": 24,
+   "day": "shelter-persona-sx.png",
+   "night": "shelter-persona-sx.night.png",
+   "kind": "prop",
+   "prop": "shelter",
+   "side": "sx",
+   "fill": false
+  },
+  {
+   "id": "shelter-nordvpn-sy",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": "nordvpn",
+   "ax": 40,
+   "ay": 30,
+   "topZ": 24,
+   "day": "shelter-nordvpn-sy.png",
+   "night": "shelter-nordvpn-sy.night.png",
+   "kind": "prop",
+   "prop": "shelter",
+   "side": "sy",
+   "fill": false
+  },
+  {
+   "id": "shelter-nordvpn-sx",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": "nordvpn",
+   "ax": 40,
+   "ay": 30,
+   "topZ": 24,
+   "day": "shelter-nordvpn-sx.png",
+   "night": "shelter-nordvpn-sx.night.png",
+   "kind": "prop",
+   "prop": "shelter",
+   "side": "sx",
+   "fill": false
+  },
+  {
+   "id": "shelter-elevenlabs-sy",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": "elevenlabs",
+   "ax": 40,
+   "ay": 30,
+   "topZ": 24,
+   "day": "shelter-elevenlabs-sy.png",
+   "night": "shelter-elevenlabs-sy.night.png",
+   "kind": "prop",
+   "prop": "shelter",
+   "side": "sy",
+   "fill": false
+  },
+  {
+   "id": "shelter-elevenlabs-sx",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": "elevenlabs",
+   "ax": 40,
+   "ay": 30,
+   "topZ": 24,
+   "day": "shelter-elevenlabs-sx.png",
+   "night": "shelter-elevenlabs-sx.night.png",
+   "kind": "prop",
+   "prop": "shelter",
+   "side": "sx",
+   "fill": false
+  },
+  {
+   "id": "glass-2x2-f16-11",
+   "w": 2,
+   "d": 2,
+   "floors": 16,
+   "zones": [
+    "downtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 72,
+   "ay": 341,
+   "topZ": 333,
+   "day": "glass-2x2-f16-11.png",
+   "night": "glass-2x2-f16-11.night.png"
+  },
+  {
+   "id": "glass-2x2-f13-12",
+   "w": 2,
+   "d": 2,
+   "floors": 13,
+   "zones": [
+    "downtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 72,
+   "ay": 283,
+   "topZ": 275,
+   "day": "glass-2x2-f13-12.png",
+   "night": "glass-2x2-f13-12.night.png"
+  },
+  {
+   "id": "glass-2x2-f14-1",
+   "w": 2,
+   "d": 2,
+   "floors": 14,
+   "zones": [
+    "downtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 72,
+   "ay": 302,
+   "topZ": 294,
+   "day": "glass-2x2-f14-1.png",
+   "night": "glass-2x2-f14-1.night.png"
+  },
+  {
+   "id": "glass-2x2-f10-2",
+   "w": 2,
+   "d": 2,
+   "floors": 10,
+   "zones": [
+    "downtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 72,
+   "ay": 219,
+   "topZ": 211,
+   "day": "glass-2x2-f10-2.png",
+   "night": "glass-2x2-f10-2.night.png"
+  },
+  {
+   "id": "glass-1x1-f12-3",
+   "w": 1,
+   "d": 1,
+   "floors": 12,
+   "zones": [
+    "downtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 258,
+   "topZ": 250,
+   "day": "glass-1x1-f12-3.png",
+   "night": "glass-1x1-f12-3.night.png"
+  },
+  {
+   "id": "glass-1x1-f8-4",
+   "w": 1,
+   "d": 1,
+   "floors": 8,
+   "zones": [
+    "downtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 181,
+   "topZ": 173,
+   "day": "glass-1x1-f8-4.png",
+   "night": "glass-1x1-f8-4.night.png"
+  },
+  {
+   "id": "glass-2x1-f11-5",
+   "w": 2,
+   "d": 1,
+   "floors": 11,
+   "zones": [
+    "downtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 243,
+   "topZ": 235,
+   "day": "glass-2x1-f11-5.png",
+   "night": "glass-2x1-f11-5.night.png"
+  },
+  {
+   "id": "glass-1x2-f9-6",
+   "w": 1,
+   "d": 2,
+   "floors": 9,
+   "zones": [
+    "downtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 72,
+   "ay": 200,
+   "topZ": 192,
+   "day": "glass-1x2-f9-6.png",
+   "night": "glass-1x2-f9-6.night.png"
+  },
+  {
+   "id": "office-2x2-f7-7",
+   "w": 2,
+   "d": 2,
+   "floors": 7,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 72,
+   "ay": 163,
+   "topZ": 155,
+   "day": "office-2x2-f7-7.png",
+   "night": "office-2x2-f7-7.night.png"
+  },
+  {
+   "id": "office-2x1-f6-8",
+   "w": 2,
+   "d": 1,
+   "floors": 6,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 138,
+   "topZ": 130,
+   "day": "office-2x1-f6-8.png",
+   "night": "office-2x1-f6-8.night.png"
+  },
+  {
+   "id": "office-1x2-f6-9",
+   "w": 1,
+   "d": 2,
+   "floors": 6,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 72,
+   "ay": 142,
+   "topZ": 134,
+   "day": "office-1x2-f6-9.png",
+   "night": "office-1x2-f6-9.night.png"
+  },
+  {
+   "id": "office-1x1-f5-10",
+   "w": 1,
+   "d": 1,
+   "floors": 5,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 122,
+   "topZ": 114,
+   "day": "office-1x1-f5-10.png",
+   "night": "office-1x1-f5-10.night.png"
+  },
+  {
+   "id": "loft-1x1-f3-14",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 79,
+   "topZ": 71,
+   "day": "loft-1x1-f3-14.png",
+   "night": "loft-1x1-f3-14.night.png"
+  },
+  {
+   "id": "loft-1x1-f4-15",
+   "w": 1,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 98,
+   "topZ": 90,
+   "day": "loft-1x1-f4-15.png",
+   "night": "loft-1x1-f4-15.night.png"
+  },
+  {
+   "id": "loft-2x1-f4-16",
+   "w": 2,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 101,
+   "topZ": 93,
+   "day": "loft-2x1-f4-16.png",
+   "night": "loft-2x1-f4-16.night.png"
+  },
+  {
+   "id": "loft-1x2-f4-17",
+   "w": 1,
+   "d": 2,
+   "floors": 4,
+   "zones": [
+    "downtown",
+    "midtown"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 72,
+   "ay": 102,
+   "topZ": 94,
+   "day": "loft-1x2-f4-17.png",
+   "night": "loft-1x2-f4-17.night.png"
+  }
+ ]
+}

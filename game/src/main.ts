@@ -4,6 +4,7 @@ import { cityFor, LANDMARKS, stateForPin } from "./cities";
 import { STATES } from "./data/states";
 import { Clock } from "./engine/clock";
 import { CityScene } from "./engine/scene";
+import { loadSpriteSet } from "./engine/sprites";
 import type { StateInfo } from "./engine/types";
 import { PlayerLife } from "./sim/life";
 import { Hud } from "./ui/hud";
@@ -53,7 +54,8 @@ async function open(next: StateInfo): Promise<void> {
   if (next.abbr !== state.abbr) player.setPlace(next, clock.day);
   state = next;
   const city = cityFor(next);
-  scene = new CityScene(app, city, clock, LANDMARKS);
+  const sprites = await loadSpriteSet(city.id);
+  scene = new CityScene(app, city, clock, LANDMARKS, sprites);
   if (tier !== undefined) scene.hero?.setTier(tier);
   scene.onPick = (npc, sx, sy) => npcCard.show(npc, sx, sy);
   app.stage.addChild(scene.root);

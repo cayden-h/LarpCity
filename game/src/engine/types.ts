@@ -3,6 +3,7 @@
 
 import type { Container } from "pixi.js";
 import type { Clock } from "./clock";
+import type { SpriteSet } from "./sprites";
 
 /**
  * Layout characters, one per tile:
@@ -125,6 +126,8 @@ export interface LandmarkContext {
   time: () => number;
   /** 0 in calm weather, up to 1 in a full storm (for bending palms, waves). */
   storm: () => number;
+  /** The city's pre-rendered sprites; a landmark with a sprite there draws it instead of its model. */
+  sprites: SpriteSet | null;
 }
 
 export interface LandmarkInstance {

@@ -1,7 +1,7 @@
 // Reusable "state signature" landmarks for river, coast, and heartland states:
 // a paddle-wheel riverboat, a neon casino strip, a boardwalk ferris wheel, a
 // fishing harbor, a music row, a monument obelisk, and a seasonal orchard.
-// Toy-brick look: lit tops, shaded sides, studs. Stylized shapes only: no
+// Lit tops, shaded sides. Stylized shapes only: no
 // logos, brand names, or text. Static geometry is built once; animation only
 // moves, rotates, scales, or fades small child objects.
 
@@ -39,21 +39,6 @@ function quadY(x0: number, x1: number, yf: number, z0: number, z1: number): numb
 
 function quadX(xf: number, y0: number, y1: number, z0: number, z1: number): number[] {
   return flat([iso(xf, y0, z0), iso(xf, y1, z0), iso(xf, y1, z1), iso(xf, y0, z1)]);
-}
-
-/** A small toy stud standing on a flat top at tile point (tx, ty). */
-function stud(g: Graphics, tx: number, ty: number, z: number, base: number): void {
-  const p = iso(tx, ty, z);
-  g.ellipse(p.x, p.y + 1.4, 4.2, 2.2).fill(shade(base, 0.72));
-  g.rect(p.x - 4.2, p.y - 0.4, 8.4, 1.8).fill(shade(base, 0.84));
-  g.ellipse(p.x, p.y - 0.4, 4.2, 2.2).fill(shade(base, 1.14));
-}
-
-/** Studs on a grid across a flat rectangle top. */
-function studGrid(g: Graphics, x0: number, y0: number, w: number, d: number, z: number, base: number, step = 0.5): void {
-  const nx = Math.max(1, Math.floor(w / step)), ny = Math.max(1, Math.floor(d / step));
-  for (let j = 0; j < ny; j++)
-    for (let i = 0; i < nx; i++) stud(g, x0 + ((i + 0.5) * w) / nx, y0 + ((j + 0.5) * d) / ny, z, base);
 }
 
 /** A glowing bulb: soft halo plus a bright core (for additive layers). */
@@ -337,12 +322,11 @@ export const casinoStrip: LandmarkFactory = ({ x, y, w, d }, ctx) => {
     tube(lit, iso(tx0 + tw, ty0 + tdd, cz), iso(tx0 + tw, ty0, cz), s.neon);
     tube(lit, iso(tx0 + tw / 2, ty0 + tdd + 0.05, 14), iso(tx0 + tw / 2, ty0 + tdd + 0.05, h + 6), s.neon, 1.4);
   }
-  // The low casino hall with a gold band and studded roof.
+  // The low casino hall with a gold band.
   const hx0 = x + 0.2, hx1 = x + w - 0.2, hy0 = y + d * 0.45, hy1 = y + d * 0.72;
   const hz = 26 * sc;
   box(g, hx0, hy0, hx1 - hx0, hy1 - hy0, 3, hz, 0xd62839);
   box(g, hx0 - 0.02, hy0 - 0.02, hx1 - hx0 + 0.04, hy1 - hy0 + 0.04, hz - 5, hz, 0xffc933);
-  studGrid(g, hx0, hy0, hx1 - hx0, hy1 - hy0, hz, 0xffc933, 0.45);
   // Glass entry doors under a canopy.
   const ex = (hx0 + hx1) / 2;
   g.poly(quadY(ex - 0.4, ex + 0.4, hy1, 3, 15)).fill(GLASS);
@@ -451,7 +435,7 @@ export const ferrisWheel: LandmarkFactory = ({ x, y, w, d }, ctx) => {
   const sc = Math.max(0.6, Math.min(w, d) / 2);
   const deckZ = 10;
   const wood = 0xb07a4a;
-  // Pilings down to the water, then the plank deck with studs along the edge.
+  // Pilings down to the water, then the plank deck.
   for (let i = 0; i <= Math.round(w * 2); i++) {
     const px = x + 0.08 + (i * (w - 0.16)) / Math.round(w * 2);
     line3(g, [px, y + d - 0.06, WATER_Z - 2], [px, y + d - 0.06, deckZ], 3.2, 0x6d4c33);
@@ -462,7 +446,6 @@ export const ferrisWheel: LandmarkFactory = ({ x, y, w, d }, ctx) => {
   }
   box(g, x + 0.04, y + 0.04, w - 0.08, d - 0.08, deckZ - 4, deckZ, wood, 0xc68e5a);
   for (let k = y + 0.2; k < y + d - 0.05; k += 0.2) line3(g, [x + 0.04, k, deckZ], [x + w - 0.04, k, deckZ], 0.7, 0x9a6a3e, 0.7);
-  for (let k = x + 0.2; k < x + w - 0.1; k += 0.4) stud(g, k, y + d - 0.14, deckZ, 0xc68e5a);
   // Railing on the two front edges.
   line3(g, [x + 0.06, y + d - 0.06, deckZ + 6], [x + w - 0.06, y + d - 0.06, deckZ + 6], 1.2, 0xffffff);
   line3(g, [x + w - 0.06, y + 0.06, deckZ + 6], [x + w - 0.06, y + d - 0.06, deckZ + 6], 1.2, 0xf0f0f0);
@@ -613,9 +596,8 @@ export const fishingHarbor: LandmarkFactory = ({ x, y, w, d }, ctx) => {
     const p = iso(x + 0.3 + rng() * (w - 0.6), qy1 + 0.4 + rng() * (d - quayD - 0.5), WATER_Z);
     water.moveTo(p.x - 5, p.y).lineTo(p.x + 5, p.y).stroke({ width: 1, color: 0xbfe6ff, alpha: 0.7 });
   }
-  // Quay: a stone seawall with a gravel top and studs.
+  // Quay: a stone seawall with a gravel top.
   box(g, x + 0.02, y + 0.02, w - 0.04, quayD - 0.02, WATER_Z - 2, 3, 0x9e9e9e, 0xc2b79c);
-  for (let k = x + 0.25; k < x + w - 0.1; k += 0.5) stud(g, k, y + 0.2, 3, 0xc2b79c);
   // Fish shack on the back-left: red board walls, gable roof, lit window.
   const sx = x + 0.15, sy = y + 0.12, sw = Math.min(1.1, w * 0.36), sd = quayD - 0.3;
   box(g, sx, sy, sw, sd, 3, 26, 0xb23a3a);
@@ -773,9 +755,8 @@ export const musicRow: LandmarkFactory = ({ x, y, w, d }, ctx) => {
     lit.poly(sf).fill({ color: LIT, alpha: 0.9 });
     g.poly(quadY(vx0 + vw * 0.42, vx0 + vw * 0.58, byF, 3, 15)).fill(0x3e2723);
     boxWindows(g, lit, vx0, by0, vw, byF - by0, 34, h - 6, 13, 3, 0xbfe3f5, rng, 0.7);
-    // Cornice with studs.
+    // Cornice.
     box(g, vx0 - 0.02, by0 - 0.02, vw + 0.04, byF - by0 + 0.04, h, h + 4, v.trim);
-    studGrid(g, vx0, by0, vw, byF - by0, h + 4, v.trim, 0.45);
     // Marquee box projecting over the sidewalk, framed in chasing bulbs.
     const mx0 = vx0 + 0.08, mx1 = vx0 + vw - 0.08, mz0 = 20, mz1 = 30;
     box(g, mx0, byF, mx1 - mx0, walk * 0.7, mz0, mz1, v.marquee, v.trim);
@@ -885,8 +866,6 @@ export const monument: LandmarkFactory = ({ x, y, w, d }, ctx) => {
   const sc = Math.max(0.6, Math.min(w, d) / 2);
   const stone = 0xe8e2d0;
   box(back, x + 0.03, y + 0.03, w - 0.06, d - 0.06, 0, 4, stone);
-  // Studs on the plaza corners, clear of the pool and the obelisk.
-  for (const [sx, sy] of [[x + 0.2, y + 0.2], [x + w - 0.2, y + 0.2], [x + 0.2, y + d - 0.2], [x + w - 0.2, y + d - 0.2]] as const) stud(back, sx, sy, 4, stone);
   // Reflecting pool: stone rim, blue water, a pale reflection of the shaft.
   const cx = x + w / 2, cy = y + 0.55 * sc;
   const px0 = cx - 0.3 * sc, px1 = cx + 0.3 * sc, py0 = cy + 0.45 * sc, py1 = y + d - 0.14;

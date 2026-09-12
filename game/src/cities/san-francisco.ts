@@ -3,7 +3,10 @@
 // bay wraps the north shore with the island prison offshore, downtown towers
 // cluster in the northeast, a cable car line climbs straight up from the
 // waterfront, Golden Gate Park stretches across the west side, and the
-// painted Victorian row faces Alamo Square in the southeast.
+// painted Victorian row faces Alamo Square in the southeast. The Ferry
+// Building stands on the Embarcadero at the water's edge, east of the foot
+// of the downtown street (x 28); at x 29 its clock tower clears the island
+// prison from the default camera.
 
 import { LayoutBuilder } from "../engine/layout";
 import type { CityDef, Climate, LandmarkPlacement } from "../engine/types";
@@ -13,8 +16,10 @@ const landmarks: LandmarkPlacement[] = [
   { id: "sf-island-prison", x: 23, y: 1, w: 3, d: 3 },
   { id: "sf-coit-tower", x: 18, y: 8, w: 2, d: 2 },
   { id: "sf-pyramid-tower", x: 25, y: 8, w: 2, d: 2 },
-  { id: "sf-glass-tower", x: 30, y: 13, w: 2, d: 2 },
+  // Two tiles east of the pyramid's screen column, so its spire doesn't seem to sit on this tower.
+  { id: "sf-glass-tower", x: 32, y: 13, w: 2, d: 2 },
   { id: "sf-painted-ladies", x: 29, y: 28, w: 5, d: 1 },
+  { id: "sf-ferry-building", x: 29, y: 5, w: 4, d: 1 },
 ];
 
 function layout(): string[] {

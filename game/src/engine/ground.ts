@@ -100,7 +100,6 @@ export class Ground {
     const water = new Graphics();
     const edges = new Graphics();
     const tops = new Graphics();
-    const studs = new Graphics();
     const marks = new Graphics();
     const bridges = new Graphics();
     const grass = this.grassColor();
@@ -155,9 +154,7 @@ export class Ground {
         if (g.isWater(x, y + 1)) face(edges, iso(x, y + 1, 0), iso(x + 1, y + 1, 0), -WATER_Z, shade(fill, 0.72), 1);
         if (g.isWater(x + 1, y)) face(edges, iso(x + 1, y + 1, 0), iso(x + 1, y, 0), -WATER_Z, shade(fill, 0.6), 1);
 
-        if (c === "." || c === "p" || c === "~") drawStuds(studs, x, y, grass, 2);
-        else if (c === "m") drawStuds(studs, x, y, rock, 1);
-        else if (c === "f" && crop !== null) {
+        if (c === "f" && crop !== null) {
           // Crop rows along the field.
           for (const k of [0.25, 0.5, 0.75]) {
             const a = iso(x + 0.1, y + k), b = iso(x + 0.9, y + k);
@@ -173,7 +170,7 @@ export class Ground {
     const w = new Container();
     w.addChild(water, edges);
     const l = new Container();
-    l.addChild(tops, studs, marks, bridges);
+    l.addChild(tops, marks, bridges);
     for (const c of [w, l]) {
       c.cullable = true;
       c.cullArea = area;
@@ -306,26 +303,3 @@ export function face(g: Graphics, a: Pt, b: Pt, depth: number, color: number, al
   g.poly([a.x, a.y, b.x, b.y, b.x, b.y + depth, a.x, a.y + depth]).fill({ color, alpha });
 }
 
-// Studs are everywhere (every grass tile, every flat roof), so they are drawn
-// as octagons: 8 points instead of the ~30 a true ellipse tessellates into.
-const OCT = Array.from({ length: 8 }, (_, i) => {
-  const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
-  return [Math.cos(a), Math.sin(a)] as const;
-});
-
-function octagon(g: Graphics, cx: number, cy: number, rx: number, ry: number, color: number): void {
-  g.poly(OCT.flatMap(([c, s]) => [cx + c * rx, cy + s * ry])).fill(color);
-}
-
-/** Toy studs on a tile top: 2 per side (4 total) or 1 in the middle. */
-export function drawStuds(g: Graphics, x: number, y: number, base: number, perSide: 1 | 2 = 2, z = 0): void {
-  const offsets = perSide === 2 ? [0.27, 0.73] : [0.5];
-  const dark = shade(base, 0.72), mid = shade(base, 0.82), light = shade(base, 1.12);
-  for (const oy of offsets)
-    for (const ox of offsets) {
-      const p = iso(x + ox, y + oy, z);
-      octagon(g, p.x, p.y + 1.6, 5.2, 2.7, dark);
-      g.rect(p.x - 5.2, p.y - 0.4, 10.4, 2).fill(mid);
-      octagon(g, p.x, p.y - 0.4, 5.2, 2.7, light);
-    }
-}

@@ -13,7 +13,7 @@ export class HeroHome {
   readonly view = new Container();
   private current: Container | null = null;
   private body: Container[] = [];
-  private lights: Graphics[] = [];
+  private lights: Container[] = [];
   private readonly pin = new Graphics();
   private readonly ring = new Graphics();
   private anim = 1;

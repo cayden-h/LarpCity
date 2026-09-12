@@ -56,6 +56,26 @@ From the browser console, `larp.visit("CO")` opens a state and `larp.step(5)` si
 | `npm run market:snapshot` | Refresh `src/data/market.ts` from FRED (no key needed) |
 | `npm run debt:charts` | Redraw the pitch chart `../diagrams/debt/05-payoff-strategies.svg` from the engine |
 
+## Building sprites (Blender)
+
+Cities with a sprite set draw their buildings from pre-rendered Blender sprites instead of the procedural builder (`src/engine/bricks.ts`, still used for lots no sprite fits and for cities without sprites).
+San Francisco is the first city with a set ([design](../docs/superpowers/specs/2026-09-12-realistic-sprites-design.md)).
+
+```sh
+brew install --cask blender   # once; the scripts run it headless
+npm run art:sf                # textures, ad art, render, registration check
+blender -b -P art/build.py -- --city san-francisco --only glass-2x2-f16-salesforce   # rerender one sprite
+```
+
+- `art/catalog.py`: which sprites a city gets (archetype, footprint, floors, zones, and brand signage); branded entries are placed once per city, first.
+- `art/lib/`: the camera matched to the game's 2:1 projection (`iso.py`, `scene.py`), materials with a day/night switch, the archetypes (glass tower, brick loft, concrete office), and signs (3D channel letters, rooftop billboard).
+- Signage follows how SF actually looks (research in the [spec](../docs/superpowers/specs/2026-09-12-realistic-sprites-design.md)): no brand names on tower tops (SF bans rooftop signs downtown), brands at street level (the Capital One Café, Jeni's, a Wells Fargo branch, lobby logo walls and monuments for Google, Uber, Meta, OpenAI, Goldman Sachs), AI-style billboards on old SoMa lofts and freeway V boards, painted murals and the Levi's ghost sign, backlit Muni shelters, the Salesforce Tower's LED crown, and the Ferry Building's red "PORT OF SAN FRANCISCO" letters.
+- `art/make_ads.py` draws all sign and ad art into `art/ads/` (review sheet: `art/ads/_contact.png`). Every text element is fitted to its box and the script fails if anything leaves the sign's safe area; Blender maps each image onto a face with exactly its aspect ratio, so art never runs off a sign.
+- `art/fetch_textures.sh` downloads CC0 photo textures from [ambientCG](https://ambientcg.com) into `art/textures/`.
+- Output: `public/sprites/<city>/`, a day PNG and a night PNG per sprite (the night pass is black except what glows, drawn with additive blending) plus `sprites.json` (footprint, anchor pixel, height).
+- `art/check_register.py` fails if a sprite is off its tile diamond by more than one game pixel.
+- `src/engine/sprite-pick.ts` chooses a sprite per lot (tested in `tests/sprites.test.ts`); `src/engine/sprites.ts` loads the set and returns the same `Built` shape as the brick builder.
+
 ## Plate images (states-map thumbnails)
 
 The game itself uses no background images: the city fills the screen.

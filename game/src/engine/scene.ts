@@ -12,8 +12,10 @@ import { Ground } from "./ground";
 import { HeroHome } from "./hero";
 import { depthOf, footprintRect, HALF_H, HALF_W, iso } from "./iso";
 import { People, type Mood, type NpcInfo } from "./people";
-import { plant, populate, type Placed, type Plant } from "./populate";
+import { plant, populate, zoneAt, type Placed, type Plant } from "./populate";
 import { rngFor } from "./rng";
+import { placeShelters } from "./sprite-pick";
+import { buildSprite, type SpriteSet } from "./sprites";
 import { Traffic } from "./traffic";
 import type { CityDef, EconomyMood, LandmarkFactory, LandmarkInstance, WeatherKind } from "./types";
 import { WeatherFx } from "./weather";
@@ -84,7 +86,7 @@ export class CityScene {
   private readonly clock: Clock;
   private readonly seed: number;
 
-  constructor(app: Application, city: CityDef, clock: Clock, factories: Record<string, LandmarkFactory>, seed = 7) {
+  constructor(app: Application, city: CityDef, clock: Clock, factories: Record<string, LandmarkFactory>, sprites: SpriteSet | null = null, seed = 7) {
     this.app = app;
     this.clock = clock;
     this.seed = seed;
@@ -110,7 +112,7 @@ export class CityScene {
     this.snow = this.city.snowInWinter && this.season === "winter" ? 0.6 : 0;
     this.ground.setLook({ season: this.season, snow: this.snow, drought: 0 });
 
-    this.buildings = populate(this.grid, this.city, seed).buildings;
+    this.buildings = [...populate(this.grid, this.city, seed, sprites).buildings, ...this.shelters(sprites)];
     for (const b of this.buildings) {
       const v = b.built.view;
       v.zIndex = depthOf(b.x + b.w - 1, b.y + b.d - 1, 60);
@@ -120,7 +122,7 @@ export class CityScene {
     }
     this.replant();
 
-    const ctx = { clock, night: () => this.clock.nightness, time: () => this.time, storm: () => this.weatherFx.stormy };
+    const ctx = { clock, night: () => this.clock.nightness, time: () => this.time, storm: () => this.weatherFx.stormy, sprites };
     for (const place of this.city.landmarks) {
       const factory = factories[place.id];
       if (!factory) {
@@ -148,6 +150,27 @@ export class CityScene {
     this.unsubscribe = clock.onDay((day) => this.onDay(day));
     this.rollWeather(clock.day);
     this.bindInput();
+  }
+
+  /** Muni bus shelters beside the busy streets; drawn, tinted, and lit like buildings. */
+  private shelters(sprites: SpriteSet | null): Placed[] {
+    if (!sprites) return [];
+    const inLandmark = (x: number, y: number) => this.city.landmarks.some((l) => x >= l.x && x < l.x + l.w && y >= l.y && y < l.y + l.d);
+    const inHomeYard = (x: number, y: number) => [[1, 0], [0, 1], [1, 1]].some(([dx, dy]) => this.grid.at(x - dx, y - dy) === "h");
+    const site = {
+      w: this.grid.w,
+      h: this.grid.h,
+      at: (x: number, y: number) => this.grid.at(x, y),
+      zone: (x: number, y: number) => zoneAt(this.city, x, y),
+      blocked: (x: number, y: number) => inLandmark(x, y) || inHomeYard(x, y),
+    };
+    return placeShelters(sprites.manifest, site, rngFor(this.seed, this.city.id, "shelters")).map(({ entry, x, y }) => ({
+      built: buildSprite(sprites, entry, x, y),
+      x,
+      y,
+      w: 1,
+      d: 1,
+    }));
   }
 
   // ---------------------------------------------------------------- camera
