@@ -158,7 +158,62 @@ export const NPCS: NpcProfile[] = [
     extraMonthly: 150,
     story: "A steady trade job, building his emergency fund month by month.",
   },
+  {
+    id: "npc-hannah",
+    first: "Hannah",
+    last: "Brooks",
+    age: 23,
+    job: "retail associate",
+    monthlyTakeHome: 2_300,
+    accounts: { checking: 400, savings: 100, emergency: 0 },
+    debts: [{ kind: "card", name: "First card", balance: 900, limit: 1_000, apr: 0.2699 }],
+    strategy: "minimums",
+    extraMonthly: 0,
+    story: "A year into her first card, close to the limit and only paying the minimum.",
+  },
+  {
+    id: "npc-oscar",
+    first: "Oscar",
+    last: "Ruiz",
+    age: 33,
+    job: "rideshare driver",
+    monthlyTakeHome: 3_300,
+    accounts: { checking: 250, savings: 0, emergency: 0 },
+    debts: [{ kind: "personal", name: "Emergency repair loan", balance: 2_400, apr: 0.329, months: 18 }],
+    strategy: "minimums",
+    extraMonthly: 0,
+    story: "Gig income doesn't qualify for a bank loan, so a car repair became 32.9% for 18 months.",
+  },
+  {
+    id: "npc-grace",
+    first: "Grace",
+    last: "Kim",
+    age: 61,
+    job: "retiree",
+    monthlyTakeHome: 3_100,
+    accounts: { checking: 4_200, savings: 65_000, emergency: 30_000 },
+    debts: [],
+    strategy: "avalanche",
+    extraMonthly: 0,
+    story: "Mortgage paid off years ago; most of what she lives on now comes from the market, not a paycheck.",
+  },
+  {
+    id: "npc-tariq",
+    first: "Tariq",
+    last: "Ahmed",
+    age: 27,
+    job: "accountant",
+    monthlyTakeHome: 4_400,
+    accounts: { checking: 3_100, savings: 9_000, emergency: 6_000 },
+    debts: [{ kind: "student", name: "Student loans", balance: 14_000, apr: 0.045, payment: 145 }],
+    strategy: "minimums",
+    extraMonthly: 0,
+    story: "His loan's rate is under 5%, so every spare dollar goes to his Roth IRA instead of paying it off early.",
+  },
 ];
+
+/** The subset of the roster that ever gets a real, live Nessie customer (server/src/mirror.ts's MAX_NPC_CUSTOMERS = 12). Everything else in the roster (game/src/data/background-npcs.ts) is fallback-only. */
+export const PRIMARY_NPC_IDS: readonly string[] = NPCS.map((n) => n.id);
 
 /** Everyone the bank mirror may give a Nessie customer: the player plus the roster. */
 export const MIRROR_ENTITIES: { id: string; name: string }[] = [
