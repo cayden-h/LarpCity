@@ -44,8 +44,8 @@ export interface SaveApi {
   me(): Promise<Me>;
   putProfile(p: Omit<Profile, "displayName">): Promise<void>;
   putSave(body: SavePut): Promise<{ rev: number }>;
-  /** Fire-and-forget with keepalive, for a page that is going away. */
-  putSaveKeepalive(body: SavePut): void;
+  /** Fire-and-forget with keepalive, for a page that is going away. Takes the exact JSON already sized against KEEPALIVE_MAX. */
+  putSaveKeepalive(json: string): void;
   deleteSave(): Promise<void>;
 }
 
@@ -55,8 +55,8 @@ export function saveApi(baseUrl?: string): SaveApi {
     me: () => apiFetch<Me>("/me", o),
     putProfile: (p) => apiFetch<void>("/profile", { ...o, method: "PUT", body: JSON.stringify(p) }),
     putSave: (body) => apiFetch<{ rev: number }>("/save", { ...o, method: "PUT", body: JSON.stringify(body) }),
-    putSaveKeepalive: (body) => {
-      void apiFetch<{ rev: number }>("/save", { ...o, method: "PUT", body: JSON.stringify(body), keepalive: true }).catch(() => undefined);
+    putSaveKeepalive: (json) => {
+      void apiFetch<{ rev: number }>("/save", { ...o, method: "PUT", body: json, keepalive: true }).catch(() => undefined);
     },
     deleteSave: () => apiFetch<void>("/save", { ...o, method: "DELETE" }),
   };

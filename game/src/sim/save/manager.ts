@@ -9,7 +9,7 @@
 // a save too large), so those stop retrying too and mark the save "failed".
 
 import { ApiError } from "../../net/api.ts";
-import type { SaveApi, SavePut } from "./client.ts";
+import type { Me, SaveApi, SavePut } from "./client.ts";
 import type { GameSave } from "./types.ts";
 
 export type SaveStatus = "idle" | "saving" | "saved" | "offline" | "conflict" | "failed";
@@ -51,6 +51,16 @@ export class SaveManager {
   private failures = 0;
   private inflight: Promise<void> | null = null;
   private again = false;
+  /** True from a write() call after a change (request()) until a write that started at or after that change succeeds. */
+  private dirty = false;
+  /** Bumped by every request(); a write remembers the value at its start to tell if a newer change arrived. */
+  private dirtyMark = 0;
+  /** Set when a write got no response (a network-level failure, not a server answer): the write may have
+   *  actually committed. A 409 while this is set doesn't mean a real conflict until /me says otherwise. */
+  private uncertain = false;
+  /** The exact serialized state of the write that left `uncertain` set, to compare against what the server
+   *  says it actually stored. */
+  private uncertainState: string | null = null;
 
   constructor(o: SaveManagerOptions) {
     this.o = o;
@@ -61,6 +71,11 @@ export class SaveManager {
   /** Save soon; a burst of requests sends one write. */
   request(): void {
     if (this.done()) return;
+    this.dirty = true;
+    this.dirtyMark++;
+    // While offline with a retry already pending, keep its backoff delay instead of
+    // replacing it with the 1s debounce (which would never let the wait grow).
+    if (this.status === "offline" && this.timer !== null) return;
     this.schedule(DEBOUNCE_MS);
   }
 
@@ -75,16 +90,23 @@ export class SaveManager {
     await this.inflight;
     if (this.again) {
       this.again = false;
-      await this.flush();
+      // A write that just failed offline already has its own retry scheduled;
+      // recursing here would send a second attempt right away instead of waiting.
+      if (this.status !== "offline") await this.flush();
     }
   }
 
-  /** The page is going away: one keepalive write when it fits, otherwise the last save stands. */
+  /** The page is going away: one keepalive write when it fits and there's something new to save,
+   *  otherwise the last save (in flight, or already landed) stands. */
   flushOnUnload(): void {
     if (this.done()) return;
+    if (this.inflight) return;
+    if (this.status === "saved" && !this.dirty) return;
     const body = this.body();
-    if (!body || JSON.stringify(body).length >= KEEPALIVE_MAX) return;
-    this.o.api.putSaveKeepalive(body);
+    if (!body) return;
+    const json = JSON.stringify(body);
+    if (new TextEncoder().encode(json).length >= KEEPALIVE_MAX) return;
+    this.o.api.putSaveKeepalive(json);
   }
 
   /** Once a conflict or failure has landed, request()/flush() become no-ops. */
@@ -110,16 +132,58 @@ export class SaveManager {
   private async write(): Promise<void> {
     const body = this.body();
     if (!body) return this.setStatus("offline");
+    const mark = this.dirtyMark;
     this.setStatus("saving");
     try {
       this.rev = (await this.o.api.putSave(body)).rev;
       this.failures = 0;
+      this.uncertain = false;
+      this.uncertainState = null;
+      if (mark === this.dirtyMark) this.dirty = false;
       this.setStatus("saved");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) return this.setStatus("conflict");
+      if (err instanceof ApiError && err.status === 409) {
+        if (this.uncertain) {
+          await this.resolveUncertain(body.runId);
+          return;
+        }
+        return this.setStatus("conflict");
+      }
       if (err instanceof ApiError && NO_RETRY_STATUSES.has(err.status)) return this.setStatus("failed");
+      // Not a server answer at all (a fetch-level failure, e.g. a dropped connection): the request may
+      // have reached the server and committed even though this response never arrived. Remember exactly
+      // what was sent so a later 409 can be checked against /me instead of assumed to be a real conflict.
+      if (!(err instanceof ApiError)) {
+        this.uncertain = true;
+        this.uncertainState = JSON.stringify(body.state);
+      }
       this.setStatus("offline");
       this.schedule(Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** this.failures++));
+    }
+  }
+
+  /** A 409 arrived while a previous write's response was lost. Ask the server what it actually has: if it
+   *  matches the write that seemed to fail, adopt its rev and try again; otherwise it's a real conflict. */
+  private async resolveUncertain(runId: string): Promise<void> {
+    let me: Me;
+    try {
+      me = await this.o.api.me();
+    } catch {
+      // Can't tell either way yet; stay offline and retry rather than guessing "conflict".
+      this.setStatus("offline");
+      this.schedule(Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** this.failures++));
+      return;
+    }
+    if (me.save && me.save.runId === runId && JSON.stringify(me.save.state) === this.uncertainState) {
+      this.rev = me.save.rev;
+      this.uncertain = false;
+      this.uncertainState = null;
+      this.failures = 0;
+      this.schedule(DEBOUNCE_MS);
+    } else {
+      this.uncertain = false;
+      this.uncertainState = null;
+      this.setStatus("conflict");
     }
   }
 

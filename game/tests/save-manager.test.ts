@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ApiError } from "../src/net/api.ts";
 import { KEEPALIVE_MAX, SaveManager, type SaveStatus } from "../src/sim/save/manager.ts";
-import type { SaveApi, SavePut } from "../src/sim/save/client.ts";
+import type { Me, SaveApi, SavePut } from "../src/sim/save/client.ts";
 import type { GameSave } from "../src/sim/save/types.ts";
 
 function fakeTimers() {
@@ -27,12 +27,12 @@ function fakeTimers() {
 
 const game = (day: number, size = 10): GameSave => ({ version: 1, seed: 1, day, hash: "TX", bankRun: "b", life: { pad: "x".repeat(size) } as never, npcs: {}, mail: { items: [], seq: 0 }, desk: null });
 
-function fakeApi(o: { fail?: () => number | null } = {}) {
+function fakeApi(o: { fail?: () => number | null; me?: () => Me } = {}) {
   const puts: SavePut[] = [];
-  const keepalive: SavePut[] = [];
+  const keepalive: string[] = [];
   let rev = 0;
   const api: SaveApi = {
-    me: async () => ({ player: { id: "p", name: null }, profile: null, save: null }),
+    me: async () => o.me?.() ?? { player: { id: "p", name: null }, profile: null, save: null },
     putProfile: async () => undefined,
     deleteSave: async () => undefined,
     putSave: async (b) => {
@@ -43,7 +43,7 @@ function fakeApi(o: { fail?: () => number | null } = {}) {
       if (b.baseRev !== (rev || null)) throw new ApiError(409, "conflict");
       return { rev: ++rev };
     },
-    putSaveKeepalive: (b) => void keepalive.push(b),
+    putSaveKeepalive: (json) => void keepalive.push(json),
   };
   return { api, puts, keepalive };
 }
@@ -142,4 +142,230 @@ test("a 413 (too large) fails for good, with no retry scheduled", async () => {
   assert.ok(statuses.includes("failed"));
   m.request();
   assert.equal(t.pending.size, 0);
+});
+
+test("a 400 fails for good, with no retry scheduled", async () => {
+  const t = fakeTimers();
+  const { api, puts } = fakeApi({ fail: () => 400 });
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: null, timers: t.timers });
+  m.request();
+  t.run();
+  await settle();
+  assert.equal(m.status, "failed");
+  assert.equal(puts.length, 0);
+  assert.equal(t.pending.size, 0);
+});
+
+test("a 403 fails for good, with no retry scheduled", async () => {
+  const t = fakeTimers();
+  const { api, puts } = fakeApi({ fail: () => 403 });
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: null, timers: t.timers });
+  m.request();
+  t.run();
+  await settle();
+  assert.equal(m.status, "failed");
+  assert.equal(puts.length, 0);
+  assert.equal(t.pending.size, 0);
+});
+
+test("a lost response that actually committed is not a permanent conflict: /me confirms it and the next write lands", async () => {
+  const t = fakeTimers();
+  let sent = 0;
+  let stored: { runId: string; rev: number; state: unknown } | null = null;
+  const api: SaveApi = {
+    me: async () => ({
+      player: { id: "p", name: null },
+      profile: null,
+      save: stored ? { runId: stored.runId, seed: 1, version: 1, gameDay: 1, state: stored.state, rev: stored.rev, updatedAt: "" } : null,
+    }),
+    putProfile: async () => undefined,
+    deleteSave: async () => undefined,
+    putSave: async (b) => {
+      sent++;
+      if (sent === 1) {
+        // The server commits the write, but the response never makes it back.
+        stored = { runId: b.runId, rev: 1, state: b.state };
+        throw new TypeError("network down");
+      }
+      if (b.baseRev !== (stored?.rev ?? null)) throw new ApiError(409, "conflict");
+      stored = { runId: b.runId, rev: (stored?.rev ?? 0) + 1, state: b.state };
+      return { rev: stored.rev };
+    },
+    putSaveKeepalive: () => undefined,
+  };
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: null, timers: t.timers });
+  m.request();
+  t.run(); // write #1: commits server-side, but the manager sees a network failure
+  await settle();
+  assert.equal(m.status, "offline");
+  t.run(); // the retry: still thinks baseRev is null, so the server answers 409
+  await settle();
+  // The manager should have asked /me, matched the remembered state, and adopted rev 1,
+  // then scheduled another write rather than declaring a conflict.
+  assert.notEqual(m.status as SaveStatus, "conflict");
+  t.run(); // the scheduled write, now with the correct baseRev
+  await settle();
+  assert.equal(m.status, "saved");
+  assert.equal(sent, 3);
+});
+
+test("a lost response whose state doesn't match what the server has is a real conflict", async () => {
+  const t = fakeTimers();
+  let sent = 0;
+  const api: SaveApi = {
+    me: async () => ({
+      player: { id: "p", name: null },
+      profile: null,
+      save: { runId: "run", seed: 1, version: 1, gameDay: 1, state: game(999), rev: 9, updatedAt: "" },
+    }),
+    putProfile: async () => undefined,
+    deleteSave: async () => undefined,
+    putSave: async () => {
+      sent++;
+      if (sent === 1) throw new TypeError("network down");
+      throw new ApiError(409, "conflict");
+    },
+    putSaveKeepalive: () => undefined,
+  };
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: null, timers: t.timers });
+  m.request();
+  t.run();
+  await settle();
+  assert.equal(m.status, "offline");
+  t.run();
+  await settle();
+  assert.equal(m.status, "conflict");
+});
+
+test("if /me itself fails while resolving an uncertain write, stay offline and retry rather than guess conflict", async () => {
+  const t = fakeTimers();
+  let sent = 0;
+  let meFails = true;
+  let stored: { runId: string; rev: number; state: unknown } | null = null;
+  const api: SaveApi = {
+    me: async () => {
+      if (meFails) throw new TypeError("network down");
+      return {
+        player: { id: "p", name: null },
+        profile: null,
+        save: stored ? { runId: stored.runId, seed: 1, version: 1, gameDay: 1, state: stored.state, rev: stored.rev, updatedAt: "" } : null,
+      };
+    },
+    putProfile: async () => undefined,
+    deleteSave: async () => undefined,
+    putSave: async (b) => {
+      sent++;
+      if (sent === 1) {
+        // Commits server-side, but the response is lost.
+        stored = { runId: b.runId, rev: 1, state: b.state };
+        throw new TypeError("network down");
+      }
+      if (b.baseRev !== (stored?.rev ?? null)) throw new ApiError(409, "conflict");
+      stored = { runId: b.runId, rev: (stored?.rev ?? 0) + 1, state: b.state };
+      return { rev: stored.rev };
+    },
+    putSaveKeepalive: () => undefined,
+  };
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: null, timers: t.timers });
+  m.request();
+  t.run(); // write #1: commits server-side, response lost
+  await settle();
+  t.run(); // the retry: still thinks baseRev is null -> 409, and /me is down too
+  await settle();
+  assert.equal(m.status, "offline");
+  assert.equal(t.pending.size, 1, "a retry is scheduled instead of declaring conflict");
+  meFails = false;
+  t.run(); // another 409, but /me now confirms the earlier commit and a write gets scheduled
+  await settle();
+  t.run(); // that scheduled write, now with the adopted rev
+  await settle();
+  assert.equal(m.status, "saved");
+});
+
+test("while offline with a retry pending, request() keeps its backoff delay instead of resetting to the debounce", async () => {
+  const t = fakeTimers();
+  const { api } = fakeApi({ fail: () => 0 });
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: null, timers: t.timers });
+  m.request();
+  t.run();
+  await settle();
+  assert.equal(m.status, "offline");
+  assert.equal(t.pending.size, 1);
+  const before = [...t.pending.values()][0].ms;
+  assert.equal(before, 2_000);
+  m.request();
+  m.request();
+  assert.equal(t.pending.size, 1);
+  assert.equal([...t.pending.values()][0].ms, before);
+});
+
+test("a timer firing while a write is in flight waits for it, then reuses the rev it returned", async () => {
+  const t = fakeTimers();
+  let resolvePut: ((v: { rev: number }) => void) | null = null;
+  const puts: SavePut[] = [];
+  const api: SaveApi = {
+    me: async () => ({ player: { id: "p", name: null }, profile: null, save: null }),
+    putProfile: async () => undefined,
+    deleteSave: async () => undefined,
+    putSave: (b) => {
+      puts.push(b);
+      return new Promise((res) => (resolvePut = res));
+    },
+    putSaveKeepalive: () => undefined,
+  };
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: null, timers: t.timers });
+  m.request();
+  t.run(); // write #1 starts and hangs mid-flight
+  m.request(); // a second change arrives while it's in flight
+  t.run(); // the debounce timer for the second change fires
+  assert.equal(puts.length, 1, "the second write waits for the first instead of racing it");
+  resolvePut!({ rev: 7 });
+  await settle();
+  assert.equal(puts.length, 2);
+  assert.equal(puts[1].baseRev, 7, "the second write carries the rev the first one returned");
+});
+
+test("flush() doesn't recurse into another write right after one fails offline", async () => {
+  const t = fakeTimers();
+  let calls = 0;
+  const api: SaveApi = {
+    me: async () => ({ player: { id: "p", name: null }, profile: null, save: null }),
+    putProfile: async () => undefined,
+    deleteSave: async () => undefined,
+    putSave: async () => {
+      calls++;
+      throw new TypeError("down");
+    },
+    putSaveKeepalive: () => undefined,
+  };
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: null, timers: t.timers });
+  const p1 = m.flush();
+  const p2 = m.flush(); // piles onto the in-flight write, setting `again`
+  await Promise.all([p1, p2]);
+  assert.equal(calls, 1, "did not immediately retry after failing offline");
+  assert.equal(m.status, "offline");
+  assert.equal(t.pending.size, 1, "the scheduled retry stands instead");
+});
+
+test("visibilitychange's flush and pagehide's keepalive don't both fire for the same write", async () => {
+  const t = fakeTimers();
+  let resolvePut: ((v: { rev: number }) => void) | null = null;
+  const keepalive: string[] = [];
+  const api: SaveApi = {
+    me: async () => ({ player: { id: "p", name: null }, profile: null, save: null }),
+    putProfile: async () => undefined,
+    deleteSave: async () => undefined,
+    putSave: () => new Promise((res) => (resolvePut = res)),
+    putSaveKeepalive: (json) => void keepalive.push(json),
+  };
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: null, timers: t.timers });
+  m.request();
+  t.run(); // simulates visibilitychange -> flush(), now in flight
+  m.flushOnUnload(); // pagehide, moments later, same write still in flight
+  assert.equal(keepalive.length, 0, "flushOnUnload defers to the in-flight write");
+  resolvePut!({ rev: 1 });
+  await settle();
+  assert.equal(m.status, "saved");
+  m.flushOnUnload(); // nothing changed since that save landed
+  assert.equal(keepalive.length, 0);
 });

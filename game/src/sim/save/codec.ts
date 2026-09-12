@@ -72,7 +72,13 @@ function parseMail(raw: unknown): InboxSave {
   const items = raw.items.filter(isObject) as unknown as MailItem[];
   const highest = items.reduce((n, m) => Math.max(n, Number(/^m(\d+)$/.exec(String(m.id))?.[1] ?? 0)), 0);
   const seq = typeof raw.seq === "number" ? Math.max(raw.seq, highest) : highest;
-  return { items, seq, lastPay: isObject(raw.lastPay) ? (raw.lastPay as unknown as InboxSave["lastPay"]) : null };
+  return { items, seq, lastPay: parsePaySummary(raw.lastPay) };
+}
+
+/** A pay stub with a non-finite takeHome (NaN, Infinity, missing) is dropped, not carried into the game. */
+function parsePaySummary(raw: unknown): InboxSave["lastPay"] {
+  if (!isObject(raw) || typeof raw.takeHome !== "number" || !Number.isFinite(raw.takeHome)) return null;
+  return { takeHome: raw.takeHome, garnished: raw.garnished === true, unemployed: raw.unemployed === true };
 }
 
 /**

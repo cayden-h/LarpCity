@@ -307,6 +307,16 @@ test("a save with a broken inbox parses to an empty one", () => {
   assert.equal(noSeq.mail.seq, 7);
 });
 
+test("a pay stub with a non-finite takeHome doesn't survive the save", () => {
+  const withPay = (lastPay: unknown) => parseSave({ version: SAVE_VERSION, seed: 11, day: 5, life: { x: 1 }, mail: { items: [], seq: 0, lastPay } }).mail.lastPay;
+  assert.deepEqual(withPay({ takeHome: 2000, garnished: false, unemployed: false }), { takeHome: 2000, garnished: false, unemployed: false });
+  assert.equal(withPay({ takeHome: NaN, garnished: false, unemployed: false }), null);
+  assert.equal(withPay({ takeHome: Infinity, garnished: false, unemployed: false }), null);
+  assert.equal(withPay({ garnished: false, unemployed: false }), null, "missing takeHome");
+  assert.equal(withPay({ takeHome: "2000" }), null, "takeHome not a number");
+  assert.equal(withPay(null), null);
+});
+
 test("a desk whose lists aren't lists is dropped; the game still loads", () => {
   assert.equal(parseSave({ version: SAVE_VERSION, seed: 11, day: 5, life: { x: 1 }, desk: { feed: 5 } }).desk, null);
   assert.equal(parseSave({ version: SAVE_VERSION, seed: 11, day: 5, life: { x: 1 }, desk: { feed: [], bank: {} } }).desk, null);
