@@ -5,12 +5,23 @@
 // Gemini is busy or down, so feedback and the paper always have something.
 
 import type { EventRow, SnapshotRow } from "../store/runs.js";
+import type { Profile } from "../store/saves.js";
 
 /** Calendar date of game day 0 (game/src/engine/clock.ts). */
 export const GAME_START_MS = Date.UTC(2026, 8, 11);
 
 export function gameDate(day: number): string {
   return new Date(GAME_START_MS + day * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Who the player is, from their stored profile: the job they gave the owl and their state. Never salary or balances; the snapshots carry the money. */
+export interface PlayerFacts {
+  job: string | null;
+  state: string;
+}
+
+export function playerFacts(p: Profile | null): PlayerFacts | undefined {
+  return p ? { job: p.job, state: p.state } : undefined;
 }
 
 /** The meeting's three feedback moments (2026-09-11): a goal, bankruptcy, and a big portfolio swing; plus the market's recovery after a crash. */
@@ -38,6 +49,8 @@ export interface FeedbackFacts {
   };
   /** Recovery only: the last crash and how each investing line came through. */
   recovery?: RecoveryFacts;
+  /** The player's stored profile, when they have one. */
+  player?: PlayerFacts;
 }
 
 /** A crash and its recovery, from the run's bear_market, trade, and market_recovered events (game/src/sim/life/player.ts). */
@@ -87,6 +100,8 @@ export interface NewsFacts {
   routine: { paychecks: number; bills: number; debtPayments: number };
   /** The events worth a story, oldest first (at most 12). */
   headlines: Headline[];
+  /** The player's stored profile, when they have one. */
+  player?: PlayerFacts;
 }
 
 export interface Feedback {
