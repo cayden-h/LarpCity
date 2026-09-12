@@ -25,8 +25,10 @@ import type { Account, Holding } from "../money/types.ts";
 import { CrashWatch, PANIC_DRAWDOWN } from "../skip/crash.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
 import { fileReturn } from "../tax/filing.ts";
+import { penaltyFor } from "../tax/penalties.ts";
 import type { TaxReturn } from "../tax/types.ts";
 import { withholdingForPaycheck } from "../tax/withholding.ts";
+import { installment } from "../debt/factory.ts";
 import { cashRateOn } from "./rates.ts";
 import { Twins } from "./twins.ts";
 
@@ -76,7 +78,8 @@ export type LifeEvent =
   | { type: "bear_market"; day: number; drop: number; stocks: number }
   | { type: "market_recovered"; day: number; you: number; held: number; autopilot: number }
   | { type: "tax_ready"; day: number; year: number }
-  | { type: "tax_filed"; day: number; year: number; refundOrOwed: number; auto: boolean };
+  | { type: "tax_filed"; day: number; year: number; refundOrOwed: number; auto: boolean }
+  | { type: "tax_penalty"; day: number; amount: number };
 
 export interface LifeSnapshot {
   day: number;
@@ -489,6 +492,7 @@ export class PlayerLife {
       this.ledger.newMonth();
       if (interest > 0) events.push({ type: "savings_interest", day, amount: interest });
       if (this.orders) events.push(...this.onFirstOfMonth(day));
+      this.tickTaxPenalty(day, events);
     }
 
     if (date.getMonth() === 3 && date.getDate() === 15 && !this.pendingReturn) {
@@ -603,6 +607,46 @@ export class PlayerLife {
     const e: LifeEvent = { type: "tax_filed", day, year: ret.year, refundOrOwed, auto };
     this.emit([e]);
     return e;
+  }
+
+  /**
+   * Monthly: escalates an unfiled-and-owing or filed-with-a-balance tax debt
+   * (failure-to-file/pay + interest, penalties.ts), and converts it to a real
+   * Debt after 180 days unpaid so it flows through the existing debt engine's
+   * delinquency and credit-score machinery unchanged.
+   *
+   * `unpaidTax` is created lazily, the first time it's needed, by whichever of
+   * two paths gets there first: this tick (the deadline passes with nothing
+   * filed and money owed) or `fileTaxes` (filed, but checking couldn't cover
+   * it). Once created, `penaltyCharged` tracks how much of `penaltyFor`'s
+   * cumulative total has already been folded into `amount`, so each tick adds
+   * only that month's new increment instead of re-adding the running total.
+   */
+  private tickTaxPenalty(day: number, events: LifeEvent[]): void {
+    if (!this.unpaidTax && this.pendingReturn && this.taxReadyDay !== null && day > this.taxReadyDay) {
+      const owed = round2(-(this.pendingReturn.federalRefundOrOwed + this.pendingReturn.stateRefundOrOwed));
+      if (owed > 0) this.unpaidTax = { originalOwed: owed, amount: owed, dueDay: this.taxReadyDay, filedDay: null, penaltyCharged: 0 };
+    }
+    if (!this.unpaidTax) return;
+    const monthsSinceDue = Math.max(0, Math.floor((day - this.unpaidTax.dueDay) / 30));
+    const monthsUnfiled = this.unpaidTax.filedDay === null ? monthsSinceDue : 0;
+    const penalty = penaltyFor({ owed: this.unpaidTax.originalOwed, monthsUnfiled, monthsUnpaid: monthsSinceDue });
+    const delta = round2(penalty.total - this.unpaidTax.penaltyCharged);
+    if (delta > 0) {
+      this.unpaidTax.penaltyCharged = penalty.total;
+      this.unpaidTax.amount = round2(this.unpaidTax.amount + delta);
+      events.push({ type: "tax_penalty", day, amount: delta });
+    }
+    if (monthsSinceDue >= 6 && !this.book.debts.some((d) => d.name === "IRS balance")) {
+      this.book.debts.push(
+        installment({ id: `irs-${day}`, kind: "personal", name: "IRS balance", balance: this.unpaidTax.amount, apr: 0.08, months: 36, day, openedDay: day }),
+      );
+      // From here the balance lives entirely as a normal Debt (its own accrual,
+      // payments, and delinquency via tickDay): clear the shadow tracker so it
+      // doesn't keep escalating in parallel, forever diverging from what the
+      // real Debt actually still owes.
+      this.unpaidTax = null;
+    }
   }
 
   /** The paycheck's 401(k) contribution and employer match, within the yearly IRS limit. */

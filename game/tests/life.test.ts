@@ -154,7 +154,7 @@ test("runHeadless auto-files at the deadline instead of leaving it pending", () 
   assert.equal(life.pendingTaxReturn(), null);
 });
 
-test("a second year's shortfall adds to an unresolved first year's unpaidTax instead of overwriting it", () => {
+test("a second year's shortfall never overwrites or loses an unresolved first year's balance (Task 11: it may have already become a Debt)", () => {
   // A player who never moves reconciles close to $0 (withholding tracks the
   // real liability), so whether they owe or get a refund is close to a coin
   // flip. To force a deterministic, repeatable shortfall two years running,
@@ -206,13 +206,92 @@ test("a second year's shortfall adds to an unresolved first year's unpaidTax ins
   const year2Unpaid = round2(-(ret2!.federalRefundOrOwed + ret2!.stateRefundOrOwed));
   assert.ok(year2Unpaid > 0, `expected year 2 to owe money, got ${year2Unpaid}`);
 
+  // The ~490-day gap between year 1's filing and year 2's is longer than Task
+  // 11's 180-day threshold, so by now year 1's shortfall has already escalated
+  // out of `unpaidTax` entirely and into its own real "IRS balance" Debt
+  // (verified below) — the accumulate-don't-overwrite scenario this test
+  // originally guarded against can only happen while year 1 is still sitting
+  // in `unpaidTax`, i.e. within 180 days of its due date.
+  assert.equal(life.unpaidTaxBalance(), null);
+  assert.ok(life.book.debts.some((d) => d.name === "IRS balance"), "year 1's shortfall should have converted to a real Debt by now");
+
   checking.balance = 0; // drain checking again before the second filing
   life.fileTaxes(day2 + 1);
   const afterYear2 = life.unpaidTaxBalance();
   assert.ok(afterYear2 !== null);
-  // The bug this guards against: overwriting `amount`/`originalOwed` with just
-  // year2Unpaid instead of adding it to the still-outstanding year 1 balance.
-  assert.equal(afterYear2!.amount, round2(year1Unpaid + year2Unpaid));
-  assert.equal(afterYear2!.originalOwed, round2(year1Unpaid + year2Unpaid));
+  // Year 1 already left `unpaidTax` for a real Debt, so year 2's shortfall
+  // starts a fresh entry rather than adding to (or, the bug this originally
+  // guarded against, overwriting) anything — nothing from year 1 is lost, it's
+  // just tracked as a separate Debt instead of inside `unpaidTax`.
+  assert.equal(afterYear2!.amount, year2Unpaid);
+  assert.equal(afterYear2!.originalOwed, year2Unpaid);
   assert.equal(afterYear2!.filedDay, day2 + 1);
+  assert.ok(life.book.debts.some((d) => d.name === "IRS balance"), "year 1's Debt should still be there alongside year 2's fresh unpaidTax");
+});
+
+// Both tests below reuse the "second year's shortfall" test's trick above:
+// moving to CA the day *before* the April-15 payday/deadline day means the
+// return (computed against whatever state is current when it's built) taxes
+// the whole partial year at CA's real rates, while every paycheck that
+// actually withheld anything for that year did so at TX's $0 state rate (or,
+// for the one CA payday itself, only a sliver) — guaranteeing a real,
+// repeatable shortfall instead of a coin flip. A high income (like the
+// existing test) is needed too: at ordinary incomes withholding already
+// tracks the liability closely enough that this mid-year move alone doesn't
+// reliably flip the sign.
+function moveToCARightBeforeDeadline(life: PlayerLife): number {
+  let day = 0;
+  for (day = 1; day <= 230; day++) {
+    const d = dateOf(day);
+    if (d.getFullYear() === 2027 && d.getMonth() === 3 && d.getDate() === 15) {
+      life.setPlace(CA, day - 1);
+      life.onDay(day, d);
+      break;
+    }
+    life.onDay(day, d);
+  }
+  return day;
+}
+
+test("an unpaid tax balance accrues failure-to-file penalties if the deadline passes with no filing", () => {
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 2_000_000 });
+  const day = moveToCARightBeforeDeadline(life);
+  assert.ok(life.pendingTaxReturn() !== null);
+  // No fileTaxes() call: carries well past the April 15 deadline unfiled.
+  const events = live(life, 160, day);
+  assert.ok(events.some((e) => e.type === "tax_penalty"));
+});
+
+test("an unpaid tax balance becomes a real Debt after 180 days unpaid", () => {
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 2_000_000 });
+  const checking = life.ledger.get("checking");
+  const day = moveToCARightBeforeDeadline(life);
+  const ret = life.pendingTaxReturn();
+  assert.ok(ret !== null);
+  assert.ok(ret!.stateRefundOrOwed < 0, "moving to a tax state right before filing should leave the state portion owed");
+  checking.balance = 0; // guarantee it can't be paid in full at filing
+  life.fileTaxes(day + 1);
+  // 210 days, not 180: the escalation only ticks on the 1st of each calendar
+  // month, and calendar months run ~30.4 days on average vs. the 30-day
+  // months penaltyFor's floor-division counts in, so a little slack is needed
+  // to guarantee a tick has landed past the 180-day (6-month) threshold.
+  live(life, 210, day + 1);
+  assert.ok(life.book.debts.some((debt) => debt.name === "IRS balance"));
+});
+
+test("once converted to a Debt, the shadow unpaidTax balance stops escalating (no phantom double-tracking)", () => {
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 2_000_000 });
+  const checking = life.ledger.get("checking");
+  const day = moveToCARightBeforeDeadline(life);
+  checking.balance = 0;
+  life.fileTaxes(day + 1);
+  live(life, 210, day + 1); // past the 180-day conversion threshold
+  assert.ok(life.book.debts.some((debt) => debt.name === "IRS balance"));
+  // Once it's a real Debt, unpaidTaxBalance() should stop being tracked
+  // separately: otherwise it would keep accruing its own phantom penalties
+  // forever, disconnected from the real Debt's own (already-amortizing)
+  // balance.
+  assert.equal(life.unpaidTaxBalance(), null);
+  const events = live(life, 90, day + 1 + 210);
+  assert.ok(!events.some((e) => e.type === "tax_penalty"));
 });
