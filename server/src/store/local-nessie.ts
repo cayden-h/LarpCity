@@ -115,12 +115,12 @@ export class LocalNessie implements LocalNessieLike {
     kind: "deposit" | "withdrawal",
     tx: { transaction_date: string; status: string; amount: number; description: string },
   ): Promise<LocalTx> {
-    const { rows } = await this.db.query<LocalTx>(
+    const { rows } = await this.db.query<Omit<LocalTx, "medium">>(
       `INSERT INTO nessie_transactions (id, account_id, kind, amount, transaction_date, status, description)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ${TX_COLS}`,
       [localId(), accountId, kind, Math.trunc(tx.amount), tx.transaction_date, tx.status, tx.description],
     );
-    return rows[0];
+    return { ...rows[0], medium: "balance" as const };
   }
 
   async markTransactionSynced(id: string, nessieId: string): Promise<void> {
@@ -128,11 +128,11 @@ export class LocalNessie implements LocalNessieLike {
   }
 
   async listTransactions(accountId: string, kind: "deposit" | "withdrawal"): Promise<LocalTx[]> {
-    const { rows } = await this.db.query<LocalTx>(
+    const { rows } = await this.db.query<Omit<LocalTx, "medium">>(
       `SELECT ${TX_COLS} FROM nessie_transactions WHERE account_id = $1 AND kind = $2 ORDER BY created_at`,
       [accountId, kind],
     );
-    return rows;
+    return rows.map((r) => ({ ...r, medium: "balance" as const }));
   }
 
   async listUnsyncedCustomers(): Promise<LocalCustomer[]> {
@@ -158,12 +158,12 @@ export class LocalNessie implements LocalNessieLike {
   }
 
   async listUnsyncedTransactions(): Promise<LocalTx[]> {
-    const { rows } = await this.db.query<LocalTx>(
+    const { rows } = await this.db.query<Omit<LocalTx, "medium">>(
       `SELECT t.id AS "_id", t.account_id AS "accountId", t.kind, t.amount, t.transaction_date, t.status,
               t.description, t.nessie_id AS "nessieId"
        FROM nessie_transactions t JOIN nessie_accounts a ON a.id = t.account_id
        WHERE t.nessie_id IS NULL AND a.nessie_id IS NOT NULL ORDER BY t.created_at`,
     );
-    return rows;
+    return rows.map((r) => ({ ...r, medium: "balance" as const }));
   }
 }
