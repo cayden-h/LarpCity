@@ -21,7 +21,7 @@ import {
 } from "../debt/index.ts";
 import { instrument, MarketPath, type InstrumentId } from "../market/index.ts";
 import { Ledger, type LedgerSave } from "../money/accounts.ts";
-import type { Account, Holding } from "../money/types.ts";
+import type { Account, ApplicationRecord, Holding } from "../money/types.ts";
 import { deepCopy } from "../rewind/copy.ts";
 import { CrashWatch, PANIC_DRAWDOWN, type CrashSave } from "../skip/crash.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
@@ -156,6 +156,7 @@ export interface LifeSave {
   /** Events from the same recent days as daily history, so the calendar's past and a rewind's fork survive a reload. */
   log: LifeEvent[];
   book: DebtBook;
+  applications: ApplicationRecord[];
   ledger: LedgerSave;
   twins: TwinsSave;
   startDay: number;
@@ -237,6 +238,12 @@ export class PlayerLife {
   /** The latest game day the life has seen; holdings are valued at this day's prices. */
   today: number;
   readonly history: LifeSnapshot[] = [];
+  /**
+   * Every card and loan application, oldest first, for the issuer rules (5/24
+   * and the like) and sign-up bonus eligibility. Ordinary state: saved, and a
+   * rewind to before an application forgets it.
+   */
+  applications: ApplicationRecord[] = [];
   /** Every event the life has emitted, in order (the calendar reads it; a rewind truncates it). */
   readonly log: LifeEvent[] = [];
   /**
@@ -279,6 +286,7 @@ export class PlayerLife {
       this.age = s.age;
       this.today = s.today;
       this.book = s.book;
+      this.applications = s.applications ?? [];
       this.monthlyTakeHome = s.monthlyTakeHome;
       this.grossAnnual = s.grossAnnual;
       this.job = s.job;
@@ -344,6 +352,7 @@ export class PlayerLife {
       history: compactHistory(this.history, this.today, keepDaily),
       log: this.log.filter((e) => e.day > this.today - keepDaily),
       book: this.book,
+      applications: this.applications,
       ledger: this.ledger.toSave(),
       twins: this.twins.toSave(),
       startDay: this.startDay,

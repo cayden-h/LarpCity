@@ -7,11 +7,14 @@ import { Twins } from "../src/sim/life/twins.ts";
 import { Ledger } from "../src/sim/money/accounts.ts";
 import { CrashWatch } from "../src/sim/skip/crash.ts";
 import { MarketPath } from "../src/sim/market/index.ts";
-import { PlayerLife, SAVE_DAILY_DAYS, STARTER_PORTFOLIO, compactHistory, type LifeEvent, type Place } from "../src/sim/life/index.ts";
+import { PlayerLife, SAVE_DAILY_DAYS, STARTER_PORTFOLIO, compactHistory, type LifeEvent, type LifeSnapshot, type Place } from "../src/sim/life/index.ts";
 import { lifeFromIntake } from "../src/sim/life/intake.ts";
 import { applyOrders } from "../src/sim/skip/orders.ts";
 import { NpcTown } from "../src/sim/npcs/index.ts";
 import { LifeTimeline, serialize } from "../src/sim/rewind/index.ts";
+import { applyForCard, openCard, recordApplication, type ApplicationResult } from "../src/sim/money/index.ts";
+import { cardOffer } from "../src/debt-demo/shop-value.ts";
+import { CURATED } from "../src/data/cards-curated.ts";
 
 const START = new Date(2026, 8, 11);
 const json = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -62,12 +65,36 @@ const dateOf = (day: number) => {
   return d;
 };
 
+/** Applies for a curated card the way the Card Shop does: the life's own application history, then the card on approval. */
+function applyCard(life: PlayerLife, slug: string, day: number, roll: number): ApplicationResult {
+  const card = CURATED.find((c) => c.slug === slug)!;
+  const applicant = { age: life.age, annualIncome: 200_000, monthlyDebtPayments: life.minimums(), monthlyHousing: life.rent };
+  const r = applyForCard({ product: card.terms, applicant, book: life.book, offer: cardOffer(card), history: life.applications, day, roll });
+  recordApplication(life.book, life.applications, r, day, { issuerKey: card.terms.issuerKey, productId: card.tccpId, bonusCardId: card.slug });
+  if (r.decision === "approved") openCard(life.book, card.terms, r, day, `card-${card.slug}-${day}`).name = card.name;
+  return r;
+}
+
+/** A day inside the ACH transfer's settlement window, so a save carries it pending. */
+const ACH_DAY = 100;
+
 /** The player's choices, on fixed days, the same for the saved and the unsaved life. */
 function decide(life: PlayerLife, day: number): void {
   if (day === 20) life.buy("LTM", 300, day);
+  if (day === 30) applyCard(life, "capital-one-quicksilver", day, 0);
+  if (day === 35) {
+    // Move part of an older card's balance onto the new card.
+    const to = life.book.debts.find((d) => d.id === "card-capital-one-quicksilver-30");
+    const from = life.book.debts.find((d) => d.kind === "credit_card" && d !== to && d.balance > 100);
+    if (to && from) life.ledger.balanceTransfer(from, to, Math.min(500, Math.floor(from.balance / 2)), day);
+  }
   if (day === 45)
     applyOrders(life, { depositMonthly: 400, k401Pct: 0.06, stockPct: 0.9, debtStrategy: "avalanche", extraMonthly: 100, emergencyMonths: 3, lifestyle: "normal", crashRule: "sell_half" });
   if (day === 200) life.sell("NNST", "all", day);
+  if (day === ACH_DAY) {
+    const ctx = { day, date: dateOf(day), age: life.age };
+    if (life.ledger.quote("checking", "savings", 100, "ach", ctx).ok) life.ledger.transfer("checking", "savings", 100, "ach", ctx);
+  }
   if (day === 260) {
     const ctx = { day, date: dateOf(day), age: life.age };
     if (life.ledger.quote("savings", "checking", 200, "internal", ctx).ok) life.ledger.transfer("savings", "checking", 200, "internal", ctx);
@@ -100,13 +127,15 @@ const END = 900;
 
 for (const seed of [5, 20260912]) {
   for (const [name, make] of LIVES) {
-    for (const saveDay of [1, 44, 301, 777]) {
+    for (const saveDay of [1, 44, ACH_DAY, 301, 777]) {
       test(`${name}, seed ${seed}, saved on day ${saveDay}, plays on exactly like one never saved`, () => {
         const control = make(new MarketPath(seed, START));
         const controlEvents = play(control, 0, END).filter((e) => e.day > saveDay);
 
         const before = make(new MarketPath(seed, START));
         play(before, 0, saveDay);
+        if (saveDay === ACH_DAY) assert.ok(before.ledger.pending.length > 0, "the ACH transfer is still pending at the save");
+        if (saveDay >= 30) assert.ok(before.applications.length > 0 && before.book.debts.some((d) => d.id === "card-capital-one-quicksilver-30"), "the new card crosses the save");
         const restored = PlayerLife.fromSave(json(before.toSave()), { market: new MarketPath(seed, START) });
         const restoredEvents = play(restored, saveDay, END);
 
@@ -122,8 +151,8 @@ for (const seed of [5, 20260912]) {
 }
 
 test("saved history is daily for the recent past and weekly before it", () => {
-  const snaps = Array.from({ length: 1000 }, (_, day) => ({ day }) as never);
-  const kept = compactHistory(snaps, 999, 400).map((s: { day: number }) => s.day);
+  const snaps = Array.from({ length: 1000 }, (_, day) => ({ day }) as LifeSnapshot);
+  const kept = compactHistory(snaps, 999, 400).map((s) => s.day);
   assert.ok(kept.includes(600) && kept.includes(999));
   assert.ok(kept.includes(0) && kept.includes(7) && !kept.includes(8));
   assert.equal(kept.length, 400 + Math.floor(599 / 7) + 1);
@@ -210,4 +239,36 @@ test("a restored NPC town rewinds like one never saved", () => {
     restored.onDay(d);
   }
   assert.deepEqual(restored.toSave(), control.toSave());
+});
+
+/** Plain days, with none of `decide`'s choices. */
+function tick(life: PlayerLife, from: number, to: number): void {
+  for (let day = from + 1; day <= to; day++) life.onDay(day, dateOf(day));
+}
+
+test("card applications survive a save, so the issuer rules and sign-up bonuses still remember them", () => {
+  const life = new PlayerLife({ place: TX, day: 0, market: new MarketPath(5, START), holdings: STARTER_PORTFOLIO });
+  tick(life, 0, 10);
+  assert.equal(applyCard(life, "capital-one-quicksilver", 10, 0).decision, "approved");
+  assert.equal(applyCard(life, "amex-blue-cash-everyday", 10, 0).decision, "approved");
+  const back = PlayerLife.fromSave(json(life.toSave()), { market: new MarketPath(5, START) });
+  assert.deepEqual(back.applications, json(life.applications));
+  // Capital One approves about one card every 6 months.
+  const again = applyCard(back, "capital-one-venture", 40, 0);
+  assert.equal(again.decision, "denied");
+  assert.match(again.reasons.join(" "), /Capital One/);
+  // Amex pays a card's sign-up bonus once per lifetime.
+  assert.equal(applyCard(back, "amex-blue-cash-everyday", 400, 0).bonusEligible, false);
+});
+
+test("a rewind to before a card application forgets it", () => {
+  const life = new PlayerLife({ place: TX, day: 0, market: new MarketPath(5, START), holdings: STARTER_PORTFOLIO });
+  const line = new LifeTimeline(life, { start: START });
+  tick(life, 0, 60);
+  assert.equal(applyCard(life, "capital-one-quicksilver", 60, 0).decision, "approved");
+  tick(life, 60, 80);
+  assert.equal(life.applications.length, 1);
+  line.rewindTo(55);
+  assert.deepEqual(life.applications, []);
+  assert.equal(applyCard(life, "capital-one-venture", 56, 0).decision, "approved");
 });
