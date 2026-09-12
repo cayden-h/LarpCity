@@ -22,6 +22,8 @@ export interface ResidentSeed {
   story: string;
   /** Primary-tier NPCs get the visible gold-ring marker (markResident); background NPCs blend into the crowd like ambient extras but are still real, clickable residents. */
   marked: boolean;
+  /** The server route (`/api/bank` or `/api/bank-bg`) this resident's statement lives behind. */
+  bankBase: string;
 }
 
 export interface NpcInfo {
@@ -29,8 +31,10 @@ export interface NpcInfo {
   age: number;
   job: string;
   thought: string;
-  /** Set only for the 8 named roster NPCs; drives the bank-statement card (ui/npccard.ts). */
+  /** Set only for named roster NPCs (primary and background); drives the bank-statement card (ui/npccard.ts). */
   residentId?: string;
+  /** Set alongside residentId: which server route to fetch this resident's statement from. */
+  bankBase?: string;
 }
 
 const FIRST = ["Maya", "Jordan", "Luis", "Aisha", "Wei", "Priya", "Marcus", "Sofia", "Kenji", "Amara", "Diego", "Hannah", "Omar", "Grace", "Mateo", "Zoe", "Tariq", "Elena", "Kwame", "Lily", "Andre", "Nadia", "Sam", "Rosa", "Jamal", "Mei", "Carlos", "Ava", "Dev", "Fatima", "Noah", "Imani"];
@@ -96,6 +100,7 @@ interface Walker {
   leaving: boolean;
   resident: boolean;
   residentId?: string;
+  bankBase?: string;
   fixedThought?: string;
 }
 
@@ -180,7 +185,7 @@ export class People {
     }
     if (!best) return null;
     const pool = THOUGHTS[mood];
-    return { ...best.info, thought: best.fixedThought ?? pool[best.seedIndex % pool.length], residentId: best.residentId };
+    return { ...best.info, thought: best.fixedThought ?? pool[best.seedIndex % pool.length], residentId: best.residentId, bankBase: best.bankBase };
   }
 
   /** A named roster NPC (data/npcs.ts): a fixed walker that never despawns, marked so ui/npccard.ts can fetch its real bank statement. */
@@ -211,6 +216,7 @@ export class People {
       leaving: false,
       resident: true,
       residentId: r.id,
+      bankBase: r.bankBase,
       fixedThought: r.story,
     };
     if (r.marked) markResident(w.view);

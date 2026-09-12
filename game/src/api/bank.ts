@@ -24,19 +24,19 @@ export class BankClient {
     this.fetchFn = fetchFn;
   }
 
-  /** This session's statement for `entity` ("npc-maya", etc.), cached for 30s unless `force`. */
-  async statement(entity: string, opts: { force?: boolean } = {}): Promise<BankView> {
+  /** This session's statement for `entity` ("npc-maya", etc.), cached for 30s unless `force`. `base` overrides the client's default base for this one call (the background roster's tier). */
+  async statement(entity: string, opts: { force?: boolean; base?: string } = {}): Promise<BankView> {
     const cached = this.cache.get(entity);
     if (!opts.force && cached && Date.now() - cached.at < TTL_MS) return cached.value;
     const pending = this.inflight.get(entity);
     if (pending && !opts.force) return pending;
-    const p = this.load(entity).finally(() => this.inflight.delete(entity));
+    const p = this.load(entity, opts.base ?? this.base).finally(() => this.inflight.delete(entity));
     this.inflight.set(entity, p);
     return p;
   }
 
-  private async load(entity: string): Promise<BankView> {
-    const r = await this.fetchFn(`${this.base}/${entity}`, { credentials: "include" });
+  private async load(entity: string, base: string): Promise<BankView> {
+    const r = await this.fetchFn(`${base}/${entity}`, { credentials: "include" });
     if (!r.ok) throw new Error(`bank_statement_failed:${r.status}`);
     const value = (await r.json()) as BankView;
     this.cache.set(entity, { at: Date.now(), value });

@@ -2,6 +2,7 @@ import "./style.css";
 import { Application, CullerPlugin, extensions } from "pixi.js";
 import { BankClient } from "./api/bank";
 import { cityFor, LANDMARKS, stateForPin } from "./cities";
+import { BACKGROUND_NPCS } from "./data/background-npcs";
 import { NPCS } from "./data/npcs";
 import { STATES } from "./data/states";
 import { Clock } from "./engine/clock";
@@ -77,18 +78,17 @@ const narrator = new Narrator();
 // server, one statement per game month (off when the server isn't running).
 const town = new NpcTown({ place: state, day: clock.day, market: player.market, start: clock.start });
 const api = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api`;
-const residents: ResidentSeed[] = NPCS.map((n) => ({
-  id: n.id,
-  first: n.first,
-  last: n.last,
-  job: n.job,
-  age: n.age,
-  story: `${n.story} ${describeHabit(n.id)}`,
-}));
-const bankClient = new BankClient(`${api}/bank`);
-const bank = new BankSync({ run: `${seed}-${Date.now().toString(36)}`, start: clock.start, base: `${api}/bank` });
+const primaryBase = `${api}/bank`;
+const backgroundBase = `${api}/bank-bg`;
+const residents: ResidentSeed[] = [
+  ...NPCS.map((n) => ({ id: n.id, first: n.first, last: n.last, job: n.job, age: n.age, story: `${n.story} ${describeHabit(n.id)}`, marked: true, bankBase: primaryBase })),
+  ...BACKGROUND_NPCS.map((n) => ({ id: n.id, first: n.first, last: n.last, job: n.job, age: n.age, story: `${n.story} ${describeHabit(n.id)}`, marked: false, bankBase: backgroundBase })),
+];
+const bankClient = new BankClient(primaryBase);
+const bank = new BankSync({ run: `${seed}-${Date.now().toString(36)}`, start: clock.start, base: primaryBase });
 bank.add("player", "Player", player);
-for (const [id, life] of town.lives) bank.add(id, town.profiles.get(id)!.first, life);
+const backgroundIds = new Set(BACKGROUND_NPCS.map((n) => n.id));
+for (const [id, life] of town.lives) bank.add(id, town.profiles.get(id)!.first, life, backgroundIds.has(id) ? { base: backgroundBase } : {});
 void bank.begin();
 // The player's daily snapshots and life events, recorded in Tiger Data for charts, history, and the leaderboard.
 const recorder = new RunRecorder({ life: player, seed, base: api });

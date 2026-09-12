@@ -55,3 +55,14 @@ test("a non-ok response rejects and does not poison the cache", async () => {
   const client = new BankClient("/api/bank", fetchFn);
   await assert.rejects(() => client.statement("npc-maya"));
 });
+
+test("a per-call base overrides the client's default without changing the cache key", async () => {
+  const calledBases: string[] = [];
+  const fetchFn = (async (url: string) => {
+    calledBases.push(url as string);
+    return { ok: true, json: async () => fakeView("npc-bg-oscar") } as Response;
+  }) as typeof fetch;
+  const client = new BankClient("/api/bank", fetchFn);
+  await client.statement("npc-bg-oscar", { base: "/api/bank-bg" });
+  assert.ok(calledBases[0].startsWith("/api/bank-bg/"), calledBases[0]);
+});

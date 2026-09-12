@@ -34,7 +34,7 @@ export class NpcCard {
     window.clearTimeout(this.hideTimer);
     // Residents get a longer window: there's more to read once the statement loads.
     this.hideTimer = window.setTimeout(() => this.hide(), npc.residentId ? 12_000 : 6_000);
-    if (npc.residentId) void this.loadStatement(npc.residentId, generation);
+    if (npc.residentId) void this.loadStatement(npc.residentId, npc.bankBase ?? "", generation);
   }
 
   hide(): void {
@@ -47,9 +47,9 @@ export class NpcCard {
     this.el.style.top = `${Math.max(10, sy - h - 34)}px`;
   }
 
-  private async loadStatement(entity: string, generation: number): Promise<void> {
+  private async loadStatement(entity: string, base: string, generation: number): Promise<void> {
     try {
-      const view = await this.bank.statement(entity);
+      const view = await this.bank.statement(entity, { base });
       if (generation !== this.generation) return; // the player clicked someone else while this was in flight
       this.renderStatement(view);
     } catch {
