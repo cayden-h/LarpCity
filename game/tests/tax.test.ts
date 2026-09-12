@@ -111,6 +111,65 @@ test("stateTax throws on an unknown state abbreviation", () => {
   assert.throws(() => stateTax("ZZ", 10_000));
 });
 
+import { penaltyFor } from "../src/sim/tax/penalties.ts";
+
+test("penaltyFor is all zero when nothing is owed", () => {
+  const p = penaltyFor({ owed: 0, monthsUnfiled: 6, monthsUnpaid: 6 });
+  assert.equal(p.total, 0);
+});
+
+test("penaltyFor is all zero when there's an owed amount but no time has passed", () => {
+  const p = penaltyFor({ owed: 1_000, monthsUnfiled: 0, monthsUnpaid: 0 });
+  assert.equal(p.total, 0);
+});
+
+test("penaltyFor's failure-to-file caps at 25% of the owed amount after 5 months", () => {
+  // monthsUnpaid: 0 isolates the failure-to-file-alone cap: with monthsUnpaid > 0 too,
+  // the overlap rule (failure-to-file reduced to 4.5%/month when failure-to-pay also
+  // applies that month) would cap failureToFile at 22.5%, not 25%, per IRS Topic 653 —
+  // so testing the pure 25% cap needs no concurrent failure-to-pay.
+  const p5 = penaltyFor({ owed: 1_000, monthsUnfiled: 5, monthsUnpaid: 0 });
+  const p12 = penaltyFor({ owed: 1_000, monthsUnfiled: 12, monthsUnpaid: 0 });
+  assert.equal(p5.failureToFile, 250); // 25% of 1000
+  assert.equal(p12.failureToFile, 250); // capped, doesn't keep growing
+});
+
+test("penaltyFor's failure-to-pay caps at 25% of the owed amount", () => {
+  const p = penaltyFor({ owed: 1_000, monthsUnfiled: 0, monthsUnpaid: 60 });
+  assert.equal(p.failureToPay, 250);
+});
+
+test("penaltyFor applies the $525 minimum once filing is more than 60 days (2 months) late", () => {
+  const p = penaltyFor({ owed: 50, monthsUnfiled: 3, monthsUnpaid: 3 }); // tiny owed amount, 3 months late
+  assert.ok(p.total >= 50); // minimum is min(525, owed) = 50 here since owed < 525
+});
+
+test("penaltyFor charges interest only on time actually unpaid, proportional to months", () => {
+  const p1 = penaltyFor({ owed: 1_000, monthsUnfiled: 0, monthsUnpaid: 1 });
+  const p2 = penaltyFor({ owed: 1_000, monthsUnfiled: 0, monthsUnpaid: 2 });
+  assert.ok(p2.interest > p1.interest);
+});
+
+test("penaltyFor reduces failure-to-file by failure-to-pay in overlapping months, not just at the cap", () => {
+  // 3 months, both unfiled and unpaid the whole time: each month is 4.5% FTF + 0.5% FTP.
+  const p = penaltyFor({ owed: 1_000, monthsUnfiled: 3, monthsUnpaid: 3 });
+  assert.equal(p.failureToFile, 135); // 1000 * 3 * 0.045
+  assert.equal(p.failureToPay, 15); // 1000 * 3 * 0.005
+});
+
+test("penaltyFor's minimum penalty does not trigger from failure-to-pay alone when the return was filed on time", () => {
+  // monthsUnfiled: 0 (filed on time) but monthsUnpaid: 60 (long unpaid): the $525-or-100%
+  // minimum is specifically for a return filed more than 60 days late (IRS Topic 653),
+  // not for slow payment, so it must not force the total up to the minimum here.
+  const p = penaltyFor({ owed: 10, monthsUnfiled: 0, monthsUnpaid: 60 });
+  const withoutMinimum = round2ForTest(0 + Math.min(10 * 0.25, 10 * 0.005 * 60) + 10 * 0.08 * (60 / 12));
+  assert.equal(p.total, withoutMinimum); // 6.5: had the $10 minimum applied instead, total would be 10
+});
+
+function round2ForTest(x: number) {
+  return Math.round(x * 100) / 100;
+}
+
 import { withholdingForPaycheck } from "../src/sim/tax/withholding.ts";
 
 test("withholdingForPaycheck on a $0 paycheck withholds $0 of everything", () => {
