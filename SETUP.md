@@ -235,6 +235,8 @@ Prizes: 3 months of Scale tier for "impactful use" of ElevenLabs audio, and wire
 5. Agent > Tools > Add Tool, type **Client**: name `submit_finances`, parameters `job` (string), `salary`, `rent`, `debt`, `savings` (numbers), and turn on **Wait for response**.
    Names are case-sensitive and must match the browser code.
 6. Optional backup: Analysis > Data collection with the same five fields; results arrive in the post-call webhook at `analysis.data_collection_results` (signed with an `elevenlabs-signature` header).
+   To turn it on, add a post-call webhook in the agents settings with the URL `https://<host>/api/voice/webhook`, enable only transcription events (audio events are large and unused), and put the secret it shows in `ELEVENLABS_WEBHOOK_SECRET`.
+   The server stores each call in `voice_interviews`; after hanging up, the browser posts its conversation id to `/api/voice/interview/claim` and polls until `ready` is true.
 7. Turn on authentication for the agent so the browser needs a signed URL.
 
 ### 2. Keys
@@ -244,7 +246,7 @@ Prizes: 3 months of Scale tier for "impactful use" of ElevenLabs audio, and wire
 | `ELEVENLABS_API_KEY` | all calls (server only) |
 | `ELEVENLABS_AGENT_ID` | signed URL for the interview agent |
 | `ELEVENLABS_VOICE_MAYOR`, `ELEVENLABS_VOICE_ANCHOR` | narrator voices |
-| `ELEVENLABS_WEBHOOK_SECRET` | only if we use the post-call webhook |
+| `ELEVENLABS_WEBHOOK_SECRET` | verifies the post-call webhook; without it `/api/voice/webhook` answers 503 |
 
 Packages: `@elevenlabs/elevenlabs-js` (server) and `@elevenlabs/client` (browser).
 

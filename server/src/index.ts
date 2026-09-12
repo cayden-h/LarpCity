@@ -20,7 +20,7 @@ const { errorHandler } = await import("./middleware/errorHandler.js");
 const { healthRouter } = await import("./routes/health.js");
 const { personaRouter, personaWebhookRouter } = await import("./routes/persona.js");
 const { nessieRouter } = await import("./routes/nessie.js");
-const { voiceRouter } = await import("./routes/voice.js");
+const { voiceRouter, voiceWebhookRouter } = await import("./routes/voice.js");
 const { aiRouter } = await import("./routes/ai.js");
 const { coachRouter } = await import("./routes/coach.js");
 const { snapshotRouter } = await import("./routes/snapshot.js");
@@ -35,8 +35,9 @@ app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 
 app.use("/api", healthRouter);
 
-// Mounted before express.json(): Persona's HMAC check needs the exact raw body.
+// Mounted before express.json(): the Persona and ElevenLabs HMAC checks need the exact raw body.
 app.use("/api/persona", strictLimiter, personaWebhookRouter);
+app.use("/api/voice", strictLimiter, voiceWebhookRouter);
 
 app.use(express.json({ limit: "2mb" }));
 app.use(sessionMiddleware);
