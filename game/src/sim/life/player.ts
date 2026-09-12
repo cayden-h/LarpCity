@@ -25,6 +25,7 @@ import type { Account, Holding } from "../money/types.ts";
 import { CrashWatch } from "../skip/crash.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
 import { cashRateOn } from "./rates.ts";
+import { Twins } from "./twins.ts";
 
 /** What the life needs to know about where the player lives (a StateInfo satisfies it). */
 export interface Place {
@@ -77,6 +78,14 @@ export interface LifeSnapshot {
   debt: number;
   netWorth: number;
   score: number;
+  /** Brokerage holdings at the day's prices. */
+  brokerage: number;
+  /** The player's investing line: brokerage plus the cash sells took out (sim/life/twins.ts). */
+  you: number;
+  /** The same buys, never sold. */
+  held: number;
+  /** The same dollars at 90/10 LTM/BOND, never sold. */
+  autopilot: number;
 }
 
 export interface LifeOptions {
@@ -152,6 +161,8 @@ export class PlayerLife {
   /** The latest game day the life has seen; holdings are valued at this day's prices. */
   today: number;
   readonly history: LifeSnapshot[] = [];
+  /** Shadow portfolios of the player's buys, for "if you had held" and "autopilot". */
+  readonly twins: Twins;
   private readonly startDay: number;
   private readonly startAge: number;
   private readonly cashRate: (date: Date) => number;
@@ -178,6 +189,7 @@ export class PlayerLife {
     this.ledger = new Ledger(o.accounts ?? defaultAccounts(o.day));
     this.market = o.market ?? new MarketPath();
     this.cashRate = o.cashRate ?? cashRateOn;
+    this.twins = new Twins(this.market);
     this.record(o.day);
   }
 
@@ -232,7 +244,10 @@ export class PlayerLife {
   /** Buys `amount` dollars of an instrument from checking at today's price (fractional units). */
   buy(id: InstrumentId, amount: number, day = this.today, recurring = false): TradeResult {
     const result = this.fill(id, "buy", amount, day, recurring);
-    if (result.ok) this.emit([result.event]);
+    if (result.ok) {
+      this.record(day);
+      this.emit([result.event]);
+    }
     return result;
   }
 
@@ -241,7 +256,10 @@ export class PlayerLife {
     const pos = this.position(id);
     if (!pos) return { ok: false, error: "You don't own any." };
     const result = this.fill(id, "sell", amount === "all" ? pos.value : amount, day, false, amount === "all");
-    if (result.ok) this.emit([result.event]);
+    if (result.ok) {
+      this.record(day);
+      this.emit([result.event]);
+    }
     return result;
   }
 
@@ -482,6 +500,7 @@ export class PlayerLife {
       checking.balance = round2(checking.balance - dollars);
       h.units += units;
       h.cost = round2(h.cost + dollars);
+      this.twins.buy(id, dollars, day);
     } else {
       units = all ? h.units : Math.min(h.units, dollars / price);
       if (units <= 1e-9) return { ok: false, error: "You don't own any." };
@@ -490,6 +509,7 @@ export class PlayerLife {
       h.cost = round2(h.cost * (1 - units / h.units));
       h.units = all ? 0 : h.units - units;
       checking.balance = round2(checking.balance + proceeds);
+      this.twins.sell(proceeds);
       return { ok: true, event: { type: "trade", day, id, side, amount: proceeds, units, price, recurring } };
     }
     return { ok: true, event: { type: "trade", day, id, side, amount: dollars, units, price, recurring } };
@@ -504,7 +524,19 @@ export class PlayerLife {
     const cash = this.cash();
     const investments = this.investments();
     const debt = this.totalDebt();
-    return { day, cash, investments, debt, netWorth: round2(cash + investments - debt), score: this.book.profile.score };
+    const brokerage = round2(this.positions(day).reduce((t, p) => t + p.value, 0));
+    return {
+      day,
+      cash,
+      investments,
+      debt,
+      netWorth: round2(cash + investments - debt),
+      score: this.book.profile.score,
+      brokerage,
+      you: this.twins.you(brokerage),
+      held: this.twins.held(day),
+      autopilot: this.twins.autopilot(day),
+    };
   }
 
   private record(day: number) {
