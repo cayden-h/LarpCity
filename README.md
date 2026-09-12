@@ -38,7 +38,7 @@ The player's phone (the hub for the game's apps: Stocks now, News, Mail, and Ban
 
 ## Repository layout
 
-Everything for Larp City lives in this folder, so it can become a GitHub repository as is.
+Everything for Larp City lives in this folder, which is the private GitHub repository https://github.com/cayden-h/LarpCity (branch `main`).
 
 | Path | What it is |
 | --- | --- |
