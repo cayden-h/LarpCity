@@ -19,7 +19,11 @@ The answers are remembered in the browser: add `?intake=1` to do the intake agai
 ## What you can do
 
 - **Intake:** before the city opens, the owl narrator (an ElevenLabs voice agent with a dry, deadpan English voice) asks for your job, salary, rent, debt, and savings, real or made up, and you check the numbers before moving in. You can type them instead, or skip to the sample household. Your life starts from those numbers: take-home is 80% of the salary, the rent is what you said (rescaled if you move states), the debt is a credit card for the first $5,000 plus a personal loan for the rest, and the savings sit in high-yield savings.
-- **Narrator:** the owl narrates the big moments at the bottom of the screen, read aloud with each word lighting up as it's spoken: arriving, paying off a debt, a missed payment, collections, bankruptcy, a big credit score change, a new home, a move, and the end of a fast-forward. The mute button keeps the captions and drops the voice. The lines are in `src/narration/lines.ts`; the owl's animations are cut from the sheets in `art/owl/` by `art/owl/slice.py`.
+  Everyone also starts with the starter portfolio (`STARTER_PORTFOLIO`), on top of the stated savings and debt, so net worth moves with the market from day one.
+- **Narrator:** the owl narrates the big moments at the bottom of the screen, read aloud with each word lighting up as it's spoken: arriving, paying off a debt, a missed payment, collections, bankruptcy, a big credit score change, a new home, a move, a market crash (a bear market, as the Money window opens on the crash decision) and the market's return to its high, and the end of a fast-forward.
+  While the owl talks over the U.S. map, the Money window, or the fast-forward, the window leaves a band clear at the bottom for it.
+  The mute button keeps the captions and drops the voice.
+  The lines are in `src/narration/lines.ts`; the owl's animations are cut from the sheets in `art/owl/` by `art/owl/slice.py`.
 - Drag to pan anywhere in the world, and scroll to zoom (zoom out to see the suburbs, farms, and the state's terrain).
 - **NPCs:** click a person on the sidewalk to see their name, job, and what they are thinking about money right now.
 - **Your home:** the one card always on screen, at the bottom left.
