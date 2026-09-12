@@ -107,6 +107,12 @@ export interface MoneyHost {
   clock: Clock;
   /** Decision events the city parked with `Phone.showDecision`, cleared as they're taken. */
   takeDecisions: () => LifeEvent[];
+  /**
+   * Hands events back for the next `takeDecisions()`, e.g. when the desk
+   * already has a decision open and can't ask a newly arrived one yet. Does
+   * not reopen the desk.
+   */
+  parkDecisions: (events: LifeEvent[]) => void;
   /** Calls `fn` each time the Money window is shown. */
   onShow: (fn: () => void) => void;
   /** The city's run recorder, or null when the city isn't recording. */
@@ -143,6 +149,7 @@ export class Phone {
       life: () => this.deps.player,
       clock: deps.clock,
       takeDecisions: () => this.parked.splice(0),
+      parkDecisions: (events) => this.parked.push(...events),
       onShow: (fn) => this.showListeners.push(fn),
       recorder: () => this.deps.recorder ?? null,
     };
@@ -262,6 +269,8 @@ export class Phone {
   showDecision(events: LifeEvent[]) {
     this.parked.push(...events);
     this.openDesk();
+    // A decision moment keeps the city paused until the player presses play.
+    this.resumeSpeed = 0;
   }
 
   private openDesk() {

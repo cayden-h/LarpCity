@@ -329,18 +329,23 @@ const DECISION_RANK: Partial<Record<LifeEvent["type"], number>> = { bankruptcy_e
 function showParkedDecisions() {
   if (!host) return;
   const parked = host.takeDecisions().sort((a, b) => (DECISION_RANK[a.type] ?? 9) - (DECISION_RANK[b.type] ?? 9));
+  const deferred: LifeEvent[] = [];
   for (const e of parked) {
-    const d = "debtId" in e ? life.book.debts.find((x) => x.id === e.debtId) : undefined;
-    if (!decision) {
-      if (e.type === "bankruptcy_eligible") askBankruptcy(e.reason);
-      else if (e.type === "cannot_cover" && d) askCannotCover(d, e.due, e.available);
-      else if (e.type === "bear_market") askBearMarket(e.day, e.drop, e.stocks);
-      if (decision) continue;
+    if (decision) {
+      // A decision is already open; wait for the desk's next show instead of losing this one.
+      deferred.push(e);
+      continue;
     }
+    const d = "debtId" in e ? life.book.debts.find((x) => x.id === e.debtId) : undefined;
+    if (e.type === "bankruptcy_eligible") askBankruptcy(e.reason);
+    else if (e.type === "cannot_cover" && d) askCannotCover(d, e.due, e.available);
+    else if (e.type === "bear_market") askBearMarket(e.day, e.drop, e.stocks);
+    if (decision) continue;
     // The listener already logged the crash itself.
     if (e.type === "bankruptcy_eligible") log(e.day, "Bankruptcy became an option", "down");
     else if (e.type === "cannot_cover") log(e.day, `You couldn't cover the ${d?.name ?? ""} payment`, "down");
   }
+  if (deferred.length) host.parkDecisions(deferred);
   render();
 }
 

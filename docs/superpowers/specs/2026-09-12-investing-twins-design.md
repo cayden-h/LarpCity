@@ -70,6 +70,8 @@ Inside the city, the city owns decision moments; the desk is an iframe that may 
 - Each time the window is shown, and once when the desk first loads, the desk takes the parked events and opens the most important one (bankruptcy, then a payment it can't cover, then the crash); the rest go to the feed.
 - The desk's own listener still logs these events in the city, but opens decisions from it only when standalone.
 - Answering a decision in the city leaves time paused, as the window says ("City time is paused until you press play"); the standalone desk resumes its clock.
+- `Phone.showDecision` sets `resumeSpeed` to 0 right after opening the desk, so a decision keeps the city paused until the player presses play even if the window is closed and reopened before it's answered.
+- If a decision arrives while the desk already has one open, the desk hands it back to the phone with `MoneyHost.parkDecisions` instead of just logging it, so the next time the window is shown it's asked in the usual priority order.
 
 ## 3. Investing page
 
