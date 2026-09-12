@@ -64,6 +64,8 @@ const STRATEGIES: [Strategy, string][] = [
 ];
 /** Sliders that show a percent but store a share. */
 const PERCENT_KEYS = new Set<OrderKey>(["k401Pct", "stockPct"]);
+/** The preview appears once this many futures exist and refines as the rest arrive. */
+const MIN_FUTURES = 20;
 
 function dollars(v: number): string {
   return `${v < 0 ? "−" : ""}$${Math.round(Math.abs(v)).toLocaleString("en-US")}`;
@@ -131,8 +133,10 @@ export class FastForward {
   private armed = false;
   private resumeSpeed = 1;
   private timer = 0;
-  /** The preview's other possible markets, built once in the background; null until ready. */
+  /** The preview's other possible markets, built once in the background; null until all are ready. */
   private futures: Future[] | null = null;
+  /** Futures filled in so far, in order; the first `built` entries are ready. */
+  private partial: Future[] = [];
   private built = 0;
 
   constructor(deps: FastForwardDeps) {
@@ -183,6 +187,7 @@ export class FastForward {
   /** Builds the preview's futures in a worker at game start, so the preview is ready when the screen opens. */
   private warm(): void {
     const got: Future[] = new Array(PREVIEW_RUNS);
+    this.partial = got;
     const done = () => {
       this.futures = got;
       if (!this.el.hidden) this.renderPreview();
@@ -279,7 +284,7 @@ export class FastForward {
           <div class="ff-chart" data-chart></div>
           <ul class="ff-stats" data-stats></ul>
           <button type="button" class="ff-go" data-start>Fast-forward ⏩</button>
-          <p class="ff-fine">The preview plays your plan in 100 other possible markets. Your real run keeps its own luck.</p>
+          <p class="ff-fine" data-fine></p>
         </section>
       </div>
     </div>`;
@@ -372,7 +377,7 @@ export class FastForward {
           : `Debt-free in ${duration(p.months * 30.44)} (${monthLabel(monthDate(clock.date, p.months))}), paying ${dollars(p.interest)} of interest.`,
       );
     }
-    this.hint("emergencyMonths", `You have ${dollars(player.ledger.accounts.get("emergency")?.balance ?? 0)} set aside. Recommended: 3 months.`);
+    this.hint("emergencyMonths", `Your emergency fund has ${dollars(player.ledger.accounts.get("emergency")?.balance ?? 0)} in it. Recommended: 3 months.`);
     this.hint("lifestyle", `Living costs besides rent: ${dollars(b.living)} a month.`);
     this.hint(
       "crashRule",
@@ -498,14 +503,20 @@ export class FastForward {
 
   private renderPreview(): void {
     const { player, clock } = this.deps;
-    if (!this.futures) {
+    // The worker keeps reporting in after a fast-forward has replaced the setup with the result card.
+    if (!this.el.querySelector("[data-chart]")) return;
+    const futures = this.futures ?? (this.built >= MIN_FUTURES ? this.partial.slice(0, this.built) : null);
+    if (!futures) {
       this.q("[data-chart]").innerHTML = `<div class="ff-loading">Simulating ${PREVIEW_RUNS} possible futures… ${this.built} of ${PREVIEW_RUNS}</div>`;
       this.q("[data-stats]").innerHTML = "";
       return;
     }
-    const p = runPreview(player, this.orders, this.goal(), { futures: this.futures, month: futureMonth(player.market.start, clock.date), capAge: this.capAge });
+    const p = runPreview(player, this.orders, this.goal(), { futures, month: futureMonth(player.market.start, clock.date), capAge: this.capAge });
     this.q("[data-chart]").innerHTML = this.chart(p);
     this.q("[data-stats]").innerHTML = this.stats(p);
+    this.q("[data-fine]").textContent = this.futures
+      ? `The preview plays your plan in ${PREVIEW_RUNS} other possible markets. Your real run keeps its own luck.`
+      : `The preview plays your plan in ${futures.length} of ${PREVIEW_RUNS} possible markets so far. Your real run keeps its own luck.`;
   }
 
   private stats(p: Preview): string {
@@ -576,6 +587,24 @@ export class FastForward {
       const year = start.getFullYear() + Math.round((start.getMonth() + m) / 12);
       if (year % tickEvery === 0) grid.push(`<text x="${x(m).toFixed(1)}" y="${H - 6}" text-anchor="middle">${year}</text>`);
     }
+    // The preset AI Boom and AI Bubble Pop (the same days in every run), with the pop's fall shaded.
+    const { market } = this.deps.player;
+    const today = futureMonth(market.start, start);
+    const monthOf = (day: number) => futureMonth(market.start, market.dateOf(day)) - today;
+    const boom = monthOf(market.presets.boomDay);
+    const pop = monthOf(market.presets.popDay);
+    const popEnd = monthOf(market.presets.popEndDay);
+    const marker = (m: number, label: string, row: number) => {
+      if (m < 0 || m > n) return "";
+      const mx = x(m).toFixed(1);
+      const anchor = m / n > 0.7 ? "end" : "start";
+      return `<line x1="${mx}" x2="${mx}" y1="${T - 12 + row * 10}" y2="${H - B}" class="marker"/><text x="${mx}" y="${T - 14 + row * 10}" dx="${anchor === "start" ? 3 : -3}" text-anchor="${anchor}" class="marker-label">${label}</text>`;
+    };
+    const popZone =
+      pop <= n && popEnd >= 0
+        ? `<rect x="${x(Math.max(0, pop)).toFixed(1)}" y="${T}" width="${(x(Math.min(n, popEnd)) - x(Math.max(0, pop))).toFixed(1)}" height="${H - T - B}" class="pop-zone"/>`
+        : "";
+    const markers = marker(boom, "AI Boom", 0) + marker(pop, "AI Bubble Pop", 1);
     const goal =
       goalLine === null
         ? ""
@@ -583,10 +612,10 @@ export class FastForward {
     const reach = p.reachTypical !== null && p.reachTypical > 0 ? `<circle cx="${x(p.reachTypical).toFixed(1)}" cy="${y(p.p50[p.reachTypical]).toFixed(1)}" r="4.5" class="reach"/>` : "";
 
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Net worth from now to age ${this.capAge}: the typical path and the range from bad to good luck">
-      ${grid.join("")}
+      ${grid.join("")}${popZone}
       ${flat ? "" : `<path d="${band}" class="band"/>`}
       <path d="${median}" class="median"/>
-      ${goal}${reach}
+      ${goal}${markers}${reach}
     </svg>
     <div class="ff-legend">${
       flat

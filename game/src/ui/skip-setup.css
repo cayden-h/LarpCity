@@ -294,7 +294,8 @@
   margin-top: 10px;
   padding: 10px 12px;
   border-radius: 12px;
-  box-shadow: 0 -12px 10px -6px #fff;
+  /* A white fade above it hides the rows scrolling underneath. */
+  box-shadow: 0 -18px 14px -2px #fff;
   font-size: 13px;
   line-height: 1.45;
 }
@@ -372,6 +373,9 @@
 .ff-chart .marker-label {
   fill: #c8362f;
   font-weight: 600;
+}
+.ff-chart .pop-zone {
+  fill: rgba(232, 85, 78, 0.09);
 }
 .ff-chart .reach {
   fill: var(--yellow, #ffcf33);

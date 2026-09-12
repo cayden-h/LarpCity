@@ -53,8 +53,9 @@ export function currentOrders(life: PlayerLife): StandingOrders {
 /**
  * The plan research/10 recommends: the full employer match, 3 months of
  * emergency fund, stocks by age (110 minus age, between 50% and 90%),
- * avalanche on debt, hold through crashes, and the spare money split between
- * extra debt payments and a recurring deposit.
+ * avalanche on debt, and hold through crashes. Spare money goes to
+ * high-interest debt first (never less than today's extra payment), then half
+ * of what's left to a recurring deposit, and the rest builds the emergency fund.
  */
 export function recommendedOrders(life: PlayerLife): StandingOrders {
   const o: StandingOrders = {
@@ -68,9 +69,9 @@ export function recommendedOrders(life: PlayerLife): StandingOrders {
     depositMonthly: 0,
   };
   const free = Math.max(0, budget(life, o).surplus);
-  o.extraMonthly = life.totalDebt() > 0 ? roundTo(free * 0.4, 25) : 0;
-  // Leave about a third of the rest to build the emergency fund.
-  o.depositMonthly = roundTo((free - o.extraMonthly) * 0.6, 25);
+  const affordable = Math.floor(free / 25) * 25;
+  o.extraMonthly = life.totalDebt() > 0 ? Math.min(affordable, Math.max(life.book.extraMonthly, roundTo(free * 0.7, 25))) : 0;
+  o.depositMonthly = Math.floor((Math.max(0, free - o.extraMonthly) * 0.5) / 25) * 25;
   return o;
 }
 

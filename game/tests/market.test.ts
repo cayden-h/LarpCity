@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MarketPath, INSTRUMENTS } from "../src/sim/market/index.ts";
+import { MarketPath, INSTRUMENTS, AI_BOOM_START, AI_BUBBLE_POP_START } from "../src/sim/market/index.ts";
 import { PlayerLife, type Place } from "../src/sim/life/index.ts";
 import { MARKET } from "../src/data/market.ts";
 
@@ -68,6 +68,25 @@ test("long-run growth and volatility match research/03's calibration", () => {
     return Math.sqrt(r.reduce((s, x) => s + (x - mean) ** 2, 0) / r.length);
   };
   assert.ok(vol("BOND") < vol("LTM") && vol("LTM") < vol("NNST"), "bonds calmer than the index, the single stock wildest");
+});
+
+test("the AI boom and bubble pop land on their preset dates in every run", () => {
+  for (const seed of [1, 2, 3, 20260911]) {
+    const m = new MarketPath(seed);
+    const { boomDay, popDay, popEndDay, boomMultiple, popDepth, nnstPopDepth } = m.presets;
+    assert.equal(m.dateOf(boomDay).toDateString(), AI_BOOM_START.toDateString());
+    assert.equal(m.dateOf(popDay).toDateString(), AI_BUBBLE_POP_START.toDateString()); // Sep 1, 2028 is a Friday
+    assert.ok(boomMultiple >= 3 && boomMultiple <= 4 && popDepth >= 0.2 && popDepth <= 0.3 && nnstPopDepth >= 0.7 && nnstPopDepth <= 0.85);
+    assert.ok(Math.abs(m.price("NNST", popDay - 1) / m.price("NNST", boomDay - 1) - boomMultiple) < 1e-9, `seed ${seed}: the boom lands on its multiple`);
+    // The steered fall lands exactly on the preset depths.
+    assert.ok(Math.abs(1 - m.level(popEndDay - 1) / m.level(popDay - 1) - popDepth) < 1e-9);
+    assert.ok(Math.abs(1 - m.price("NNST", popEndDay - 1) / m.price("NNST", popDay - 1) - nnstPopDepth) < 1e-9);
+    assert.equal(m.regime(popDay + 10), "bear");
+    assert.equal(m.regime(popEndDay), "bull");
+  }
+  // Other dates can be passed in, for tests and for when the team picks them.
+  const early = new MarketPath(5, START, { boom: new Date(2026, 9, 1), pop: new Date(2027, 0, 4) });
+  assert.equal(early.presets.popDay, early.dayOf(new Date(2027, 0, 4)));
 });
 
 test("buying moves cash into holdings without changing net worth", () => {

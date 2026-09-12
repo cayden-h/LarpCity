@@ -1,0 +1,101 @@
+// Robinhood-style charts for the Money desk: one line, no axes, a dotted line
+// at the range's starting value, and pointer scrubbing that reports the point
+// under the cursor so the page can update its big number. Sparklines are the
+// same idea at row size.
+
+export interface ChartPt {
+  /** Game day. */
+  x: number;
+  y: number;
+}
+
+export interface BigChartOpts {
+  pts: ChartPt[];
+  /** A second, dashed comparison line (for example, paying only minimums). */
+  ghost?: ChartPt[];
+  /** Draw the dotted baseline at the first point's value. */
+  baseline?: boolean;
+  /** Smallest y span to draw, so a 1-point score change doesn't fill the chart. */
+  minSpan?: number;
+  /** Called with the point under the pointer, or null when the pointer leaves. */
+  onScrub: (p: ChartPt | null) => void;
+  /** Label above the cursor for a point (usually its date). */
+  label: (p: ChartPt) => string;
+}
+
+const W = 1000;
+const H = 240;
+const PAD = 14;
+
+export function mountBigChart(el: HTMLElement, o: BigChartOpts): void {
+  const all = o.ghost ? o.pts.concat(o.ghost) : o.pts;
+  if (o.pts.length < 2) {
+    // A day-0 run has one snapshot; show a flat line instead of an empty box.
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}" class="bc-line" vector-effect="non-scaling-stroke"/></svg><div class="bc-empty">Press play or skip ahead to build your history</div>`;
+    el.onpointermove = el.onpointerleave = null;
+    return;
+  }
+  const ys = all.map((p) => p.y);
+  const lo = Math.min(...ys);
+  const hi = Math.max(...ys);
+  const mid = (lo + hi) / 2;
+  const half = Math.max((hi - lo) / 2, (o.minSpan ?? 0) / 2, Math.abs(mid) * 1e-4, 1e-6);
+  const x0 = Math.min(...all.map((p) => p.x));
+  const x1 = Math.max(...all.map((p) => p.x));
+  const X = (x: number) => ((x - x0) / (x1 - x0 || 1)) * W;
+  const Y = (y: number) => PAD + (1 - (y - (mid - half)) / (half * 2)) * (H - PAD * 2);
+  const path = (arr: ChartPt[]) => arr.map((p, i) => `${i ? "L" : "M"}${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join("");
+  const base = o.baseline === false ? "" : `<line x1="0" x2="${W}" y1="${Y(o.pts[0].y).toFixed(1)}" y2="${Y(o.pts[0].y).toFixed(1)}" class="bc-base" vector-effect="non-scaling-stroke"/>`;
+  const ghost = o.ghost?.length ? `<path d="${path(o.ghost)}" class="bc-ghost" vector-effect="non-scaling-stroke"/>` : "";
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Chart">
+      ${base}${ghost}<path d="${path(o.pts)}" class="bc-line" vector-effect="non-scaling-stroke"/>
+      <line class="bc-cursor" x1="0" x2="0" y1="0" y2="${H}" vector-effect="non-scaling-stroke" visibility="hidden"/>
+    </svg><div class="bc-when" hidden></div><span class="bc-dot" hidden></span>`;
+  const svg = el.querySelector("svg")!;
+  const cursor = el.querySelector<SVGLineElement>(".bc-cursor")!;
+  const when = el.querySelector<HTMLElement>(".bc-when")!;
+  const dot = el.querySelector<HTMLElement>(".bc-dot")!;
+  el.onpointermove = (ev) => {
+    const r = svg.getBoundingClientRect();
+    const fx = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width));
+    const target = x0 + fx * (x1 - x0);
+    let p = o.pts[0];
+    for (const q of o.pts) if (Math.abs(q.x - target) < Math.abs(p.x - target)) p = q;
+    const px = (X(p.x) / W) * r.width;
+    cursor.setAttribute("x1", X(p.x).toFixed(1));
+    cursor.setAttribute("x2", X(p.x).toFixed(1));
+    cursor.setAttribute("visibility", "visible");
+    when.hidden = false;
+    when.textContent = o.label(p);
+    when.style.left = `${Math.max(40, Math.min(r.width - 40, px))}px`;
+    dot.hidden = false;
+    dot.style.left = `${px}px`;
+    dot.style.top = `${(Y(p.y) / H) * r.height}px`;
+    o.onScrub(p);
+  };
+  el.onpointerleave = () => {
+    cursor.setAttribute("visibility", "hidden");
+    when.hidden = true;
+    dot.hidden = true;
+    o.onScrub(null);
+  };
+}
+
+/** A row-sized line; `tone` picks the color class. */
+export function spark(values: number[], tone: "up" | "down" | "flat"): string {
+  if (values.length < 2) return `<svg class="spark" viewBox="0 0 72 28" aria-hidden="true"><line x1="0" x2="72" y1="14" y2="14" class="sp-${tone}"/></svg>`;
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const d = values.map((v, i) => `${i ? "L" : "M"}${((i / (values.length - 1)) * 72).toFixed(1)},${(26 - ((v - lo) / (hi - lo || 1)) * 24).toFixed(1)}`).join("");
+  return `<svg class="spark" viewBox="0 0 72 28" aria-hidden="true"><path d="${d}" class="sp-${tone}"/></svg>`;
+}
+
+/** Evenly thins a long series to about `max` points so paths stay light. */
+export function thin<T>(arr: T[], max = 400): T[] {
+  if (arr.length <= max) return arr;
+  const step = arr.length / max;
+  const out: T[] = [];
+  for (let i = 0; i < max; i++) out.push(arr[Math.floor(i * step)]);
+  out[out.length - 1] = arr[arr.length - 1];
+  return out;
+}
