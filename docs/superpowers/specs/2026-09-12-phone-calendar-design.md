@@ -56,8 +56,8 @@ The forecast looks up to three years ahead, which always reaches the preset AI B
 
 ### Forecast (`game/src/sim/calendar/forecast.ts`)
 
-`nextDecisionDay(life, fromDay, date, horizon)` runs a copy of the life ahead until `needsDecision` fires (about 3 ms per simulated year).
-Because the sim is deterministic, the result stays valid until the player acts (any emit that isn't a day tick) or rewinds, or the day passes; only then is it recomputed.
+`nextDecisionDay(life, dateOf, horizon)` runs a detached copy of the life ahead until `needsDecision` fires (about 3 ms per simulated year).
+Because the sim is deterministic, the calendar keeps the result until the life's day or its log changes (a new day, a trade, a rewind), then recomputes it.
 
 ### Calendar data (`game/src/sim/calendar/`)
 
@@ -76,10 +76,20 @@ Because the sim is deterministic, the result stays valid until the player acts (
 
 ### UI (`game/src/ui/calendar.ts`, `calendar.css`)
 
-A self-contained component mounted in the phone's app view, with its dependencies passed in (clock, life, timeline, forecast, `rewindTo`, `skipTo`).
-It re-renders when shown, on each game day, and on life events while visible.
+A self-contained component mounted in the phone's app view, with its dependencies passed in (the clock, the life, `firstDay`, `rewindTo`, `skipTo`, and `onHome`).
+It re-renders when shown, and the phone's once-a-second status tick redraws it whenever the day, the log, or the speed changed.
 
 ## Testing
 
 Node tests (no DOM) for the copy, checkpoint and restore (exact state after a manual trade, after thinning, after a fast-forward), the marks, the schedule, the forecast (matches the first decision of a live run), the recorder fork (fake fetch), and the mirror rewind; a server test for the fork route's body and, with `TEST_DATABASE_URL`, the fork query.
 Then an end-to-end pass in the browser: go back to a past day and check the money matches that day, skip to the decision day, and pixel-check every sheet.
+
+## Changed during the build
+
+- Chips are one short word (Pay, Rent, Bills, Card, Car, Loan, Buy, Sell), since a month cell fits about five letters at the phone's narrowest; the sheet says the rest.
+- A card falls due on its statement's due day (the statement closes on its day of the month and is due `GRACE_DAYS` later), matching the debt engine, not on the day the statement closes.
+- The months the player can page through reach the next decision day's month, which for the sample life is the crash after the AI Bubble Pop in November 2028.
+- The decision day's sheet says how far off it is in days, then months, then years.
+- The year row scrolls sideways instead of wrapping.
+- Pixelify Sans had four glyphs whose openings close up at small sizes (2 read as 8, 5 as S, C and c as O and o); `game/scripts/fix_pixelify_glyphs.py` redraws them on the font's grid, and the pixel theme turns off its "fi" and "fl" ligatures, which read as "A".
+
