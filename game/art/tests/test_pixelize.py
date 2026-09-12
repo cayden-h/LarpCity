@@ -2,6 +2,7 @@
 import contextlib
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -111,6 +112,23 @@ class Pixelize(unittest.TestCase):
             self.run_main("--only", "box-b")
         self.assertIn("box-a", str(cm.exception.code))
         self.assertNotIn("box-b", str(cm.exception.code))
+
+    def test_an_output_older_than_its_raw_is_reported(self):
+        self.run_main()
+        raw = self.art / ".raw" / CITY / "box-a.day.png"
+        later = (self.out / "box-a.png").stat().st_mtime_ns + 10**9
+        os.utime(raw, ns=(later, later))
+        with self.assertRaises(SystemExit) as cm:
+            self.run_main("--only", "box-b")
+        self.assertIn("box-a", str(cm.exception.code))
+        self.assertNotIn("box-b", str(cm.exception.code))
+
+    def test_a_missing_raw_outside_only_is_reported_not_raised(self):
+        self.run_main()
+        (self.art / ".raw" / CITY / "box-a.night.png").unlink()
+        with self.assertRaises(SystemExit) as cm:
+            self.run_main("--only", "box-b")
+        self.assertIn("box-a", str(cm.exception.code))
 
     def test_a_wrong_render_scale_is_an_error(self):
         raw = self.art / ".raw" / CITY / "raw.json"

@@ -8,9 +8,10 @@ with the walls tinted pink, mint, and butter, the way the game tints them.
 import argparse
 import json
 import re
+from math import ceil
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 HERE = Path(__file__).resolve().parent
 BG = (138, 148, 173, 255)
@@ -18,6 +19,7 @@ TINTS = [(246, 184, 200), (191, 230, 208), (251, 231, 161)]
 GAP = 12
 LABEL = 14            # height of the id line above each sprite
 MAX_W = MAX_H = 4000  # a page's size limit; a sprite bigger than that gets a row or a page to itself
+FONT = ImageFont.load_default()  # the labels' font, also used to measure them
 
 
 def tinted(day, walls, color):
@@ -27,18 +29,19 @@ def tinted(day, walls, color):
     return out
 
 
-def cell_size(variants):
-    """A sprite's cell: its label, then the 1x sprite and each variant at 4x in a row, bottoms aligned."""
+def cell_size(label, variants):
+    """A sprite's cell: its label, then the 1x sprite and each variant at 4x in a row, bottoms aligned. It is
+    never narrower than the label, so a label never runs into the next cell."""
     w, h = variants[0].size
-    return w + len(variants) * (w * 4 + GAP), LABEL + max(h * 4, 16)
+    return max(w + len(variants) * (w * 4 + GAP), ceil(FONT.getlength(label))), LABEL + max(h * 4, 16)
 
 
-def layout(sizes):
-    """Pack cells of the given (w, h) sizes, in order, into rows that wrap at MAX_W and pages that end at MAX_H.
+def layout(sizes, max_w=MAX_W, max_h=MAX_H):
+    """Pack cells of the given (w, h) sizes, in order, into rows that wrap at max_w and pages that end at max_h.
     Returns one (cells, width, height) per page, where cells are (index, x, y)."""
     rows, row, x = [], [], GAP
     for i, (w, _) in enumerate(sizes):
-        if row and x + w + GAP > MAX_W:
+        if row and x + w + GAP > max_w:
             rows.append(row)
             row, x = [], GAP
         row.append((i, x))
@@ -47,7 +50,7 @@ def layout(sizes):
     pages, page, y, width = [], [], GAP, 0
     for row in rows:
         h = max(sizes[i][1] for i, _ in row)
-        if page and y + h + GAP > MAX_H:
+        if page and y + h + GAP > max_h:
             pages.append((page, width, y))
             page, y, width = [], GAP, 0
         page += [(i, x, y) for i, x in row]
@@ -82,7 +85,8 @@ def main(argv=None):
     for old in HERE.glob(f"{base}-*.png"):  # last run's pages, so a shorter run leaves no stale page behind
         if re.fullmatch(re.escape(base) + r"-\d+\.png", old.name):
             old.unlink()
-    sizes = [cell_size(v) for _, v in cells]
+    (HERE / f"{base}.png").unlink(missing_ok=True)  # the single sheet contact.py wrote before it had pages
+    sizes = [cell_size(sid, v) for sid, v in cells]
     for n, (placed, width, height) in enumerate(layout(sizes), 1):
         sheet = Image.new("RGBA", (width, height), BG)
         draw = ImageDraw.Draw(sheet)
@@ -90,7 +94,7 @@ def main(argv=None):
             sid, variants = cells[i]
             bottom = y + sizes[i][1]
             one = variants[0]
-            draw.text((x, y), sid, fill=(20, 20, 30, 255))
+            draw.text((x, y), sid, fill=(20, 20, 30, 255), font=FONT)
             sheet.alpha_composite(one, (x, bottom - one.height))
             vx = x + one.width + GAP
             for v in variants:

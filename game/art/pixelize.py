@@ -6,7 +6,8 @@ The city palette lives in art/palettes/<city>.json. It is built from all renders
 (or with --new-palette) and then kept, so rerendering one sprite never shifts the others' colors.
 Cast shadows are cut out before the pass and drawn back as one flat SHADOW shape, never outlined
 and never part of the palette. After writing, every file the manifest names must exist and be newer
-than its raw renders; the run fails listing the ids that are missing or stale.
+than its raw renders; the run fails listing the ids that are missing or stale. That check guards against
+forgetting to rerun this after Blender; it cannot catch teammates' sprites pulled from git.
 """
 import argparse
 import json
@@ -63,7 +64,7 @@ class RawSprite:
         # the building joins the mask, so a block that is part shadow and part building never becomes a gap
         # between the two; add_shadow never paints over the building itself
         building4, shadow4 = self.split4
-        return P.downsample_mask(shadow4 | P._opaque(building4))
+        return P.downsample_mask(shadow4 | P.opaque(building4))
 
     @cached_property
     def night1(self) -> np.ndarray:
@@ -72,8 +73,11 @@ class RawSprite:
     def shrink(self) -> "RawSprite":
         """Derive every 1x layer, then drop the 4x ones, so a whole-city palette build never holds every raw
         render at once (a later layer may reload ids4 once)."""
-        for _ in (self.day1, self.ids1, self.shadow1, self.night1):
-            pass
+        # reading a cached property computes and keeps it
+        self.day1
+        self.ids1
+        self.shadow1
+        self.night1
         self.release()
         return self
 
@@ -101,10 +105,15 @@ def pixelize_one(src: RawSprite, day_pal, night_pal) -> dict[str, np.ndarray]:
 
 
 def stale(raw_dir: Path, out: Path, entries) -> list[str]:
-    """Ids of raw entries whose manifest files are missing from out or older than any of their raw renders."""
+    """Ids of raw entries whose manifest files are missing from out or older than any of their raw renders.
+    An entry missing one of its raw renders counts as stale too."""
     bad = []
     for e in entries:
-        newest = max((raw_dir / f).stat().st_mtime_ns for f in e["raw"].values())
+        raws = [raw_dir / f for f in e["raw"].values()]
+        if not all(f.exists() for f in raws):
+            bad.append(e["id"])
+            continue
+        newest = max(f.stat().st_mtime_ns for f in raws)
         files = [out / e[k] for k in OUTPUTS if e.get(k)]
         if any(not f.exists() or f.stat().st_mtime_ns < newest for f in files):
             bad.append(e["id"])

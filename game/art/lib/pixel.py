@@ -31,7 +31,7 @@ def save(a: np.ndarray, path) -> None:
     Image.fromarray(a, "RGBA").save(path, optimize=True)
 
 
-def _opaque(img: np.ndarray) -> np.ndarray:
+def opaque(img: np.ndarray) -> np.ndarray:
     """The one opacity rule the whole pass shares: a pixel counts as opaque above half alpha."""
     return img[..., 3] > 127
 
@@ -54,8 +54,8 @@ def flatten(day: np.ndarray, ids: np.ndarray) -> np.ndarray:
     transparent in the day or the ids render, are left alone. Safe on an empty (0-size) image."""
     out = day.copy()
     keys = _key(ids[..., :3])
-    keys[~_opaque(day)] = -1
-    keys[~_opaque(ids)] = -1
+    keys[~opaque(day)] = -1
+    keys[~opaque(ids)] = -1
     flat = keys.ravel()
     order = np.argsort(flat, kind="stable")
     sorted_keys = flat[order]
@@ -84,9 +84,9 @@ def downsample(img: np.ndarray, s: int = RAW_SCALE) -> np.ndarray:
     h, w = img.shape[0] // s, img.shape[1] // s
     m = s * s
     blocks = img[: h * s, : w * s].reshape(h, s, w, s, 4).transpose(0, 2, 1, 3, 4).reshape(h, w, m, 4)
-    opaque = _opaque(blocks)
-    keep = opaque.sum(axis=2) * 2 >= m
-    keys = np.where(opaque, _key(blocks[..., :3]), -1)
+    solid = opaque(blocks)
+    keep = solid.sum(axis=2) * 2 >= m
+    keys = np.where(solid, _key(blocks[..., :3]), -1)
     valid = keys >= 0
     # for each pixel in the block, how many valid pixels in the block (itself included) share its key
     eq = (keys[..., :, None] == keys[..., None, :]) & valid[..., None, :]
@@ -108,7 +108,7 @@ def split_shadow(day: np.ndarray, ids: np.ndarray) -> tuple[np.ndarray, np.ndarr
     """Separate the cast shadow from the building. Every pixel the day render covers but the ids render does
     not (the ids render has no shadow catcher) is cleared to (0, 0, 0, 0), so it is never part of the building;
     the shadow mask is the part of that above SHADOW_MIN_ALPHA. Returns the cleared day render and the mask."""
-    outside = (day[..., 3] > 0) & ~_opaque(ids)
+    outside = (day[..., 3] > 0) & ~opaque(ids)
     building = day.copy()
     building[outside] = 0
     return building, outside & (day[..., 3] > SHADOW_MIN_ALPHA)
@@ -124,7 +124,7 @@ def downsample_mask(mask: np.ndarray, s: int = RAW_SCALE) -> np.ndarray:
 def add_shadow(img: np.ndarray, shadow: np.ndarray) -> np.ndarray:
     """Paint SHADOW where the mask is set and the image is transparent; building pixels are never overwritten."""
     out = img.copy()
-    out[shadow & ~_opaque(img)] = SHADOW
+    out[shadow & ~opaque(img)] = SHADOW
     return out
 
 
@@ -140,7 +140,7 @@ def build_palette(images, n: int, ink: bool = True) -> list:
         raise ValueError("build_palette needs n >= 1")
     if not images:
         raise ValueError("build_palette needs at least one image")
-    px = np.concatenate([im[_opaque(im)][:, :3] for im in images])
+    px = np.concatenate([im[opaque(im)][:, :3] for im in images])
     if len(px) == 0:
         raise ValueError("build_palette needs at least one opaque pixel across the images")
     if len(px) > 200_000:
@@ -170,9 +170,9 @@ def _nearest(rgb, palette) -> np.ndarray:
 def quantize(img: np.ndarray, palette) -> np.ndarray:
     """Snap every opaque pixel to its nearest palette color; alpha becomes 0 or 255."""
     out = np.zeros_like(img)
-    opaque = _opaque(img)
-    out[opaque, :3] = _nearest(img[opaque, :3], palette)
-    out[opaque, 3] = 255
+    solid = opaque(img)
+    out[solid, :3] = _nearest(img[solid, :3], palette)
+    out[solid, 3] = 255
     return out
 
 
@@ -181,12 +181,12 @@ def outline(img: np.ndarray, ids: np.ndarray, palette) -> tuple[np.ndarray, np.n
     (never against a sign, and never where the ids render itself is transparent). An inner line never
     overwrites a silhouette pixel. Returns the image and the mask of every line pixel."""
     out = img.copy()
-    a = _opaque(img)
+    a = opaque(img)
     pad = np.pad(a, 1)
     edge = a & ~(pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:])
     k = _key(ids[..., :3])
     k[~a] = -1
-    k[~_opaque(ids)] = -1
+    k[~opaque(ids)] = -1
     inner = np.zeros_like(a)
     for dy, dx in ((0, 1), (1, 0)):
         nb = np.full_like(k, -1)
