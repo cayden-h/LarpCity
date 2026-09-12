@@ -31,6 +31,22 @@ test("an empty twin is worth nothing", () => {
   assert.equal(t.autopilot(10), 0);
 });
 
+test("buying back with sale proceeds doesn't feed the twins twice", () => {
+  const m = earlyMarket();
+  const t = new Twins(m);
+  t.buy("LTM", 1_000, 0);
+  t.sell(1_000);
+  t.buy("LTM", 1_000, 10);
+  assert.equal(t.invested, 1_000);
+  assert.equal(t.cashOut, 0);
+  assert.ok(Math.abs(t.held(20) - (1_000 / m.price("LTM", 0)) * m.price("LTM", 20)) < 0.01);
+
+  t.sell(300);
+  t.buy("BOND", 500, 20);
+  assert.equal(t.cashOut, 0);
+  assert.equal(t.invested, 1_200);
+});
+
 const TX: Place = { abbr: "TX", name: "Texas", rpp: { all: 97.4, goods: 97.0, housing: 88.6 } };
 const dateOf = (day: number) => {
   const d = new Date(START);
@@ -75,4 +91,19 @@ test("two trades on one day keep one snapshot with both buys", () => {
   life.buy("BOND", 100);
   assert.equal(life.history.length, 1);
   assert.ok(Math.abs(life.history[0].held - 200) < 0.01);
+});
+
+test("a sell and a buy-back leave held on the original buy", () => {
+  const life = new PlayerLife({ place: TX, day: 0, market: earlyMarket() });
+  life.buy("LTM", 1_000);
+  live(life, 0, 30);
+  const r = life.sell("LTM", "all");
+  assert.ok(r.ok);
+  const proceeds = r.ok && r.event.type === "trade" ? r.event.amount : 0;
+  live(life, 30, 60);
+  if (proceeds <= life.buyingPower()) life.buy("LTM", proceeds);
+  assert.ok(Math.abs(life.twins.invested - 1_000) < 0.01);
+  assert.ok(Math.abs(life.twins.cashOut) < 0.01);
+  const s = life.history.at(-1)!;
+  assert.equal(s.you, s.brokerage);
 });

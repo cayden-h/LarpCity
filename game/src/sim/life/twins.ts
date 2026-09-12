@@ -1,5 +1,5 @@
 // Shadow portfolios for honest comparisons (research/03, "Showing counterfactuals").
-// Every buy the player makes is copied, same day and same price, into two twins:
+// Every dollar of new money the player invests is copied, same day and same price, into two twins:
 // Held buys the same instrument, and Autopilot splits the dollars 90/10 between
 // the total market fund and the bond fund. Neither twin ever sells. The market
 // path never depends on the player, so the gap between the player and a twin
@@ -18,7 +18,7 @@ type Units = Partial<Record<InstrumentId, number>>;
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
 export class Twins {
-  /** Dollars the player has put into the brokerage. */
+  /** New money the player has put into the brokerage (not reinvested sale proceeds). */
   invested = 0;
   /** Dollars the player's sells took out of the brokerage. */
   cashOut = 0;
@@ -31,9 +31,14 @@ export class Twins {
   }
 
   buy(id: InstrumentId, dollars: number, day: number): void {
-    this.invested = round2(this.invested + dollars);
-    this.add(this.heldUnits, id, dollars, day);
-    for (const [i, w] of AUTOPILOT_MIX) this.add(this.autoUnits, i, dollars * w, day);
+    // Sale proceeds go back in first: they are already on the player's line, and the twins never sold them.
+    const reinvested = Math.min(this.cashOut, dollars);
+    this.cashOut = round2(this.cashOut - reinvested);
+    const fresh = dollars - reinvested;
+    if (fresh <= 0) return;
+    this.invested = round2(this.invested + fresh);
+    this.add(this.heldUnits, id, fresh, day);
+    for (const [i, w] of AUTOPILOT_MIX) this.add(this.autoUnits, i, fresh * w, day);
   }
 
   sell(proceeds: number): void {

@@ -216,9 +216,14 @@ export class PlayerLife {
 
   /** Brokerage and retirement balances plus holdings at today's prices. */
   investments(): number {
+    return this.investmentsWith(this.positions());
+  }
+
+  /** Brokerage and retirement balances plus the given positions' value. */
+  private investmentsWith(positions: Position[]): number {
     let s = 0;
     for (const a of this.ledger.accounts.values()) if (!CASH_KINDS.has(a.kind)) s += a.balance;
-    return round2(s + this.positions().reduce((t, p) => t + p.value, 0));
+    return round2(s + positions.reduce((t, p) => t + p.value, 0));
   }
 
   /** Money in checking that can buy investments right now. */
@@ -522,9 +527,10 @@ export class PlayerLife {
   /** Balances right now, as a history row. */
   snapshot(day: number): LifeSnapshot {
     const cash = this.cash();
-    const investments = this.investments();
+    const positions = this.positions(day);
+    const investments = this.investmentsWith(positions);
     const debt = this.totalDebt();
-    const brokerage = round2(this.positions(day).reduce((t, p) => t + p.value, 0));
+    const brokerage = round2(positions.reduce((t, p) => t + p.value, 0));
     return {
       day,
       cash,
