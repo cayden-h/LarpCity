@@ -94,7 +94,20 @@ export class NessieError extends Error {
   }
 }
 
-type NewTx = Omit<MoneyTx, "_id" | "medium"> & { medium?: MoneyTx["medium"] };
+export type NewTx = Omit<MoneyTx, "_id" | "medium"> & { medium?: MoneyTx["medium"] };
+
+/** The subset of Nessie's API the bank mirror actually calls; also implemented by the local fallback. */
+export interface NessieLike {
+  listCustomers(): Promise<Customer[]>;
+  createCustomer(c: Omit<Customer, "_id">): Promise<Customer>;
+  listAccounts(customerId: string): Promise<Account[]>;
+  createAccount(customerId: string, a: { type: AccountType; nickname: string; balance: number; rewards?: number }): Promise<Account>;
+  deleteAccount(id: string): Promise<void>;
+  deposit(accountId: string, tx: NewTx): Promise<MoneyTx>;
+  withdraw(accountId: string, tx: NewTx): Promise<MoneyTx>;
+  listDeposits(accountId: string): Promise<MoneyTx[]>;
+  listWithdrawals(accountId: string): Promise<MoneyTx[]>;
+}
 
 export interface NessieOptions {
   baseUrl: string;
@@ -105,7 +118,7 @@ export interface NessieOptions {
   retryDelayMs?: number;
 }
 
-export class Nessie {
+export class Nessie implements NessieLike {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly fetchFn: typeof fetch;

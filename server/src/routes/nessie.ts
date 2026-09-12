@@ -12,14 +12,23 @@
 //
 // `:entity` is "player" or a named NPC ("npc-maya").
 import { Router, type Request } from "express";
+import { FailoverNessie } from "../adapters/failover-nessie.js";
 import { Nessie, NessieError } from "../adapters/nessie.js";
+import { pool } from "../db.js";
 import { env } from "../env.js";
 import { handle, HttpError, parse, type ErrorMap } from "../http.js";
 import { ENTITY, entriesBody, MirrorService, openBody } from "../mirror.js";
+import { startReplaySweep } from "../replay.js";
+import { LocalNessie } from "../store/local-nessie.js";
 
 export const nessieRouter = Router();
 
-export const mirror = new MirrorService(new Nessie({ baseUrl: env.NESSIE_BASE_URL, apiKey: env.NESSIE_API_KEY }), env.NESSIE_TAG);
+const liveNessie = new Nessie({ baseUrl: env.NESSIE_BASE_URL, apiKey: env.NESSIE_API_KEY });
+const localNessie = new LocalNessie(pool);
+const failoverNessie = new FailoverNessie(liveNessie, localNessie);
+startReplaySweep(liveNessie, localNessie);
+
+export const mirror = new MirrorService(failoverNessie, env.NESSIE_TAG);
 
 /** A Nessie failure is a 502 to the game, never its message (which names Nessie's paths). */
 const nessieDown: ErrorMap = (err) => (err instanceof NessieError ? new HttpError(502, "nessie_unavailable") : undefined);

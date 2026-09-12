@@ -43,3 +43,43 @@ SELECT add_continuous_aggregate_policy('player_snapshots_weekly', start_offset =
   schedule_interval => INTERVAL '1 minute', if_not_exists => true);
 SELECT add_continuous_aggregate_policy('player_snapshots_monthly', start_offset => NULL, end_offset => NULL,
   schedule_interval => INTERVAL '1 minute', if_not_exists => true);
+
+-- Local Nessie fallback (docs/superpowers/specs/2026-09-12-nessie-fallback-design.md). Local ids
+-- are permanent; nessie_id is filled in once (and if) a live Nessie call for that row succeeds.
+
+CREATE TABLE IF NOT EXISTS nessie_customers (
+  id          text PRIMARY KEY,
+  nessie_id   text UNIQUE,
+  first_name  text NOT NULL,
+  last_name   text NOT NULL UNIQUE,
+  address     jsonb NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS nessie_accounts (
+  id             text PRIMARY KEY,
+  nessie_id      text UNIQUE,
+  customer_id    text NOT NULL REFERENCES nessie_customers(id),
+  type           text NOT NULL,
+  nickname       text NOT NULL,
+  rewards        integer NOT NULL DEFAULT 0,
+  balance        integer NOT NULL,
+  account_number text NOT NULL,
+  deleted        boolean NOT NULL DEFAULT false,
+  delete_synced  boolean NOT NULL DEFAULT true,
+  created_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS nessie_accounts_customer ON nessie_accounts (customer_id);
+
+CREATE TABLE IF NOT EXISTS nessie_transactions (
+  id               text PRIMARY KEY,
+  nessie_id        text UNIQUE,
+  account_id       text NOT NULL REFERENCES nessie_accounts(id),
+  kind             text NOT NULL CHECK (kind IN ('deposit','withdrawal')),
+  amount           integer NOT NULL,
+  transaction_date text NOT NULL,
+  status           text NOT NULL,
+  description      text NOT NULL,
+  created_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS nessie_transactions_account ON nessie_transactions (account_id, kind);

@@ -15,7 +15,7 @@
 // - Transfers carry no payee, so every entry is a deposit or a withdrawal.
 
 import { z } from "zod";
-import type { Account, AccountType, Customer, MoneyTx, Nessie } from "./adapters/nessie.js";
+import type { Account, AccountType, Customer, MoneyTx, NessieLike } from "./adapters/nessie.js";
 import { HttpError } from "./http.js";
 
 export type MirrorAccount = "checking" | "savings" | "credit";
@@ -93,13 +93,13 @@ interface Live {
 const HOUSTON = { street_number: "6100", street_name: "Main Street", city: "Houston", state: "TX", zip: "77005" };
 
 export class MirrorService {
-  private readonly nessie: Nessie;
+  private readonly nessie: NessieLike;
   private readonly tag: string;
   private readonly live = new Map<string, Live>();
   private readonly chains = new Map<string, Promise<unknown>>();
   private customers: Map<string, Customer> | null = null;
 
-  constructor(nessie: Nessie, tag: string) {
+  constructor(nessie: NessieLike, tag: string) {
     this.nessie = nessie;
     this.tag = tag;
   }
