@@ -72,7 +72,7 @@
   z-index: 3;
 }
 
-.status {
+.phone .status {
   position: relative;
   z-index: 2;
   display: flex;
@@ -91,7 +91,7 @@
   align-items: center;
 }
 
-.view {
+.phone .view {
   position: absolute;
   inset: 36px 0 0;
   display: flex;

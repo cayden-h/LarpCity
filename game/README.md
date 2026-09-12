@@ -34,7 +34,8 @@ The answers are remembered in the browser: add `?intake=1` to do the intake agai
   News, Mail, and Bank are coming.
 - **U.S. map:** a pixel map shaded by cost-of-living tier (BEA price parities), with pixel pins for the hand-made cities, a marker on where you are, and a preview of your city captured from the canvas; visit any state for free.
 - The city's event buttons (hurricane, crash, boom, and the rest), the sky slider, and the zoom buttons are gone from the screen.
-  The events still run from the console, for example `larp.scene().trigger("hurricane")`.
+  The events still run from the console, for example `larp.scene().trigger("crash")`; the others are `hurricane`, `snowstorm`, `wildfire`, `drought`, `fog`, `pandemic`, `boom`, and `clear` (which ends them).
+  `larp.scene().resetCamera()` recenters the camera, and `larp.clock.pinnedTimeOfDay = 0.8` holds the sky at one time of day (`null` lets it run again).
 - **Goals (fast-forward to a goal):** pick a goal (an emergency fund, debt-free, a net worth, or buying a home), set the plan (pre-filled with what the player does now, with a Recommended preset to compare), watch a live preview across 100 other possible markets, then fast-forward until the goal is met, bankruptcy, or an age cap, ending on a card with what happened.
 - **Money:** every game day the player is paid on the 1st and 15th, pays rent and living costs for the current state, and pays their debts; with a plan in force, paychecks also fund the 401(k) (with the employer match), the emergency fund, and recurring investments. The home tier follows net worth, and bankruptcy stops a skip or fast-forward.
 

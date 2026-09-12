@@ -24,7 +24,6 @@ interface AppDef {
   ready: boolean;
 }
 
-
 const APPS: AppDef[] = [
   { id: "stocks", name: "Stocks", icon: pixelIcon("stocks"), ready: true },
   { id: "goals", name: "Goals", icon: pixelIcon("goals"), ready: true },

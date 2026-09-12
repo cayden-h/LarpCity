@@ -48,7 +48,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 }
 .label { opacity: 1; font-size: 22px; letter-spacing: 0; margin-bottom: 10px; }
 
-.btn, .round, .event, .seg button, .desk-close {
+.btn, .round, .desk-close {
   border: 3px solid var(--edge);
   border-radius: 0;
   background: var(--panel);
@@ -58,14 +58,14 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   transition: filter .1s, transform .1s;
   clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
 }
-.btn, .seg button.on {
+.btn {
   background: linear-gradient(#ffe778, #ffdb39 65%, #ffc329);
   color: #121a20;
   text-shadow: none;
   box-shadow: inset 3px 3px #fff5b2, inset -3px -3px #c58910, 0 3px #082137;
 }
-.btn:hover, .round:hover, .event:hover:not(:disabled), .seg button:hover { filter: brightness(1.12); }
-.btn:active, .round:active, .event:active:not(:disabled), .seg button:active { transform: translateY(2px); }
+.btn:hover, .round:hover { filter: brightness(1.12); }
+.btn:active, .round:active { transform: translateY(2px); }
 .btn.small { padding: 8px 10px; border-width: 3px; font-size: 18px; }
 .round { width: 38px; height: 38px; font-size: 28px; }
 .btn.ghost { background: #0966ae; box-shadow: inset 2px 2px #56b5ec, inset -2px -2px #00487d; }
@@ -94,8 +94,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 }
 .phone-screen { border-radius: 0; background: var(--paper); color: var(--ink); }
 .island { top: 10px; width: 76px; height: 20px; border-radius: 0; background: #10171d; box-shadow: -4px 3px #10171d, 4px 3px #10171d, 0 6px #10171d; }
-.status { height: 42px; padding: 0 19px; font-size: 17px; }
-.view { inset: 42px 0 0; }
+.phone .status { height: 42px; padding: 0 19px; font-size: 17px; }
+.phone .view { inset: 42px 0 0; }
 .view-home { padding: 7px 12px 32px; gap: 14px; }
 .home-clock { text-shadow: none; }
 .hc-day { font-size: 21px; opacity: 1; }
