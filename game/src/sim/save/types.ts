@@ -30,6 +30,8 @@ export interface DeskState {
   bank: DeskBankTxn[];
   crash: { day: number; drop: number; choice: string } | null;
   recovery: { day: number; you: number; held: number; autopilot: number } | null;
+  /** The Gemini recovery lesson shown on the recovery card; added after version 1, read as null when missing. */
+  recap: { headline: string; lesson: string } | null;
 }
 
 export interface GameSave {

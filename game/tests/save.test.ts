@@ -15,7 +15,8 @@ import { LifeTimeline, serialize } from "../src/sim/rewind/index.ts";
 import { applyForCard, openCard, recordApplication, type ApplicationResult } from "../src/sim/money/index.ts";
 import { cardOffer } from "../src/debt-demo/shop-value.ts";
 import { CURATED } from "../src/data/cards-curated.ts";
-import { encodeGame, parseSave, SAVE_VERSION, SaveFormatError } from "../src/sim/save/codec.ts";
+import { encodeGame, parseSave, restoreGame, SAVE_VERSION, SaveFormatError } from "../src/sim/save/codec.ts";
+import type { DeskState } from "../src/sim/save/types.ts";
 import { Inbox } from "../src/sim/mail/inbox.ts";
 
 const START = new Date(2026, 8, 11);
@@ -290,4 +291,60 @@ test("a rewind to before a card application forgets it", () => {
   line.rewindTo(55);
   assert.deepEqual(life.applications, []);
   assert.equal(applyCard(life, "capital-one-venture", 56, 0).decision, "approved");
+});
+
+test("a save whose life doesn't decode is refused whole", () => {
+  const market = new MarketPath(11, START);
+  const save = parseSave({ version: SAVE_VERSION, seed: 11, day: 5, life: {} });
+  assert.throws(() => restoreGame(save, { market, place: TX, start: START }), SaveFormatError);
+});
+
+test("a save with a broken inbox parses to an empty one", () => {
+  const save = parseSave({ version: SAVE_VERSION, seed: 11, day: 5, life: { x: 1 }, mail: {} });
+  assert.deepEqual(save.mail.items, []);
+  assert.equal(save.mail.seq, 0);
+  const noSeq = parseSave({ version: SAVE_VERSION, seed: 11, day: 5, life: { x: 1 }, mail: { items: [{ id: "m7", day: 1 }] } });
+  assert.equal(noSeq.mail.seq, 7);
+});
+
+test("a desk whose lists aren't lists is dropped; the game still loads", () => {
+  assert.equal(parseSave({ version: SAVE_VERSION, seed: 11, day: 5, life: { x: 1 }, desk: { feed: 5 } }).desk, null);
+  assert.equal(parseSave({ version: SAVE_VERSION, seed: 11, day: 5, life: { x: 1 }, desk: { feed: [], bank: {} } }).desk, null);
+  const old = parseSave({ version: SAVE_VERSION, seed: 11, day: 5, life: { x: 1 }, desk: { feed: [], bank: [], crash: null, recovery: null } });
+  assert.equal(old.desk!.recap, null, "a desk saved before the recap field reads it as none");
+});
+
+test("a whole game on a later day restores through JSON with its letters, NPC lives, and desk", () => {
+  const seed = 11;
+  const market = new MarketPath(seed, START);
+  const life = new PlayerLife({ place: TX, day: 0, market, holdings: STARTER_PORTFOLIO });
+  const town = new NpcTown({ place: TX, day: 0, market, start: START });
+  const mail = new Inbox();
+  const lookup = (id: string) => {
+    const d = life.book.debts.find((x) => x.id === id);
+    return { name: d?.name ?? "A debt", kind: d?.kind };
+  };
+  life.onEvents((events) => mail.add(events, lookup));
+  const DAY = 320;
+  play(life, 0, DAY);
+  for (let d = 1; d <= DAY; d++) town.onDay(d);
+  assert.ok(mail.items.length > 0, "the life sent letters");
+  mail.markRead(mail.items[0].id);
+  const desk: DeskState = {
+    feed: [{ day: 300, text: "Laid off", tone: "down" }],
+    bank: [{ day: 301, name: "Rent", category: "Housing", icon: "home", amount: 1200, kind: "out" }],
+    crash: { day: 200, drop: 0.22, choice: "hold" },
+    recovery: { day: 310, you: 5000, held: 5100, autopilot: 5300 },
+    recap: { headline: "Holding paid off", lesson: "Selling in a crash locks in the loss." },
+  };
+  const save = encodeGame({ seed, day: DAY, hash: "TX", bankRun: "11-abc", life, town, mail, desk });
+  const parsed = parseSave(json(save));
+  assert.deepEqual(parsed, json(save));
+  const back = restoreGame(parsed, { market: new MarketPath(seed, START), place: TX, start: START });
+  assert.equal(back.life.today, DAY);
+  assert.equal(back.life.netWorth(), life.netWorth());
+  assert.deepEqual(back.life.toSave(), life.toSave());
+  assert.deepEqual(back.town.toSave(), town.toSave());
+  assert.deepEqual(back.mail.toSave(), mail.toSave());
+  assert.deepEqual(parsed.desk, desk);
 });

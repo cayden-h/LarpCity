@@ -3,8 +3,12 @@
 // (a bill paid in full, a normal card payment) send nothing, so the inbox
 // reads like the moments that matter. Decision mail (a payment the player
 // can't cover, bankruptcy, a crash) opens the Money desk on that decision.
-// The inbox is part of the saved game.
+// Paychecks write a pay stub only when pay changes (the first one, a raise
+// or cut, garnishment or unemployment starting or ending), so twice-monthly
+// pay doesn't bury the letters that matter. The inbox is part of the saved
+// game.
 
+import type { DebtKind } from "../debt/types.ts";
 import type { LifeEvent } from "../life/player.ts";
 
 export type MailTone = "good" | "bad" | "info";
@@ -21,27 +25,49 @@ export interface MailItem {
   read: boolean;
 }
 
+/** What the last pay stub said, to tell whether the next paycheck changed. */
+export interface PaySummary {
+  takeHome: number;
+  garnished: boolean;
+  unemployed: boolean;
+}
+
 export interface InboxSave {
   items: MailItem[];
   seq: number;
+  /** Added after version 1 shipped; a save without it writes the next pay stub. */
+  lastPay?: PaySummary | null;
 }
+
+/** Names a debt by id, with its kind when the debt is still on the books. */
+export type DebtLookup = (id: string) => { name: string; kind?: DebtKind };
 
 /** The inbox keeps this many letters, newest first. */
 export const MAX_MAIL = 200;
 /** A score move smaller than this isn't worth a letter. */
 const SCORE_MAIL_STEP = 10;
+/** A take-home change smaller than this is rounding, not a new pay stub. */
+const PAY_MAIL_STEP = 1;
 
-const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+/** Whole dollars, with the Money desk's minus sign before the dollar sign. */
+const usd = (n: number) => {
+  const r = Math.round(n);
+  return `${r < 0 ? "−" : ""}$${Math.abs(r).toLocaleString("en-US")}`;
+};
 
 type Letter = Omit<MailItem, "id" | "read" | "day" | "decision"> & { decision?: boolean };
 
-/** The letter an event sends, or null for a routine one. `debtName` names a debt by id. */
-export function mailFor(e: LifeEvent, debtName: (id: string) => string): (Letter & { decision: boolean }) | null {
-  const l = letter(e, debtName);
+/**
+ * The letter an event sends, or null for a routine one. Every paycheck gets a
+ * letter here; the Inbox keeps only the ones where pay changed.
+ */
+export function mailFor(e: LifeEvent, debt: DebtLookup): (Letter & { decision: boolean }) | null {
+  const l = letter(e, debt);
   return l ? { ...l, decision: l.decision ?? false } : null;
 }
 
-function letter(e: LifeEvent, debtName: (id: string) => string): Letter | null {
+function letter(e: LifeEvent, debt: DebtLookup): Letter | null {
+  const debtName = (id: string) => debt(id).name;
   switch (e.type) {
     case "paycheck":
       return { from: "Payroll", subject: e.unemployed ? "Unemployment benefits paid" : "Your pay stub", body: `${usd(e.takeHome)} landed in checking${e.garnished ? `, after ${usd(e.garnished)} was garnished` : ""}${e.retirement ? `. ${usd(e.retirement)} went to your 401(k)` : ""}.`, tone: "info" };
@@ -61,12 +87,15 @@ function letter(e: LifeEvent, debtName: (id: string) => string): Letter | null {
     case "default":
       return { from: debtName(e.debtId), subject: "Loan in default", body: `Your ${debtName(e.debtId)} defaulted. 15% of each paycheck will be garnished.`, tone: "bad" };
     case "paid_off":
-      return { from: e.name, subject: "Paid in full!", body: `${e.name} is paid off. Its payment now goes to your next debt.`, tone: "good" };
+      // The engine rolls a paid-off loan's payment onto the next debt; a card stays open with nothing to roll.
+      return debt(e.debtId).kind === "credit_card"
+        ? { from: e.name, subject: "Paid in full!", body: `${e.name} is paid off. Keep using it lightly and pay it in full each month.`, tone: "good" }
+        : { from: e.name, subject: "Paid in full!", body: `${e.name} is paid off. Its payment now goes to your next debt.`, tone: "good" };
     case "score_change":
       if (Math.abs(e.to - e.from) < SCORE_MAIL_STEP) return null;
       return { from: "Credit bureau", subject: `Score ${e.to > e.from ? "up" : "down"} to ${e.to}`, body: `Your credit score moved from ${e.from} to ${e.to}.`, tone: e.to > e.from ? "good" : "bad" };
     case "cannot_cover":
-      return { from: debtName(e.debtId), subject: "You can't cover this payment", body: `${usd(e.due)} is due and only ${usd(e.available)} is available. Open Money to decide what to do.`, tone: "bad", decision: true };
+      return { from: debtName(e.debtId), subject: "You can't cover this payment", body: `Your planned ${usd(e.due)} payment on your ${debtName(e.debtId)} is due and only ${usd(e.available)} is available. Open Money to decide what to do.`, tone: "bad", decision: true };
     case "bankruptcy_eligible":
       return { from: "Bankruptcy court", subject: "You may qualify for bankruptcy", body: `${e.reason} Open Money to decide.`, tone: "bad", decision: true };
     case "bear_market":
@@ -84,26 +113,68 @@ function letter(e: LifeEvent, debtName: (id: string) => string): Letter | null {
   }
 }
 
+const paySummary = (e: Extract<LifeEvent, { type: "paycheck" }>): PaySummary => ({ takeHome: e.takeHome, garnished: e.garnished > 0, unemployed: e.unemployed });
+
+const payChanged = (a: PaySummary | null, b: PaySummary) =>
+  !a || a.garnished !== b.garnished || a.unemployed !== b.unemployed || Math.abs(a.takeHome - b.takeHome) > PAY_MAIL_STEP;
+
+/** Eviction order over the cap: read routine mail first, decisions last. Lower goes first. */
+function keepRank(m: MailItem): number {
+  if (m.decision) return m.read ? 4 : 5;
+  if (m.read) return m.tone === "info" ? 0 : 1;
+  return m.tone === "info" ? 2 : 3;
+}
+
+/** The highest `m<n>` id, so an inbox saved without its counter never reuses an id. */
+const highestId = (items: MailItem[]) => items.reduce((n, m) => Math.max(n, Number(/^m(\d+)$/.exec(m.id)?.[1] ?? 0)), 0);
+
 export class Inbox {
+  /** Newest first; letters from one day list the day's last event first. */
   items: MailItem[];
   private seq: number;
+  private lastPay: PaySummary | null;
 
   constructor(saved?: InboxSave) {
     this.items = saved ? structuredClone(saved.items) : [];
-    this.seq = saved?.seq ?? 0;
+    this.seq = typeof saved?.seq === "number" ? Math.max(saved.seq, highestId(this.items)) : highestId(this.items);
+    this.lastPay = saved?.lastPay ? { ...saved.lastPay } : null;
   }
 
   /** Files a letter for every event that sends one; returns the new letters. */
-  add(events: LifeEvent[], debtName: (id: string) => string): MailItem[] {
+  add(events: LifeEvent[], debt: DebtLookup): MailItem[] {
     const added: MailItem[] = [];
     for (const e of events) {
-      const l = mailFor(e, debtName);
+      if (e.type === "paycheck") {
+        const now = paySummary(e);
+        const changed = payChanged(this.lastPay, now);
+        this.lastPay = now;
+        if (!changed) continue;
+      }
+      const l = mailFor(e, debt);
       if (l) added.push({ ...l, id: `m${++this.seq}`, day: e.day, read: false });
     }
     if (!added.length) return added;
-    this.items.unshift(...added.reverse());
-    if (this.items.length > MAX_MAIL) this.items.length = MAX_MAIL;
+    this.items.unshift(...[...added].reverse());
+    while (this.items.length > MAX_MAIL) this.evictOne();
     return added;
+  }
+
+  /** Drops the letter that matters least: the oldest of the lowest keep rank. */
+  private evictOne(): void {
+    let at = this.items.length - 1;
+    for (let i = this.items.length - 2; i >= 0; i--) if (keepRank(this.items[i]) < keepRank(this.items[at])) at = i;
+    this.items.splice(at, 1);
+  }
+
+  /**
+   * The city went back to `day`, which stays played (its events stand), so
+   * letters after it go and the rest keep their read state. The pay stub
+   * memory resets, so the next paycheck writes a stub even if pay is the same:
+   * one extra letter, never a missed change.
+   */
+  rewind(day: number): void {
+    this.items = this.items.filter((m) => m.day <= day);
+    this.lastPay = null;
   }
 
   unread(): number {
@@ -116,6 +187,6 @@ export class Inbox {
   }
 
   toSave(): InboxSave {
-    return structuredClone({ items: this.items, seq: this.seq });
+    return structuredClone({ items: this.items, seq: this.seq, lastPay: this.lastPay });
   }
 }

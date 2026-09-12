@@ -84,7 +84,8 @@ New `server/src/routes/save.ts`, using `handle`, `parse`, and `HttpError`, keyed
 
 - `codec.ts`: `encodeGame(game): SaveState` and `decodeGame(state, seed): Game`, plus `SAVE_VERSION`.
 - Encode/decode functions next to each stateful class: `Ledger` (accounts map, pending, history, seq), `Twins` (invested, cashOut, held and autopilot units), `PlayerLife` (book, place, age, pay, job, orders, recurring, today, history, private fields such as `lastFirst` and `ltmPeak`), and `NpcTown`.
-- The clock day, the Money desk's local state (feed, bank statement, crash, recovery), and the Mail inbox are part of `SaveState`.
+- The clock day, the Money desk's local state (feed, bank statement, crash, recovery, and the recovery lesson), and the Mail inbox are part of `SaveState`.
+- `restoreGame` decodes the life, the NPC town, and the inbox together and exercises the life once; any failure is a `SaveFormatError`, so a save loads whole or not at all.
 - `MarketPath` is not stored; it is rebuilt from the seed.
 - An unknown `version` decodes to an error the boot flow handles, never a crash.
 - Saved `history` is compacted: every day in the last 400 days, and every 7th day before that; NPC lives keep their last 30 days.
@@ -131,7 +132,12 @@ The `pagehide` save uses `keepalive` only when the body is under the browser's 6
   The `/api/market/quotes` fetch is deleted.
   Any rates the sim does not model stay, labeled "real rate, as of <date>".
 - **News**: a pixel newspaper for the last game month from `POST /api/news`, cached per game month, with the server's template fallback.
-- **Mail**: an inbox built from `LifeEvent`s (paychecks, statements, bills due, late marks, card decisions, decision moments), saved with the game, with an unread badge on the phone icon; a decision mail opens the Money desk on that decision.
+- **Mail**: an inbox built from `LifeEvent`s, saved with the game, with an unread badge on the phone icon; a decision mail opens the Money desk on that decision.
+  Letters come from: pay stubs, a rent or living-costs bill that came up short, missed payments, late marks, penalty rates, collections, repossession, loan default, a debt paid off, credit score moves of 10 points or more, moves, layoffs and rehires, and market recoveries.
+  Decision letters come from a payment the player can't cover, bankruptcy eligibility, and a bear market.
+  A paycheck writes a pay stub only when pay changes: the first paycheck, a take-home change of more than $1, garnishment starting or stopping, or unemployment starting or ending.
+  Routine days (a bill paid in full, a normal payment) send nothing; there are no statement or bills-due letters.
+  The inbox keeps 200 letters, evicting read routine letters first and decision letters last, and a rewind drops the letters after the day it lands on.
 - **Bank**: the player's Nessie mirror statement from `GET /api/bank/:entity`, falling back to the server's local mirror.
 - **Profile everywhere**: the HUD card shows name and job; the coach and newspaper read the profile from the database on the server; the owl greets returning players by name.
 - **New life**: a Timeline app button that confirms, calls `DELETE /api/save`, and reruns the intake.
