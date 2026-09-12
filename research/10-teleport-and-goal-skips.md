@@ -663,8 +663,9 @@ The hackathon version is built on the `goal-fast-forward` branch, which isn't me
   - Recommended keeps at least the player's current extra debt payment before investing anything.
   - Only bankruptcy interrupts a fast-forward so far, since the life events from Section 7 aren't in the simulation yet.
 - **Not built yet:** the newspaper digest, AI feedback at the stop, "redo this jump with a different plan", calendar circles for the skipped years, and the rest of "Later refinements".
-- **Known cost:** one 64-year preview path takes about 62 ms to build in Node and about 230 ms in the browser worker, so all 100 finish about 20 seconds after the game starts.
-  Most of that is `MarketPath`'s string-based hash, which its owner may replace.
+- **Cost:** after `MarketPath`'s speedup (main `186524b`: numeric stream keys and an O(1) count of trading days for the boom and pop), one 64-year preview path takes about 10 ms to build in Node, so all 100 futures take about 1 second.
+  In the browser (Vite dev), all 100 are ready about 8 seconds after the page starts, city load included.
+  Before the speedup it was about 62 ms in Node and about 230 ms in the browser worker, about 20 seconds for all 100.
 
 ## Sources
 
