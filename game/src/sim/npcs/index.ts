@@ -7,7 +7,7 @@
 import { NPCS, type NpcProfile } from "../../data/npcs.ts";
 import { creditCard, installment, newBook, studentLoan } from "../debt/factory.ts";
 import type { Debt } from "../debt/types.ts";
-import { defaultAccounts, PlayerLife, TAKE_HOME_SHARE, type Place } from "../life/player.ts";
+import { defaultAccounts, PlayerLife, TAKE_HOME_SHARE, type LifeSave, type Place } from "../life/player.ts";
 import type { MarketPath } from "../market/index.ts";
 
 export function npcLife(p: NpcProfile, o: { place: Place; day: number; market: MarketPath }): PlayerLife {
@@ -30,18 +30,28 @@ export function npcLife(p: NpcProfile, o: { place: Place; day: number; market: M
   return new PlayerLife({ place: o.place, day: o.day, age: p.age, monthlyTakeHome: p.monthlyTakeHome, grossAnnual: agi, book, accounts, market: o.market });
 }
 
+/** Days of daily history a saved NPC keeps; nothing reads further back. */
+export const NPC_SAVE_DAYS = 30;
+
 export class NpcTown {
   /** Lives by roster id, in roster order. */
   readonly lives = new Map<string, PlayerLife>();
   readonly profiles = new Map<string, NpcProfile>();
   private readonly start: Date;
 
-  constructor(o: { place: Place; day: number; market: MarketPath; start: Date; roster?: NpcProfile[] }) {
+  constructor(o: { place: Place; day: number; market: MarketPath; start: Date; roster?: NpcProfile[]; saved?: Record<string, LifeSave> }) {
     this.start = o.start;
     for (const p of o.roster ?? NPCS) {
       this.profiles.set(p.id, p);
-      this.lives.set(p.id, npcLife(p, o));
+      const saved = o.saved?.[p.id];
+      // A roster entry added since the save starts fresh; one removed since is dropped.
+      this.lives.set(p.id, saved ? PlayerLife.fromSave(saved, { market: o.market }) : npcLife(p, o));
     }
+  }
+
+  /** Every NPC's life as plain JSON, for the saved game. */
+  toSave(): Record<string, LifeSave> {
+    return Object.fromEntries([...this.lives].map(([id, life]) => [id, life.toSave(NPC_SAVE_DAYS)]));
   }
 
   /** One live game day for every NPC (catching up first if a fast-forward left them behind). */

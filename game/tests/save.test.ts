@@ -10,6 +10,7 @@ import { MarketPath } from "../src/sim/market/index.ts";
 import { PlayerLife, STARTER_PORTFOLIO, compactHistory, type LifeEvent, type Place } from "../src/sim/life/index.ts";
 import { lifeFromIntake } from "../src/sim/life/intake.ts";
 import { applyOrders } from "../src/sim/skip/orders.ts";
+import { NpcTown } from "../src/sim/npcs/index.ts";
 
 const START = new Date(2026, 8, 11);
 const json = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -130,4 +131,15 @@ test("a restored life keeps its home state's rent after a move", () => {
   const back = PlayerLife.fromSave(json(life.toSave()), { market: new MarketPath() });
   assert.equal(back.rent, life.rent);
   assert.equal(back.place.abbr, "CA");
+});
+
+test("the NPC town restores and keeps living like one never saved", () => {
+  const make = (saved?: ReturnType<NpcTown["toSave"]>) => new NpcTown({ place: TX, day: 0, market: new MarketPath(9, START), start: START, saved });
+  const control = make();
+  for (let d = 1; d <= 120; d++) control.onDay(d);
+  const before = make();
+  for (let d = 1; d <= 60; d++) before.onDay(d);
+  const restored = make(json(before.toSave()));
+  for (let d = 61; d <= 120; d++) restored.onDay(d);
+  assert.deepEqual(restored.toSave(), control.toSave());
 });
