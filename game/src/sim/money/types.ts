@@ -116,6 +116,13 @@ export interface CuratedCard {
 // Accounts and transfers
 // ---------------------------------------------------------------------------
 
+/** A position in one fund or stock. */
+export interface Holding {
+  units: number;
+  /** Dollars paid for the units still held. */
+  cost: number;
+}
+
 /** Cash and investment accounts. Credit cards and loans live in the debt engine's DebtBook. */
 export type AccountKind = "checking" | "savings" | "emergency" | "brokerage" | "roth_ira" | "k401";
 
@@ -132,6 +139,8 @@ export interface Account {
   excessWithdrawalFee?: number;
   /** Roth IRA: contributions can come out tax- and penalty-free; earnings can't before 59 1/2. */
   rothContributions?: number;
+  /** Brokerage: fund and stock positions by instrument id (src/sim/market). */
+  holdings?: Record<string, Holding>;
   /** Day the account was opened (new-account holds). */
   openedDay: number;
 }
