@@ -160,7 +160,7 @@ Built so far (2026-09-11 night), all in `game/`:
 - The player's daily money life (`src/sim/life/`): paychecks, state-scaled rent and living costs, accounts, and the debt engine (`src/sim/debt/`) at the real Fed funds rate; the home tier follows net worth and bankruptcy stops skips.
 - Cards, loans, and moving money (`src/sim/money/`), with the real card catalog.
 - The phone hub on the city screen (`src/ui/phone.ts`): Stocks is live, and News, Mail, and Bank are next.
-- The Credit Desk (`debt.html`), a stock-market terminal in the game's look with the Card Shop, opened from the phone's Stocks app.
+- The Money desk (`debt.html`), a Robinhood-style view of the player's money with the Card Shop on its Cards tab, opened from the phone's Stocks app (it replaced the Sep 11 stock-market terminal).
 - Market data: a year of FRED rates and indexes shipped in `src/data/market.ts`, plus optional live Alpha Vantage quotes.
 - 51 tests via `npm test`.
 

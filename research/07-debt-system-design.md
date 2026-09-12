@@ -2,7 +2,7 @@
 
 How the debt system from [06-debt-and-credit.md](06-debt-and-credit.md) is built in the game.
 Written 2026-09-11 during HackRice 2026.
-Code: `game/src/sim/debt/` (engine), `game/src/debt-demo/` (Credit Desk page), `game/tests/debt.test.ts` and `life.test.ts` (24 tests), `game/scripts/debt-charts.ts` (pitch chart).
+Code: `game/src/sim/debt/` (engine), `game/src/debt-demo/` (the Money desk page, formerly the Credit Desk), `game/tests/debt.test.ts` and `life.test.ts` (24 tests), `game/scripts/debt-charts.ts` (pitch chart).
 Diagrams for the pitch deck: [../diagrams/debt/](../diagrams/debt/) (SVG source plus 3200 px PNG exports).
 Mirrored to Notion on 2026-09-11 as the "🛠️ Research: Debt System Design" sub-page (with all five diagrams), plus a "Built on Sep 11" block and the architecture diagram in the "💳 Debt & Credit" section.
 
@@ -13,7 +13,7 @@ Mirrored to Notion on 2026-09-11 as the "🛠️ Research: Debt System Design" s
 - Inputs are the player's debts, the market's cash rate (seeded and decision-independent), the calendar date, and a `Wallet` (the game's shortfall waterfall).
 - Output is a list of typed events (`payment`, `missed`, `late_mark`, `penalty_apr`, `repossessed`, `collections`, `default`, `paid_off`, `cannot_cover`, `bankruptcy_eligible`, `score_change`) that the HUD, map, decision prompts, newspaper, and AI feedback subscribe to.
 - It is deterministic: the same book, dates, and wallet produce identical events (tested), which keeps rewind exact.
-- Play it: `cd game && npm run dev`, then open `/debt.html` (the Credit Desk).
+- Play it: `cd game && npm run dev`, then open `/debt.html` (the Money desk).
 - Test it: `npm test` (Node's built-in runner, no new dependencies).
 
 ![Architecture](../diagrams/debt/01-architecture.png)
