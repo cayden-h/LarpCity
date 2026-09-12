@@ -8,7 +8,6 @@ bounding box, and Sign.finish() raises if anything leaves the safe rect.
 Run from game/:  python3 art/make_ads.py
 """
 import math
-import random
 from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
@@ -43,6 +42,12 @@ SCRIPT = font_spec((SUP + "SnellRoundhand.ttc", 2), (SUP + "SnellRoundhand.ttc",
 FUTURA = font_spec((SUP + "Futura.ttc", 0), (SYS + "Helvetica.ttc", 0))
 ROUNDED = font_spec((SYS + "SFNSRounded.ttf", 0, b"Black"), (SUP + "Arial Black.ttf", 0))
 ROUNDED_BOLD = font_spec((SYS + "SFNSRounded.ttf", 0, b"Bold"), (SYS + "Helvetica.ttc", 1))
+
+# Pixel art (docs/superpowers/specs/2026-09-12-blender-houses-design.md): every sign is lettered in the game's own
+# bold Pixelify Sans (game/public/fonts, glyphs fixed for small sizes), so text survives the sprite pixel pass as
+# crisp pixels and matches the UI. The names above stay so call sites read the same.
+PIXEL = font_spec((str(Path(__file__).resolve().parents[1] / "public" / "fonts" / "pixelify-sans-bold.ttf"), 0))
+ARIAL = ARIAL_BOLD = ARIAL_BLACK = HELV_BOLD = GEORGIA = GEORGIA_BOLD = SCRIPT = FUTURA = ROUNDED = ROUNDED_BOLD = PIXEL
 
 
 @lru_cache(maxsize=4096)
@@ -83,13 +88,6 @@ def fit_text(draw, text, font_path, box, max_size=10_000, align="left", valign="
     dx = {"left": 0, "center": (bw - (r - l)) / 2, "right": bw - (r - l)}[align]
     dy = {"top": 0, "center": (bh - (b - t)) / 2, "bottom": bh - (b - t)}[valign]
     return f, (x0 - l + dx, y0 - t + dy)
-
-
-def seeded_noise(size, sigma, seed):
-    """Gaussian grey noise around 128 (like Image.effect_noise), but repeatable for a given seed."""
-    rng = random.Random(seed)
-    w, h = size
-    return Image.frombytes("L", size, bytes(min(255, max(0, round(128 + rng.gauss(0, sigma)))) for _ in range(w * h)))
 
 
 def rgba(color, alpha=255):
@@ -242,19 +240,10 @@ class Sign:
     # -- finishing
 
     def weather(self, lo, hi, seed_size=(40, 28)):
-        """Fade alpha to lo..hi of full strength in soft patches, plus fine paint grain.
-        The noise is seeded from the sign's name, so every run draws the same wear."""
-        size = self.im.size
-        patches = seeded_noise(seed_size, 64, f"{self.name}-patches").resize(size, Image.BICUBIC)
-        patches = patches.filter(ImageFilter.GaussianBlur(6 * SS))
-        mn, mx = patches.getextrema()
-        lut = [round(255 * (lo + (hi - lo) * min(max((v - mn) / max(mx - mn, 1), 0), 1)))
-               for v in range(256)]
-        grain = seeded_noise((self.w // 2, self.h // 2), 40, f"{self.name}-grain").resize(size, Image.BICUBIC)
-        grain = grain.point([round(255 * (0.86 + 0.14 * v / 255)) for v in range(256)])
-        a = self.im.getchannel("A")
-        a = ImageChops.multiply(ImageChops.multiply(a, patches.point(lut)), grain)
-        self.im.putalpha(a)
+        """Fade paint evenly to the middle of lo..hi. Pixel art has no soft wear patches or grain,
+        which the pixel pass would turn into speckles."""
+        mid = (lo + hi) / 2
+        self.im.putalpha(self.im.getchannel("A").point(lambda v: round(v * mid)))
 
     def finish(self):
         sx0, sy0, sx1, sy1 = self.safe
