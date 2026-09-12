@@ -200,6 +200,7 @@ def image(name, path, strength=1.2, glow=True, alpha=False, rough=0.5, top_lit=F
     shader = _finish(nt, out, bsdf.outputs[0], tex.outputs["Color"] if glow else None, strength if glow else 0.0,
                      gradient=gradient, link=not alpha)
     if alpha:
+        m["sign_alpha"] = tex.image.name  # the id pass is a sign only where the image is painted
         clear = nt.nodes.new("ShaderNodeBsdfTransparent")
         mix = nt.nodes.new("ShaderNodeMixShader")
         nt.links.new(tex.outputs["Alpha"], mix.inputs["Fac"])

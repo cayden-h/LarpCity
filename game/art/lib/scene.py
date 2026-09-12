@@ -127,22 +127,42 @@ def render(path) -> None:
     bpy.ops.render.render(write_still=True)
 
 
-SIGN_ID = (1.0, 0.0, 1.0, 1.0)  # lib/pixel.py SIGN_ID after the Standard view transform
+SIGN_ID = (1.0, 0.0, 1.0, 1.0)  # lib/pixel.py SIGN_ID (255, 0, 255); no object id can equal it, since its G is never 0
 
 
-def _id_material(name: str, index: int, sign: bool):
-    """Flat emission for the id pass. Signs get SIGN_ID. Anything else: red from the object's index,
-    green from whether the face points right (+X) or left (-Y), blue from whether it points up."""
+def _id_material(name: str, index: int, sign: bool, alpha_image: str | None = None):
+    """Flat emission for the id pass, in exact bytes under the Raw view transform. Signs get SIGN_ID (where an
+    alpha image is painted, if alpha_image; clear elsewhere). Anything else encodes the object's index and the
+    face direction: R = index % 256, G = 1 + index // 256, plus 128 if the face points right (+X) rather than
+    left (-Y), B = 191 if the face points up, else 64."""
     m = bpy.data.materials.new(f"id-{name}")
     m.use_nodes = True
     nt = m.node_tree
     nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     em = nt.nodes.new("ShaderNodeEmission")
-    nt.links.new(em.outputs[0], out.inputs["Surface"])
     if sign:
         em.inputs["Color"].default_value = SIGN_ID
+        if alpha_image:
+            tex = nt.nodes.new("ShaderNodeTexImage")
+            tex.image = bpy.data.images[alpha_image]
+            tex.extension = "CLIP"
+            tex.interpolation = "Closest"
+            painted = nt.nodes.new("ShaderNodeMath")  # a hard edge: ghost paint is only half opaque
+            painted.operation = "GREATER_THAN"
+            painted.inputs[1].default_value = 0.4
+            nt.links.new(tex.outputs["Alpha"], painted.inputs[0])
+            mix = nt.nodes.new("ShaderNodeMixShader")
+            nt.links.new(painted.outputs[0], mix.inputs["Fac"])
+            nt.links.new(nt.nodes.new("ShaderNodeBsdfTransparent").outputs[0], mix.inputs[1])
+            nt.links.new(em.outputs[0], mix.inputs[2])
+            nt.links.new(mix.outputs[0], out.inputs["Surface"])
+        else:
+            nt.links.new(em.outputs[0], out.inputs["Surface"])
         return m
+    if index // 256 > 126:
+        raise ValueError(f"id pass: object index {index} does not fit in the id encoding (at most {127 * 256} objects)")
+    nt.links.new(em.outputs[0], out.inputs["Surface"])
     normal = nt.nodes.new("ShaderNodeSeparateXYZ")
     nt.links.new(nt.nodes.new("ShaderNodeNewGeometry").outputs["Normal"], normal.inputs[0])
 
@@ -159,26 +179,32 @@ def _id_material(name: str, index: int, sign: bool):
     right = node("GREATER_THAN", normal.outputs[0], node("MULTIPLY", normal.outputs[1], -1.0))
     up = node("GREATER_THAN", normal.outputs[2], 0.5)
     color = nt.nodes.new("ShaderNodeCombineColor")
-    color.inputs[0].default_value = ((index * 37) % 251 + 2) / 256
-    nt.links.new(node("ADD", node("MULTIPLY", right, 0.5), 0.25), color.inputs[1])
-    nt.links.new(node("ADD", node("MULTIPLY", up, 0.5), 0.25), color.inputs[2])
+    color.inputs[0].default_value = (index % 256) / 255
+    nt.links.new(node("ADD", node("MULTIPLY", right, 128 / 255), (1 + index // 256) / 255), color.inputs[1])
+    nt.links.new(node("ADD", node("MULTIPLY", up, 127 / 255), 64 / 255), color.inputs[2])
     nt.links.new(color.outputs[0], em.inputs["Color"])
     return m
 
 
 def set_ids() -> None:
     """Id pass, always the last render of a sprite (it replaces every material): each object's faces glow one
-    flat color per face direction, with no lights, sky, shadow catcher, noise, or anti-aliasing."""
+    flat color per face direction, with no lights, sky, shadow catcher, noise, or anti-aliasing.
+    "Sign" is decided per object: any sign material slot (and any text) marks the whole object."""
     set_night(True)
     sc = bpy.context.scene
+    sc.view_settings.view_transform = "Raw"  # emission v / 255 renders to exactly byte v
     sc.view_settings.exposure = 0.0
     sc.cycles.samples = 1
     sc.cycles.use_denoising = False
     sc.cycles.filter_width = 0.01
     sc.render.dither_intensity = 0.0  # the 8-bit dither would scatter +-1 neighbors around every id
-    meshes = sorted((o for o in sc.objects if o.type == "MESH" and not o.get("shadow_catcher")), key=lambda o: o.name)
-    for i, o in enumerate(meshes):
-        sign = any(s.material and s.material.get("sign") for s in o.material_slots)
-        mat = _id_material(o.name, i, sign)
+    kinds = ("MESH", "FONT", "CURVE")
+    objs = sorted((o for o in sc.objects if o.type in kinds and not o.get("shadow_catcher")), key=lambda o: o.name)
+    for i, o in enumerate(objs):
+        mats = [s.material for s in o.material_slots if s.material]
+        sign = o.type == "FONT" or any(m.get("sign") for m in mats)
+        alpha = next((m["sign_alpha"] for m in mats if m.get("sign_alpha")), None)
+        mat = _id_material(o.name, i, sign, alpha)
         o.data.materials.clear()
         o.data.materials.append(mat)
+    print(f"[art] id pass: {len(objs)} objects", flush=True)

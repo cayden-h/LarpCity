@@ -70,11 +70,14 @@ def main():
 
     def save():
         # Catalog order, only sprites that exist; written after every render so a crash loses nothing.
-        mpath.write_text(json.dumps({"sprites": [done[i] for i in ids if i in done]}, indent=1))
+        mpath.write_text(json.dumps({"scale": S.SCALE, "sprites": [done[i] for i in ids if i in done]}, indent=1))
 
-    missing = "--missing" in sys.argv  # resume: render only what the raw manifest doesn't have yet
+    def complete(sid):
+        return sid in done and "raw" in done[sid] and all((raw / f).exists() for f in done[sid]["raw"].values())
+
+    missing = "--missing" in sys.argv  # resume: render only what the raw manifest and folder don't have yet
     for spec in CATALOG[city]:
-        if (wanted and spec["id"] not in wanted) or (missing and spec["id"] in done):
+        if (wanted and spec["id"] not in wanted) or (missing and complete(spec["id"])):
             continue
         done[spec["id"]] = render(spec, raw)
         save()
