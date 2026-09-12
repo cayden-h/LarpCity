@@ -112,6 +112,12 @@ let amount = 100;
 let tradeMsg: { text: string; bad: boolean } | null = null;
 let menuOpen = false;
 let shopShown = false;
+/** The last bear market and what the player chose, for the recovery card and the recap. */
+let crash: { day: number; drop: number; choice: string } | null = null;
+/** The last recovery: how the three lines came through. */
+let recovery: { day: number; you: number; held: number; autopilot: number } | null = null;
+/** Gemini's lesson for the last recovery, when the server has one. */
+let recap: { headline: string; lesson: string } | null = null;
 
 function makeLife(): PlayerLife {
   const l = new PlayerLife({ place: HOME, day: clock.day, market, cashRate: (d) => seriesOn("DFF", d) / 100 + rateShock });
@@ -204,6 +210,15 @@ function onLifeEvents(events: LifeEvent[]) {
         break;
       case "bankruptcy_eligible":
         if (!decision) askBankruptcy(e.reason);
+        break;
+      case "bear_market":
+        log(e.day, `Stocks are down ${pctOf(e.drop, 0)} from their high`, "down");
+        if (!decision) askBearMarket(e.day, e.drop, e.stocks);
+        break;
+      case "market_recovered":
+        log(e.day, "Stocks are back at their high", "up");
+        recovery = { day: e.day, you: e.you, held: e.held, autopilot: e.autopilot };
+        recap = null;
         break;
       default:
         break;
@@ -306,6 +321,50 @@ function askBankruptcy(reason: string) {
       { label: "Keep paying what I can", lesson: "Nonprofit credit counseling can still set up a debt management plan.", good: true, act: () => log(clock.day, "You kept paying what you could", "flat") },
     ],
   });
+}
+
+function askBearMarket(day: number, drop: number, stocks: number) {
+  const spare = Math.floor(Math.max(0, life.ledger.get("checking").balance - life.monthlyExpenses()));
+  const more = Math.min(500, spare);
+  const choose = (choice: string) => {
+    crash = { day, drop, choice };
+    log(clock.day, `In the crash, you ${choice}`, "flat");
+  };
+  const sellStocks = (share: 1 | 0.5) => {
+    for (const id of ["LTM", "NNST"] as InstrumentId[]) {
+      const pos = life.position(id);
+      if (pos) life.sell(id, share === 1 ? "all" : pos.value * share);
+    }
+  };
+  const options: Decision["options"] = [
+    {
+      label: "Sell everything",
+      lesson: "Locks in the loss. The best days usually come right after the worst.",
+      act: () => {
+        sellStocks(1);
+        choose("sold everything");
+      },
+    },
+    {
+      label: "Sell half",
+      lesson: "Halves the pain and halves the rebound.",
+      act: () => {
+        sellStocks(0.5);
+        choose("sold half");
+      },
+    },
+    { label: "Hold", lesson: "Every US bear market has recovered, and holders get the whole rebound.", good: true, act: () => choose("held") },
+  ];
+  if (more >= 1)
+    options.push({
+      label: `Buy ${usd(more)} more`,
+      lesson: "Stocks are on sale. It works if you won't need this money for years.",
+      act: () => {
+        life.buy("LTM", more);
+        choose(`bought ${usd(more)} more`);
+      },
+    });
+  openDecision({ title: `Stocks are down ${pctOf(drop, 0)} from their high`, body: `Your stocks are worth ${usd(stocks)} now. This is a bear market. What do you do?`, options });
 }
 
 // ---- Debt helpers ------------------------------------------------------------------
@@ -497,14 +556,13 @@ function investingPage(): Page {
   const bp = life.buyingPower();
   const top = open0();
   const each = life.recurring.reduce((s, r) => s + r.amount, 0);
-  const chart = invested
-    ? histChart(hist("investments"), (y) => usd(y, 2))
-    : histChart(priceSeries("SP500"), (y) => num(y, 2), {});
+  const chart = invested ? twinsChart() : histChart(priceSeries("SP500"), (y) => num(y, 2), {});
   if (!invested) chart.change = (p, scrubbing) => marketChange(chart.pts, p, scrubbing);
   return {
     side: true,
     chart,
-    main: `${heroHtml(invested ? "Investing" : "Stock market · S&amp;P 500")}${rangesHtml()}
+    main: `${heroHtml(invested ? "Investing · you vs if you had held" : "Stock market · S&amp;P 500")}${rangesHtml()}
+      ${recoveryCard()}${concentrationCard()}
       ${nextCard(
         `Buying power ${usd(bp, 2)}`,
         life.recurring.length ? `Auto-invest is on: ${life.recurring.map((r) => `${usd(r.amount)} of ${r.id}`).join(" and ")} every payday (${usd(each)} total).` : "Money in checking you can invest. Auto-invest buys a fund for you every payday, after bills.",
@@ -527,6 +585,44 @@ function investingPage(): Page {
 /** Highest-rate open debt. */
 function open0(): Debt | undefined {
   return life.book.debts.filter(isOpen).sort((a, b) => aprNow(b) - aprNow(a))[0];
+}
+
+/** You, if you had held, and autopilot on one zero-based chart (research/03, three-line chart). */
+function twinsChart(): ChartSpec {
+  const you = hist("you");
+  const held = hist("held");
+  const auto = hist("autopilot");
+  const spec = histChart(you, (y) => usd(y, 2));
+  spec.lines = [
+    { pts: held, cls: "bc-held", label: "If you had held" },
+    { pts: auto, cls: "bc-auto", label: "Autopilot" },
+  ];
+  spec.zero = true;
+  const at = (pts: ChartPt[], x: number) => (pts.find((q) => q.x === x) ?? pts[pts.length - 1]).y;
+  const base = spec.change;
+  spec.change = (p, scrub) => `${base(p, scrub)} <span class="when">· held ${usd(at(held, p.x))} · autopilot ${usd(at(auto, p.x))}</span>`;
+  return spec;
+}
+
+function recoveryCard(): string {
+  if (!recovery || clock.day - recovery.day > 365) return "";
+  const gap = recovery.held - recovery.you;
+  const body =
+    gap > 1
+      ? `Selling cost you ${usd(gap)}. Holding would be worth ${usd(recovery.held)}; you have ${usd(recovery.you)}.`
+      : gap < -1
+        ? `You came out ${usd(-gap)} ahead of holding. Most sellers don't: the rebound usually comes fast.`
+        : "You held, so you got the whole rebound.";
+  const choice = crash && crash.day <= recovery.day ? ` In the crash, you ${esc(crash.choice)}.` : "";
+  return nextCard(recap ? esc(recap.headline) : "Stocks are back at their high", `${body}${choice}${recap ? ` ${esc(recap.lesson)}` : ""}`);
+}
+
+function concentrationCard(): string {
+  const positions = life.positions();
+  const total = positions.reduce((s, p) => s + p.value, 0);
+  const nnst = life.position("NNST")?.value ?? 0;
+  if (total <= 0 || nnst / total <= 0.2) return "";
+  return nextCard(`NeuralNest is ${pctOf(nnst / total, 0)} of your investments`, "One company can fall 80%. A fund spreads the risk across hundreds.");
 }
 
 function marketChange(pts: ChartPt[], p: ChartPt, scrubbing: boolean): string {
