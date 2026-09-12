@@ -5,72 +5,169 @@ Run from game/:  python3 art/pixelize.py san-francisco [--only <id>[,<id>...]] [
 The city palette lives in art/palettes/<city>.json. It is built from all renders the first time
 (or with --new-palette) and then kept, so rerendering one sprite never shifts the others' colors.
 Cast shadows are cut out before the pass and drawn back as one flat SHADOW shape, never outlined
-and never part of the palette.
+and never part of the palette. After writing, every file the manifest names must exist and be newer
+than its raw renders; the run fails listing the ids that are missing or stale.
 """
+import argparse
 import json
 import sys
+from functools import cached_property
 from pathlib import Path
+
+import numpy as np
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from lib import pixel as P  # noqa: E402
 
 DAY_COLORS, NIGHT_COLORS = 32, 16
+PUBLIC = HERE.parent / "public" / "sprites"
+OUTPUTS = ("day", "night", "crown", "walls")  # manifest keys that name a file in public/sprites/<city>/
 
 
-def main(argv):
-    if not argv or argv[0].startswith("--"):
-        sys.exit(__doc__)
-    city = argv[0]
-    only = set(argv[argv.index("--only") + 1].split(",")) if "--only" in argv else None
-    raw = HERE / ".raw" / city
-    out = HERE.parent / "public" / "sprites" / city
+class RawSprite:
+    """One sprite's raw 4x layers, each loaded once, and the 1x layers derived from them.
+
+    A layer added later (the walls) reads ids4 and lines1 from here, so it needs no reload of its own."""
+
+    def __init__(self, raw_dir: Path, entry: dict):
+        self.dir, self.entry, self.id = raw_dir, entry, entry["id"]
+        self._layers = {}
+        self.lines1 = None  # the day's outline mask at 1x, set by outlined()
+
+    def layer4(self, name: str) -> np.ndarray:
+        """A raw 4x layer by its raw.json key ("day", "night", "ids", "crown")."""
+        if name not in self._layers:
+            self._layers[name] = P.load(self.dir / self.entry["raw"][name])
+        return self._layers[name]
+
+    @property
+    def ids4(self) -> np.ndarray:
+        return self.layer4("ids")
+
+    @cached_property
+    def split4(self):
+        """The building (the day render without its cast shadow) and the 4x shadow mask."""
+        return P.split_shadow(self.layer4("day"), self.ids4)
+
+    @cached_property
+    def day1(self) -> np.ndarray:
+        return P.downsample(P.flatten(self.split4[0], self.ids4))
+
+    @cached_property
+    def ids1(self) -> np.ndarray:
+        return P.downsample(self.ids4)
+
+    @cached_property
+    def shadow1(self) -> np.ndarray:
+        # the building joins the mask, so a block that is part shadow and part building never becomes a gap
+        # between the two; add_shadow never paints over the building itself
+        building4, shadow4 = self.split4
+        return P.downsample_mask(shadow4 | P._opaque(building4))
+
+    @cached_property
+    def night1(self) -> np.ndarray:
+        return P.downsample(self.layer4("night"))
+
+    def shrink(self) -> "RawSprite":
+        """Derive every 1x layer, then drop the 4x ones, so a whole-city palette build never holds every raw
+        render at once (a later layer may reload ids4 once)."""
+        for _ in (self.day1, self.ids1, self.shadow1, self.night1):
+            pass
+        self.release()
+        return self
+
+    def release(self) -> None:
+        """Drop the 4x layers; the 1x ones stay."""
+        self._layers.clear()
+        self.__dict__.pop("split4", None)
+
+    def outlined(self, day_pal) -> np.ndarray:
+        """The day quantized and outlined; its line mask is kept as lines1."""
+        day, self.lines1 = P.outline(P.quantize(self.day1, day_pal), self.ids1, day_pal)
+        return day
+
+
+def pixelize_one(src: RawSprite, day_pal, night_pal) -> dict[str, np.ndarray]:
+    """Every final 1x layer of one sprite, keyed by its manifest key."""
+    layers = {
+        "day": P.add_shadow(src.outlined(day_pal), src.shadow1),
+        "night": P.quantize(src.night1, night_pal),
+    }
+    if "crown" in src.entry["raw"]:
+        # the crown is a white mask the game tints and animates itself, so it is shrunk but not quantized
+        layers["crown"] = P.downsample(src.layer4("crown"))
+    return layers
+
+
+def stale(raw_dir: Path, out: Path, entries) -> list[str]:
+    """Ids of raw entries whose manifest files are missing from out or older than any of their raw renders."""
+    bad = []
+    for e in entries:
+        newest = max((raw_dir / f).stat().st_mtime_ns for f in e["raw"].values())
+        files = [out / e[k] for k in OUTPUTS if e.get(k)]
+        if any(not f.exists() or f.stat().st_mtime_ns < newest for f in files):
+            bad.append(e["id"])
+    return bad
+
+
+def parse(argv):
+    ap = argparse.ArgumentParser(prog="art/pixelize.py", description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("city", help="the city folder, e.g. san-francisco")
+    ap.add_argument("--only", type=lambda s: set(s.split(",")), metavar="ID[,ID...]",
+                    help="rewrite only these sprites (the manifest still lists every one)")
+    ap.add_argument("--new-palette", action="store_true", help="rebuild the city palette from every render")
+    args = ap.parse_args(argv)
+    if args.only and args.new_palette:
+        ap.error("--new-palette changes every sprite's colors, so it cannot run with --only; drop --only")
+    return args
+
+
+def main(argv, art_dir: Path = HERE, public_dir: Path = PUBLIC):
+    args = parse(argv)
+    raw = art_dir / ".raw" / args.city
+    out = public_dir / args.city
     rawinfo = json.loads((raw / "raw.json").read_text())
     if rawinfo.get("scale") != P.RAW_SCALE:
         sys.exit(f"[pixel] {raw / 'raw.json'} was rendered at scale {rawinfo.get('scale')}, "
                  f"but the pixel pass expects {P.RAW_SCALE}; rerun art/build.py")
     entries = rawinfo["sprites"]
-    if only and only - {e["id"] for e in entries}:
-        sys.exit(f"[pixel] not in raw.json: {', '.join(sorted(only - {e['id'] for e in entries}))}")
-    out.mkdir(parents=True, exist_ok=True)
-    ppath = HERE / "palettes" / f"{city.replace('/', '-')}.json"
+    unknown = (args.only or set()) - {e["id"] for e in entries}
+    if unknown:
+        sys.exit(f"[pixel] not in raw.json: {', '.join(sorted(unknown))}")
+    sources = {e["id"]: RawSprite(raw, e) for e in entries}
+    ppath = art_dir / "palettes" / f"{args.city.replace('/', '-')}.json"
 
-    cache = {}
-
-    def shrunk(e):
-        """The building flattened and shrunk to 1x, its id render shrunk the same way, and its 1x shadow mask."""
-        if e["id"] not in cache:
-            r = e["raw"]
-            day4, ids4 = P.load(raw / r["day"]), P.load(raw / r["ids"])
-            building4, shadow4 = P.split_shadow(day4, ids4)
-            cache[e["id"]] = (P.downsample(P.flatten(building4, ids4)), P.downsample(ids4), P.downsample_mask(shadow4))
-        return cache[e["id"]]
-
-    if "--new-palette" in argv or not ppath.exists():
-        days = [shrunk(e)[0] for e in entries]
-        nights = [P.downsample(P.load(raw / e["raw"]["night"])) for e in entries]
-        ppath.parent.mkdir(exist_ok=True)
-        ppath.write_text(json.dumps({"day": P.build_palette(days, DAY_COLORS), "night": P.build_palette(nights, NIGHT_COLORS, ink=False)}))
+    if args.new_palette or not ppath.exists():
+        print(f"[pixel] building palette from {len(sources)} sprites", flush=True)
+        shrunk = [s.shrink() for s in sources.values()]
+        pal = {"day": P.build_palette([s.day1 for s in shrunk], DAY_COLORS),
+               "night": P.build_palette([s.night1 for s in shrunk], NIGHT_COLORS, ink=False)}
+        ppath.parent.mkdir(parents=True, exist_ok=True)
+        ppath.write_text(json.dumps(pal, indent=1))
         print(f"[pixel] new palette {ppath.name}", flush=True)
     pal = json.loads(ppath.read_text())
     day_pal = [tuple(c) for c in pal["day"]]
     night_pal = [tuple(c) for c in pal["night"]]
 
+    out.mkdir(parents=True, exist_ok=True)
     manifest = []
     for e in entries:
         final = {k: v for k, v in e.items() if k != "raw"}
         manifest.append(final)
-        if only and e["id"] not in only:
+        if args.only and e["id"] not in args.only:
             continue
-        r = e["raw"]
-        day1, ids1, shadow1 = shrunk(e)
-        day, _lines = P.outline(P.quantize(day1, day_pal), ids1, day_pal)
-        P.save(P.add_shadow(day, shadow1), out / final["day"])
-        P.save(P.quantize(P.downsample(P.load(raw / r["night"])), night_pal), out / final["night"])
-        if "crown" in r:
-            P.save(P.downsample(P.load(raw / r["crown"])), out / final["crown"])
+        src = sources[e["id"]]
+        for key, layer in pixelize_one(src, day_pal, night_pal).items():
+            P.save(layer, out / final[key])
+        src.release()
         print(f"[pixel] {e['id']}", flush=True)
     (out / "sprites.json").write_text(json.dumps({"scale": 1, "sprites": manifest}, indent=1))
+
+    bad = stale(raw, out, entries)
+    if bad:
+        sys.exit(f"[pixel] missing, or older than their raw renders (rerun them): {', '.join(bad)}")
 
 
 if __name__ == "__main__":

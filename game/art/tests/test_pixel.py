@@ -267,6 +267,12 @@ class Shadow(unittest.TestCase):
     def test_mask_downsample_crops_like_downsample(self):
         self.assertEqual(P.downsample_mask(np.ones((9, 10), bool)).shape, (2, 2))
 
+    def test_mask_and_image_downsample_to_the_same_grid(self):
+        a = img(9, 10)
+        a[:4, 4:8] = (1, 2, 3, 255)     # the second block of the first row, fully opaque
+        mask = a[..., 3] > 0
+        self.assertEqual(P.downsample_mask(mask).tolist(), (P.downsample(a)[..., 3] == 255).tolist())
+
 
 if __name__ == "__main__":
     unittest.main()
