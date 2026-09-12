@@ -11,6 +11,13 @@ import type { CrashRule } from "./types.ts";
 export const PANIC_DRAWDOWN = 0.2;
 export const REENTRY_MONTHS = 3;
 
+/** The crash rule's memory as plain JSON, for the saved game (sim/save). */
+export interface CrashSave {
+  peak: number;
+  crashPeak: number | null;
+  recoveredFor: number;
+}
+
 export class CrashWatch {
   /** Highest monthly stock price seen while invested. */
   peak = 0;
@@ -18,6 +25,18 @@ export class CrashWatch {
   crashPeak: number | null = null;
   /** Months since the price got back to `crashPeak`; -1 until it does. */
   private recoveredFor = -1;
+
+  toSave(): CrashSave {
+    return { peak: this.peak, crashPeak: this.crashPeak, recoveredFor: this.recoveredFor };
+  }
+
+  static fromSave(s: CrashSave): CrashWatch {
+    const c = new CrashWatch();
+    c.peak = s.peak;
+    c.crashPeak = s.crashPeak;
+    c.recoveredFor = s.recoveredFor;
+    return c;
+  }
 
   /** Share of the plan's stocks still held: 1, or 0.5 or 0 after a panic sale. */
   held(rule: CrashRule): number {

@@ -17,6 +17,14 @@ type Units = Partial<Record<InstrumentId, number>>;
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
+/** Twins as plain JSON, for the saved game (sim/save). */
+export interface TwinsSave {
+  invested: number;
+  cashOut: number;
+  heldUnits: Units;
+  autoUnits: Units;
+}
+
 export class Twins {
   /** New money the player has put into the brokerage (not reinvested sale proceeds). */
   invested = 0;
@@ -28,6 +36,19 @@ export class Twins {
 
   constructor(market: MarketPath) {
     this.market = market;
+  }
+
+  toSave(): TwinsSave {
+    return { invested: this.invested, cashOut: this.cashOut, heldUnits: { ...this.heldUnits }, autoUnits: { ...this.autoUnits } };
+  }
+
+  static fromSave(s: TwinsSave, market: MarketPath): Twins {
+    const t = new Twins(market);
+    t.invested = s.invested;
+    t.cashOut = s.cashOut;
+    Object.assign(t.heldUnits, s.heldUnits);
+    Object.assign(t.autoUnits, s.autoUnits);
+    return t;
   }
 
   buy(id: InstrumentId, dollars: number, day: number): void {

@@ -136,6 +136,14 @@ export function quoteBalanceTransfer(from: Debt, to: Debt, amount: number, feePc
   return { ...base, warnings, ok: true };
 }
 
+/** A ledger as plain JSON, for the saved game (sim/save). */
+export interface LedgerSave {
+  accounts: Account[];
+  pending: Transfer[];
+  history: Transfer[];
+  seq: number;
+}
+
 /**
  * The player's cash and investment accounts plus in-flight transfers. Cards
  * and loans stay in the DebtBook; card moves take the Debt directly.
@@ -148,6 +156,19 @@ export class Ledger {
 
   constructor(accounts: Account[]) {
     for (const a of accounts) this.accounts.set(a.id, a);
+  }
+
+  toSave(): LedgerSave {
+    return structuredClone({ accounts: [...this.accounts.values()], pending: this.pending, history: this.history, seq: this.seq });
+  }
+
+  static fromSave(s: LedgerSave): Ledger {
+    const copy = structuredClone(s);
+    const l = new Ledger(copy.accounts);
+    l.pending = copy.pending;
+    l.history = copy.history;
+    l.seq = copy.seq;
+    return l;
   }
 
   get(id: string): Account {
