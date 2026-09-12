@@ -136,3 +136,35 @@ export function score(input: ScoreInput): ScoreResult | null {
   if (total < PUBLISH_THRESHOLD) return null;
   return { score: Math.round(total * 100) / 100, prominence: prominenceOf(total), category: CATEGORY[input.kind] };
 }
+
+export interface ScorableEvent {
+  key: string;
+  day: number;
+  kind: string;
+  payload: Record<string, unknown>;
+}
+
+export interface ScoredEvent extends ScorableEvent {
+  category: Category;
+  score: number;
+  prominence: Prominence;
+}
+
+/**
+ * Scores a whole POST /api/events batch (one event per day in live play, or thousands at once after a
+ * fast-forward) in one pass. `priorCounts` is this kind's count from *before* the batch (server/src/news/pipeline.ts
+ * queries it once, before inserting the batch's own events, so a repeat within the batch decays correctly
+ * against events earlier in the very same batch, not just against older requests).
+ */
+export function assignScores(events: ScorableEvent[], netWorthBaseline: number, priorCounts: Map<string, number>): ScoredEvent[] {
+  const counts = new Map(priorCounts);
+  const out: ScoredEvent[] = [];
+  for (const e of events) {
+    const priorCount = counts.get(e.kind) ?? 0;
+    counts.set(e.kind, priorCount + 1);
+    const result = score({ kind: e.kind, payload: e.payload, netWorthBaseline, priorCount });
+    if (!result) continue;
+    out.push({ ...e, category: result.category, score: result.score, prominence: result.prominence });
+  }
+  return out;
+}
