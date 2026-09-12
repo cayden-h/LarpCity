@@ -33,7 +33,7 @@ import {
   type Strategy,
 } from "../sim/debt/index.ts";
 
-type Tab = "home" | "cash" | "investing" | "debt" | "credit" | "cards";
+type Tab = "home" | "cash" | "investing" | "debt" | "credit" | "cards" | "taxes";
 type Range = "1W" | "1M" | "3M" | "1Y" | "ALL";
 type Tone = "up" | "down" | "flat";
 interface FeedItem {
@@ -85,6 +85,7 @@ const TABS: [Tab, string][] = [
   ["debt", "Debt"],
   ["credit", "Credit"],
   ["cards", "Cards"],
+  ["taxes", "Taxes"],
 ];
 const RANGE_DAYS: Record<Range, number> = { "1W": 7, "1M": 30, "3M": 91, "1Y": 365, ALL: Infinity };
 const RANGE_LABEL: Record<Range, string> = { "1W": "Past week", "1M": "Past month", "3M": "Past 3 months", "1Y": "Past year", ALL: "All time" };
@@ -157,6 +158,7 @@ const PAGE_SUB: Record<Tab, string> = {
   debt: "Your payoff plan",
   credit: "Your score and what moves it",
   cards: "Your card and the Card Shop",
+  taxes: "Your federal and state return",
 };
 /** Preset extra payments, Monzo-style; the amount next to them takes anything else. */
 const EXTRA_PRESETS = [0, 100, 300, 500, 1_000];
@@ -1095,6 +1097,44 @@ function cardsPage(): Page {
   };
 }
 
+// ---- Taxes ----------------------------------------------------------------------------
+
+function taxesPage(): Page {
+  const stat = (k: string, v: string) => `<div><span>${k}</span><b>${v}</b></div>`;
+  const ret = life.pendingTaxReturn();
+  if (!ret) {
+    return {
+      side: false,
+      main: `${nextCard("Nothing due yet", "Your return for the year becomes ready to file around April 15 of the following year.")}
+        <div class="section"><h2>This year so far</h2><span>Not filed yet</span></div>
+        <div class="stats">${stat("Wages this year", usd(life.wagesYtd()))}</div>`,
+    };
+  }
+  const totalOwed = ret.federalRefundOrOwed + ret.stateRefundOrOwed;
+  return {
+    side: false,
+    tone: totalOwed >= 0 ? "up" : "down",
+    main: `<div class="section"><h2>Your ${ret.year} tax return</h2><span>Single filer · ${esc(ret.state)}</span></div>
+      <div class="stats">${[
+        stat("Wages", usd(ret.wages)),
+        stat("Standard deduction", `−${usd(ret.federalStandardDeduction)}`),
+        stat("Federal taxable income", usd(ret.federalTaxableIncome)),
+        stat("Federal tax", usd(ret.federalTax)),
+        stat("Earned Income Tax Credit", ret.eic > 0 ? `−${usd(ret.eic)}` : usd(0)),
+        stat("Federal withheld", usd(ret.federalWithheld)),
+        stat("Federal refund/owed", usd(ret.federalRefundOrOwed)),
+        stat("State tax", usd(ret.stateTax)),
+        stat("State withheld", usd(ret.stateWithheld)),
+        stat("State refund/owed", usd(ret.stateRefundOrOwed)),
+      ].join("")}</div>
+      ${nextCard(
+        totalOwed >= 0 ? `Refund: ${usd(totalOwed)}` : `You owe ${usd(-totalOwed)}`,
+        totalOwed >= 0 ? "File to get your refund deposited to checking." : "File to pay what you owe from checking, or leave a balance if it can't cover it.",
+        { label: "File now", act: "file-taxes" },
+      )}`,
+  };
+}
+
 // ---- Side panel ------------------------------------------------------------------------
 
 function sideHtml(): string {
@@ -1343,7 +1383,7 @@ function render() {
   const sel = active instanceof HTMLInputElement && active.type === "number" ? null : null;
   void sel;
   renderTop();
-  const pages: Record<Tab, () => Page> = { home: homePage, cash: cashPage, investing: investingPage, debt: debtPage, credit: creditPage, cards: cardsPage };
+  const pages: Record<Tab, () => Page> = { home: homePage, cash: cashPage, investing: investingPage, debt: debtPage, credit: creditPage, cards: cardsPage, taxes: taxesPage };
   const page = pages[tab]();
   const el = q("[data-page]");
   el.className = `page${page.side ? "" : " wide"}`;
@@ -1439,6 +1479,9 @@ app.addEventListener("click", (ev) => {
       break;
     case "go-debt":
       go("debt");
+      break;
+    case "file-taxes":
+      if (life.pendingTaxReturn()) life.fileTaxes(clock.day);
       break;
     case "recurring":
       if (life.recurring.length) {
@@ -1573,14 +1616,24 @@ window.addEventListener("resize", () => render());
 
 // ---- Start -----------------------------------------------------------------------------
 
-/** The phone's Stocks app links straight to a stock page as /debt.html#stock=COF. */
+/** The phone's Stocks app links straight to a stock page as /debt.html#stock=COF, and any
+ * tab as /debt.html#tab=taxes. */
 function openFromHash(): boolean {
-  const id = new URLSearchParams(location.hash.slice(1)).get("stock");
-  if (!id || !INSTRUMENTS.some((i) => i.id === id)) return false;
-  openFund(id as InstrumentId);
-  // Clear it, so tapping the same stock again still fires hashchange.
-  history.replaceState(null, "", location.pathname + location.search);
-  return true;
+  const params = new URLSearchParams(location.hash.slice(1));
+  const id = params.get("stock");
+  if (id && INSTRUMENTS.some((i) => i.id === id)) {
+    openFund(id as InstrumentId);
+    // Clear it, so tapping the same stock again still fires hashchange.
+    history.replaceState(null, "", location.pathname + location.search);
+    return true;
+  }
+  const tabId = params.get("tab");
+  if (tabId && TABS.some(([t]) => t === tabId)) {
+    go(tabId as Tab);
+    history.replaceState(null, "", location.pathname + location.search);
+    return true;
+  }
+  return false;
 }
 window.addEventListener("hashchange", () => {
   if (openFromHash()) render();

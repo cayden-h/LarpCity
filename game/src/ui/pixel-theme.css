@@ -117,6 +117,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .app-name { font-size: clamp(11px, .85vw, 14px); font-weight: 700; text-shadow: none; }
 .app.soon .app-icon { filter: none; opacity: 1; }
 .app-badge { font-size: 8px; border-radius: 0; padding: 1px 3px; top: -7px; right: 0; background: #fff7dd; border: 1px solid #16354b; box-shadow: none; }
+.app-badge-alert { background: #e54c50; color: #fff7dd; border-color: #7a1f22; }
 .home-bar { background: #103c57; border-radius: 0; width: 70px; }
 .toast { border-radius: 0; border: 2px solid #101f2c; background: #0c5486; color: #fff7dd; backdrop-filter: none; }
 .view-stocks { inset: 0; background: #fff7dd; padding-top: 42px; }

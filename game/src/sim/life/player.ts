@@ -24,6 +24,11 @@ import { Ledger } from "../money/accounts.ts";
 import type { Account, Holding } from "../money/types.ts";
 import { CrashWatch, PANIC_DRAWDOWN } from "../skip/crash.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
+import { fileReturn } from "../tax/filing.ts";
+import { penaltyFor } from "../tax/penalties.ts";
+import type { TaxReturn } from "../tax/types.ts";
+import { withholdingForPaycheck } from "../tax/withholding.ts";
+import { installment } from "../debt/factory.ts";
 import { cashRateOn } from "./rates.ts";
 import { Twins } from "./twins.ts";
 
@@ -63,7 +68,7 @@ const ACCOUNT_NAMES = { emergency: "Emergency fund", k401: "401(k)" } as const;
 
 export type LifeEvent =
   | DebtEvent
-  | { type: "paycheck"; day: number; takeHome: number; garnished: number; unemployed: boolean; retirement?: number }
+  | { type: "paycheck"; day: number; takeHome: number; garnished: number; unemployed: boolean; retirement?: number; federalWithheld: number; stateWithheld: number }
   | { type: "bill"; day: number; name: string; amount: number; paid: number }
   | { type: "savings_interest"; day: number; amount: number }
   | { type: "moved"; day: number; from: string; to: string; rent: number; living: number }
@@ -71,7 +76,10 @@ export type LifeEvent =
   | { type: "trade"; day: number; id: InstrumentId; side: "buy" | "sell"; amount: number; units: number; price: number; recurring: boolean }
   | { type: "trade_skipped"; day: number; id: InstrumentId; amount: number; reason: string }
   | { type: "bear_market"; day: number; drop: number; stocks: number }
-  | { type: "market_recovered"; day: number; you: number; held: number; autopilot: number };
+  | { type: "market_recovered"; day: number; you: number; held: number; autopilot: number }
+  | { type: "tax_ready"; day: number; year: number }
+  | { type: "tax_filed"; day: number; year: number; refundOrOwed: number; auto: boolean }
+  | { type: "tax_penalty"; day: number; amount: number };
 
 export interface LifeSnapshot {
   day: number;
@@ -199,6 +207,45 @@ export class PlayerLife {
   private lastFirst: { stock: number; bond: number } | null = null;
   private k401Year = -1;
   private k401Ytd = 0;
+  private taxYear = 0; // 0 is a sentinel meaning "not initialized yet"; set on first payday
+  private wagesYtdAmount = 0;
+  private federalWithheldYtd = 0;
+  private stateWithheldYtd = 0;
+  /**
+   * The just-closed calendar year's final wages/withholding, snapshotted at
+   * the January 1 reset so the April 15 filing check (which runs after that
+   * reset, in the same new year) reads the year that actually closed, not
+   * whatever has re-accumulated since. `priorYearSnapshotYear` records which
+   * year the snapshot is *for*, so the April 15 block can tell a real
+   * snapshot apart from "no reset has ever happened" (e.g. a life whose very
+   * first April 15 arrives before its first January 1) and fall back to the
+   * live accumulators in that case.
+   */
+  private priorYearWages = 0;
+  private priorYearFederalWithheld = 0;
+  private priorYearStateWithheld = 0;
+  private priorYearSnapshotYear: number | null = null;
+  private pendingReturn: TaxReturn | null = null;
+  /** The day the pending return became ready (~April 15) — the reference point penalties.ts measures lateness from, independent of when (or whether) the player actually files. */
+  private taxReadyDay: number | null = null;
+  /**
+   * `originalOwed` is fixed (the actual unpaid tax) — `penaltyFor` (Task 11)
+   * always computes off this, never off the inflated running balance, so
+   * penalties are never charged on top of previously-added penalties. `amount`
+   * is the running balance (original + all penalties/interest so far) that
+   * becomes the eventual Debt's opening balance. `penaltyCharged` is how much
+   * of `penaltyFor`'s cumulative total has already been folded into `amount`,
+   * so each monthly tick adds only that month's new increment.
+   */
+  private unpaidTax: { originalOwed: number; amount: number; dueDay: number; filedDay: number | null; penaltyCharged: number } | null = null;
+
+  /** dueDay values whose unpaid tax has already converted to a Debt, so a later year's distinct balance is never blocked by an older year's still-open "IRS balance" Debt. */
+  private convertedTaxDueDays = new Set<number>();
+
+  /** Gross wages earned so far in the current calendar year (resets each January 1 payday); shown on the Taxes tab. */
+  wagesYtd(): number {
+    return this.wagesYtdAmount;
+  }
   /** Highest LTM close seen, for the bear-market line. */
   private ltmPeak: number;
   /** A bear_market event fired and the market hasn't set a new high since. */
@@ -413,13 +460,34 @@ export class PlayerLife {
     const payday = dom === 1 || dom === 15;
 
     if (payday) {
-      const pay = (this.monthlyTakeHome / 2) * (this.employed ? 1 : UNEMPLOYMENT_SHARE);
+      const year = date.getFullYear();
+      if (year !== this.taxYear) {
+        if (this.taxYear !== 0) {
+          this.priorYearWages = this.wagesYtdAmount;
+          this.priorYearFederalWithheld = this.federalWithheldYtd;
+          this.priorYearStateWithheld = this.stateWithheldYtd;
+          this.priorYearSnapshotYear = this.taxYear;
+        }
+        this.taxYear = year;
+        this.wagesYtdAmount = 0;
+        this.federalWithheldYtd = 0;
+        this.stateWithheldYtd = 0;
+      }
+      const grossThisPeriod = (this.grossAnnual / 24) * (this.employed ? 1 : UNEMPLOYMENT_SHARE);
+      const withheld = withholdingForPaycheck({ state: this.place.abbr, wagesThisPeriod: grossThisPeriod, wagesYtdBefore: this.wagesYtdAmount });
+      this.wagesYtdAmount = round2(this.wagesYtdAmount + grossThisPeriod);
+      this.federalWithheldYtd = round2(this.federalWithheldYtd + withheld.federalIncomeTax);
+      this.stateWithheldYtd = round2(this.stateWithheldYtd + withheld.stateIncomeTax);
+      const pay = round2(grossThisPeriod - withheld.federalIncomeTax - withheld.fica - withheld.stateIncomeTax);
       const garnished = round2(pay * garnishmentRate(this.book));
       const retirement = this.contribute401k(date);
       const takeHome = round2(pay - retirement.cost - garnished);
       const checking = this.ledger.get("checking");
       checking.balance = round2(checking.balance + takeHome);
-      events.push({ type: "paycheck", day, takeHome, garnished, unemployed: !this.employed, retirement: retirement.added });
+      events.push({
+        type: "paycheck", day, takeHome, garnished, unemployed: !this.employed, retirement: retirement.added,
+        federalWithheld: withheld.federalIncomeTax, stateWithheld: withheld.stateIncomeTax,
+      });
     }
     // Rent on the 1st and living costs on the 15th come before debt payments.
     const bill = dom === 1 ? { name: "Rent", amount: this.rent } : dom === 15 ? { name: "Living costs", amount: this.living } : null;
@@ -447,7 +515,28 @@ export class PlayerLife {
       this.ledger.newMonth();
       if (interest > 0) events.push({ type: "savings_interest", day, amount: interest });
       if (this.orders) events.push(...this.onFirstOfMonth(day));
+      this.tickTaxPenalty(day, events);
     }
+
+    if (date.getMonth() === 3 && date.getDate() === 15 && !this.pendingReturn) {
+      const priorYear = date.getFullYear() - 1;
+      // Normally the January 1 reset already snapshotted the year that just
+      // closed. But if this life's first April 15 arrives before its first
+      // January 1 (it started partway through its very first year, and that
+      // year hasn't closed yet), there is no snapshot for `priorYear` — the
+      // live accumulators still hold that partial year's data, so use them.
+      const useSnapshot = this.priorYearSnapshotYear === priorYear;
+      this.pendingReturn = fileReturn({
+        year: priorYear,
+        state: this.place.abbr,
+        wagesYtd: useSnapshot ? this.priorYearWages : this.wagesYtdAmount,
+        federalWithheldYtd: useSnapshot ? this.priorYearFederalWithheld : this.federalWithheldYtd,
+        stateWithheldYtd: useSnapshot ? this.priorYearStateWithheld : this.stateWithheldYtd,
+      });
+      this.taxReadyDay = day;
+      events.push({ type: "tax_ready", day, year: priorYear });
+    }
+
     events.push(...this.watchMarket(day));
     this.record(day);
     this.emit(events);
@@ -467,6 +556,8 @@ export class PlayerLife {
       date.setDate(date.getDate() + 1);
       const events = this.onDay(fromDay + i, new Date(date));
       all.push(...events);
+      const filed = this.autoFilePending(fromDay + i);
+      if (filed) all.push(filed);
       if (this.stopsSkip(events)) return { daysRun: i, stoppedBy: "bankruptcy", events: all };
     }
     return { daysRun: days, stoppedBy: null, events: all };
@@ -496,6 +587,139 @@ export class PlayerLife {
     const e: LifeEvent = { type: "job", day, employed };
     this.emit([e]);
     return e;
+  }
+
+  /** The prior year's tax return, once ready (around April 15), until the player files it. */
+  pendingTaxReturn(): TaxReturn | null {
+    return this.pendingReturn;
+  }
+
+  /**
+   * Fast-forwards (both `runHeadless` here and the player-facing `runSkip`)
+   * must never silently blow past a filing deadline: if a return is waiting
+   * to be filed, auto-file it with the standard deduction so a multi-year
+   * skip can't rack up failure-to-file/failure-to-pay penalties the player
+   * never saw form. Returns the `tax_filed` event so the caller can fold it
+   * into whatever event list or count it's already collecting, or null if
+   * there was nothing pending.
+   */
+  autoFilePending(day: number): LifeEvent | null {
+    return this.pendingReturn ? this.fileTaxes(day, true) : null;
+  }
+
+  /** Any unpaid tax balance still owed (accumulates across unresolved years); null once paid off. */
+  unpaidTaxBalance(): { originalOwed: number; amount: number; dueDay: number; filedDay: number | null; penaltyCharged: number } | null {
+    return this.unpaidTax;
+  }
+
+  /**
+   * Files the pending return: applies a refund to checking, or withdraws what's
+   * owed (partially, if checking can't cover it). A shortfall becomes or
+   * updates `unpaidTax` — same object Task 11's monthly tick creates if the
+   * deadline passes with nothing filed yet, so the two paths never double-track
+   * the same balance. Real-world-accurate detail this preserves: failure-to-pay
+   * and interest run from the original April 15 due date regardless of when
+   * (or whether) the player files; only failure-to-file stops the moment you file.
+   */
+  fileTaxes(day: number, auto = false): LifeEvent {
+    const ret = this.pendingReturn;
+    if (!ret) throw new Error("No pending tax return to file.");
+    const refundOrOwed = round2(ret.federalRefundOrOwed + ret.stateRefundOrOwed);
+    const checking = this.ledger.get("checking");
+    if (refundOrOwed >= 0) checking.balance = round2(checking.balance + refundOrOwed);
+    else {
+      const owed = -refundOrOwed;
+      const paid = Math.min(owed, checking.balance);
+      checking.balance = round2(checking.balance - paid);
+      const unpaid = round2(owed - paid);
+      const dueDay = this.taxReadyDay ?? day;
+      if (unpaid > 0 && this.convertedTaxDueDays.has(dueDay)) {
+        // This due day already converted to a real "IRS balance" Debt (the
+        // player let it sit unfiled past 180 days). Filing late now must not
+        // spin up a second, parallel shadow balance for the same obligation —
+        // the Debt already represents it, so just let this return close out.
+      } else if (unpaid > 0) {
+        if (this.unpaidTax) {
+          // A prior year's shortfall is still outstanding; this year's adds to it
+          // rather than overwriting, so the balance a later penalty-escalation
+          // feature reads never silently shrinks.
+          this.unpaidTax.originalOwed = round2(this.unpaidTax.originalOwed + unpaid);
+          this.unpaidTax.amount = round2(this.unpaidTax.amount + unpaid);
+          this.unpaidTax.filedDay = day;
+        } else {
+          this.unpaidTax = { originalOwed: unpaid, amount: unpaid, dueDay: this.taxReadyDay ?? day, filedDay: day, penaltyCharged: 0 };
+        }
+      }
+    }
+    ret.filedDay = day;
+    this.pendingReturn = null;
+    const e: LifeEvent = { type: "tax_filed", day, year: ret.year, refundOrOwed, auto };
+    this.emit([e]);
+    return e;
+  }
+
+  /**
+   * Monthly: escalates an unfiled-and-owing or filed-with-a-balance tax debt
+   * (failure-to-file/pay + interest, penalties.ts), and converts it to a real
+   * Debt after 180 days unpaid so it flows through the existing debt engine's
+   * delinquency and credit-score machinery unchanged.
+   *
+   * `unpaidTax` is created lazily, the first time it's needed, by whichever of
+   * two paths gets there first: this tick (the deadline passes with nothing
+   * filed and money owed) or `fileTaxes` (filed, but checking couldn't cover
+   * it). Once created, `penaltyCharged` tracks how much of `penaltyFor`'s
+   * cumulative total has already been folded into `amount`, so each tick adds
+   * only that month's new increment instead of re-adding the running total.
+   */
+  private tickTaxPenalty(day: number, events: LifeEvent[]): void {
+    if (
+      !this.unpaidTax &&
+      this.pendingReturn &&
+      this.taxReadyDay !== null &&
+      day > this.taxReadyDay &&
+      !this.convertedTaxDueDays.has(this.taxReadyDay)
+    ) {
+      const owed = round2(-(this.pendingReturn.federalRefundOrOwed + this.pendingReturn.stateRefundOrOwed));
+      if (owed > 0) this.unpaidTax = { originalOwed: owed, amount: owed, dueDay: this.taxReadyDay, filedDay: null, penaltyCharged: 0 };
+    }
+    if (!this.unpaidTax) return;
+    const monthsSinceDue = Math.max(0, Math.floor((day - this.unpaidTax.dueDay) / 30));
+    const monthsUnfiled = this.unpaidTax.filedDay === null ? monthsSinceDue : 0;
+    const penalty = penaltyFor({ owed: this.unpaidTax.originalOwed, monthsUnfiled, monthsUnpaid: monthsSinceDue });
+    const delta = round2(penalty.total - this.unpaidTax.penaltyCharged);
+    if (delta > 0) {
+      this.unpaidTax.penaltyCharged = penalty.total;
+      this.unpaidTax.amount = round2(this.unpaidTax.amount + delta);
+      events.push({ type: "tax_penalty", day, amount: delta });
+    }
+    if (monthsSinceDue >= 6 && !this.convertedTaxDueDays.has(this.unpaidTax.dueDay)) {
+      this.book.debts.push(
+        installment({
+          id: `irs-${this.unpaidTax.dueDay}`,
+          kind: "personal",
+          name: "IRS balance",
+          balance: this.unpaidTax.amount,
+          apr: 0.08,
+          months: 36,
+          day,
+          openedDay: day,
+        }),
+      );
+      this.convertedTaxDueDays.add(this.unpaidTax.dueDay);
+      // From here the balance lives entirely as a normal Debt (its own accrual,
+      // payments, and delinquency via tickDay): clear the shadow tracker so it
+      // doesn't keep escalating in parallel, forever diverging from what the
+      // real Debt actually still owes.
+      this.unpaidTax = null;
+      // The pending return (if any) that fed this shortfall is now resolved by
+      // the Debt: it will never be filed, so clear it. Otherwise it stays set
+      // forever, which both permanently blocks next April 15's new return (the
+      // `!this.pendingReturn` guard below never re-passes) and, if it somehow
+      // got filed late anyway, would create a second shadow balance for a due
+      // day that's already converted (see the `convertedTaxDueDays` guard in
+      // `fileTaxes`).
+      this.pendingReturn = null;
+    }
   }
 
   /** The paycheck's 401(k) contribution and employer match, within the yearly IRS limit. */
