@@ -29,7 +29,8 @@ New file `game/src/sim/life/twins.ts`, owned by `PlayerLife`.
 - Sells (manual, Sell all/half from the popup, or the crash rule) never touch the twins.
 - Scope is the brokerage only; the 401(k) is identical across the three and would only dilute the gap.
 - Twins hold units per instrument, so their value is `units * market.price(id, day)`, exact and O(instruments).
-- `LifeSnapshot` gains `brokerage`, `held`, and `autopilot` (dollar values at that day's prices).
+- **You** is the brokerage's value plus the cash the player's sells took out, so the three lines always compare the same dollars put in; brokerage value alone would drop to $0 after a Sell all and read as a total loss.
+- `LifeSnapshot` gains `brokerage`, `you`, `held`, and `autopilot` (dollar values at that day's prices).
 
 Because the market path is keyed by (seed, day) and never by player actions, the gap between the lines comes only from the player's choices.
 
@@ -57,11 +58,11 @@ Because the market path is keyed by (seed, day) and never by player actions, the
 
 ## 4. Backend (Tri's server)
 
-- `server/src/migrations.sql`: `ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS held double precision, ADD COLUMN IF NOT EXISTS autopilot double precision`.
+- `server/src/migrations.sql`: `ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS` for `you`, `held`, and `autopilot` (double precision).
 - `server/src/routes/snapshot.ts`:
-  - `snapshotEntry` gains optional finite `held` and `autopilot`.
+  - `snapshotEntry` gains optional finite `you`, `held`, and `autopilot`.
   - The insert becomes an upsert (`ON CONFLICT (run_id, ts) DO UPDATE`), so a resent day overwrites instead of being dropped.
-  - `GET /history/:runId` returns `held` and `autopilot`.
+  - `GET /history/:runId` returns `you`, `held`, and `autopilot`.
 - `server/src/adapters/gemini.ts`: `generateCrashRecap(facts)` with a `responseSchema` for `{ headline, lesson, mood }` (mood: cheer | warn | console), reusing `callGemini`'s key rotation.
 - `server/src/routes/ai.ts`: `POST /api/recap` with a Zod body `{ drop, choice, you, held, autopilot, months }`, an in-memory cache keyed on the rounded facts, 502 on provider failure.
 - `game/src/net/runs.ts`: on top of `apiFetch`, starts a run (`POST /api/runs`) lazily, queues history rows, flushes every in-game month and after skips, and swallows network errors so the game never waits on the server.
