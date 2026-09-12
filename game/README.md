@@ -19,15 +19,22 @@ The answers are remembered in the browser: add `?intake=1` to do the intake agai
 ## What you can do
 
 - **Intake:** before the city opens, the owl narrator (an ElevenLabs voice agent with a dry, deadpan English voice) asks for your job, salary, rent, debt, and savings, real or made up, and you check the numbers before moving in. You can type them instead, or skip to the sample household. Your life starts from those numbers: take-home is 80% of the salary, the rent is what you said (rescaled if you move states), the debt is a credit card for the first $5,000 plus a personal loan for the rest, and the savings sit in high-yield savings.
-- **Narrator:** the owl narrates the big moments at the bottom of the screen, read aloud with each word lighting up as it's spoken: arriving, paying off a debt, a missed payment, collections, bankruptcy, a big credit score change, a new home, a move, a crash, a boom, a disaster, and the end of a fast-forward. The mute button keeps the captions and drops the voice. The lines are in `src/narration/lines.ts`; the owl's animations are cut from the sheets in `art/owl/` by `art/owl/slice.py`.
-- Drag to pan anywhere in the world, scroll to zoom (zoom out to see the suburbs, farms, and the state's terrain), or use the zoom buttons.
+- **Narrator:** the owl narrates the big moments at the bottom of the screen, read aloud with each word lighting up as it's spoken: arriving, paying off a debt, a missed payment, collections, bankruptcy, a big credit score change, a new home, a move, and the end of a fast-forward. The mute button keeps the captions and drops the voice. The lines are in `src/narration/lines.ts`; the owl's animations are cut from the sheets in `art/owl/` by `art/owl/slice.py`.
+- Drag to pan anywhere in the world, and scroll to zoom (zoom out to see the suburbs, farms, and the state's terrain).
 - **NPCs:** click a person on the sidewalk to see their name, job, and what they are thinking about money right now.
-- **States:** a US map shaded by cost-of-living tier (BEA price parities); visit any state for free.
-- **Speed:** pause, 1x (1 game week per 10 seconds), 2x, 4x, plus +1 week and +1 month skips that play as a time-lapse.
-- **Your home:** step the player's net-worth tier up or down and watch the home rebuild (tent, studio, small house, townhouse, large house, retirement villa).
-- **Events:** hurricane, snowstorm, wildfire, drought, fog, pandemic, crash, boom, and reset; weather events only show where they are real hazards.
-- **Sky:** scrub the time of day, or leave it on Auto.
-- **Phone:** the hub for the game's apps, docked on the left edge (tuck it away with its side tab). Stocks lists the HackRice sponsor stocks at today's game prices (tap one to open its page in the Money desk) and a market watchlist, and opens the Money desk over the city (city time pauses while it is open); Goals opens the fast-forward; News, Mail, and Bank are coming.
+- **Your home:** the one card always on screen, at the bottom left.
+  Step the player's net-worth tier up or down and watch the home rebuild (tent, studio, small house, townhouse, large house, retirement villa), or press the pin to fly the camera to it.
+- **Phone:** the hub for everything else, pulled up from the bottom-right corner (click its top edge to put it away or bring it back).
+  The home screen shows the date, an S&P 500 widget, and the apps.
+  **Stocks** lists the HackRice sponsor stocks at today's game prices (tap one to open its page in the Money desk) and a market watchlist, and opens the Money desk over the city (city time pauses while it is open).
+  **Goals** opens the fast-forward.
+  **Map** shows the city you are in, its cost-of-living tier, and a button to the U.S. map.
+  **Weather** shows the city's weather, any event under way, and the season.
+  **Timeline** sets the speed (pause, 1x at 1 game week per 10 seconds, 2x, 4x) and plays +1 week and +1 month skips as a time-lapse.
+  News, Mail, and Bank are coming.
+- **U.S. map:** a pixel map shaded by cost-of-living tier (BEA price parities), with pixel pins for the hand-made cities, a marker on where you are, and a preview of your city captured from the canvas; visit any state for free.
+- The city's event buttons (hurricane, crash, boom, and the rest), the sky slider, and the zoom buttons are gone from the screen.
+  The events still run from the console, for example `larp.scene().trigger("hurricane")`.
 - **Goals (fast-forward to a goal):** pick a goal (an emergency fund, debt-free, a net worth, or buying a home), set the plan (pre-filled with what the player does now, with a Recommended preset to compare), watch a live preview across 100 other possible markets, then fast-forward until the goal is met, bankruptcy, or an age cap, ending on a card with what happened.
 - **Money:** every game day the player is paid on the 1st and 15th, pays rent and living costs for the current state, and pays their debts; with a plan in force, paychecks also fund the 401(k) (with the employer match), the emergency fund, and recurring investments. The home tier follows net worth, and bankruptcy stops a skip or fast-forward.
 
@@ -35,7 +42,9 @@ From the browser console, `larp.visit("CO")` opens a state and `larp.step(5)` si
 
 ## How it is built
 
-- PixiJS v8, Vite, TypeScript; the HUD and the states map are plain DOM over the canvas.
+- PixiJS v8, Vite, TypeScript; the HUD, the phone, and the U.S. map are plain DOM over the canvas.
+- `src/ui/pixel-theme.css`: the pixel look over the whole DOM UI (hard-edged panels, pixel buttons, the phone's apps, and the map), imported by `src/main.ts`.
+  It sets the Pixelify Sans font (`public/fonts/`, preloaded in `index.html`); `src/ui/pixel-icons.ts` draws the pixel icons for the phone and the HUD.
 - `src/engine/`: the scene and camera, the world builder that wraps each city in suburbs, farms, and terrain (`world.ts`), isometric math, the chunked studded ground and roads (`ground.ts`), the brick building builder (`bricks.ts`), traffic and boats (`traffic.ts`), NPCs on foot (`people.ts`), weather effects, and the player's home.
 - `src/cities/`: the six hand-made cities (Houston, Dallas, Austin, San Francisco, New York, Miami) with their landmarks, the per-state vibes (`vibes.ts`) and regional templates that cover every other state, and the feature landmark library (`features/`).
 - `src/data/states.ts`: generated by `../research/data/build_states_rpp.py` from BEA data; do not edit by hand.
@@ -44,7 +53,9 @@ From the browser console, `larp.visit("CO")` opens a state and `larp.step(5)` si
   `twins.ts` keeps the "if you had held" and 90/10 autopilot shadow portfolios of every dollar of new money the player invests (never sold, on the same seeded prices), so each daily snapshot carries `you`, `held`, and `autopilot`, and `PlayerLife` emits `bear_market` the first time the total market closes 20% below its high while the player owns stocks, then `market_recovered` at its next high.
 - `src/sim/market/`: the seeded market path (`MarketPath`): real FRED history before game day 0, then research/03's bull/bear regime model on trading days, with the preset AI Boom and AI Bubble Pop, priced for the LTM, BOND, and NNST instruments and the HackRice sponsors as stocks (COF, GOOG, and GDDY start near their real prices; ElevenLabs, Tiger Data, Vultr, Backboard, and Persona are private, so their tickers are made up). Each instrument is priced only when asked for, from the market's stored daily shocks.
 - `src/sim/skip/`: goal fast-forwards ([design](../research/10-teleport-and-goal-skips.md)): standing orders (`orders.ts`), goals and their price tags (`goals.ts`), the crash rule shared by the daily life and the preview (`crash.ts`), the preview's 100 other futures built in a Web Worker (`futures.ts`, `futures.worker.ts`), the live preview (`preview.ts`), and the headless run (`run.ts`).
-- `src/ui/phone.ts`: the phone hub and its app registry (add new apps to `APPS`); `src/ui/skip-setup.ts` is the fast-forward setup screen; `src/ui/hud.ts`, `usmap.ts`, and `npccard.ts` are the rest of the DOM HUD.
+- `src/ui/phone.ts`: the phone hub and its app registry (add new apps to `APPS`), with the Stocks, Map, Weather, and Timeline views and the Money window.
+  `src/main.ts` gives it the city (`getWorld`), the U.S. map (`openMap`, with a preview from `captureCityPreview`), and the time-lapse skip (`skipDays`).
+  `src/ui/skip-setup.ts` is the fast-forward setup screen; `src/ui/hud.ts` (the home card), `usmap.ts`, and `npccard.ts` are the rest of the DOM HUD.
 - `debt.html` + `src/debt-demo/main.ts`: the Money desk ([design](../research/12-credit-desk-ui.md)) in Robinhood's look: a logo-and-search top bar (`/` or ⌘K finds stocks, cards, debts, and pages), a floating time dock, Home (net worth), Cash (accounts, transfers, and a bank-style statement), Investing (funds, stocks, and the HackRice sponsors, each with a position and key statistics page), Debt, Credit, and Cards, over the city's `PlayerLife` (opened from the phone) or its own (standalone), both with the starter portfolio (`STARTER_PORTFOLIO`), so net worth moves with the market from day one and charts show the real market before day 0.
   Investing charts you, if you had held, and autopilot on one zero-based chart; a bear market pauses time for Sell everything, Sell half, Hold, or Buy more; the recovery card compares the lines and shows the coach's lesson; and a card warns when one stock is over 20% of the portfolio ([spec](../docs/superpowers/specs/2026-09-12-investing-twins-design.md)).
   Standalone, the desk records its own run through `src/sim/record/`; `src/net/recap.ts` asks the server's coach for the recovery lesson.
