@@ -141,3 +141,20 @@ test("the starter portfolio starts every line in the same place", () => {
   const past = life.pastSnapshots(-30);
   assert.ok(past.length > 0 && past.every((p) => p.brokerage > 0 && p.you === p.held && p.held === p.autopilot));
 });
+
+test("stock positions are every holding but the bond funds, sponsor stocks included", () => {
+  const life = new PlayerLife({ place: TX, day: 0, market: earlyMarket(), holdings: { LTM: 1_000, BOND: 500, GOOG: 300, ELVN: 200 } });
+  assert.deepEqual(life.stockPositions().map((p) => p.id).sort(), ["ELVN", "GOOG", "LTM"]);
+});
+
+test("the concentration warning names whichever single stock is over 20%, and never a fund", () => {
+  const market = earlyMarket();
+  const sponsor = new PlayerLife({ place: TX, day: 0, market, holdings: { LTM: 1_000, GOOG: 600 } });
+  const top = sponsor.concentration();
+  assert.equal(top?.id, "GOOG");
+  assert.ok(top && top.share > 0.2);
+  // A fund that is the whole portfolio is not a concentration risk.
+  assert.equal(new PlayerLife({ place: TX, day: 0, market, holdings: { LTM: 1_000 } }).concentration(), null);
+  // Two stocks at 10% each stay under the limit.
+  assert.equal(new PlayerLife({ place: TX, day: 0, market, holdings: { LTM: 800, COF: 100, NNST: 100 } }).concentration(), null);
+});

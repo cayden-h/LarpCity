@@ -430,13 +430,11 @@ function askBearMarket(day: number, drop: number, stocks: number) {
     crash = { day, drop, choice };
     log(clock.day, `In the crash, you ${choice}`, "flat");
   };
-  /** Sells all or half of each stock holding; returns the dollars actually sold (tiny legs under the $1 minimum are skipped). */
+  /** Sells all or half of every stock holding (bond funds stay); returns the dollars actually sold (tiny legs under the $1 minimum are skipped). */
   const sellStocks = (share: 1 | 0.5): number => {
     let sold = 0;
-    for (const id of ["LTM", "NNST"] as InstrumentId[]) {
-      const pos = life.position(id);
-      if (!pos) continue;
-      const r = life.sell(id, share === 1 ? "all" : pos.value * share);
+    for (const pos of life.stockPositions()) {
+      const r = life.sell(pos.id, share === 1 ? "all" : pos.value * share);
       if (r.ok && r.event.type === "trade") sold += r.event.amount;
     }
     return sold;
@@ -877,11 +875,9 @@ function recoveryCard(): string {
 }
 
 function concentrationCard(): string {
-  const positions = life.positions();
-  const total = positions.reduce((s, p) => s + p.value, 0);
-  const nnst = life.position("NNST")?.value ?? 0;
-  if (total <= 0 || nnst / total <= 0.2) return "";
-  return nextCard(`NeuralNest is ${pctOf(nnst / total, 0)} of your investments`, "One company can fall 80%. A fund spreads the risk across hundreds.");
+  const top = life.concentration();
+  if (!top) return "";
+  return nextCard(`${esc(instrument(top.id).name)} is ${pctOf(top.share, 0)} of your investments`, "One company can fall 80%. A fund spreads the risk across hundreds.");
 }
 
 function marketChange(pts: ChartPt[], p: ChartPt, scrubbing: boolean): string {

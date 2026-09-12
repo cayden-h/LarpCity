@@ -19,7 +19,7 @@ import {
   type DebtEvent,
   type Projection,
 } from "../debt/index.ts";
-import { MarketPath, type InstrumentId } from "../market/index.ts";
+import { instrument, MarketPath, type InstrumentId } from "../market/index.ts";
 import { Ledger } from "../money/accounts.ts";
 import type { Account, Holding } from "../money/types.ts";
 import { CrashWatch, PANIC_DRAWDOWN } from "../skip/crash.ts";
@@ -146,6 +146,12 @@ export function defaultAccounts(day: number): Account[] {
  * with the market from the first day the way a real portfolio does.
  */
 export const STARTER_PORTFOLIO: Partial<Record<InstrumentId, number>> = { LTM: 6_000, NNST: 800 };
+
+/** Funds that hold bonds, not stocks: a crash sale keeps them and the bear market doesn't count them. */
+export const BOND_FUNDS: ReadonlySet<InstrumentId> = new Set<InstrumentId>(["BOND"]);
+
+/** One stock over this share of the portfolio earns the desk's concentration warning. */
+export const CONCENTRATION_LIMIT = 0.2;
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const CASH_KINDS = new Set(["checking", "savings", "emergency"]);
@@ -311,6 +317,20 @@ export class PlayerLife {
 
   position(id: InstrumentId): Position | undefined {
     return this.positions().find((p) => p.id === id);
+  }
+
+  /** Every position that rides the stock market: all of them but the bond funds. */
+  stockPositions(day = this.today): Position[] {
+    return this.positions(day).filter((p) => !BOND_FUNDS.has(p.id));
+  }
+
+  /** The biggest single stock (not a fund) when it is over `limit` of the portfolio, or null. */
+  concentration(limit = CONCENTRATION_LIMIT, day = this.today): { id: InstrumentId; share: number } | null {
+    const positions = this.positions(day);
+    const total = positions.reduce((s, p) => s + p.value, 0);
+    if (total <= 0) return null;
+    const top = positions.filter((p) => instrument(p.id).kind === "stock").sort((a, b) => b.value - a.value)[0];
+    return top && top.value / total > limit ? { id: top.id, share: top.value / total } : null;
   }
 
   /** Buys `amount` dollars of an instrument from checking at today's price (fractional units). */
@@ -558,7 +578,7 @@ export class PlayerLife {
     }
     const drop = 1 - price / this.ltmPeak;
     if (this.inBear || drop < PANIC_DRAWDOWN) return [];
-    const stocks = round2(this.positions(day).filter((p) => p.id !== "BOND").reduce((t, p) => t + p.value, 0));
+    const stocks = round2(this.stockPositions(day).reduce((t, p) => t + p.value, 0));
     if (stocks <= 0) return [];
     this.inBear = true;
     return [{ type: "bear_market", day, drop, stocks }];
