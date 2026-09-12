@@ -56,6 +56,7 @@ interface ChartSpec {
   fmt: (y: number) => string;
   change: (p: ChartPt, scrubbing: boolean) => string;
   label: (p: ChartPt) => string;
+  mainLabel?: string;
 }
 interface Page {
   main: string;
@@ -635,9 +636,16 @@ function twinsChart(): ChartSpec {
     { pts: auto, cls: "bc-auto", label: "Autopilot" },
   ];
   spec.zero = true;
+  spec.mainLabel = "You";
   const at = (pts: ChartPt[], x: number) => (pts.find((q) => q.x === x) ?? pts[pts.length - 1]).y;
-  const base = spec.change;
-  spec.change = (p, scrub) => `${base(p, scrub)} <span class="when">· held ${usd(at(held, p.x))} · autopilot ${usd(at(auto, p.x))}</span>`;
+  spec.change = (p, scrubbing) => {
+    const gap = p.y - at(held, p.x);
+    const main = Math.abs(gap) < 0.5 ? "Even with if you had held" : `${signedUsd(gap, 0)} vs if you had held`;
+    return `${main} <span class="when">· autopilot ${usd(at(auto, p.x))}${scrubbing ? ` · ${shortDate(dateOf(p.x))}` : ""}</span>`;
+  };
+  const lastYou = you[you.length - 1].y;
+  const lastHeld = at(held, you[you.length - 1].x);
+  spec.tone = dirTone(lastYou - lastHeld) === "down" ? "down" : "up";
   return spec;
 }
 
@@ -656,7 +664,7 @@ function recoveryCard(): string {
   // recovers, so crash.day should already equal this recovery's crash - this guard only protects
   // against a crash left over from an earlier run of the page (for example after reset).
   const choice = crash && crash.day <= recovery.day ? ` In the crash, you ${esc(crash.choice)}.` : "";
-  return nextCard(recap ? esc(recap.headline) : "Stocks are back at their high", `${body}${choice}${recap ? ` ${esc(recap.lesson)}` : ""}`);
+  return nextCard(recap ? esc(recap.headline) : "Stocks are back at their high", recap ? esc(recap.lesson) : `${body}${choice}`);
 }
 
 function concentrationCard(): string {
@@ -955,6 +963,7 @@ function wireChart(c: ChartSpec) {
     baseline: c.baseline,
     minSpan: c.minSpan,
     label: c.label,
+    mainLabel: c.mainLabel,
     onScrub: (p) => {
       scrubbing = p !== null;
       show(p ?? c.rest, p !== null);

@@ -30,6 +30,8 @@ export interface BigChartOpts {
   onScrub: (p: ChartPt | null) => void;
   /** Label above the cursor for a point (usually its date). */
   label: (p: ChartPt) => string;
+  /** Direct label for the main line, anchored at its last point, alongside any extra lines' labels. */
+  mainLabel?: string;
 }
 
 const W = 1000;
@@ -58,10 +60,11 @@ export function mountBigChart(el: HTMLElement, o: BigChartOpts): void {
   const path = (arr: ChartPt[]) => arr.map((p, i) => `${i ? "L" : "M"}${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join("");
   const base = o.baseline === false ? "" : `<line x1="0" x2="${W}" y1="${Y(o.pts[0].y).toFixed(1)}" y2="${Y(o.pts[0].y).toFixed(1)}" class="bc-base" vector-effect="non-scaling-stroke"/>`;
   const extraPaths = extra.map((l) => `<path d="${path(l.pts)}" class="${l.cls}" vector-effect="non-scaling-stroke"/>`).join("");
+  const tagLines: ChartLine[] = o.mainLabel ? [...extra, { pts: o.pts, cls: "", label: o.mainLabel }] : extra;
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Chart">
       ${base}${extraPaths}<path d="${path(o.pts)}" class="bc-line" vector-effect="non-scaling-stroke"/>
       <line class="bc-cursor" x1="0" x2="0" y1="0" y2="${H}" vector-effect="non-scaling-stroke" visibility="hidden"/>
-    </svg>${tagsHtml(extra, Y)}<div class="bc-when" hidden></div><span class="bc-dot" hidden></span>`;
+    </svg>${tagsHtml(tagLines, Y)}<div class="bc-when" hidden></div><span class="bc-dot" hidden></span>`;
   const svg = el.querySelector("svg")!;
   const cursor = el.querySelector<SVGLineElement>(".bc-cursor")!;
   const when = el.querySelector<HTMLElement>(".bc-when")!;
@@ -93,6 +96,8 @@ export function mountBigChart(el: HTMLElement, o: BigChartOpts): void {
 }
 
 const TAG_GAP = 16;
+/** A label sits above its line's end (desk.css .bc-tag), so it needs headroom below the top edge. */
+const TAG_H = 18;
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
@@ -115,7 +120,7 @@ function tagsHtml(lines: ChartLine[], Y: (y: number) => number): string {
   const labeled = lines.filter((l): l is ChartLine & { label: string } => !!l.label);
   const ys = placeTags(
     labeled.map((l) => Y(l.pts[l.pts.length - 1].y)),
-    PAD,
+    PAD + TAG_H,
     H - PAD,
     TAG_GAP,
   );
