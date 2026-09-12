@@ -27,3 +27,6 @@ game/plates-src/
 *.log
 
 # game/ has its own .gitignore for node_modules, dist, .cache, and *.local
+
+# Local git worktrees
+.worktrees/
