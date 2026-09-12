@@ -110,3 +110,36 @@ test("stateTax applies graduated brackets like federalTax", () => {
 test("stateTax throws on an unknown state abbreviation", () => {
   assert.throws(() => stateTax("ZZ", 10_000));
 });
+
+import { withholdingForPaycheck } from "../src/sim/tax/withholding.ts";
+
+test("withholdingForPaycheck on a $0 paycheck withholds $0 of everything", () => {
+  const w = withholdingForPaycheck({ state: "TX", wagesThisPeriod: 0 });
+  assert.equal(w.federalIncomeTax, 0);
+  assert.equal(w.fica, 0);
+  assert.equal(w.stateIncomeTax, 0);
+});
+
+test("withholdingForPaycheck withholds nothing for state income tax in a no-tax state", () => {
+  const w = withholdingForPaycheck({ state: "TX", wagesThisPeriod: 4_000 });
+  assert.equal(w.stateIncomeTax, 0);
+  assert.ok(w.federalIncomeTax > 0);
+});
+
+test("withholdingForPaycheck is level across paychecks for a level salary (24 periods/year)", () => {
+  const a = withholdingForPaycheck({ state: "CA", wagesThisPeriod: 3_000 });
+  const b = withholdingForPaycheck({ state: "CA", wagesThisPeriod: 3_000 });
+  assert.equal(a.federalIncomeTax, b.federalIncomeTax);
+  assert.equal(a.stateIncomeTax, b.stateIncomeTax);
+});
+
+test("withholdingForPaycheck's federal income tax roughly matches the full year's tax divided by periods", () => {
+  const periods = 24;
+  const perPeriod = 4_000;
+  const w = withholdingForPaycheck({ state: "TX", wagesThisPeriod: perPeriod, periodsPerYear: periods });
+  const annualWages = perPeriod * periods;
+  const annualTaxable = Math.max(0, annualWages - 16_100);
+  const annualFederalTax = federalTax(annualTaxable);
+  // Within a few dollars: rounding happens once at the annual level, once per paycheck here.
+  assert.ok(Math.abs(w.federalIncomeTax * periods - annualFederalTax) < 5);
+});
