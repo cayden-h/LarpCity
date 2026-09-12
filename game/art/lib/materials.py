@@ -119,7 +119,7 @@ def pbr(name, tex_id, tile_bu=1.0, tint=(1, 1, 1, 1)):
     return m
 
 
-def windows(name, cell_u, cell_z, lit_share, tint=(0.08, 0.14, 0.2, 1), frame_frac=0.0, frame_color=(0.62, 0.64, 0.66, 1), strength=0.9, center=None):
+def windows(name, cell_u, cell_z, lit_share, tint=(0.08, 0.14, 0.2, 1), frame_frac=0.0, frame_color=(0.62, 0.64, 0.66, 1), strength=1.6, center=None):
     """Glass that reflects the sky by day. Cells are cell_u wide along either
     visible facade (u = x - y) and cell_z tall; at night a random lit_share of
     cells glows warm. frame_frac of each cell edge is a metal mullion.

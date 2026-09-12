@@ -9,6 +9,15 @@ from .iso import FLOOR_PX, PLINTH_PX, body_top, px
 
 FZ = px(FLOOR_PX)
 PLINTH = px(PLINTH_PX)
+# Roofs are the lit top of a building, so they read lighter than a real tar roof would: the reference's tops
+# are the lightest tone, and a near-black roof reads as a hole at 1x. Tar is a flat color (its photo texture
+# is too dark to tint up, and only turns into speckle).
+TAR = (0.42, 0.39, 0.36, 1)
+SLAB_TINT = (0.5, 0.5, 0.48, 1)
+
+
+def _tar():
+    return M.flat("tar", TAR, rough=0.9)
 
 
 def _parapet(w, d, z, h, t, mat):
@@ -66,7 +75,7 @@ def glass_tower(w, d, floors, seed, lit=0.35):
     tint = rng.choice([(0.09, 0.16, 0.24, 1), (0.1, 0.19, 0.22, 1), (0.14, 0.16, 0.2, 1)])
     box("tower", 0, -d, 0, w, 0, top, M.windows("curtain", 1 / 3, FZ, lit, tint, frame_frac=0.06))
     metal = M.flat("metal", (0.55, 0.57, 0.6, 1), rough=0.35, metal=0.8)
-    return _roof(rng, w, d, top, M.pbr("roofslab", "Concrete034", 1.0, (0.24, 0.25, 0.26, 1)), metal, metal)
+    return _roof(rng, w, d, top, M.pbr("roofslab", "Concrete034", 1.0, SLAB_TINT), metal, metal)
 
 
 def brick_loft(w, d, floors, seed, lit=0.55, mural=None):
@@ -84,7 +93,7 @@ def brick_loft(w, d, floors, seed, lit=0.55, mural=None):
         z0 = PLINTH + (height - width / mural["aspect"]) / 2 + px(2)
         signs.mural(mural["image"], "+X", w, d, u0, u0 + width, z0, mural["aspect"])
     box("cornice", -0.02, -d - 0.02, top - px(3), w + 0.02, 0.02, top, stone)
-    tar = M.pbr("tar", "Asphalt026B", 0.8, (0.6, 0.6, 0.6, 1))
+    tar = _tar()
     return _roof(rng, w, d, top, tar, stone, _hvac())
 
 
@@ -138,7 +147,7 @@ def storefront(w, d, floors, seed, facade="brick", fascia=None, blade=None, atm=
     if blade:
         signs.blade(blade, 0.3, d, PLINTH + FZ * 1.05)
     box("cornice", -0.02, -d - 0.02, top - px(3), w + 0.02, 0.02, top, stone)
-    return _roof(rng, w, d, top, M.pbr("tar", "Asphalt026B", 0.8, (0.6, 0.6, 0.6, 1)), stone, _hvac())
+    return _roof(rng, w, d, top, _tar(), stone, _hvac())
 
 
 def hq_lobby(w, d, floors, seed, logo=None, monument=None, lit=0.4):
@@ -171,7 +180,7 @@ def hq_lobby(w, d, floors, seed, logo=None, monument=None, lit=0.4):
     if monument:
         signs.monument(monument, 0.14, -d + 0.03)
     metal = M.flat("metal", (0.55, 0.57, 0.6, 1), rough=0.35, metal=0.8)
-    return _roof(rng, w, d, top, M.pbr("roofslab", "Concrete034", 1.0, (0.24, 0.25, 0.26, 1)), metal, metal)
+    return _roof(rng, w, d, top, M.pbr("roofslab", "Concrete034", 1.0, SLAB_TINT), metal, metal)
 
 
 def salesforce_tower(w, d, floors, seed):
