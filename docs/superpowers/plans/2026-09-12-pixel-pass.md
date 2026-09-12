@@ -805,6 +805,9 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.pixel import SHADOW  # noqa: E402
+
 city = sys.argv[1]
 here = Path(__file__).resolve().parent
 root = here.parent / "public" / "sprites" / city
@@ -819,9 +822,13 @@ def fail(sid, why):
     print(f"BAD {sid:36} {why}")
 
 
+shadow_rgb, shadow_alpha = SHADOW[:3], SHADOW[3]
+
 for e in m["sprites"]:
     a = np.asarray(Image.open(root / e["day"]).convert("RGBA"))
-    soft = int(((a[..., 3] > 0) & (a[..., 3] < 255)).sum())
+    # The flat cast shadow (lib/pixel.py SHADOW) is the one allowed translucent color.
+    is_shadow = (a[..., 3] == shadow_alpha) & np.all(a[..., :3] == shadow_rgb, axis=-1)
+    soft = int(((a[..., 3] > 0) & (a[..., 3] < 255) & ~is_shadow).sum())
     if soft:
         fail(e["id"], f"{soft} semi-transparent pixels")
         continue
@@ -832,7 +839,7 @@ for e in m["sprites"]:
     if e.get("fill") is False:  # rounded towers, freeway boards and shelters don't fill their lot
         print(f"--  {e['id']:36} (not a full-lot box)")
         continue
-    ys, xs = np.nonzero(a[..., 3] == 255)
+    ys, xs = np.nonzero(a[..., 3] == 255)  # the building only; the shadow may run past the diamond
     l, r, b = xs.min(), xs.max() + 1, ys.max() + 1
     want = ((e["ax"] - e["d"] * 32) * s, (e["ax"] + e["w"] * 32) * s, (e["ay"] + (e["w"] + e["d"]) * 16) * s)
     err = max(abs(l - want[0]), abs(r - want[1]), abs(b - want[2])) / s
