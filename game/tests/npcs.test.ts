@@ -7,6 +7,7 @@ import { MIRROR_ENTITIES, NPCS } from "../src/data/npcs.ts";
 import type { Place } from "../src/sim/life/index.ts";
 import { MarketPath } from "../src/sim/market/index.ts";
 import { NpcTown } from "../src/sim/npcs/index.ts";
+import { serialize } from "../src/sim/rewind/index.ts";
 
 const TX: Place = { abbr: "TX", name: "Texas", rpp: { all: 97.4, goods: 97.0, housing: 88.6 } };
 const START = new Date(2026, 8, 11);
@@ -38,4 +39,20 @@ test("after a fast-forward, the town catches every NPC up to the new day", () =>
   for (const [id, life] of town.lives) assert.equal(life.today, 3_650, id);
   town.onDay(3_651);
   for (const life of town.lives.values()) assert.equal(life.today, 3_651);
+});
+
+test("the town rewinds with the player: every NPC is back on that day, and replays the same days", () => {
+  const town = new NpcTown({ place: TX, day: 0, market: new MarketPath(11, START), start: START });
+  const state = () => new Map([...town.lives].map(([id, life]) => [id, serialize(life.detached())]));
+  let at80 = new Map<string, string>();
+  for (let day = 1; day <= 200; day++) {
+    town.onDay(day);
+    if (day === 80) at80 = state();
+  }
+  const at200 = state();
+  town.rewind(80);
+  for (const [id, life] of town.lives) assert.equal(life.today, 80, id);
+  assert.deepEqual(state(), at80);
+  for (let day = 81; day <= 200; day++) town.onDay(day);
+  assert.deepEqual(state(), at200);
 });

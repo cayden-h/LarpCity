@@ -73,6 +73,38 @@ export async function ownsRun(db: Db, playerId: string, runId: string): Promise<
 }
 
 /**
+ * A rewind's new branch: a new run for the same player and seed that starts
+ * with the old run's snapshots and events through `throughDay`. The old run is
+ * left as it was, so the path the player left stays on record.
+ */
+export async function forkRun(db: Db, runId: string, throughDay: number): Promise<string> {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query<{ id: string }>(`INSERT INTO runs (player_id, seed) SELECT player_id, seed FROM runs WHERE id = $1 RETURNING id`, [runId]);
+    const id = rows[0].id;
+    await client.query(
+      `INSERT INTO player_snapshots (ts, run_id, day, net_worth, checking, savings, brokerage, retirement, debt, you, held, autopilot)
+       SELECT ts, $2, day, net_worth, checking, savings, brokerage, retirement, debt, you, held, autopilot
+       FROM player_snapshots WHERE run_id = $1 AND day <= $3`,
+      [runId, id, throughDay],
+    );
+    await client.query(
+      `INSERT INTO events (ts, run_id, key, kind, payload)
+       SELECT ts, $2, key, kind, payload FROM events WHERE run_id = $1 AND ts < ${AT_DAY("($3::int + 1)")}`,
+      [runId, id, throughDay],
+    );
+    await client.query("COMMIT");
+    return id;
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Upserts one row per day: a day the game records again (a trade after the day's tick) keeps its latest numbers.
  * Within one batch, the last copy of a day wins, investing lines included (the `byDay` map below).
  * Across requests, the investing lines (you, held, autopilot) keep their stored values when a resend omits them,

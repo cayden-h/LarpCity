@@ -79,6 +79,11 @@ export class BankSync {
     while (this.inflight.size) await Promise.all([...this.inflight]);
   }
 
+  /** The lives went back to `day`: every mirror forgets the months it will live again (MonthMirror.rewind). */
+  rewind(day: number): void {
+    for (const i of this.items) i.mirror.rewind(day);
+  }
+
   private guard(i: Item, fn: () => Promise<void>): Promise<void> {
     if (i.busy) return Promise.resolve();
     i.busy = true;

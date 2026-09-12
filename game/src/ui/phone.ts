@@ -4,10 +4,12 @@
 // (plus live Alpha Vantage quotes when the dev server has a key), and opens the
 // Money desk (/debt.html) in a window over the city, sharing the city's player
 // and clock through window.larpMoney. Goals opens the fast-forward setup screen
-// (ui/skip-setup.ts). Map, Weather, and Timeline show where the player is, the
-// city's weather and season, and the clock's speed and skip controls.
+// (ui/skip-setup.ts). Map and Weather show where the player is and the city's
+// weather and season. Calendar (ui/calendar.ts) shows the player's days, goes
+// back to a past one, skips to the next decision, and sets the clock's speed.
 
 import "./phone.css";
+import { CalendarApp } from "./calendar";
 import { pixelIcon } from "./pixel-icons";
 import type { Clock } from "../engine/clock";
 import { MARKET, type SeriesId } from "../data/market";
@@ -18,7 +20,7 @@ import { INSTRUMENTS } from "../sim/market";
 import type { RunRecorder } from "../sim/record";
 
 interface AppDef {
-  id: "stocks" | "goals" | "map" | "weather" | "timeline" | "news" | "mail" | "bank";
+  id: "stocks" | "goals" | "map" | "weather" | "calendar" | "news" | "mail" | "bank";
   name: string;
   icon: string;
   ready: boolean;
@@ -29,7 +31,7 @@ const APPS: AppDef[] = [
   { id: "goals", name: "Goals", icon: pixelIcon("goals"), ready: true },
   { id: "map", name: "Map", icon: pixelIcon("map"), ready: true },
   { id: "weather", name: "Weather", icon: pixelIcon("weather"), ready: true },
-  { id: "timeline", name: "Timeline", icon: pixelIcon("calendar"), ready: true },
+  { id: "calendar", name: "Calendar", icon: pixelIcon("calendar"), ready: true },
   { id: "news", name: "News", icon: pixelIcon("news"), ready: false },
   { id: "mail", name: "Mail", icon: pixelIcon("mail"), ready: false },
   { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: false },
@@ -117,10 +119,13 @@ function sparkline(values: number[], up: boolean): string {
 
 const fmtIndex = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-function timeLabel(t: number): string {
-  const mins = Math.round(t * 24 * 60) % (24 * 60);
-  const h = Math.floor(mins / 60);
-  return `${((h + 11) % 12) + 1}:${String(mins % 60).padStart(2, "0")}`;
+/**
+ * The status-bar clock: the hour follows the sky's accelerated time of day `t`,
+ * but the minutes are the player's real ones, so the clock doesn't spin.
+ */
+function timeLabel(t: number, now = new Date()): string {
+  const h = Math.floor(t * 24) % 24;
+  return `${((h + 11) % 12) + 1}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
 export interface PhoneDeps {
@@ -132,8 +137,12 @@ export interface PhoneDeps {
   recorder?: RunRecorder;
   /** Opens the U.S. map (the Map app's button). */
   openMap?: () => void;
-  /** Plays a skip of `days` as a time-lapse (the Timeline app's jump buttons). */
-  skip?: (days: number) => void;
+  /** Plays the days up to `day` as a time-lapse (the Calendar's "Skip to"). */
+  skipTo?: (day: number) => void;
+  /** Goes back to the morning of a past day (the Calendar's "Go back"). */
+  rewindTo?: (day: number) => void;
+  /** The earliest day the player can go back to. */
+  firstDay?: () => number;
   /** Where the player is and the city's weather, for the Map and Weather apps. */
   getWorld: () => WorldSnapshot;
 }
@@ -158,6 +167,8 @@ export interface MoneyHost {
   onShow: (fn: () => void) => void;
   /** The city's run recorder, or null when the city isn't recording. */
   recorder: () => RunRecorder | null;
+  /** Calls `fn` with the day the city went back to, after each rewind. */
+  onRewind: (fn: (day: number) => void) => void;
 }
 
 export class Phone {
@@ -172,6 +183,8 @@ export class Phone {
   /** Decision moments waiting for the desk to show them. */
   private parked: LifeEvent[] = [];
   private readonly showListeners: (() => void)[] = [];
+  private readonly rewindListeners: ((day: number) => void)[] = [];
+  private readonly calendar: CalendarApp;
 
   constructor(deps: PhoneDeps) {
     this.deps = deps;
@@ -195,8 +208,17 @@ export class Phone {
       parkDecisions: (events) => this.parked.push(...events),
       onShow: (fn) => this.showListeners.push(fn),
       recorder: () => this.deps.recorder ?? null,
+      onRewind: (fn) => this.rewindListeners.push(fn),
     };
     (window as unknown as { larpMoney?: MoneyHost }).larpMoney = host;
+    this.calendar = new CalendarApp(this.q('[data-view="calendar"]'), {
+      clock: deps.clock,
+      life: deps.player,
+      firstDay: () => deps.firstDay?.() ?? 0,
+      rewindTo: (day) => deps.rewindTo?.(day),
+      skipTo: (day) => deps.skipTo?.(day),
+      onHome: () => this.show("home"),
+    });
 
     this.setOpen(readOpen(), false);
     this.el.addEventListener("click", (ev) => this.onClick(ev));
@@ -296,27 +318,7 @@ export class Phone {
             <div class="weather-date" data-weather-date></div>
           </section>
 
-          <section class="view view-timeline" data-view="timeline" hidden>
-            <header class="phone-app-head">
-              <button class="st-back" data-home aria-label="Back to home">‹</button>
-              <div><div class="st-title">Timeline</div><div class="st-sub">Control city time</div></div>
-            </header>
-            <div class="timeline-date"><span data-timeline-dow></span><strong data-timeline-date></strong></div>
-            <div class="timeline-section">
-              <span class="timeline-label">Speed</span>
-              <div class="timeline-speeds">
-                <button data-tl-speed="0" aria-label="Pause timeline">Ⅱ</button>
-                <button data-tl-speed="1">1×</button>
-                <button data-tl-speed="2">2×</button>
-                <button data-tl-speed="4">4×</button>
-              </div>
-            </div>
-            <div class="timeline-section">
-              <span class="timeline-label">Jump ahead</span>
-              <button class="timeline-jump" data-tl-skip="7">+1 week</button>
-              <button class="timeline-jump" data-tl-skip="30">+1 month</button>
-            </div>
-          </section>
+          <section class="view view-calendar" data-view="calendar" hidden></section>
 
           <button class="home-bar" data-home aria-label="Go home"></button>
         </div>
@@ -337,6 +339,7 @@ export class Phone {
 
   private show(view: "home" | AppDef["id"]) {
     this.el.querySelectorAll<HTMLElement>("[data-view]").forEach((v) => (v.hidden = v.dataset.view !== view));
+    if (view === "calendar") this.calendar.show();
   }
 
   private toast(text: string) {
@@ -359,15 +362,6 @@ export class Phone {
     if (btn.dataset.desk !== undefined) return this.openDesk();
     if (btn.dataset.stock) return this.openDesk(btn.dataset.stock);
     if (btn.dataset.openMap !== undefined) return this.deps.openMap?.();
-    if (btn.dataset.tlSpeed !== undefined) {
-      this.deps.clock.speed = Number(btn.dataset.tlSpeed);
-      this.renderStatus();
-      return;
-    }
-    if (btn.dataset.tlSkip !== undefined) {
-      this.deps.skip?.(Number(btn.dataset.tlSkip));
-      return;
-    }
     const id = btn.dataset.app as AppDef["id"] | undefined;
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;
@@ -386,6 +380,18 @@ export class Phone {
     this.openDesk();
     // A decision moment keeps the city paused until the player presses play.
     this.resumeSpeed = 0;
+  }
+
+  /**
+   * The city went back to the morning of `day`: decisions parked on the path
+   * it left are dropped, the desk trims what it showed, the calendar moves to
+   * that day, and a decision that day had opens again.
+   */
+  rewound(day: number, decisions: LifeEvent[]) {
+    this.parked = [];
+    for (const fn of this.rewindListeners) fn(day);
+    this.calendar.rewound(day);
+    if (decisions.length) this.showDecision(decisions);
   }
 
   /** Opens the Money window, on a stock's page when `stock` is given (the desk reads #stock=ID). */
@@ -411,8 +417,6 @@ export class Phone {
     const d = clock.date;
     this.q("[data-dow]").textContent = d.toLocaleDateString("en-US", { weekday: "long" });
     this.q("[data-date]").textContent = d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
-    this.q("[data-timeline-dow]").textContent = d.toLocaleDateString("en-US", { weekday: "long" });
-    this.q("[data-timeline-date]").textContent = d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     const { state, city, status } = this.deps.getWorld();
     const weather = status?.weather ?? "clear";
     const season = status?.season ?? clock.season;
@@ -430,9 +434,7 @@ export class Phone {
     this.q("[data-season-name]").textContent = season[0].toUpperCase() + season.slice(1);
     this.q("[data-season-note]").textContent = SEASON_NOTE[season];
     this.q("[data-weather-date]").textContent = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-    this.el.querySelectorAll<HTMLButtonElement>("[data-tl-speed]").forEach((button) =>
-      button.classList.toggle("on", Number(button.dataset.tlSpeed) === clock.speed),
-    );
+    this.calendar.refresh();
     // Sponsor prices move with the city clock, so redraw once per game day.
     if (clock.day !== this.stockDay) this.renderStocks();
   }

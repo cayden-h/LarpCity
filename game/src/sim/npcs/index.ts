@@ -9,6 +9,7 @@ import { creditCard, installment, newBook, studentLoan } from "../debt/factory.t
 import type { Debt } from "../debt/types.ts";
 import { defaultAccounts, PlayerLife, TAKE_HOME_SHARE, type Place } from "../life/player.ts";
 import type { MarketPath } from "../market/index.ts";
+import { LifeTimeline } from "../rewind/index.ts";
 
 export function npcLife(p: NpcProfile, o: { place: Place; day: number; market: MarketPath }): PlayerLife {
   const agi = Math.round((p.monthlyTakeHome * 12) / TAKE_HOME_SHARE);
@@ -35,13 +36,22 @@ export class NpcTown {
   readonly lives = new Map<string, PlayerLife>();
   readonly profiles = new Map<string, NpcProfile>();
   private readonly start: Date;
+  /** Checkpoints for each NPC, so the town rewinds with the player. */
+  private readonly timelines = new Map<string, LifeTimeline>();
 
   constructor(o: { place: Place; day: number; market: MarketPath; start: Date; roster?: NpcProfile[] }) {
     this.start = o.start;
     for (const p of o.roster ?? NPCS) {
       this.profiles.set(p.id, p);
-      this.lives.set(p.id, npcLife(p, o));
+      const life = npcLife(p, o);
+      this.lives.set(p.id, life);
+      this.timelines.set(p.id, new LifeTimeline(life, { start: o.start, window: 0, maxGap: 30, neverActs: true }));
     }
+  }
+
+  /** Puts every NPC back to the morning of `day` when the player rewinds (NPCs behind it catch up as usual). */
+  rewind(day: number): void {
+    for (const [id, life] of this.lives) if (life.today > day) this.timelines.get(id)!.rewindTo(day);
   }
 
   /** One live game day for every NPC (catching up first if a fast-forward left them behind). */

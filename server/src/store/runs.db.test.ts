@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { splitSql } from "../sql.js";
-import { createRun, history, insertEvents, insertSnapshots, leaderboard, listEvents, ownsRun, type HistoryBucket, type SnapshotRow } from "./runs.js";
+import { createRun, forkRun, history, insertEvents, insertSnapshots, leaderboard, listEvents, ownsRun, type HistoryBucket, type SnapshotRow } from "./runs.js";
 
 const url = process.env.TEST_DATABASE_URL;
 const skip = url ? false : "set TEST_DATABASE_URL to a TimescaleDB to run (server/README.md)";
@@ -133,4 +133,24 @@ test("the leaderboard ranks each run by its latest day and can require verified 
   assert.ok(!(await leaderboard(db, true)).some((r) => r.runId === run), "unverified players drop out once Persona is required");
   await db.query(`UPDATE players SET verified = true WHERE id = $1`, [BOB]);
   assert.equal((await leaderboard(db, true))[0].runId, run);
+});
+
+test("a fork copies a run through a day into a new run for the same player and seed, and leaves the old run alone", { skip }, async () => {
+  const run = await createRun(db, ALICE, 42);
+  await insertSnapshots(db, run, [snap(0), snap(1), snap(2), snap(3)]);
+  await insertEvents(db, run, [0, 1, 2, 3].map((d) => ({ key: `${d}:0`, day: d, kind: "paycheck", payload: { day: d } })));
+  const fork = await forkRun(db, run, 1);
+  assert.notEqual(fork, run);
+  assert.equal(await ownsRun(db, ALICE, fork), true);
+  assert.equal(await ownsRun(db, BOB, fork), false);
+  const days = async (id: string) => ((await history(db, id, "day", 0, 100)) as SnapshotRow[]).map((r) => r.day);
+  assert.deepEqual(await days(fork), [0, 1]);
+  assert.deepEqual((await listEvents(db, fork, { from: 0, to: 100 })).map((e) => e.key), ["0:0", "1:0"]);
+  assert.deepEqual(await days(run), [0, 1, 2, 3]);
+  const { rows } = await db.query<{ seed: string }>(`SELECT seed FROM runs WHERE id = $1`, [fork]);
+  assert.equal(Number(rows[0].seed), 42);
+  // The branch records its own day 2 without touching the old run's.
+  await insertSnapshots(db, fork, [snap(2, 7)]);
+  const two = ((await history(db, run, "day", 2, 2)) as SnapshotRow[])[0];
+  assert.equal(two.netWorth, snap(2).netWorth);
 });

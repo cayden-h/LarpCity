@@ -32,6 +32,7 @@ event, sent about once a game month and in 5,000-row chunks after a fast-forward
 | Route | Body or query | Returns |
 | --- | --- | --- |
 | `POST /api/runs` | `{ seed }` | `201 { runId }` |
+| `POST /api/runs/:runId/fork` | `{ throughDay }` | `201 { runId }`: a rewind's branch, a new run for the same player and seed that starts with the old run's snapshots and events through that day; the old run is kept |
 | `POST /api/snapshot` | `{ runId, entries }` (up to 5,000 days; each may carry `you`, `held`, `autopilot`) | `{ stored }`; a re-sent day keeps its latest numbers, and its stored investing lines when the resend leaves them out |
 | `POST /api/events` | `{ runId, events }` (up to 5,000, keyed `day:sequence`) | `{ stored }`; a retried batch adds nothing |
 | `GET /api/history/:runId` | `?bucket=day\|week\|month&from&to` | daily rows (with `you`, `held`, `autopilot`, null on older rows), or weekly/monthly buckets (`firstDay`, `lastDay`, `netWorth`, `peak`, `low`, ...) |

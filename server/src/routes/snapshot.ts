@@ -2,6 +2,7 @@
 // The player's run in Tiger Data (src/store/runs.ts):
 //
 //   POST /api/runs               { seed }                -> 201 { runId }
+//   POST /api/runs/:runId/fork   { throughDay }          -> 201 { runId }  a rewind's branch, with the run through that day
 //   POST /api/snapshot           { runId, entries }      -> { stored }   one row per game day, latest wins
 //   POST /api/events             { runId, events }       -> { stored }   once per event key
 //   GET  /api/history/:runId     ?bucket=day|week|month&from&to   (week and month come from continuous aggregates)
@@ -12,7 +13,7 @@ import { z } from "zod";
 import { pool } from "../db.js";
 import { env } from "../env.js";
 import { handle, HttpError, parse, Reply } from "../http.js";
-import { createRun, history, insertEvents, insertSnapshots, leaderboard, listEvents, ownsRun } from "../store/runs.js";
+import { createRun, forkRun, history, insertEvents, insertSnapshots, leaderboard, listEvents, ownsRun } from "../store/runs.js";
 
 export const snapshotRouter = Router();
 
@@ -28,6 +29,9 @@ const money = z.number().finite();
 const runId = z.string().uuid();
 
 const startRunBody = z.object({ seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER) });
+
+/** The last day a rewind's branch keeps from the run it leaves. */
+export const forkBody = z.object({ throughDay: day });
 
 export const snapshotBody = z.object({
   runId,
@@ -92,6 +96,14 @@ export async function ownRun(req: Request, id: unknown): Promise<string> {
 snapshotRouter.post(
   "/runs",
   handle(async (req) => new Reply(201, { runId: await createRun(pool, req.playerId, parse(startRunBody, req.body).seed) })),
+);
+
+snapshotRouter.post(
+  "/runs/:runId/fork",
+  handle(async (req) => {
+    const { throughDay } = parse(forkBody, req.body);
+    return new Reply(201, { runId: await forkRun(pool, await ownRun(req, req.params.runId), throughDay) });
+  }),
 );
 
 snapshotRouter.post(
