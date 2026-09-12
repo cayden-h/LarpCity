@@ -51,7 +51,7 @@ export class NpcTown {
     for (const [id, life] of this.lives) {
       this.catchUpLife(id, life, day - 1);
       life.onDay(day, this.dateOf(day));
-      applyDailyHabit(life, id, day, this.dateOf(day));
+      applyDailyHabit(life, id, day, this.dateOf(day), this.profiles.get(id)?.categoryId);
     }
   }
 
@@ -67,12 +67,13 @@ export class NpcTown {
   }
 
   private catchUpLife(id: string, life: PlayerLife, toDay: number): void {
+    const categoryId = this.profiles.get(id)?.categoryId;
     // runHeadless stops early at a bankruptcy notice; keep going, the NPC's story continues.
     while (life.today < toDay) {
       const from = life.today;
       const r = life.runHeadless(from, toDay - from, this.dateOf(from));
       if (r.daysRun === 0) break;
-      for (let d = from + 1; d <= from + r.daysRun; d++) applyDailyHabit(life, id, d, this.dateOf(d));
+      for (let d = from + 1; d <= from + r.daysRun; d++) applyDailyHabit(life, id, d, this.dateOf(d), categoryId);
     }
   }
 }

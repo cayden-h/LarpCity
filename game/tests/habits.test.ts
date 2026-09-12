@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { NPCS } from "../src/data/npcs.ts";
-import { habitProfile, describeHabit, applyDailyHabit, SPEND_CATEGORIES } from "../src/sim/npcs/habits.ts";
+import { habitProfile, describeHabit, applyDailyHabit, monthlyShare, SPEND_CATEGORIES } from "../src/sim/npcs/habits.ts";
 import { PlayerLife } from "../src/sim/life/index.ts";
 import type { Place } from "../src/sim/life/index.ts";
 
@@ -28,6 +28,21 @@ test("describeHabit names the NPC's top category", () => {
   const line = describeHabit("npc-jordan");
   const top = habitProfile("npc-jordan").sort((a, b) => b.weight - a.weight)[0];
   assert.ok(line.toLowerCase().includes(top.name.toLowerCase()), `"${line}" should mention "${top.name}"`);
+});
+
+test("occupation bias shifts weights without breaking the sum-to-1 or known-category invariants", () => {
+  const withBias = habitProfile("npc-kenji", "protective");
+  const total = withBias.reduce((s, w) => s + w.weight, 0);
+  assert.ok(Math.abs(total - 1) < 1e-9);
+  for (const w of withBias) assert.ok(SPEND_CATEGORIES.includes(w.name), `unknown category ${w.name}`);
+  const noBias = habitProfile("npc-kenji");
+  assert.notDeepEqual(withBias, noBias, "a category bias should visibly change at least one weight");
+});
+
+test("an adjunct's discretionary share is lower than an unbiased NPC with the same take-home", () => {
+  const biased = monthlyShare("npc-marcus", "education");
+  const unbiased = monthlyShare("npc-marcus");
+  assert.ok(biased < unbiased, `education shareMultiplier should lower the share: ${biased} vs ${unbiased}`);
 });
 
 test("applyDailyHabit only ever spends a small, capped share of take-home over a month, and never on a day it can't afford", () => {

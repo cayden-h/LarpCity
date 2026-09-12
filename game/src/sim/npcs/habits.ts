@@ -7,6 +7,7 @@
 // that it can't undo either.
 
 import { rngFor } from "../../engine/rng.ts";
+import type { JobCategoryId } from "../../data/npcs.ts";
 import type { PlayerLife } from "../life/player.ts";
 
 export const SPEND_CATEGORIES = ["Dining out", "Entertainment", "Shopping", "Subscriptions", "Hobby", "Coffee"] as const;
@@ -19,24 +20,51 @@ export interface HabitWeight {
   weight: number;
 }
 
+/**
+ * Small, fixed nudges by job category (Task 17's `categoryId`): a correctional
+ * officer's steady shift-work income and a university lecturer's thin, uneven
+ * adjunct pay should read differently on their statements, without hand-authoring
+ * a bespoke spending personality per occupation. Data, not branching logic —
+ * only these four categories get an entry; everyone else is unbiased.
+ */
+const CATEGORY_BIAS: Partial<
+  Record<JobCategoryId, { weights?: Partial<Record<(typeof SPEND_CATEGORIES)[number], number>>; shareMultiplier?: number }>
+> = {
+  protective: { weights: { Subscriptions: 1.2, "Dining out": 0.9 } }, // steady shift income, predictable subscriptions
+  education: { shareMultiplier: 0.7 }, // adjunct pay: less discretionary room
+  transport: { weights: { Coffee: 1.3 } }, // odd hours, more coffee-shop stops
+  healthcare_pro: { weights: { Hobby: 0.85 } },
+};
+
 const cache = new Map<string, HabitWeight[]>();
 
 /** Deterministic per-NPC category weights (sum to 1), seeded only by npcId so they never change between runs. */
-export function habitProfile(npcId: string): HabitWeight[] {
-  const hit = cache.get(npcId);
+export function habitProfile(npcId: string, categoryId?: JobCategoryId): HabitWeight[] {
+  const key = categoryId ? `${npcId}:${categoryId}` : npcId;
+  const hit = cache.get(key);
   if (hit) return hit;
   const rng = rngFor("habits", npcId);
   const raw = SPEND_CATEGORIES.map((name) => ({ name, weight: 0.15 + rng() }));
   const total = raw.reduce((s, w) => s + w.weight, 0);
   const weights = raw.map((w) => ({ name: w.name, weight: w.weight / total }));
-  cache.set(npcId, weights);
-  return weights;
+  const bias = categoryId ? CATEGORY_BIAS[categoryId]?.weights : undefined;
+  if (!bias) {
+    cache.set(key, weights);
+    return weights;
+  }
+  const biased = weights.map((w) => ({ name: w.name, weight: w.weight * (bias[w.name] ?? 1) }));
+  const biasedTotal = biased.reduce((s, w) => s + w.weight, 0);
+  const normalized = biased.map((w) => ({ name: w.name, weight: w.weight / biasedTotal }));
+  cache.set(key, normalized);
+  return normalized;
 }
 
 /** This NPC's share of take-home spent on discretionary categories, seeded so it stays low and stable. */
-function monthlyShare(npcId: string): number {
+export function monthlyShare(npcId: string, categoryId?: JobCategoryId): number {
   const rng = rngFor("habits-share", npcId);
-  return BASE_SHARE * (0.5 + rng()); // BASE_SHARE * 0.5 to BASE_SHARE * 1.5 of monthly take-home
+  const base = BASE_SHARE * (0.5 + rng()); // BASE_SHARE * 0.5 to BASE_SHARE * 1.5 of monthly take-home
+  const multiplier = categoryId ? CATEGORY_BIAS[categoryId]?.shareMultiplier : undefined;
+  return multiplier ? base * multiplier : base;
 }
 
 /** A one-line personality blurb for the NPC card, naming their top 1-2 categories. */
@@ -52,13 +80,13 @@ export function describeHabit(npcId: string): string {
  * expected monthly total matches this NPC's `monthlyShare` exactly while the
  * actual days vary. Call once per NPC per game day (NpcTown.onDay / catchUpLife).
  */
-export function applyDailyHabit(life: PlayerLife, npcId: string, day: number, date: Date): void {
+export function applyDailyHabit(life: PlayerLife, npcId: string, day: number, date: Date, categoryId?: JobCategoryId): void {
   const monthlyTakeHome = life.monthlyTakeHome;
   if (!(monthlyTakeHome > 0)) return;
-  const budget = monthlyTakeHome * monthlyShare(npcId);
+  const budget = monthlyTakeHome * monthlyShare(npcId, categoryId);
   const hitsPerMonthPerCategory = 3; // small, frequent purchases rather than one lump sum
   const dailyProbability = hitsPerMonthPerCategory / 30;
-  for (const cat of habitProfile(npcId)) {
+  for (const cat of habitProfile(npcId, categoryId)) {
     const rng = rngFor("habit-roll", npcId, cat.name, day);
     if (rng() >= dailyProbability) continue;
     const amount = Math.round(((budget * cat.weight) / hitsPerMonthPerCategory) * 100) / 100;
