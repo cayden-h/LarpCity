@@ -25,6 +25,11 @@ def save(a: np.ndarray, path) -> None:
     Image.fromarray(a, "RGBA").save(path, optimize=True)
 
 
+def _opaque(img: np.ndarray) -> np.ndarray:
+    """The one opacity rule the whole pass shares: a pixel counts as opaque above half alpha."""
+    return img[..., 3] > 127
+
+
 def _lum(rgb):
     rgb = np.asarray(rgb, dtype=np.float32)
     return rgb[..., 0] * 0.299 + rgb[..., 1] * 0.587 + rgb[..., 2] * 0.114
@@ -39,10 +44,12 @@ SIGN_KEY = int(_key(np.array(SIGN_ID)))
 
 
 def flatten(day: np.ndarray, ids: np.ndarray) -> np.ndarray:
-    """Every id region becomes at most three flat tones of its median color; sign regions are left alone."""
+    """Every id region becomes at most three flat tones of its median color; sign regions, and any pixel
+    transparent in the day or the ids render, are left alone. Safe on an empty (0-size) image."""
     out = day.copy()
     keys = _key(ids[..., :3])
-    keys[day[..., 3] <= 127] = -1
+    keys[~_opaque(day)] = -1
+    keys[~_opaque(ids)] = -1
     flat = keys.ravel()
     order = np.argsort(flat, kind="stable")
     sorted_keys = flat[order]
@@ -51,6 +58,8 @@ def flatten(day: np.ndarray, ids: np.ndarray) -> np.ndarray:
     lum = _lum(rgb)
     out_rgb = out[..., :3].reshape(-1, 3)
     for g in groups:
+        if g.size == 0:
+            continue
         k = flat[g[0]]
         if k < 0 or k == SIGN_KEY:
             continue
@@ -63,32 +72,60 @@ def flatten(day: np.ndarray, ids: np.ndarray) -> np.ndarray:
 
 
 def downsample(img: np.ndarray, s: int = RAW_SCALE) -> np.ndarray:
-    """Shrink by s with no blending: a block is opaque when at least half of it is, and takes its most common opaque color."""
+    """Shrink by s with no blending: a block is opaque when at least half of it is, and takes the color shared
+    by the most of its opaque pixels; a tie goes to the lowest packed RGB key, so it stays deterministic.
+    Fully vectorized: no per-block Python loop."""
     h, w = img.shape[0] // s, img.shape[1] // s
-    blocks = img[: h * s, : w * s].reshape(h, s, w, s, 4).transpose(0, 2, 1, 3, 4).reshape(h, w, s * s, 4)
-    opaque = blocks[..., 3] > 127
-    keep = opaque.sum(axis=2) * 2 >= s * s
-    keys = _key(blocks[..., :3])
+    m = s * s
+    blocks = img[: h * s, : w * s].reshape(h, s, w, s, 4).transpose(0, 2, 1, 3, 4).reshape(h, w, m, 4)
+    opaque = _opaque(blocks)
+    keep = opaque.sum(axis=2) * 2 >= m
+    keys = np.where(opaque, _key(blocks[..., :3]), -1)
+    valid = keys >= 0
+    # for each pixel in the block, how many other valid pixels share its key
+    eq = (keys[..., :, None] == keys[..., None, :]) & valid[..., None, :]
+    counts = np.where(valid, eq.sum(axis=-1), -1)
+    # highest count wins; ties go to the lowest key. BIG exceeds any 24-bit packed RGB key, so it dominates.
+    BIG = 1 << 25
+    score = counts.astype(np.int64) * BIG - keys
+    best = np.take_along_axis(keys, score.argmax(axis=-1, keepdims=True), axis=-1)[..., 0]
     out = np.zeros((h, w, 4), np.uint8)
-    for y, x in zip(*np.nonzero(keep)):
-        vals, counts = np.unique(keys[y, x][opaque[y, x]], return_counts=True)
-        best = int(vals[np.argmax(counts)])
-        out[y, x] = ((best >> 16) & 255, (best >> 8) & 255, best & 255, 255)
+    out[..., 0] = (best >> 16) & 255
+    out[..., 1] = (best >> 8) & 255
+    out[..., 2] = best & 255
+    out[..., 3] = np.where(keep, 255, 0)
     return out
 
 
 def build_palette(images, n: int, ink: bool = True) -> list:
-    """A shared palette: median cut over the opaque pixels of every image, plus the ink as the last color."""
-    px = np.concatenate([im[im[..., 3] > 127][:, :3] for im in images])
-    px = px[:: max(1, len(px) // 200_000)]
+    """A shared palette: median cut over the opaque pixels of every image, sampled down to at most 200,000
+    pixels with a fixed seed so the result stays deterministic. Returns up to n unique colors, deduped in
+    first-seen order; when ink=True, INK is appended as the last color (never duplicated), still capped at n.
+    Raises ValueError if images is empty or none of the images has an opaque pixel."""
+    if not images:
+        raise ValueError("build_palette needs at least one image")
+    px = np.concatenate([im[_opaque(im)][:, :3] for im in images])
+    if len(px) == 0:
+        raise ValueError("build_palette needs at least one opaque pixel across the images")
+    if len(px) > 200_000:
+        idx = np.random.default_rng(0).choice(len(px), 200_000, replace=False)
+        px = px[idx]
     k = n - 1 if ink else n
     strip = Image.fromarray(np.ascontiguousarray(px.reshape(1, -1, 3)), "RGB")
     q = strip.quantize(colors=k, method=Image.Quantize.MEDIANCUT)
     colors = [tuple(int(v) for v in c) for c in np.array(q.getpalette()[: k * 3]).reshape(-1, 3)]
-    return colors + [INK] if ink else colors
+    seen = []
+    for c in colors:
+        if c not in seen:
+            seen.append(c)
+    if ink and INK not in seen:
+        seen.append(INK)
+    return seen[:n]
 
 
 def _nearest(rgb, palette) -> np.ndarray:
+    """Nearest palette color by squared distance. Meant for 1x images: it builds an (H*W*len(palette), 3)
+    int32 distance table, so don't call it on a still-4x-scale render."""
     pal = np.array(palette, np.int32)
     d = ((np.asarray(rgb, np.int32)[..., None, :] - pal) ** 2).sum(-1)
     return pal[d.argmin(-1)].astype(np.uint8)
@@ -97,21 +134,23 @@ def _nearest(rgb, palette) -> np.ndarray:
 def quantize(img: np.ndarray, palette) -> np.ndarray:
     """Snap every opaque pixel to its nearest palette color; alpha becomes 0 or 255."""
     out = np.zeros_like(img)
-    opaque = img[..., 3] > 127
+    opaque = _opaque(img)
     out[opaque, :3] = _nearest(img[opaque, :3], palette)
     out[opaque, 3] = 255
     return out
 
 
-def outline(img: np.ndarray, ids: np.ndarray, palette):
+def outline(img: np.ndarray, ids: np.ndarray, palette) -> tuple[np.ndarray, np.ndarray]:
     """Ink on the silhouette; a darker palette tone on pixels whose right or lower neighbor has another id
-    (never against a sign). Returns the image and the mask of every line pixel."""
+    (never against a sign, and never where the ids render itself is transparent). An inner line never
+    overwrites a silhouette pixel. Returns the image and the mask of every line pixel."""
     out = img.copy()
-    a = img[..., 3] > 0
+    a = _opaque(img)
     pad = np.pad(a, 1)
     edge = a & ~(pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:])
     k = _key(ids[..., :3])
     k[~a] = -1
+    k[~_opaque(ids)] = -1
     inner = np.zeros_like(a)
     for dy, dx in ((0, 1), (1, 0)):
         nb = np.full_like(k, -1)
@@ -120,5 +159,5 @@ def outline(img: np.ndarray, ids: np.ndarray, palette):
     inner &= ~edge
     out[edge, :3] = INK
     if inner.any():
-        out[inner, :3] = _nearest(img[inner, :3].astype(np.float32) * EDGE_DARKEN, palette)
+        out[inner, :3] = _nearest(np.rint(img[inner, :3].astype(np.float32) * EDGE_DARKEN), palette)
     return out, edge | inner
