@@ -67,9 +67,9 @@ export async function writeStory(model: JsonModel | null, row: NewsStoryRow): Pr
   return { story: templateStory(row), source: "template" };
 }
 
-/** Writes prose for up to `limit` unwritten stories, oldest first. Returns how many were written. */
-export async function writeUnwrittenNews(db: Db, model: JsonModel | null, runId: string, branchId: string, limit: number): Promise<number> {
-  const rows = await unwrittenNewsStories(db, runId, branchId, limit);
+/** Writes prose for up to `limit` unwritten stories in [from, to], oldest first. Returns how many were written. */
+export async function writeUnwrittenNews(db: Db, model: JsonModel | null, runId: string, branchId: string, from: number, to: number, limit: number): Promise<number> {
+  const rows = await unwrittenNewsStories(db, runId, branchId, from, to, limit);
   for (const row of rows) {
     const { story, source } = await writeStory(model, row);
     await markNewsStoryWritten(db, row.id, story.headline, story.blurb, story.impact, source);

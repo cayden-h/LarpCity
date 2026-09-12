@@ -29,7 +29,7 @@ newsRouter.get(
     const q = parse(feedQuery, req.query);
     const runId = await ownRun(req, req.params.runId);
     const branchId = runId; // root branch = run_id until server-side branching exists
-    await writeUnwrittenNews(pool, gemini, runId, branchId, WRITE_CAP);
+    await writeUnwrittenNews(pool, gemini, runId, branchId, q.from, q.to, WRITE_CAP);
     return listNewsStories(pool, runId, branchId, q.from, q.to);
   }),
 );

@@ -98,10 +98,10 @@ test("runBaseline reads the latest snapshot at or before the given day", { skip 
 test("unwrittenNewsStories then markNewsStoryWritten moves a row out of the unwritten queue", { skip }, async () => {
   const run = await createRun(db, ALICE, 4);
   await insertNewsStories(db, [row(run)]);
-  const unwritten = await unwrittenNewsStories(db, run, run, 20);
+  const unwritten = await unwrittenNewsStories(db, run, run, 0, 100_000, 20);
   assert.equal(unwritten.length, 1);
   await markNewsStoryWritten(db, unwritten[0].id, "Car loan paid off", "The last payment cleared the balance.", "More cash free for savings.", "template");
-  assert.equal((await unwrittenNewsStories(db, run, run, 20)).length, 0);
+  assert.equal((await unwrittenNewsStories(db, run, run, 0, 100_000, 20)).length, 0);
   const [written] = await listNewsStories(db, run, run, 0, 30);
   assert.equal(written.headline, "Car loan paid off");
   assert.equal(written.source, "template");

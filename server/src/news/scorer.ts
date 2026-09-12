@@ -137,6 +137,21 @@ export function score(input: ScoreInput): ScoreResult | null {
   return { score: Math.round(total * 100) / 100, prominence: prominenceOf(total), category: CATEGORY[input.kind] };
 }
 
+export interface SnapshotCheckpoint {
+  day: number;
+  netWorth: number;
+}
+
+/** The player's net worth as of `day`: the latest checkpoint at or before it, or 0 before any snapshot exists. `checkpoints` must already be sorted ascending by day. */
+export function baselineAt(day: number, checkpoints: SnapshotCheckpoint[]): number {
+  let result = 0;
+  for (const c of checkpoints) {
+    if (c.day > day) break;
+    result = c.netWorth;
+  }
+  return result;
+}
+
 export interface ScorableEvent {
   key: string;
   day: number;
@@ -152,19 +167,23 @@ export interface ScoredEvent extends ScorableEvent {
 
 /**
  * Scores a whole POST /api/events batch (one event per day in live play, or thousands at once after a
- * fast-forward) in one pass. `priorCounts` is this kind's count from *before* the batch (server/src/news/pipeline.ts
- * queries it once, before inserting the batch's own events, so a repeat within the batch decays correctly
- * against events earlier in the very same batch, not just against older requests).
+ * fast-forward) in one pass. `netWorthBaselines[i]` is events[i]'s own net-worth baseline (resolved by
+ * the caller via baselineAt against real snapshot history) — NOT one shared number for the whole batch,
+ * because a fast-forward batch can span years of changing net worth and the whole point of this scorer
+ * is that a dollar amount matters relative to what the player had AT THE TIME, not at the end of the run.
+ * `priorCounts` is this kind's count from *before* the batch (server/src/news/pipeline.ts queries it once,
+ * before inserting the batch's own events, so a repeat within the batch decays correctly against events
+ * earlier in the very same batch, not just against older requests).
  */
-export function assignScores(events: ScorableEvent[], netWorthBaseline: number, priorCounts: Map<string, number>): ScoredEvent[] {
+export function assignScores(events: ScorableEvent[], netWorthBaselines: number[], priorCounts: Map<string, number>): ScoredEvent[] {
   const counts = new Map(priorCounts);
   const out: ScoredEvent[] = [];
-  for (const e of events) {
+  events.forEach((e, i) => {
     const priorCount = counts.get(e.kind) ?? 0;
     counts.set(e.kind, priorCount + 1);
-    const result = score({ kind: e.kind, payload: e.payload, netWorthBaseline, priorCount });
-    if (!result) continue;
+    const result = score({ kind: e.kind, payload: e.payload, netWorthBaseline: netWorthBaselines[i], priorCount });
+    if (!result) return;
     out.push({ ...e, category: result.category, score: result.score, prominence: result.prominence });
-  }
+  });
   return out;
 }

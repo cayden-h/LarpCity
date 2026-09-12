@@ -34,20 +34,20 @@ export async function insertNewsStories(db: Db, rows: NewNewsStory[]): Promise<n
   if (!rows.length) return 0;
   const r = await db.query(
     `INSERT INTO news_stories (run_id, branch_id, day, event_key, kind, category, score, prominence, facts)
-     SELECT $1, b, d, k, kd, c, s, p, f
-     FROM unnest($2::uuid[], $3::int[], $4::text[], $5::text[], $6::text[], $7::real[], $8::text[], $9::jsonb[])
-       AS t(b, d, k, kd, c, s, p, f)
+     SELECT r, b, d, k, kd, c, s, p, f
+     FROM unnest($1::uuid[], $2::uuid[], $3::int[], $4::text[], $5::text[], $6::text[], $7::real[], $8::text[], $9::jsonb[])
+       AS t(r, b, d, k, kd, c, s, p, f)
      ON CONFLICT (run_id, branch_id, event_key) DO NOTHING`,
     [
-      rows[0].runId,
-      rows.map((r) => r.branchId),
-      rows.map((r) => r.day),
-      rows.map((r) => r.eventKey),
-      rows.map((r) => r.kind),
-      rows.map((r) => r.category),
-      rows.map((r) => r.score),
-      rows.map((r) => r.prominence),
-      rows.map((r) => JSON.stringify(r.facts)),
+      rows.map((row) => row.runId),
+      rows.map((row) => row.branchId),
+      rows.map((row) => row.day),
+      rows.map((row) => row.eventKey),
+      rows.map((row) => row.kind),
+      rows.map((row) => row.category),
+      rows.map((row) => row.score),
+      rows.map((row) => row.prominence),
+      rows.map((row) => JSON.stringify(row.facts)),
     ],
   );
   return r.rowCount ?? 0;
@@ -73,11 +73,33 @@ export async function runBaseline(db: Db, runId: string, uptoDay: number): Promi
   return rows[0]?.netWorth ?? 0;
 }
 
-/** Stories with no headline yet, oldest first, capped so one request can't trigger unlimited Gemini calls. */
-export async function unwrittenNewsStories(db: Db, runId: string, branchId: string, limit: number): Promise<NewsStoryRow[]> {
+export interface SnapshotCheckpoint {
+  day: number;
+  netWorth: number;
+}
+
+/**
+ * Every checkpoint needed to resolve a per-event baseline for any day in [minDay, maxDay]: the latest
+ * snapshot at or before minDay (so an event with no snapshot yet in-range still gets the best available
+ * baseline), plus every snapshot strictly after minDay through maxDay. Ordered by day ascending — pass
+ * straight to scorer.ts's baselineAt(). One query regardless of how many events are in the batch.
+ */
+export async function snapshotCheckpoints(db: Db, runId: string, minDay: number, maxDay: number): Promise<SnapshotCheckpoint[]> {
+  const { rows } = await db.query<SnapshotCheckpoint>(
+    `(SELECT day, net_worth AS "netWorth" FROM player_snapshots WHERE run_id = $1 AND day <= $2 ORDER BY day DESC LIMIT 1)
+     UNION ALL
+     (SELECT day, net_worth AS "netWorth" FROM player_snapshots WHERE run_id = $1 AND day > $2 AND day <= $3 ORDER BY day ASC)
+     ORDER BY day ASC`,
+    [runId, minDay, maxDay],
+  );
+  return rows;
+}
+
+/** Stories with no headline yet in [from, to], oldest first, capped so one request can't trigger unlimited Gemini calls. */
+export async function unwrittenNewsStories(db: Db, runId: string, branchId: string, from: number, to: number, limit: number): Promise<NewsStoryRow[]> {
   const { rows } = await db.query<NewsStoryRow>(
-    `SELECT ${SELECT_COLUMNS} FROM news_stories WHERE run_id = $1 AND branch_id = $2 AND headline IS NULL ORDER BY day ASC LIMIT $3`,
-    [runId, branchId, limit],
+    `SELECT ${SELECT_COLUMNS} FROM news_stories WHERE run_id = $1 AND branch_id = $2 AND headline IS NULL AND day BETWEEN $3 AND $4 ORDER BY day ASC LIMIT $5`,
+    [runId, branchId, from, to, limit],
   );
   return rows;
 }

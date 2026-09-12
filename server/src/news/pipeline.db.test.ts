@@ -72,3 +72,35 @@ test("rarity decays across two separate requests, not just within one batch", { 
   const [story1, story2] = await listNewsStories(db, run, run, 0, 10);
   assert.ok(story1.score > story2.score, `request 1's story (${story1.score}) should outscore request 2's (${story2.score})`);
 });
+
+test("a fast-forward batch scores each event against its own net worth, not the batch's final one", { skip }, async () => {
+  const run = await createRun(db, ALICE, 3);
+  // ~40 years of history in one fast-forward: poor at the start, rich at the end.
+  await insertSnapshots(db, run, [
+    { day: 0, netWorth: 2_000, checking: 1_000, savings: 1_000, brokerage: 0, retirement: 0, debt: 0 },
+    { day: 14_000, netWorth: 2_000_000, checking: 0, savings: 2_000_000, brokerage: 0, retirement: 0, debt: 0 },
+  ]);
+  // The same $500 missed payment near the poor start and near the rich end, in ONE batch.
+  const events = [
+    { key: "30:0", day: 30, kind: "missed", payload: { due: 500, fee: 25 } },
+    { key: "14000:0", day: 14_000, kind: "missed", payload: { due: 500, fee: 25 } },
+  ];
+  // Score BEFORE inserting the events, exactly as routes/snapshot.ts's POST /events does, so
+  // priorKindCounts sees an empty events table (the early miss is this kind's first occurrence).
+  await scoreAndStoreEvents(db, run, events);
+  await insertEvents(db, run, events);
+
+  const stored = await listNewsStories(db, run, run, 0, 100_000);
+  const early = stored.find((s) => s.day === 30);
+  const late = stored.find((s) => s.day === 14_000);
+  assert.ok(early, "the early $500 miss at a $2k net worth is newsworthy and should publish");
+  // The reviewed bug scored the whole batch against the run's FINAL ($2M) net worth, which flattens the
+  // early miss's magnitude term to ~0 and its score to ~45. Resolving the early miss against its own
+  // ~$2k net worth makes the magnitude term fire, lifting the score above 45.
+  assert.ok(
+    early!.score > 45.5,
+    `the early miss must be scored against the ~$2k the player had at day 30 (got ${early?.score}); the batch's final $2M net worth would have flattened it to ~45`,
+  );
+  // The identical $500 miss at a $2M net worth simply isn't news — it stays out of the paper.
+  assert.ok(!late, "the identical $500 miss at a $2M net worth is not newsworthy and should not publish");
+});

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isEligible, score, assignScores, type ScorableEvent } from "./scorer.js";
+import { isEligible, score, assignScores, baselineAt, type ScorableEvent } from "./scorer.js";
 
 test("routine kinds are never eligible", () => {
   assert.equal(isEligible("paycheck", {}), false);
@@ -58,7 +58,7 @@ test("routine events are dropped, eligible ones keep their key/day", () => {
     { key: "1:0", day: 1, kind: "paycheck", payload: { takeHome: 2000 } },
     { key: "1:1", day: 1, kind: "paid_off", payload: { debtId: "d1", name: "Car loan" } },
   ];
-  const out = assignScores(events, 50_000, new Map());
+  const out = assignScores(events, events.map(() => 50_000), new Map());
   assert.equal(out.length, 1);
   assert.equal(out[0].key, "1:1");
   assert.equal(out[0].day, 1);
@@ -72,7 +72,7 @@ test("three late_marks in one batch decay against each other, not just against p
     kind: "late_mark",
     payload: { severity: 30, scoreBefore: 700 - i * 10, scoreAfter: 690 - i * 10 },
   }));
-  const out = assignScores(events, 50_000, new Map());
+  const out = assignScores(events, events.map(() => 50_000), new Map());
   assert.equal(out.length, 3);
   assert.ok(out[0].score > out[1].score, `1st ${out[0].score} > 2nd ${out[1].score}`);
   assert.ok(out[1].score > out[2].score, `2nd ${out[1].score} > 3rd ${out[2].score}`);
@@ -80,7 +80,37 @@ test("three late_marks in one batch decay against each other, not just against p
 
 test("prior history from earlier requests lowers the first event in a new batch", () => {
   const events: ScorableEvent[] = [{ key: "10:0", day: 10, kind: "job", payload: { employed: false } }];
-  const fresh = assignScores(events, 50_000, new Map())[0];
-  const seenBefore = assignScores(events, 50_000, new Map([["job", 5]]))[0];
+  const fresh = assignScores(events, events.map(() => 50_000), new Map())[0];
+  const seenBefore = assignScores(events, events.map(() => 50_000), new Map([["job", 5]]))[0];
   assert.ok(fresh.score > seenBefore.score, `fresh ${fresh.score} > seenBefore ${seenBefore.score}`);
+});
+
+test("assignScores uses each event's own baseline, not the batch's final net worth", () => {
+  // A fast-forward batch spanning ~40 years: the player was poor early and rich at the end. The same
+  // $500 missed payment happens once near the start and once near the end.
+  const events: ScorableEvent[] = [
+    { key: "30:0", day: 30, kind: "missed", payload: { due: 500, fee: 25 } },
+    { key: "14000:0", day: 14000, kind: "missed", payload: { due: 500, fee: 25 } },
+  ];
+  const checkpoints = [
+    { day: 0, netWorth: 2_000 },
+    { day: 14000, netWorth: 2_000_000 },
+  ];
+  const baselines = events.map((e) => baselineAt(e.day, checkpoints));
+  assert.deepEqual(baselines, [2_000, 2_000_000], "each event resolves its own net worth as of its own day");
+
+  // The fix: score each event against its OWN baseline. The bug: score the whole batch against the
+  // final ($2M) net worth. Compare the SAME early event under both to isolate the effect. (The late
+  // rich event is dropped either way: at $2M a repeated $500 miss decays below the publish threshold,
+  // which is exactly why a two-published-events comparison isn't possible for this kind — the signal
+  // lives in the early event's magnitude term, which only fires when its own low baseline is used.)
+  const perEvent = assignScores(events, baselines, new Map());
+  const finalOnly = assignScores(events, events.map(() => 2_000_000), new Map());
+  const early = perEvent.find((s) => s.key === "30:0")!;
+  const earlyIfRich = finalOnly.find((s) => s.key === "30:0")!;
+  assert.ok(early && earlyIfRich, "the early $500 miss publishes either way (severity + rarity clear the bar)");
+  assert.ok(
+    early.score > earlyIfRich.score,
+    `the early miss scored against its own $2k net worth (${early.score}) must outscore the same miss scored against the batch's final $2M (${earlyIfRich.score})`,
+  );
 });
