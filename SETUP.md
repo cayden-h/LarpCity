@@ -221,7 +221,7 @@ There is no published rate limit and no bulk endpoint.
 - [x] Any `transaction_date` is accepted, past or future.
 - [x] `type: "Credit Card"` works; negative balances are rejected and cents are truncated.
 - [x] `DELETE /accounts/{id}` works; customers and merchants can't be deleted.
-- Leftovers on the key for good: two probe customers (`LC-probe1`, `larpcity-check`), one probe merchant (`Larp Grocer`), the 8 NPC customers, and one player customer per browser session that has run the mirror.
+- Leftovers on the key for good: two probe customers (`LC-probe1`, `larpcity-check`), one probe merchant (`Larp Grocer`), up to the 12 primary-tier NPC customers (§5; 8 existed as of the original Sep 12 build, growing to 12 as the roster expansion runs against the live key), and one player customer per browser session that has run the mirror.
 
 ### 7. What judges want
 
@@ -696,7 +696,7 @@ All accounts are on sixtyfourandten@gmail.com (Nessie is on the `cayden-h` GitHu
 | ElevenLabs | Done | Key `larp-city` (unrestricted, auto-disable if leaked); agent "Larp City Narrator" `agent_9101m29rg237f79b0rprqav18hxx` (the owl: Daniel on `eleven_v3_conversational`) with the `submit_finances` client tool, five Data collection fields, the post-call webhook, and auth on; narrator and anchor voice Daniel `onwK4e9ZLuTAKqWW03F9` | `/v1/user` 200 (free tier, 0 / 10,000 credits); signed URL returns `wss://` |
 | Tiger Data | Done; schema applied and card data loaded (`game/db/load.py`, Sep 11); run recording and the weekly/monthly aggregates built (Sep 12, applied by the server at boot) | Always-free Shared service `larp-city` in AWS us-east-1 (1 GiB, stays free after the trial), inside the 30-day Performance trial project | `psql` connects; TimescaleDB 2.30.0 |
 | Backboard | Done, chat needs credits | Key; assistant "Larp City Coach" `fe3bc6b8-0c92-45a1-a0c4-d98d7dd2834a` with research 02, 03, 06 indexed; models `anthropic/claude-haiku-4-5-20251001` (small) and `anthropic/claude-sonnet-5` (large) | `billing/balance` 200; docs indexed. **The free $5 covers only memory and RAG, not LLM chat**, so the coach needs paid credits (or route the coach text through another model) |
-| Capital One Nessie | Done; API probed and bank mirror built (Sep 12) | Key from the `cayden-h` GitHub login; the 8 NPC customers, player customers per session, and two probe customers | Every endpoint we use (see the Nessie section); the mirror's statements matched the game's balances end to end |
+| Capital One Nessie | Done; API probed and bank mirror built (Sep 12), roster grown to 12 primary NPCs + a permanently fallback-only background tier (§5) | Key from the `cayden-h` GitHub login; up to 12 primary-tier NPC customers (8 as of the original Sep 12 build), player customers per session, and two probe customers | Every endpoint we use (see the Nessie section); the mirror's statements matched the game's balances end to end |
 | Gemini | Done | Three keys in `GEMINI_API_KEYS`, rotated on 429 or 503; no OpenAI (we use Claude Code and ChatGPT in the browser for anything else) | All three: list models 200 (includes `gemini-3.8-flash` and `gemini-3.1-flash-image`), `gemini-3.8-flash` replies (key 2 needed one retry after a 503). Image generation billing not tested |
 | Persona | Teammate | | |
 | Vultr | Key saved, IP not allowed yet | `VULTR_API_KEY` in `.env` | Returns 401 "Unauthorized IP address" from the Rice network (168.5.164.0); add that IP (or the VPS IP) under Account > API > Access Control |
