@@ -6,7 +6,7 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && cp src/migrations.sql dist/migrations.sql",
     "start": "node dist/index.js",
     "test": "node --import tsx --env-file=.env.test --test $(find src -name '*.test.ts')"
   },

@@ -26,8 +26,8 @@ const schema = z.object({
 
   BACKBOARD_API_KEY: z.string().min(1),
   BACKBOARD_COACH_ASSISTANT_ID: z.string().min(1),
-  BACKBOARD_SMALL_MODEL: z.string().min(1),
-  BACKBOARD_LARGE_MODEL: z.string().min(1),
+  BACKBOARD_SMALL_MODEL: z.string().min(1).regex(/^[^/]+\/[^/]+$/, "must be in provider/model format"),
+  BACKBOARD_LARGE_MODEL: z.string().min(1).regex(/^[^/]+\/[^/]+$/, "must be in provider/model format"),
 });
 
 export type Env = z.infer<typeof schema>;

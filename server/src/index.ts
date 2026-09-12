@@ -28,9 +28,12 @@ const { runMigrations } = await import("./db.js");
 const { sessionMiddleware } = await import("./session.js");
 
 const app = express();
+app.set("trust proxy", 1);
 
 app.use(helmet());
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+
+app.use("/api", healthRouter);
 
 // Mounted before express.json(): Persona's HMAC check needs the exact raw body.
 app.use("/api/persona", strictLimiter, personaWebhookRouter);
@@ -39,7 +42,6 @@ app.use(express.json({ limit: "2mb" }));
 app.use(sessionMiddleware);
 app.use(generalLimiter);
 
-app.use("/api", healthRouter);
 app.use("/api/persona", strictLimiter, personaRouter);
 app.use("/api/bank", nessieRouter);
 app.use("/api/voice", strictLimiter, voiceRouter);
