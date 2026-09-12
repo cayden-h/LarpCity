@@ -1,10 +1,11 @@
 // The owl narrates the player's life: it stands at the bottom of the city with
-// a speech bubble, plays a reaction, then reads the line in the narrator's
-// voice (the server's /api/voice/tts on the expressive model) while each word
-// lights up as it's spoken. Lines and their timing rules live in
-// narration/lines.ts. Muting (remembered per browser) keeps the captions and
-// drops the voice; without the server, or before the page may play sound,
-// the owl reads the line on screen.
+// a speech bubble, reacts, then reads the line in the narrator's voice (the
+// server's /api/voice/tts on the expressive model) while each word lights up
+// as it's spoken. Lines and their timing rules live in narration/lines.ts.
+// While it talks, the owl holds poses that fit the mood of each word and
+// changes them on the words' beats (narration/poses.ts). Muting (remembered
+// per browser) keeps the captions and drops the voice; without the server,
+// or before the page may play sound, the owl reads the line on screen.
 //
 // The voice plays through Web Audio rather than an <audio> element: Chrome
 // holds back loading media elements in background tabs, which would leave
@@ -13,7 +14,8 @@
 
 import { apiFetch } from "../net/api";
 import { CueGate, CUES, pickLine, stripTags, type Cue } from "../narration/lines";
-import { Owl, preloadOwl, type OwlAnim } from "./owl";
+import { wordMoods, type Mood } from "../narration/poses";
+import { Owl, preloadOwl } from "./owl";
 import "./narrator.css";
 
 const MUTE_KEY = "larp.narrator.muted";
@@ -24,7 +26,7 @@ const SILENT_WORD_MS = 330;
 const VOICE_TIMEOUT_MS = 9_000;
 /** Without a click on the page yet, the browser keeps audio suspended; don't wait long to find out. */
 const RESUME_TIMEOUT_MS = 400;
-/** Caption and bob updates; a timer rather than animation frames, which stop in background tabs. */
+/** Caption and pose updates; a timer rather than animation frames, which stop in background tabs. */
 const TICK_MS = 50;
 const QUEUE_MAX = 2;
 
@@ -113,12 +115,14 @@ export class Narrator {
     this.busy = true;
     const line = pickLine(cue, this.lastLine.get(cue));
     this.lastLine.set(cue, line);
-    await this.say(line, CUES[cue].anim);
+    await this.say(line, cue);
     void this.next();
   }
 
-  private async say(line: string, reaction: OwlAnim): Promise<void> {
+  private async say(line: string, cue: Cue): Promise<void> {
     const epoch = this.epoch;
+    const { anim, mood } = CUES[cue];
+    const moods = wordMoods(line, mood);
     this.renderWords(stripTags(line).split(" "));
     this.el.hidden = false;
     // Apply the hidden-state styles before sliding in (not on an animation frame, which background tabs skip).
@@ -127,16 +131,16 @@ export class Narrator {
 
     // Fetch the voice while the owl reacts.
     const voice = this.muted ? Promise.resolve(null) : this.fetchVoice(line);
-    await this.owl.play(reaction, { then: "idle" });
+    await this.owl.play(anim, { then: "idle" });
     const spoken = await voice;
     if (epoch !== this.epoch) return;
 
-    void this.owl.play("talk");
-    const played = spoken && !this.muted ? await this.playVoice(spoken, epoch) : false;
-    if (!played && epoch === this.epoch) await this.readSilently(epoch);
+    this.owl.talk(moods[0] ?? mood);
+    const played = spoken && !this.muted ? await this.playVoice(spoken, moods, mood, epoch) : false;
+    if (!played && epoch === this.epoch) await this.readSilently(moods, mood, epoch);
     if (epoch !== this.epoch) return;
 
-    void this.owl.play("idle");
+    this.owl.rest();
     await wait(LINGER_MS);
     if (epoch === this.epoch) this.hide();
   }
@@ -154,7 +158,7 @@ export class Narrator {
   }
 
   /** Plays the line with its captions; false when the browser won't play sound (no click on the page yet) or the audio is bad. */
-  private async playVoice(spoken: Spoken, epoch: number): Promise<boolean> {
+  private async playVoice(spoken: Spoken, moods: Mood[], base: Mood, epoch: number): Promise<boolean> {
     let buffer: AudioBuffer;
     let ctx: AudioContext;
     try {
@@ -181,9 +185,16 @@ export class Narrator {
     this.source = source;
 
     return new Promise<boolean>((resolve) => {
+      let nextWord = 0;
       const timer = window.setInterval(() => {
         const t = ctx.currentTime - startAt;
-        spoken.words.forEach((w, i) => spans[i]?.classList.toggle("said", t >= w.start));
+        // Each word that starts lights up, sets the mood, and is a beat the owl can move on.
+        while (nextWord < spoken.words.length && t >= spoken.words[nextWord].start) {
+          spans[nextWord]?.classList.add("said");
+          this.owl.talk(moods[nextWord] ?? base);
+          this.owl.beat();
+          nextWord++;
+        }
         analyser.getFloatTimeDomainData(samples);
         let sum = 0;
         for (const s of samples) sum += s * s;
@@ -200,10 +211,13 @@ export class Narrator {
     });
   }
 
-  private async readSilently(epoch: number): Promise<void> {
-    for (const span of this.text.querySelectorAll("span")) {
+  private async readSilently(moods: Mood[], base: Mood, epoch: number): Promise<void> {
+    const spans = [...this.text.querySelectorAll("span")];
+    for (const [i, span] of spans.entries()) {
       if (epoch !== this.epoch) return;
       span.classList.add("said");
+      this.owl.talk(moods[i] ?? base);
+      this.owl.beat();
       await wait(SILENT_WORD_MS);
     }
   }

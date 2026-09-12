@@ -160,7 +160,7 @@ class Intake {
       </div>
       <button type="button" class="in-link" data-act="type">Type it instead</button>`);
     this.mountOwl(OWL_BIG);
-    void this.owl.play("idle");
+    this.owl.rest();
 
     let signedUrl: string;
     try {
@@ -221,14 +221,16 @@ class Intake {
       // Hang up once the narrator has said goodbye (a speaking turn that ends).
       if (mode === "speaking") {
         this.goodbye = true;
-        void this.owl.play("talk");
+        this.owl.talk("warm");
       } else if (this.goodbye) {
-        void this.owl.play("idle");
+        this.owl.rest();
         window.setTimeout(() => void this.hangUp(seq), 400);
       }
       return;
     }
-    void this.owl.play(mode === "speaking" ? "talk" : "think");
+    // Listening rests on the same sheet as talking, so the owl's vest doesn't change between turns.
+    if (mode === "speaking") this.owl.talk("plain");
+    else this.owl.rest();
     this.status(mode === "speaking" ? "The Narrator is talking…" : "Your turn. The Narrator is listening.");
   }
 
@@ -249,11 +251,15 @@ class Intake {
     if (el) el.textContent = text;
   }
 
-  /** Bobs the owl with the narrator's voice. */
+  /** Bobs the owl with the narrator's voice, and gives it a beat to change pose on as each syllable starts. */
   private meter(conversation: VoiceConversation): void {
+    let last = 0;
     const tick = () => {
       if (this.conversation !== conversation) return;
-      this.owl.setLevel(Math.min(1, conversation.getOutputVolume() * 1.6));
+      const level = Math.min(1, conversation.getOutputVolume() * 1.6);
+      this.owl.setLevel(level);
+      if (level > 0.22 && last < 0.12) this.owl.beat();
+      last = level;
       this.frame = requestAnimationFrame(tick);
     };
     this.frame = requestAnimationFrame(tick);
