@@ -16,47 +16,30 @@ from PIL import Image, ImageChops, ImageColor, ImageDraw, ImageFilter, ImageFont
 
 OUT = Path(__file__).resolve().parent / "ads"
 SS = 4  # supersampling factor
-SUP = "/System/Library/Fonts/Supplemental/"
-SYS = "/System/Library/Fonts/"
 
 
 # ---------------------------------------------------------------- fonts
 
 def font_spec(*candidates):
-    """First existing (path, index, variation) candidate."""
-    for cand in candidates:
-        path, index, *var = cand
+    """First existing (path, index) candidate."""
+    for path, index in candidates:
         if Path(path).exists():
-            return (path, index, var[0] if var else None)
+            return (path, index)
     raise FileNotFoundError(f"no font found among {candidates}")
 
 
-ARIAL = font_spec((SUP + "Arial.ttf", 0), (SYS + "Helvetica.ttc", 0))
-ARIAL_BOLD = font_spec((SUP + "Arial Bold.ttf", 0), (SYS + "Helvetica.ttc", 1))
-ARIAL_BLACK = font_spec((SUP + "Arial Black.ttf", 0), (SUP + "Arial Bold.ttf", 0))
-HELV_BOLD = font_spec((SYS + "Helvetica.ttc", 1), (SUP + "Arial Bold.ttf", 0))
-GEORGIA = font_spec((SUP + "Georgia.ttf", 0), (SUP + "Georgia Bold.ttf", 0))
-GEORGIA_BOLD = font_spec((SUP + "Georgia Bold.ttf", 0), (SUP + "Georgia.ttf", 0))
-SCRIPT = font_spec((SUP + "SnellRoundhand.ttc", 2), (SUP + "SnellRoundhand.ttc", 0),
-                   (SUP + "Georgia Bold Italic.ttf", 0))
-FUTURA = font_spec((SUP + "Futura.ttc", 0), (SYS + "Helvetica.ttc", 0))
-ROUNDED = font_spec((SYS + "SFNSRounded.ttf", 0, b"Black"), (SUP + "Arial Black.ttf", 0))
-ROUNDED_BOLD = font_spec((SYS + "SFNSRounded.ttf", 0, b"Bold"), (SYS + "Helvetica.ttc", 1))
-
 # Pixel art (docs/superpowers/specs/2026-09-12-blender-houses-design.md): every sign is lettered in the game's own
 # bold Pixelify Sans (game/public/fonts, glyphs fixed for small sizes), so text survives the sprite pixel pass as
-# crisp pixels and matches the UI. The names above stay so call sites read the same.
+# crisp pixels and matches the UI. The names below stay so call sites read the same as when each sign carried its
+# own system font.
 PIXEL = font_spec((str(Path(__file__).resolve().parents[1] / "public" / "fonts" / "pixelify-sans-bold.ttf"), 0))
 ARIAL = ARIAL_BOLD = ARIAL_BLACK = HELV_BOLD = GEORGIA = GEORGIA_BOLD = SCRIPT = FUTURA = ROUNDED = ROUNDED_BOLD = PIXEL
 
 
 @lru_cache(maxsize=4096)
 def load(spec, size):
-    path, index, var = spec
-    f = ImageFont.truetype(path, size, index=index)
-    if var:
-        f.set_variation_by_name(var)
-    return f
+    path, index = spec
+    return ImageFont.truetype(path, size, index=index)
 
 
 def fit_text(draw, text, font_path, box, max_size=10_000, align="left", valign="center",
@@ -239,7 +222,7 @@ class Sign:
 
     # -- finishing
 
-    def weather(self, lo, hi, seed_size=(40, 28)):
+    def weather(self, lo, hi):
         """Fade paint evenly to the middle of lo..hi. Pixel art has no soft wear patches or grain,
         which the pixel pass would turn into speckles."""
         mid = (lo + hi) / 2
@@ -683,8 +666,7 @@ def mu_bobatalks():
         cx = 420 + i * 80
         with s.paint("white", "dot") as p:
             p.ellipse((cx - 26, 185 - 26, cx + 26, 185 + 26))
-    pl = s.fit("Boba\nTalks", ROUNDED, (70, 380, 930 - 18, 930 - 18), align="center",
-               stroke=0.07, spacing=-0.04)
+    pl = s.fit("Boba\nTalks", ROUNDED, (70, 380, 930 - 18, 930 - 18), align="center", stroke=0.07)
     s.draw_text(pl, "#A16C6A", stroke_fill="#A16C6A", offset=(18, 18))  # painted depth
     s.draw_text(pl, "#BA8478", stroke_fill="#FFF4EA")
     s.finish()
