@@ -14,6 +14,8 @@
 
 **Where to work:** the worktree `../larp-houses` on branch `blender-houses`. Paths are relative to it.
 
+**Before Task 1:** `git fetch && git rebase origin/main`. Since this plan was written, `main` gained rewind (`sim/rewind/`, PR #13): `PlayerLife.checkpoint()` / `restore()` deep-copy every own field except `history`, `log`, and `listeners`, and every emitted event also goes into `PlayerLife.log`. The home state added here (`home`, `shortRent`, `applications`) is plain data, so checkpoints carry it with no extra code; Task 5 adds a test that proves it. Keep new `PlayerLife` state in plain fields so `deepCopy` keeps working.
+
 ---
 
 ## File structure
@@ -732,12 +734,26 @@ test("moving states sells an owned home and rents the studio in the new state", 
   assert.ok(life.book.debts.filter((d) => d.kind === "mortgage").every((d) => d.status === "paid"));
   assert.deepEqual(seen, ["moved", "home:moved"]);
 });
+
+test("rewinding to before a purchase gives back the old home, rent, and cash", () => {
+  const life = person(TX, 150_000, 400_000);
+  const cp = life.checkpoint();
+  const cash = life.cash();
+  buy(life, 2);
+  assert.equal(life.homeTier(), 2);
+  life.restore(cp);
+  assert.equal(life.homeTier(), 1);
+  assert.equal(life.home.tenure, "rent");
+  assert.equal(life.home.mortgageId, null);
+  assert.equal(life.cash(), cash);
+  assert.ok(!life.book.debts.some((d) => d.kind === "mortgage"));
+});
 ```
 
-- [ ] **Step 2: Run to see it fail**
+- [ ] **Step 2: Run to see them fail**
 
 Run: `cd game && node --test tests/homes.test.ts`
-Expected: FAIL (still tier 2).
+Expected: the move test FAILs (still tier 2). The rewind test may already pass, because checkpoints deep-copy every field; keep it, it guards that the home state stays plain data.
 
 - [ ] **Step 3: Implement**
 

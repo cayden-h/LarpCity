@@ -910,7 +910,7 @@ Open `http://localhost:5199/#san-francisco` in Chrome (Claude in Chrome), click 
 
 - [ ] **Step 2: Check downtown at three zooms, day and night**
 
-Take screenshots at the default zoom, zoomed in two steps (mouse wheel over downtown), and zoomed out fully. For night, run `larp.scene()` in the console to find the clock helpers, or advance time with the phone's Timeline app until night. Check:
+Take screenshots at the default zoom, zoomed in two steps (mouse wheel over downtown), and zoomed out fully. For night, run `larp.scene()` in the console to find the clock helpers, or advance time with the phone's Calendar app (its speed controls) until night. Check:
 
 - Zoomed in: square pixels, no blur, outlines intact.
 - Default and zoomed out: no shimmer while dragging, no seams between sprites and the ground.
