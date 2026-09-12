@@ -30,9 +30,23 @@ const RESUME_TIMEOUT_MS = 400;
 const TICK_MS = 50;
 const QUEUE_MAX = 2;
 
+/** A voiced line: MP3 bytes and when each word starts, in seconds. */
 interface Spoken {
-  audioBase64: string;
+  audio: ArrayBuffer;
   words: { word: string; start: number }[];
+}
+
+/** The narration pack (scripts/build-narration.ts): every line voiced ahead of time, so playing one costs no credits. */
+interface Pack {
+  lines: Record<string, { file: string; words: Spoken["words"] }>;
+}
+const PACK_BASE = `${import.meta.env.BASE_URL}narration/`;
+let pack: Promise<Pack | null> | null = null;
+function loadPack(): Promise<Pack | null> {
+  pack ??= fetch(`${PACK_BASE}index.json`)
+    .then((r) => (r.ok ? (r.json() as Promise<Pack>) : null))
+    .catch(() => null);
+  return pack;
 }
 
 const wait = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
@@ -95,6 +109,7 @@ export class Narrator {
     this.syncMute();
     // Every reaction, so the owl never pops in blank while a strip downloads.
     preloadOwl(["idle", "talk", ...new Set(Object.values(CUES).map((c) => c.anim))]);
+    void loadPack();
   }
 
   /** Speaks a line for `cue` if the timing rules allow it now. */
@@ -145,13 +160,24 @@ export class Narrator {
     if (epoch === this.epoch) this.hide();
   }
 
+  /** The line's voice: from the pack when it's there, otherwise voiced by the server (which caches it). */
   private async fetchVoice(line: string): Promise<Spoken | null> {
+    const packed = (await loadPack())?.lines[line];
+    if (packed) {
+      try {
+        const r = await fetch(PACK_BASE + packed.file, { signal: AbortSignal.timeout(VOICE_TIMEOUT_MS) });
+        if (r.ok) return { audio: await r.arrayBuffer(), words: packed.words };
+      } catch {
+        // Fall back to the server below.
+      }
+    }
     try {
-      return await apiFetch<Spoken>("/voice/tts", {
+      const r = await apiFetch<{ audioBase64: string; words: Spoken["words"] }>("/voice/tts", {
         method: "POST",
         body: JSON.stringify({ text: line, voice: "narrator" }),
         signal: AbortSignal.timeout(VOICE_TIMEOUT_MS),
       });
+      return { audio: decodeBase64(r.audioBase64), words: r.words };
     } catch {
       return null;
     }
@@ -165,7 +191,7 @@ export class Narrator {
       ctx = this.ctx ??= new AudioContext();
       if (ctx.state !== "running") await Promise.race([ctx.resume(), wait(RESUME_TIMEOUT_MS)]);
       if (ctx.state !== "running") return false;
-      buffer = await ctx.decodeAudioData(decodeBase64(spoken.audioBase64));
+      buffer = await ctx.decodeAudioData(spoken.audio);
     } catch {
       return false;
     }
