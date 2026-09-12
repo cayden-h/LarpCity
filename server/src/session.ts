@@ -35,7 +35,7 @@ export function unsign(secret: string, signed: string): string | null {
   return value;
 }
 
-function parseCookies(header: string | undefined): Record<string, string> {
+export function parseCookies(header: string | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   if (!header) return out;
   for (const part of header.split(";")) {
@@ -43,7 +43,15 @@ function parseCookies(header: string | undefined): Record<string, string> {
     if (eq === -1) continue;
     const k = part.slice(0, eq).trim();
     const v = part.slice(eq + 1).trim();
-    out[k] = decodeURIComponent(v);
+    try {
+      out[k] = decodeURIComponent(v);
+    } catch {
+      // Malformed percent-encoding (e.g. a lone "%"): fall back to the raw
+      // value instead of throwing, so a single bad cookie can't crash the
+      // process (sessionMiddleware is async and this runs before any
+      // await, so an uncaught throw here becomes an unhandled rejection).
+      out[k] = v;
+    }
   }
   return out;
 }
