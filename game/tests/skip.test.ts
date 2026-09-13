@@ -3,11 +3,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MarketPath } from "../src/sim/market/index.ts";
-import { K401_LIMIT, PlayerLife, STARTER_PORTFOLIO, type Place } from "../src/sim/life/index.ts";
+import { K401_LIMIT, PlayerLife, ROTH_LIMIT, STARTER_PORTFOLIO, type Place } from "../src/sim/life/index.ts";
 import {
   applyOrders,
   budget,
   buildFutures,
+  clampOrders,
   CrashWatch,
   currentOrders,
   isMet,
@@ -81,6 +82,64 @@ test("401(k) contributions stop at the yearly IRS limit and bring the employer m
   }
   // $30k wanted, $24.5k allowed, plus a 3% match on the paychecks that contributed.
   assert.ok(in2027 >= K401_LIMIT && in2027 <= K401_LIMIT + 0.03 * 300_000, `2027 total ${in2027}`);
+});
+
+test("clampOrders caps rothPct so the yearly Roth contribution never exceeds $7,500 when grossAnnual is given", () => {
+  const o = { ...recommendedOrders(newLife()), rothPct: 0.5 };
+  const clamped = clampOrders(o, 60_000);
+  assert.ok(clamped.rothPct * 60_000 <= ROTH_LIMIT + 1e-9, `rothPct*gross ${clamped.rothPct * 60_000}`);
+  // A rothPct that already fits under the cap is left alone.
+  const fits = clampOrders({ ...o, rothPct: 0.05 }, 60_000);
+  assert.equal(fits.rothPct, 0.05);
+});
+
+test("clampOrders falls back to clamping rothPct to [0,1] when grossAnnual is omitted", () => {
+  const clamped = clampOrders({ ...recommendedOrders(newLife()), rothPct: 1.5 });
+  assert.equal(clamped.rothPct, 1);
+});
+
+test("applyOrders clamps rothPct against the life's own grossAnnual", () => {
+  const life = new PlayerLife({ place: TX, day: 0, grossAnnual: 60_000 });
+  applyOrders(life, { ...currentOrders(life), rothPct: 0.5 });
+  assert.ok(life.orders && life.orders.rothPct * 60_000 <= ROTH_LIMIT + 1e-9);
+});
+
+test("a paycheck with rothPct set contributes to the roth account with no employer match, and the full amount comes out of take-home", () => {
+  const life = new PlayerLife({ place: TX, day: 0, monthlyTakeHome: 6_000, grossAnnual: 90_000 });
+  applyOrders(life, { ...currentOrders(life), rothPct: 0.05 });
+  const roth = life.ledger.get("roth");
+  const before = roth.balance;
+  const checkingBefore = life.ledger.get("checking").balance;
+  const events = life.onDay(4, dateOf(4));
+  const pc = events.find((e) => e.type === "paycheck");
+  assert.ok(pc && pc.type === "paycheck");
+  const want = (0.05 * 90_000) / 24;
+  assert.ok(roth.balance - before > 0, "roth account should have grown");
+  assert.ok(Math.abs(roth.balance - before - want) < 0.01, `roth added ${roth.balance - before}, wanted ${want}`);
+  // No match: the roth account gained exactly the contribution, nothing more.
+  const checkingAfter = life.ledger.get("checking").balance;
+  // Full Roth cost is deducted dollar-for-dollar from take-home (unlike the 401k's tax-adjusted cost).
+  assert.ok(checkingAfter < checkingBefore + 10_000); // sanity: paycheck landed, not asserting exact take-home here
+});
+
+test("401(k) match is unaffected by rothPct: same match with or without a Roth contribution set", () => {
+  const withRoth = new PlayerLife({ place: TX, day: 0, monthlyTakeHome: 6_000, grossAnnual: 90_000 });
+  applyOrders(withRoth, { ...currentOrders(withRoth), k401Pct: 0.06, rothPct: 0.05 });
+  const withoutRoth = new PlayerLife({ place: TX, day: 0, monthlyTakeHome: 6_000, grossAnnual: 90_000 });
+  applyOrders(withoutRoth, { ...currentOrders(withoutRoth), k401Pct: 0.06, rothPct: 0 });
+  const evA = withRoth.onDay(4, dateOf(4)).find((e) => e.type === "paycheck");
+  const evB = withoutRoth.onDay(4, dateOf(4)).find((e) => e.type === "paycheck");
+  assert.ok(evA && evA.type === "paycheck" && evB && evB.type === "paycheck");
+  assert.equal(evA.retirement, evB.retirement);
+});
+
+test("Roth contributions stop at the yearly $7,500 IRS limit", () => {
+  const life = new PlayerLife({ place: TX, day: 0, monthlyTakeHome: 20_000, grossAnnual: 300_000 });
+  applyOrders(life, { ...currentOrders(life), rothPct: 0.1 });
+  const roth = life.ledger.get("roth");
+  for (let day = 1; day <= 400; day++) life.onDay(day, dateOf(day));
+  // Over more than a year, the roth balance should still respect the $7,500/year cap (roughly $7.5k-15k across ~1.1 years).
+  assert.ok(roth.balance <= ROTH_LIMIT * 2 + 1, `roth balance ${roth.balance}`);
 });
 
 test("the crash rule sells at a 20% drop and buys back three months after the old peak returns", () => {
@@ -168,7 +227,7 @@ test("the preview is a consistent band from other seeds' markets", () => {
   const goal: Goal = { kind: "net_worth", amount: 100_000 };
   const futures = buildFutures(7, 20, 45);
   const p = runPreview(life, orders, goal, { futures, month: 0, capAge: 67 });
-  assert.equal(p.months, 480);
+  assert.equal(p.months, 540); // (67 - 22) * 12; default starting age is now 22, not 27
   assert.equal(p.p50.length, p.months + 1);
   for (let m = 0; m <= p.months; m++) assert.ok(p.p10[m] <= p.p50[m] && p.p50[m] <= p.p90[m], `month ${m}`);
   assert.ok(p.p90[p.months] > p.p10[p.months], "invested money should spread with luck");

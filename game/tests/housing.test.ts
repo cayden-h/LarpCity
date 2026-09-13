@@ -68,7 +68,7 @@ test('purchase quotes are pure; buying opens the real secured loan and counts ho
   assert.ok(events.some(e => e.type === 'payment' && e.debtId === loan.id));
   assert.ok(!events.some(e => e.type === 'bill' && e.name === 'Rent'));
   assert.ok(events.some(e => e.type === 'bill' && e.name === 'Property tax and insurance' && e.amount === 315.88));
-  assert.equal(life.monthlyExpenses(), cents(life.living + life.minimums() + 315.88));
+  assert.equal(life.monthlyExpenses(), cents(life.living + life.carInsuranceMonthly + life.minimums() + 315.88));
 });
 
 for (const denial of ['cash', 'score', 'DTI', 'invalid'] as const) test(`${denial} denial leaves all life state and notifications unchanged`, () => {
@@ -311,7 +311,7 @@ test('a fully paid home retains value and taxes, without PMI or a phantom mortga
   assert.equal(loan.status, 'paid');
   assert.equal(life.housingBills().pmi, 0);
   assert.equal(life.housingBills().taxAndInsurance, 315.88);
-  assert.equal(life.monthlyExpenses(), 1265.88);
+  assert.equal(life.monthlyExpenses(), cents(life.living + life.carInsuranceMonthly + life.minimums() + life.housingBills().taxAndInsurance + life.housingBills().pmi));
   const saved = life.toSave();
   assert.deepEqual(PlayerLife.fromSave(saved, { market: life.market }).home, life.home);
   assert.ok(life.chooseHome(1).ok);
@@ -500,6 +500,7 @@ for (const payment of [NaN, Infinity, -Infinity]) test(`non-finite existing debt
 });
 
 import { project } from '../src/sim/debt/strategy.ts';
+import { LIFESTYLE_FACTOR } from '../src/sim/skip/types.ts';
 
 for (const extra of [0, 500]) test(`preview PMI cancels at mortgage 80 percent LTV with other debts and $${extra} extra payments`, () => {
   const life = lifeFor();
@@ -522,7 +523,12 @@ for (const extra of [0, 500]) test(`preview PMI cancels at mortgage 80 percent L
   assert.ok(principal(cancelMonth) > 0);
   assert.ok(debt.series[cancelMonth] > life.home.value * 0.8);
   // In a flat market, the cash cost is recoverable from net worth and debt changes.
-  const housingCost = (month: number) => cents(life.monthlyTakeHome - life.living - life.minimums() - extra
+  // runPreview models living costs with the legacy baseLiving*LIFESTYLE_FACTOR
+  // figure (not the tier-based `life.living`) and does not model car insurance
+  // at all, so the residual must be isolated using that same legacy figure to
+  // match what the preview actually subtracted internally.
+  const previewLiving = life.baseLiving * LIFESTYLE_FACTOR[orders.lifestyle];
+  const housingCost = (month: number) => cents(life.monthlyTakeHome - previewLiving - life.minimums() - extra
     - (preview.p50[month] - preview.p50[month - 1]) - (debt.series[month] - debt.series[month - 1]));
   assert.equal(housingCost(cancelMonth), cents(315.88 + cents(principal(cancelMonth - 1) * 0.005 / 12)));
   assert.equal(housingCost(cancelMonth + 1), 315.88);

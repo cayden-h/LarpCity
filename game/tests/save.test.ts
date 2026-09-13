@@ -95,7 +95,7 @@ function decide(life: PlayerLife, day: number): void {
     if (to && from) life.ledger.balanceTransfer(from, to, Math.min(500, Math.floor(from.balance / 2)), day);
   }
   if (day === 45)
-    applyOrders(life, { depositMonthly: 400, k401Pct: 0.06, stockPct: 0.9, debtStrategy: "avalanche", extraMonthly: 100, emergencyMonths: 3, lifestyle: "normal", crashRule: "sell_half" });
+    applyOrders(life, { depositMonthly: 400, k401Pct: 0.06, rothPct: 0, stockPct: 0.9, debtStrategy: "avalanche", extraMonthly: 100, emergencyMonths: 3, lifestyle: "normal", crashRule: "sell_half" });
   if (day === 200) life.sell("NNST", "all", day);
   if (day === ACH_DAY) {
     const ctx = { day, date: dateOf(day), age: life.age };

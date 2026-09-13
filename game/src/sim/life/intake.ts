@@ -7,8 +7,37 @@ import { creditCard, installment, newBook } from "../debt/factory.ts";
 import type { Debt } from "../debt/types.ts";
 import type { InstrumentId, MarketPath } from "../market/index.ts";
 import { withholdingForPaycheck } from "../tax/withholding.ts";
-import { defaultAccounts, PlayerLife, type Place } from "./player.ts";
+import {
+  DEFAULT_CAR_INSURANCE_MONTHLY,
+  DEFAULT_CAR_LOAN,
+  DEFAULT_EXPENSE_TIERS,
+  defaultAccounts,
+  PlayerLife,
+  type ExpenseCategory,
+  type ExpenseTierLevel,
+  type Place,
+} from "./player.ts";
+import { applyOrders, currentOrders } from "../skip/orders.ts";
 import type { Profile, ProfileSource } from "../save/client.ts";
+import { BEGINNER_CARD_SLUGS } from "../../data/cards-beginner.ts";
+
+/** A health-insurance tier offered at onboarding; frontend-only for now, stored inert until P3 wires injury/hospital events to it. */
+export interface InsurancePlan {
+  id: string;
+  name: string;
+  monthlyPremium: number;
+  deductible: number;
+}
+
+/** Three static tiers, in the game's dollar scale (rent runs roughly $1,000-2,000/mo). */
+export const INSURANCE_PLANS: InsurancePlan[] = [
+  { id: "bronze", name: "Bronze", monthlyPremium: 180, deductible: 5_000 },
+  { id: "silver", name: "Silver", monthlyPremium: 280, deductible: 2_000 },
+  { id: "gold", name: "Gold", monthlyPremium: 420, deductible: 500 },
+];
+
+/** The tier a skipped or unset intake defaults to. */
+export const DEFAULT_INSURANCE_PLAN_ID = INSURANCE_PLANS[1].id;
 
 export interface IntakeAnswers {
   /** Job title; may be blank. */
@@ -21,6 +50,20 @@ export interface IntakeAnswers {
   debt: number;
   /** Total savings. */
   savings: number;
+  /** Avatar preset chosen at onboarding; no further customization. Defaults to "male". */
+  avatar?: "male" | "female";
+  /** Insurance tier chosen at onboarding (frontend-only for now); defaults to the middle tier. */
+  insurancePlanId?: string;
+  /** Beginner credit card chosen at onboarding (frontend-only for now); defaults to the first beginner card. */
+  selectedCardId?: string;
+  /** Emergency fund target chosen at onboarding, in months of rent, living costs, and minimum payments. Unset means no standing orders are set from intake. */
+  emergencyMonths?: number;
+  /** 401(k) contribution chosen at onboarding, as a share of gross pay (0.06 = 6%). */
+  k401Pct?: number;
+  /** Roth IRA contribution chosen at onboarding, as a share of gross pay; clamped so the yearly total never exceeds the IRS Roth limit. */
+  rothPct?: number;
+  /** Low/medium/high pick for each expense category, from the intake screen. Unset defaults to all-medium. */
+  expenseTiers?: Record<ExpenseCategory, ExpenseTierLevel>;
 }
 
 /** Caps that keep a typo or a joke answer from breaking the sim. */
@@ -31,6 +74,37 @@ export const CARD_PORTION = 5_000;
 const CARD_APR = 0.2396;
 const LOAN_APR = 0.11;
 const LOAN_MONTHS = 60;
+/**
+ * Fixed auto-loan rate for the onboarding car loan: within Bankrate Q2 2026's
+ * auto-loan range (4.41% super-prime to 16.11% deep-subprime, see
+ * sim/debt/rates.ts's `offeredApr`), reasonable for the fixed 600 starting
+ * credit score (subprime-ish) every fresh life starts with.
+ */
+export const CAR_LOAN_APR = 0.10;
+/** The onboarding car loan's starting balance: `DEFAULT_CAR_LOAN`'s $500/mo over 72 months at `CAR_LOAN_APR`, inverting the standard amortization formula so balance and payment agree. */
+export const CAR_LOAN_BALANCE = Math.round((((DEFAULT_CAR_LOAN.monthly * (1 - (1 + CAR_LOAN_APR / 12) ** -DEFAULT_CAR_LOAN.months)) / (CAR_LOAN_APR / 12)) * 100)) / 100;
+const EXPENSE_CATEGORIES: ExpenseCategory[] = ["food", "houseBills", "fitness", "gas", "carMaintenance"];
+const TIER_LEVELS: ExpenseTierLevel[] = ["low", "medium", "high"];
+
+/** Every fresh life (voice, typed, or randomized) starts the debt engine's credit score here, not wherever the seeded debts happen to score. */
+export const CREDIT_SCORE_START = 600;
+/** A starter salary lands somewhere in here before any cost-of-living scaling. */
+export const SALARY_RANGE = { min: 35_000, max: 50_000 } as const;
+/** A starter debt load lands somewhere in here, split into a card and a loan by `debtsFor`. */
+export const DEBT_RANGE = { min: 20_000, max: 40_000 } as const;
+/** Applied to the randomized salary when the place's cost of living clears `HIGH_COST_RPP_THRESHOLD`. */
+export const HIGH_COST_SALARY_MULTIPLIER = 1.2;
+/** BEA RPP-all (US = 100) at or above this counts as high cost of living (TX is 97.4, CA is 110.72). */
+const HIGH_COST_RPP_THRESHOLD = 105;
+
+/** A starting salary and debt for a fresh life with no stated numbers, scaled up for a high cost-of-living place. */
+export function randomizeStarter(place: Place, rng: () => number = Math.random): { salary: number; debt: number; creditScore: number } {
+  const highCost = place.rpp.all >= HIGH_COST_RPP_THRESHOLD;
+  const salaryBase = SALARY_RANGE.min + rng() * (SALARY_RANGE.max - SALARY_RANGE.min);
+  const salary = Math.round(highCost ? salaryBase * HIGH_COST_SALARY_MULTIPLIER : salaryBase);
+  const debt = Math.round(DEBT_RANGE.min + rng() * (DEBT_RANGE.max - DEBT_RANGE.min));
+  return { salary, debt, creditScore: CREDIT_SCORE_START };
+}
 
 const NUMBER_KEYS = ["salary", "rent", "debt", "savings"] as const;
 
@@ -52,6 +126,18 @@ export function coerceAnswers(raw: unknown): Partial<IntakeAnswers> {
   if (!raw || typeof raw !== "object") return out;
   const r = raw as Record<string, unknown>;
   if (typeof r.job === "string" && r.job.trim()) out.job = r.job.trim().replace(/\s+/g, " ").slice(0, JOB_MAX_LENGTH);
+  if (r.avatar === "male" || r.avatar === "female") out.avatar = r.avatar;
+  if (typeof r.insurancePlanId === "string" && INSURANCE_PLANS.some((p) => p.id === r.insurancePlanId)) out.insurancePlanId = r.insurancePlanId;
+  if (typeof r.selectedCardId === "string" && (BEGINNER_CARD_SLUGS as readonly string[]).includes(r.selectedCardId)) out.selectedCardId = r.selectedCardId;
+  if (typeof r.emergencyMonths === "number" && Number.isFinite(r.emergencyMonths) && r.emergencyMonths >= 0) out.emergencyMonths = r.emergencyMonths;
+  if (typeof r.k401Pct === "number" && Number.isFinite(r.k401Pct) && r.k401Pct >= 0) out.k401Pct = r.k401Pct;
+  if (typeof r.rothPct === "number" && Number.isFinite(r.rothPct) && r.rothPct >= 0) out.rothPct = r.rothPct;
+  if (r.expenseTiers && typeof r.expenseTiers === "object") {
+    const raw = r.expenseTiers as Record<string, unknown>;
+    if (EXPENSE_CATEGORIES.every((c) => TIER_LEVELS.includes(raw[c] as ExpenseTierLevel))) {
+      out.expenseTiers = Object.fromEntries(EXPENSE_CATEGORIES.map((c) => [c, raw[c]])) as Record<ExpenseCategory, ExpenseTierLevel>;
+    }
+  }
   for (const k of NUMBER_KEYS) {
     const n = parseDollars(r[k]);
     if (n !== undefined) out[k] = Math.min(Math.round(n), INTAKE_LIMITS[k]);
@@ -63,7 +149,20 @@ export function coerceAnswers(raw: unknown): Partial<IntakeAnswers> {
 export function completeAnswers(p: Partial<IntakeAnswers>): IntakeAnswers | null {
   const { salary, rent, debt, savings } = p;
   if (salary === undefined || rent === undefined || debt === undefined || savings === undefined) return null;
-  return { job: p.job ?? "", salary, rent, debt, savings };
+  return {
+    job: p.job ?? "",
+    salary,
+    rent,
+    debt,
+    savings,
+    ...(p.avatar ? { avatar: p.avatar } : {}),
+    ...(p.insurancePlanId ? { insurancePlanId: p.insurancePlanId } : {}),
+    ...(p.selectedCardId ? { selectedCardId: p.selectedCardId } : {}),
+    ...(p.emergencyMonths !== undefined ? { emergencyMonths: p.emergencyMonths } : {}),
+    ...(p.k401Pct !== undefined ? { k401Pct: p.k401Pct } : {}),
+    ...(p.rothPct !== undefined ? { rothPct: p.rothPct } : {}),
+    ...(p.expenseTiers ? { expenseTiers: p.expenseTiers } : {}),
+  };
 }
 
 /** Monthly take-home for a gross yearly salary in the given state (real federal + state withholding, sim/tax). */
@@ -87,25 +186,79 @@ export function debtsFor(total: number, day: number): Debt[] {
   return debts;
 }
 
-/** The player's starting life from the onboarding answers. */
-export function lifeFromIntake(a: IntakeAnswers, o: { place: Place; day: number; market: MarketPath; holdings?: Partial<Record<InstrumentId, number>> }): PlayerLife {
-  const monthlyTakeHome = takeHomeFor(a.salary, o.place.abbr);
-  const book = newBook({ debts: debtsFor(a.debt, o.day), agi: a.salary, monthlyTakeHome, strategy: "avalanche", day: o.day });
+/**
+ * The onboarding's fixed car loan: `payment` a month for `months`, at
+ * `CAR_LOAN_APR`. The starting balance is derived by inverting the standard
+ * amortization formula (`monthlyPayment` in sim/debt/math.ts), so balance and
+ * payment agree instead of one being an arbitrary guess.
+ */
+function carLoanDebt(o: { monthly: number; months: number }, day: number): Debt {
+  const r = CAR_LOAN_APR / 12;
+  const balance = Math.round(((o.monthly * (1 - (1 + r) ** -o.months)) / r) * 100) / 100;
+  return installment({
+    id: "car",
+    kind: "auto",
+    name: "Car loan",
+    balance,
+    apr: CAR_LOAN_APR,
+    months: o.months,
+    payment: o.monthly,
+    day,
+    openedDay: day - 30,
+  });
+}
+
+/** The onboarding answers, minus the numbers a fresh (not-yet-stated) intake doesn't have yet. */
+type IntakeAnswersInput = Omit<IntakeAnswers, "salary" | "debt"> & Partial<Pick<IntakeAnswers, "salary" | "debt">>;
+
+/**
+ * The player's starting life from the onboarding answers. A stated salary or
+ * debt always wins; either one left unstated is filled in by
+ * `randomizeStarter`, scaled to the place. A fresh life's credit score always
+ * starts at `CREDIT_SCORE_START`, regardless of the seeded debts' own score.
+ */
+export function lifeFromIntake(a: IntakeAnswersInput, o: { place: Place; day: number; market: MarketPath; holdings?: Partial<Record<InstrumentId, number>>; rng?: () => number }): PlayerLife {
+  const seeded = a.salary === undefined || a.debt === undefined ? randomizeStarter(o.place, o.rng) : undefined;
+  const salary = a.salary ?? seeded!.salary;
+  const debt = a.debt ?? seeded!.debt;
+  const monthlyTakeHome = takeHomeFor(salary, o.place.abbr);
+  const book = newBook({ debts: debtsFor(debt, o.day), agi: salary, monthlyTakeHome, strategy: "avalanche", day: o.day });
+  book.profile.score = CREDIT_SCORE_START;
+  // Every fresh life also gets a fixed car loan, separate from the randomized/stated
+  // debt total debtsFor splits above (that's a different pool of debt entirely).
+  book.debts.push(carLoanDebt(DEFAULT_CAR_LOAN, o.day));
   // Savings sit in the high-yield account. Checking fills with the first
   // paycheck, and bills draw on savings when it runs short (Ledger.wallet).
   const accounts = defaultAccounts(o.day).map((acct) => ({ ...acct, balance: acct.id === "savings" ? a.savings : 0 }));
-  return new PlayerLife({
+  const life = new PlayerLife({
     place: o.place,
     day: o.day,
-    grossAnnual: a.salary,
+    grossAnnual: salary,
     monthlyTakeHome,
     job: a.job,
+    avatar: a.avatar,
+    insurancePlanId: a.insurancePlanId,
+    selectedCardId: a.selectedCardId,
+    expenseTiers: a.expenseTiers ?? { ...DEFAULT_EXPENSE_TIERS },
+    carLoan: { ...DEFAULT_CAR_LOAN },
+    carInsuranceMonthly: DEFAULT_CAR_INSURANCE_MONTHLY,
     rent: a.rent,
     book,
     accounts,
     market: o.market,
     holdings: o.holdings,
   });
+  // The emergency-fund, 401(k), and Roth sliders on the intake screen (all optional; a
+  // skipped or voice-only intake leaves the life with no standing orders at all).
+  if (a.emergencyMonths !== undefined || a.k401Pct !== undefined || a.rothPct !== undefined) {
+    applyOrders(life, {
+      ...currentOrders(life),
+      ...(a.emergencyMonths !== undefined ? { emergencyMonths: a.emergencyMonths } : {}),
+      ...(a.k401Pct !== undefined ? { k401Pct: a.k401Pct } : {}),
+      ...(a.rothPct !== undefined ? { rothPct: a.rothPct } : {}),
+    });
+  }
+  return life;
 }
 
 /** The intake as the server's profile (server/src/routes/save.ts); a skip stores no numbers. */
