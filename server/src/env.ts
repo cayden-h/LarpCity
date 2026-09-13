@@ -24,7 +24,7 @@ const schema = z.object({
 
   ELEVENLABS_API_KEY: z.string().min(1),
   ELEVENLABS_AGENT_ID: z.string().min(1),
-  // The owl narrator's voice for /api/voice/tts (the interview agent's voice is set on the agent).
+  // Sammy's voice (the owl narrator) for /api/voice/tts; the variable keeps its NARRATOR name for the deployed config (the interview agent's voice is set on the agent).
   ELEVENLABS_VOICE_NARRATOR: z.string().min(1),
   ELEVENLABS_VOICE_ANCHOR: z.string().min(1),
   // Post-call webhook (/api/voice/webhook); without it that route answers 503.
