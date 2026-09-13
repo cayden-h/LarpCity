@@ -11,6 +11,8 @@ export const PULSE_TABLE = {
   bankruptcy: { p0: -6, halfLifeDays: 730, startDay: 0 },
   retiredOnTrack: { p0: 4, halfLifeDays: 730, startDay: 0 },
   forcedRetirement: { p0: -6, halfLifeDays: 730, startDay: 0 },
+  vacation: { p0: 3, halfLifeDays: 14, startDay: 0 },
+  familyTime: { p0: 2, halfLifeDays: 21, startDay: 0 },
 } as const satisfies Record<string, Pulse>;
 
 export function decay(pulse: Pulse, today: number): number {

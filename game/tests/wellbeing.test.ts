@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cashCushion, commute, debtLoad, healthCoverage, homeStability, realIncome, relationships, retirementOnTrack, work } from "../src/sim/wellbeing/factors.ts";
-import { finalScore, wellbeing, type WellbeingLife } from "../src/sim/wellbeing/index.ts";
+import { finalScore, triggerPulse, wellbeing, type WellbeingLife } from "../src/sim/wellbeing/index.ts";
 import { cushionSoftening, decay, PULSE_TABLE } from "../src/sim/wellbeing/pulses.ts";
 import { retirementReadiness } from "../src/sim/wellbeing/retirement.ts";
+import { PlayerLife, type Place } from "../src/sim/life/index.ts";
+
+const TX: Place = { abbr: "TX", name: "Texas", rpp: { all: 97.4, goods: 97.0, housing: 88.6 } };
 
 test("pulse decay and cushion softening use the adopted formulas", () => {
   assert.equal(decay({ p0: 6, halfLifeDays: 365, startDay: 0 }, 365), 3);
@@ -12,8 +15,34 @@ test("pulse decay and cushion softening use the adopted formulas", () => {
   assert.equal(cushionSoftening(0), 1.3);
   assert.equal(cushionSoftening(0.5), 1.05);
   assert.equal(cushionSoftening(1), 0.8);
-  assert.deepEqual(Object.keys(PULSE_TABLE), ["marriage", "firstChild", "divorce", "layoff", "bankruptcy", "retiredOnTrack", "forcedRetirement"]);
+  assert.deepEqual(Object.keys(PULSE_TABLE), ["marriage", "firstChild", "divorce", "layoff", "bankruptcy", "retiredOnTrack", "forcedRetirement", "vacation", "familyTime"]);
   assert.deepEqual(PULSE_TABLE.bankruptcy, { p0: -6, halfLifeDays: 730, startDay: 0 });
+});
+
+test("vacation pulse boosts wellbeing and decays over time", () => {
+  const pulse = { ...PULSE_TABLE.vacation, startDay: 0 };
+  assert.ok(pulse.p0 > 0);
+  const atStart = decay(pulse, 0);
+  const later = decay(pulse, pulse.halfLifeDays);
+  assert.ok(later < atStart);
+  assert.ok(later > 0);
+});
+
+test("familyTime pulse boosts wellbeing and decays over time", () => {
+  const pulse = { ...PULSE_TABLE.familyTime, startDay: 0 };
+  assert.ok(pulse.p0 > 0);
+  const atStart = decay(pulse, 0);
+  const later = decay(pulse, pulse.halfLifeDays);
+  assert.ok(later < atStart);
+  assert.ok(later > 0);
+});
+
+test("triggerPulse pushes the named pulse onto the life's pulse list via addPulse", () => {
+  const life = new PlayerLife({ place: TX, day: 0 });
+  assert.equal(life.pulses.length, 0);
+  triggerPulse(life, "vacation", 5);
+  assert.equal(life.pulses.length, 1);
+  assert.deepEqual(life.pulses[0], { p0: PULSE_TABLE.vacation.p0, halfLifeDays: PULSE_TABLE.vacation.halfLifeDays, startDay: 5 });
 });
 
 test("the nine factors match their thresholds and research weights", () => {

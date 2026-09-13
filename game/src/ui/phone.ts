@@ -26,6 +26,7 @@ import type { RunRecorder } from "../sim/record";
 import type { DeskState } from "../sim/save/types";
 import { isMet, priceTag, viewOf } from "../sim/skip/goals";
 import type { Goal, GoalView } from "../sim/skip/types";
+import { goOnVacation } from "./vacation";
 
 interface AppDef {
   id: "stocks" | "goals" | "taxes" | "map" | "weather" | "calendar" | "news" | "mail" | "bank";
@@ -376,6 +377,7 @@ export class Phone {
             </header>
             <ul class="app-scroll goals-list" data-goals-list></ul>
             <button class="goals-ff-open" data-open-ff>Fast-forward to a goal <span aria-hidden="true">↗</span></button>
+            <button class="goals-vacation-open" data-vacation>Go on vacation <span aria-hidden="true">✈️</span></button>
           </section>
 
           <section class="view view-app view-news" data-view="news" hidden>
@@ -456,6 +458,7 @@ export class Phone {
     if (btn.dataset.mailId) return this.toggleMail(btn.dataset.mailId);
     if (btn.dataset.newsRetry !== undefined) return void this.news.load();
     if (btn.dataset.openFf !== undefined) return this.deps.openFastForward?.();
+    if (btn.dataset.vacation !== undefined) return goOnVacation(this.deps.player, this.deps.clock.day);
     const id = btn.dataset.app as AppDef["id"] | undefined;
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;

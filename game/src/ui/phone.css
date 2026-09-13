@@ -701,6 +701,19 @@
   cursor: pointer;
 }
 .goals-ff-open:hover { filter: brightness(1.05); }
+.goals-vacation-open {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 8px;
+  border: 3px solid var(--edge, #101a23);
+  background: linear-gradient(#7fd6ff, #1c93d6);
+  color: #0a2438;
+  font: inherit;
+  font-size: 16px;
+  box-shadow: inset 3px 3px #d6f4ff, inset -3px -3px #0c5f8f, 0 3px #11283a;
+  cursor: pointer;
+}
+.goals-vacation-open:hover { filter: brightness(1.05); }
 
 .news-date {
   margin: 0;
