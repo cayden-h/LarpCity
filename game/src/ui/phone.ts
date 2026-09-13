@@ -433,7 +433,7 @@ export class Phone {
     if (btn.dataset.newsRetry !== undefined) return void this.news.load();
     if (btn.dataset.openFf !== undefined) return this.deps.openFastForward?.();
     if (btn.dataset.vacation !== undefined) {
-      if (!goOnVacation(this.deps.player, this.deps.clock.day)) this.toast("Already relaxed — take another vacation later.");
+      if (!goOnVacation(this.deps.player, this.deps.clock.day)) this.toast("Already relaxed. Take another vacation later.");
       return;
     }
     if (btn.dataset.retire !== undefined) return this.onRetire();
