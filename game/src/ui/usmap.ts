@@ -27,6 +27,12 @@ const LABELED_STATES = new Set([
 ]);
 
 const GRID_STEP = 4;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 8;
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v));
+}
 
 function snap(v: number): number {
   return Math.round(v / GRID_STEP) * GRID_STEP;
@@ -69,6 +75,16 @@ export class UsMap {
   private readonly cityPrerenders = new Map<string, string>();
   /** Every state's pixel-stepped outline, keyed by abbr, reused by the outline overlays. */
   private readonly stateOutlines = new Map<string, string>();
+  /** Pan/zoom state for the map content layer; the compass rose lives outside
+   * this layer so it always stays put in the viewport corner. */
+  private zoom = MIN_ZOOM;
+  private panX = 0;
+  private panY = 0;
+  private readonly mapW: number;
+  private readonly mapH: number;
+  private dragging = false;
+  private didDrag = false;
+  private dragStart = { x: 0, y: 0, panX: 0, panY: 0 };
 
   constructor(root: HTMLElement, states: StateInfo[], onVisit: (s: StateInfo) => void) {
     this.el = root;
@@ -77,6 +93,8 @@ export class UsMap {
     const topo = us as unknown as Topology<{ states: GeometryCollection }>;
     const geo = feature(topo, topo.objects.states) as unknown as FeatureCollection<Geometry, { name: string }>;
     const W = 960, H = 600;
+    this.mapW = W;
+    this.mapH = H;
     const projection = geoAlbersUsa().fitSize([W, H - 20], geo);
     const path = geoPath(projection);
 
@@ -225,16 +243,61 @@ export class UsMap {
                   <rect x="20" y="20" width="2" height="2" class="water-spark"/>
                 </pattern>
               </defs>
-              <rect class="map-ocean" width="${W}" height="${H}"/>
-              <rect class="map-water-grid" width="${W}" height="${H}"/>
-              
-              <!-- Retro ocean wave details -->
-              <g class="ocean-waves" fill="none" stroke="#48a6bf" stroke-width="2">
-                <path d="M 60,180 h8 v-2 h8 v2 h8 M 200,90 h8 v-2 h8 v2 h8 M 760,120 h8 v-2 h8 v2 h8 M 840,240 h8 v-2 h8 v2 h8 M 520,530 h8 v-2 h8 v2 h8 M 720,520 h8 v-2 h8 v2 h8 M 120,440 h8 v-2 h8 v2 h8" />
+              <!-- Pannable/zoomable map content: everything but the fixed compass badge. -->
+              <g class="map-content" data-content>
+                <rect class="map-ocean" width="${W}" height="${H}"/>
+                <rect class="map-water-grid" width="${W}" height="${H}"/>
+
+                <!-- Retro ocean wave details -->
+                <g class="ocean-waves" fill="none" stroke="#48a6bf" stroke-width="2">
+                  <path d="M 60,180 h8 v-2 h8 v2 h8 M 200,90 h8 v-2 h8 v2 h8 M 760,120 h8 v-2 h8 v2 h8 M 840,240 h8 v-2 h8 v2 h8 M 520,530 h8 v-2 h8 v2 h8 M 720,520 h8 v-2 h8 v2 h8 M 120,440 h8 v-2 h8 v2 h8" />
+                </g>
+
+                <!-- Continental 3D pixel shadow -->
+                <g class="states-shadow-layer" transform="translate(4, 4)">
+                  ${shadowPaths}
+                </g>
+
+                <!-- State Polygons, Labels & Pins -->
+                <g class="states-layer">
+                  ${paths}
+                </g>
+
+                <!-- Highlight outlines: separate top layer so a state's full border always
+                     draws over every neighbor's border, regardless of paint order. -->
+                <g class="outline-layer" pointer-events="none">
+                  <path class="state-outline outline-current" data-outline-current fill="none" />
+                  <path class="state-outline outline-sel" data-outline-sel fill="none" />
+                  <path class="state-outline outline-hover" data-outline-hover fill="none" />
+                </g>
+                <g class="labels-layer">
+                  ${labels}
+                </g>
+                <g class="pins-layer">
+                  ${pins}
+                </g>
+
+                <!-- Current Location Player Beacon: a planted flag, with the
+                     city name on a plaque underneath. -->
+                <g class="current-marker" data-current-marker>
+                  <ellipse class="flag-shadow" cx="0" cy="1.5" rx="6" ry="2" />
+                  <rect class="flag-pole" x="-1.2" y="-24" width="2.4" height="25.5" />
+                  <rect class="flag-ball" x="-2.5" y="-27.5" width="5" height="4" />
+                  <!-- A wide, short banner (not a tall pennant): 28 wide by 13 tall. -->
+                  <polygon class="flag-fabric-outline" points="0,-24 28,-24 28,-20 23,-17.5 28,-15 28,-11 0,-11" />
+                  <polygon class="flag-fabric" points="1.3,-22.6 25.7,-22.6 25.7,-19.6 21.2,-17.5 25.7,-15.4 25.7,-12.4 1.3,-12.4" />
+                  <polygon class="flag-fabric-hi" points="1.3,-22.6 14.5,-22.6 14.5,-17.5 1.3,-17.5" />
+                  <g class="current-location-plaque" transform="translate(0, 12)">
+                    <rect class="current-plaque-bg" data-current-plaque-bg x="-30" y="-8" width="60" height="16" />
+                    <rect class="current-plaque-border" data-current-plaque-border x="-27" y="-6" width="54" height="12" />
+                    <text class="current-location-label" x="0" y="1" data-current-location></text>
+                  </g>
+                  <title>Your current location</title>
+                </g>
               </g>
 
-              <!-- Retro Compass Rose -->
-              <g class="pixel-compass" transform="translate(${W - 42}, ${H - 42})">
+              <!-- Retro Compass Rose: fixed in the viewport corner, outside the zoom/pan layer. -->
+              <g class="pixel-compass" transform="translate(${W - 58}, ${H - 58})">
                 <circle cx="0" cy="0" r="30" class="compass-ring" />
                 <rect x="-20" y="-20" width="40" height="40" class="compass-box" transform="rotate(45)" />
                 <polygon points="0,-26 5,-6 -5,-6" class="compass-needle-n" />
@@ -249,49 +312,12 @@ export class UsMap {
                 <rect x="-3" y="-3" width="6" height="6" fill="#101a23" />
                 <rect x="-1" y="-1" width="2" height="2" fill="#ffe249" />
               </g>
-
-              <!-- Continental 3D pixel shadow -->
-              <g class="states-shadow-layer" transform="translate(4, 4)">
-                ${shadowPaths}
-              </g>
-
-              <!-- State Polygons, Labels & Pins -->
-              <g class="states-layer">
-                ${paths}
-              </g>
-
-              <!-- Highlight outlines: separate top layer so a state's full border always
-                   draws over every neighbor's border, regardless of paint order. -->
-              <g class="outline-layer" pointer-events="none">
-                <path class="state-outline outline-current" data-outline-current fill="none" />
-                <path class="state-outline outline-sel" data-outline-sel fill="none" />
-                <path class="state-outline outline-hover" data-outline-hover fill="none" />
-              </g>
-              <g class="labels-layer">
-                ${labels}
-              </g>
-              <g class="pins-layer">
-                ${pins}
-              </g>
-
-              <!-- Current Location Player Beacon: a planted flag, with the
-                   city name on a plaque underneath. -->
-              <g class="current-marker" data-current-marker>
-                <ellipse class="flag-shadow" cx="0" cy="1.5" rx="6" ry="2" />
-                <rect class="flag-pole" x="-1.2" y="-24" width="2.4" height="25.5" />
-                <rect class="flag-ball" x="-2.5" y="-27.5" width="5" height="4" />
-                <!-- A wide, short banner (not a tall pennant): 28 wide by 13 tall. -->
-                <polygon class="flag-fabric-outline" points="0,-24 28,-24 28,-20 23,-17.5 28,-15 28,-11 0,-11" />
-                <polygon class="flag-fabric" points="1.3,-22.6 25.7,-22.6 25.7,-19.6 21.2,-17.5 25.7,-15.4 25.7,-12.4 1.3,-12.4" />
-                <polygon class="flag-fabric-hi" points="1.3,-22.6 14.5,-22.6 14.5,-17.5 1.3,-17.5" />
-                <g class="current-location-plaque" transform="translate(0, 12)">
-                  <rect class="current-plaque-bg" data-current-plaque-bg x="-30" y="-8" width="60" height="16" />
-                  <rect class="current-plaque-border" data-current-plaque-border x="-27" y="-6" width="54" height="12" />
-                  <text class="current-location-label" x="0" y="1" data-current-location></text>
-                </g>
-                <title>Your current location</title>
-              </g>
             </svg>
+            <div class="map-zoom-controls" data-zoom-controls>
+              <button class="round map-zoom-btn" data-zoom-in title="Zoom in">+</button>
+              <button class="round map-zoom-btn" data-zoom-out title="Zoom out">−</button>
+              <button class="round map-zoom-btn map-zoom-reset" data-zoom-reset title="Reset zoom">⤾</button>
+            </div>
           </div>
           <aside class="state-panel pixel-state-panel" data-panel>
             <div class="empty">Hover or tap a state</div>
@@ -342,6 +368,115 @@ export class UsMap {
     root.querySelector(".map-svg")!.addEventListener("mouseleave", () => {
       this.setOutline("hover", null);
       if (this.selected) this.show(this.selected);
+    });
+
+    this.wirePanZoom(root);
+  }
+
+  /** Wheel-to-zoom (centered on the cursor), click-drag-to-pan, and the
+   * +/−/reset buttons. The compass rose sits outside `.map-content`, so it
+   * never moves with the map. */
+  private wirePanZoom(root: HTMLElement): void {
+    const svg = root.querySelector<SVGSVGElement>(".map-svg")!;
+    const viewport = root.querySelector<HTMLElement>(".map-viewport")!;
+
+    const toSvgDelta = (dx: number, dy: number): [number, number] => {
+      const rect = svg.getBoundingClientRect();
+      return [(dx * this.mapW) / rect.width, (dy * this.mapH) / rect.height];
+    };
+
+    const clampPan = (): void => {
+      const slack = 200;
+      const minX = this.mapW * (1 - this.zoom) - slack;
+      const minY = this.mapH * (1 - this.zoom) - slack;
+      this.panX = clamp(this.panX, minX, slack);
+      this.panY = clamp(this.panY, minY, slack);
+    };
+
+    const applyTransform = (): void => {
+      const content = root.querySelector<SVGGElement>("[data-content]");
+      content?.setAttribute("transform", `translate(${this.panX.toFixed(2)},${this.panY.toFixed(2)}) scale(${this.zoom.toFixed(3)})`);
+      viewport.classList.toggle("zoomed", this.zoom > MIN_ZOOM);
+    };
+
+    const zoomAt = (svgX: number, svgY: number, nextZoom: number): void => {
+      const clamped = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM);
+      if (clamped === this.zoom) return;
+      this.panX = svgX - ((svgX - this.panX) * clamped) / this.zoom;
+      this.panY = svgY - ((svgY - this.panY) * clamped) / this.zoom;
+      this.zoom = clamped;
+      clampPan();
+      applyTransform();
+    };
+
+    const pointerToSvg = (e: { clientX: number; clientY: number }): [number, number] => {
+      const rect = svg.getBoundingClientRect();
+      return [((e.clientX - rect.left) * this.mapW) / rect.width, ((e.clientY - rect.top) * this.mapH) / rect.height];
+    };
+
+    svg.addEventListener(
+      "wheel",
+      (e: WheelEvent) => {
+        e.preventDefault();
+        const [sx, sy] = pointerToSvg(e);
+        zoomAt(sx, sy, this.zoom * Math.exp(-e.deltaY * 0.0015));
+      },
+      { passive: false },
+    );
+
+    svg.addEventListener("pointerdown", (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      this.dragging = true;
+      this.didDrag = false;
+      this.dragStart = { x: e.clientX, y: e.clientY, panX: this.panX, panY: this.panY };
+      svg.setPointerCapture(e.pointerId);
+      viewport.classList.add("panning");
+    });
+    svg.addEventListener("pointermove", (e: PointerEvent) => {
+      if (!this.dragging) return;
+      const dx = e.clientX - this.dragStart.x;
+      const dy = e.clientY - this.dragStart.y;
+      if (!this.didDrag && Math.hypot(dx, dy) > 4) this.didDrag = true;
+      if (!this.didDrag) return;
+      const [ddx, ddy] = toSvgDelta(dx, dy);
+      this.panX = this.dragStart.panX + ddx;
+      this.panY = this.dragStart.panY + ddy;
+      clampPan();
+      applyTransform();
+    });
+    const endDrag = (e: PointerEvent): void => {
+      if (!this.dragging) return;
+      this.dragging = false;
+      viewport.classList.remove("panning");
+      try {
+        svg.releasePointerCapture(e.pointerId);
+      } catch {
+        // Pointer capture may already be released if the pointer left the element.
+      }
+    };
+    svg.addEventListener("pointerup", endDrag);
+    svg.addEventListener("pointercancel", endDrag);
+
+    // A drag that ended over a state/pin shouldn't also register as a click-select.
+    svg.addEventListener(
+      "click",
+      (e: MouseEvent) => {
+        if (this.didDrag) {
+          e.stopPropagation();
+          e.preventDefault();
+          this.didDrag = false;
+        }
+      },
+      { capture: true },
+    );
+
+    root.querySelector("[data-zoom-in]")!.addEventListener("click", () => zoomAt(this.mapW / 2, this.mapH / 2, this.zoom * 1.6));
+    root.querySelector("[data-zoom-out]")!.addEventListener("click", () => zoomAt(this.mapW / 2, this.mapH / 2, this.zoom / 1.6));
+    root.querySelector("[data-zoom-reset]")!.addEventListener("click", () => {
+      this.zoom = MIN_ZOOM;
+      this.panX = 0;
+      this.panY = 0;
+      applyTransform();
     });
   }
 
