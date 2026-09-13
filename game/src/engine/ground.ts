@@ -3,7 +3,10 @@
 // 16 x 16-tile chunks that the renderer culls when they are off-screen, and
 // it is redrawn only when the season, snow, or drought changes a lot.
 
-import { Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
+import { Container, Graphics, Rectangle, Sprite, type Texture } from "pixi.js";
+import { pixelTexture } from "./pixel/atlas";
+import { glintArt, type Terrain } from "./pixel/ground-art";
+import { groundPattern } from "./pixel/patterns";
 import type { Season } from "./clock";
 import { mix, shade } from "./color";
 import type { CityGrid } from "./grid";
@@ -47,8 +50,12 @@ export class Ground {
   readonly landLayer = new Container();
   private readonly waterChunks = new Container();
   private readonly landChunks = new Container();
-  private readonly shimmer = new Container();
-  private readonly shimmerSprites: { s: Sprite; phase: number; speed: number }[] = [];
+  private readonly glints = new Container();
+  private readonly glintSprites: { s: Sprite; phase: number }[] = [];
+  private glintFrames: Texture[] = [];
+  /** Each chunk's two foam frames, shown alternately. */
+  private foam: [Graphics, Graphics][] = [];
+  private lastStep = -1;
   private readonly marksByChunk = new Map<string, Mark[]>();
   private look: GroundLook | null = null;
   private readonly grid: CityGrid;
@@ -57,9 +64,9 @@ export class Ground {
   constructor(grid: CityGrid, palette: CityPalette, seed: number, net: RoadNet | null = null) {
     this.grid = grid;
     this.palette = palette;
-    this.waterLayer.addChild(this.waterChunks, this.shimmer);
+    this.waterLayer.addChild(this.waterChunks, this.glints);
     this.landLayer.addChild(this.landChunks);
-    this.buildShimmer(seed);
+    this.buildGlints(seed);
     if (net)
       for (const m of roadMarks(net, (x, y) => grid.at(x, y) === "B")) {
         const p = m.pts[0];
@@ -82,12 +89,27 @@ export class Ground {
     this.redraw();
   }
 
+  /** Water animation in whole steps (never fades): glints at 4 frames a second, foam at 2. */
   update(time: number, stormy: number): void {
-    for (const item of this.shimmerSprites) {
-      const a = 0.5 + 0.5 * Math.sin(time * item.speed + item.phase);
-      item.s.alpha = a * (0.55 + stormy * 0.35);
-      item.s.scale.x = 0.6 + a * 0.6 + stormy * 0.6;
+    const step = Math.floor(time * 4);
+    if (step === this.lastStep || !this.glintFrames.length) return;
+    this.lastStep = step;
+    // Calm water rests between glints; stormy water glints all the time.
+    const cycle = stormy > 0.5 ? 3 : 6;
+    for (const g of this.glintSprites) {
+      const f = (step + g.phase) % cycle;
+      g.s.visible = f < 3;
+      if (f < 3) g.s.texture = this.glintFrames[f];
     }
+    const odd = Math.floor(step / 2) % 2 === 1;
+    for (const [a, b] of this.foam) {
+      a.visible = !odd;
+      b.visible = odd;
+    }
+  }
+
+  private waterColor(): number {
+    return mix(this.palette.water, 0xdfe9f0, this.look!.snow * 0.25);
   }
 
   private grassColor(): number {
@@ -101,6 +123,10 @@ export class Ground {
     for (const c of [...this.waterChunks.children, ...this.landChunks.children]) c.destroy({ children: true });
     this.waterChunks.removeChildren();
     this.landChunks.removeChildren();
+    this.foam = [];
+    const water = this.waterColor();
+    this.glintFrames = [0, 1, 2].map((f) => pixelTexture(`glint:${f}:${water.toString(16)}`, () => glintArt(f, water)));
+    this.lastStep = -1;
     const g = this.grid;
     for (let cy = 0; cy < g.h; cy += CHUNK)
       for (let cx = 0; cx < g.w; cx += CHUNK) this.drawChunk(cx, cy, Math.min(g.w, cx + CHUNK), Math.min(g.h, cy + CHUNK));
@@ -110,6 +136,10 @@ export class Ground {
     const g = this.grid;
     const look = this.look!;
     const water = new Graphics();
+    const foamA = new Graphics();
+    const foamB = new Graphics();
+    const landFoamA = new Graphics();
+    const landFoamB = new Graphics();
     const edges = new Graphics();
     const tops = new Graphics();
     const marks = new Graphics();
@@ -117,7 +147,11 @@ export class Ground {
     const raisedMarks = new Graphics();
     const grass = this.grassColor();
     const snow = look.snow;
-    const waterColor = mix(this.palette.water, 0xdfe9f0, snow * 0.25);
+    const waterColor = this.waterColor();
+    const shallow = mix(waterColor, 0x9fd8e8, 0.3);
+    const foam = mix(waterColor, 0xffffff, 0.78);
+    const land = (x: number, y: number) => g.isInside(x, y) && g.at(x, y) !== " " && !g.isWater(x, y);
+    const pattern = (kind: Terrain, color: number) => ({ texture: groundPattern(kind, color), textureSpace: "global" as const });
     const forest = mix(grass, 0x2f5d2a, 0.35);
     const rock = mix(ROCK, 0xf4f7fb, Math.min(1, snow * 1.1));
     const soil = mix(SOIL[look.season], 0xf4f7fb, snow * 0.8);
@@ -131,19 +165,37 @@ export class Ground {
         const isW = g.isWater(x, y);
         const top = isW ? WATER_Z : 0;
         const side = isW ? shade(waterColor, 0.75) : PLATE_SIDE;
-        if (!g.isInside(x, y + 1)) face(edges, iso(x, y + 1, top), iso(x + 1, y + 1, top), PLATE_T + top, side, 0.92);
-        if (!g.isInside(x + 1, y)) face(edges, iso(x + 1, y + 1, top), iso(x + 1, y, top), PLATE_T + top, shade(side, 0.8), 0.92);
+        if (!g.isInside(x, y + 1)) face(edges, iso(x, y + 1, top), iso(x + 1, y + 1, top), PLATE_T + top, side, 1);
+        if (!g.isInside(x + 1, y)) face(edges, iso(x + 1, y + 1, top), iso(x + 1, y, top), PLATE_T + top, shade(side, 0.8), 1);
       }
 
     for (let y = y0; y < y1; y++)
       for (let x = x0; x < x1; x++) {
         const c = g.at(x, y);
         if (c === " ") continue;
+        // The four sides of a tile, each with the neighbor across it.
+        const sides = (z: number): [boolean, Pt, Pt][] => {
+          const [T, R, B, L] = tileCorners(x, y, z);
+          return [[land(x, y - 1), T, R], [land(x + 1, y), R, B], [land(x, y + 1), B, L], [land(x - 1, y), L, T]];
+        };
         if (g.isWater(x, y)) {
-          water.poly(flat(tileCorners(x, y, WATER_Z))).fill(waterColor);
+          const around = sides(WATER_Z);
+          const shore = around.some(([l]) => l);
+          water.poly(flat(tileCorners(x, y, WATER_Z))).fill(pattern(shore ? "shallow" : "deep", shore ? shallow : waterColor));
+          // Foam at the waterline: a thin constant line, plus dashes that alternate between two frames.
+          const mid = iso(x + 0.5, y + 0.5, WATER_Z);
+          // Only the back sides: land in front stands higher and hides the water there, so its foam
+          // is drawn on the land's own back edge instead (below).
+          for (const [isLand, a, b] of [around[0], around[3]]) {
+            if (!isLand) continue;
+            band(water, a, b, mid, 0, 1, 0.07, foam);
+            for (let i = 0; i < 4; i++) band(i % 2 ? foamB : foamA, a, b, mid, i / 4, (i + 1) / 4, 0.13, foam);
+          }
           continue;
         }
         const corners = tileCorners(x, y, 0);
+        const kind: Terrain =
+          c === "=" || c === "t" || c === "O" ? "asphalt" : c === "s" ? "sand" : c === "P" ? "plaza" : c === "b" || c === "h" ? "lot" : c === "~" ? "marsh" : c === "f" ? "soil" : c === "F" ? "forest" : c === "m" ? "rock" : "grass";
         const fill =
           c === "=" || c === "t" || c === "O"
             ? mix(ASPHALT, 0xeef2f6, snow * 0.35)
@@ -162,7 +214,19 @@ export class Ground {
                         : c === "m"
                           ? rock
                           : grass;
-        tops.poly(flat(corners)).fill(fill);
+        tops.poly(flat(corners)).fill(pattern(kind, fill));
+        // Wet sand where a beach meets the water, and surf on the land's back edges.
+        const mid = iso(x + 0.5, y + 0.5);
+        const across = [[x, y - 1], [x + 1, y], [x, y + 1], [x - 1, y]];
+        sides(0).forEach(([, a, b], i) => {
+          const [nx, ny] = across[i];
+          if (!g.isWater(nx, ny) || g.at(nx, ny) === "B") return;
+          if (c === "s") band(tops, a, b, mid, 0, 1, 0.16, mix(fill, waterColor, 0.28));
+          if (i !== 0 && i !== 3) return;
+          band(landFoamA, a, b, mid, 0, 1, 0.05, foam);
+          band(landFoamB, a, b, mid, 0, 1, 0.05, foam);
+          for (let k = 0; k < 4; k++) band(k % 2 ? landFoamB : landFoamA, a, b, mid, k / 4, (k + 1) / 4, 0.1, foam);
+        });
         // Banks where land meets water.
         if (g.isWater(x, y + 1)) face(edges, iso(x, y + 1, 0), iso(x + 1, y + 1, 0), -WATER_Z, shade(fill, 0.72), 1);
         if (g.isWater(x + 1, y)) face(edges, iso(x + 1, y + 1, 0), iso(x + 1, y, 0), -WATER_Z, shade(fill, 0.6), 1);
@@ -193,9 +257,11 @@ export class Ground {
 
     const area = chunkRect(x0, y0, x1, y1);
     const w = new Container();
-    w.addChild(water, edges);
+    w.addChild(water, foamA, foamB, edges);
+    foamB.visible = landFoamB.visible = false;
+    this.foam.push([foamA, foamB], [landFoamA, landFoamB]);
     const l = new Container();
-    l.addChild(tops, marks, bridges, raisedMarks);
+    l.addChild(tops, landFoamA, landFoamB, marks, bridges, raisedMarks);
     for (const c of [w, l]) {
       c.cullable = true;
       c.cullArea = area;
@@ -259,24 +325,27 @@ export class Ground {
     }
   }
 
-  private buildShimmer(seed: number): void {
+  /** Pixel glints scattered over open water, each stepping through its frames at its own phase. */
+  private buildGlints(seed: number): void {
     const rng = rngFor(seed, "shimmer");
     for (const { x, y } of this.grid.cells()) {
       if (!this.grid.isWater(x, y) || this.grid.at(x, y) === "B") continue;
       if (rng() > 0.28) continue;
       const p = iso(x + 0.2 + rng() * 0.6, y + 0.2 + rng() * 0.6, WATER_Z);
-      const s = new Sprite(Texture.WHITE);
-      s.width = 12;
-      s.height = 2;
-      s.anchor.set(0.5);
-      s.position.set(p.x, p.y);
-      s.tint = 0xe8f6ff;
-      s.skew.set(0, 0.46);
+      const s = new Sprite();
+      s.position.set(Math.round(p.x), Math.round(p.y));
       s.cullable = true;
-      this.shimmer.addChild(s);
-      this.shimmerSprites.push({ s, phase: rng() * Math.PI * 2, speed: 0.8 + rng() * 1.6 });
+      s.visible = false;
+      this.glints.addChild(s);
+      this.glintSprites.push({ s, phase: Math.floor(rng() * 6) });
     }
   }
+}
+
+/** A strip along the part [t0, t1] of edge a-b, reaching `depth` of the way toward `mid`. */
+function band(g: Graphics, a: Pt, b: Pt, mid: Pt, t0: number, t1: number, depth: number, color: number): void {
+  const p = lerp(a, b, t0), q = lerp(a, b, t1);
+  g.poly(flat([p, q, lerp(q, mid, depth * 2), lerp(p, mid, depth * 2)])).fill(color);
 }
 
 /** Screen-space bounds of a block of tiles, padded for bridges, banks, and edges. */

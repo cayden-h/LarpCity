@@ -13,13 +13,23 @@ const colors = (c: PixelCanvas) => {
   return out;
 };
 
-for (const family of contactFamilies()) {
+for (const family of contactFamilies().filter((f) => f.kind === "pattern")) {
+  test(`${family.name}: opaque patterns of at most four tones`, () => {
+    for (const c of family.art) {
+      for (let i = 3; i < c.rgba.length; i += 4) assert.equal(c.rgba[i], 255);
+      assert.ok(colors(c).size <= 4, `${colors(c).size} colors`);
+    }
+  });
+}
+
+for (const family of contactFamilies().filter((f) => !f.kind || f.kind === "sprite")) {
   test(`${family.name}: outlined, only the shadow translucent, a small palette`, () => {
     for (const c of family.art) {
       assert.ok(c.solidCount > 20, "draws something");
       assert.ok(colors(c).has(INK), "has an ink outline");
       for (let i = 3; i < c.rgba.length; i += 4) assert.ok([0, 255, SHADOW_ALPHA].includes(c.rgba[i]), `alpha ${c.rgba[i]}`);
-      assert.ok(colors(c).size <= 14, `${colors(c).size} colors`);
+      // Up to five surfaces of three tones, plus ink (the per-surface rule is the ramp in tones.ts).
+      assert.ok(colors(c).size <= 16, `${colors(c).size} colors`);
       assert.ok(c.at(c.ox, c.oy - 1).alpha > 0 || c.at(c.ox, c.oy - 2).alpha > 0 || c.at(c.ox, c.oy).alpha > 0, "anchored at its foot");
     }
   });
