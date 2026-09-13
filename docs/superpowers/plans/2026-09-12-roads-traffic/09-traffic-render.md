@@ -1,3 +1,107 @@
+# Task 9: `Traffic` draws the sim; vehicles in 8 facings
+
+**Files:**
+- Create: `game/src/engine/roads/pose.ts`
+- Modify: `game/src/engine/traffic.ts` (cars rewritten; boats kept)
+- Modify: `game/src/engine/scene.ts:14-19,59,105-121,436-457`
+- Test: `game/tests/roads-pose.test.ts`
+
+The sim steps at a fixed 1/20 s; `Traffic.update(dt)` runs as many steps as the frame covers (at most 5) and draws each car between its previous and current pose.
+Each vehicle look (kind, color, facing) is drawn once into a shared `GraphicsContext`, and a car swaps contexts as it turns, so 250 cars cost 250 small `Graphics` objects and a few hundred cached contexts.
+Vehicles are oriented boxes projected into the isometric view, so the 8 facings come from one drawing routine (spec C swaps in pixel-art sprites behind the same interface).
+
+- [ ] **Step 1: Write the failing test**
+
+Create `game/tests/roads-pose.test.ts`:
+
+```ts
+// Facing, pose blending, and elevation for drawing cars. Run with `npm test`.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { elevation, facingOf, lerpPose } from "../src/engine/roads/pose.ts";
+
+test("headings map to the nearest of 8 facings", () => {
+  assert.equal(facingOf(0), 0);
+  assert.equal(facingOf(Math.PI / 2), 2);
+  assert.equal(facingOf(Math.PI), 4);
+  assert.equal(facingOf(-Math.PI / 2), 6);
+  assert.equal(facingOf(-0.2), 0);
+  assert.equal(facingOf(Math.PI / 4 + 0.1), 1);
+});
+
+test("pose blending turns the short way across the back", () => {
+  const p = lerpPose({ x: 0, y: 0, h: Math.PI - 0.1 }, { x: 2, y: 0, h: -Math.PI + 0.1 }, 0.5);
+  assert.equal(p.x, 1);
+  assert.ok(Math.abs(Math.abs(p.h) - Math.PI) < 1e-9, `${p.h}`);
+});
+
+test("cars ride up on bridges, and on overpasses only when on the upper road", () => {
+  const rows = ["=B=", "=O="];
+  const grid = { at: (x: number, y: number) => rows[y]?.[x] ?? " " };
+  assert.equal(elevation(grid, 0.5, 0.5, false), 0);
+  assert.equal(elevation(grid, 1.5, 0.5, false), 7);
+  assert.equal(elevation(grid, 1.5, 1.5, false), 7);
+  assert.equal(elevation(grid, 1.5, 1.5, true), 0);
+});
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+Run: `node --test tests/roads-pose.test.ts`
+Expected: FAIL, module not found.
+
+- [ ] **Step 3: Create `game/src/engine/roads/pose.ts`**
+
+```ts
+// Small helpers for drawing sim cars: which of 8 facings a heading is, how
+// to blend two poses, and how high the road is under a point.
+
+import type { Pose } from "./geometry.ts";
+
+/** Deck height of bridges and overpasses, in screen pixels (matches ground.ts). */
+export const DECK_Z = 7;
+
+/** The nearest of 8 facings: 0 = +x, 2 = +y, 4 = -x, 6 = -y (tile space). */
+export function facingOf(h: number): number {
+  return ((Math.round(h / (Math.PI / 4)) % 8) + 8) % 8;
+}
+
+export function lerpPose(a: Pose, b: Pose, t: number): Pose {
+  let dh = b.h - a.h;
+  while (dh > Math.PI) dh -= Math.PI * 2;
+  while (dh < -Math.PI) dh += Math.PI * 2;
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, h: a.h + dh * t };
+}
+
+/** Height of the road surface at a point: decks over water, and overpasses for the road on top. */
+export function elevation(grid: { at(x: number, y: number): string }, x: number, y: number, underpass: boolean): number {
+  const c = grid.at(Math.floor(x), Math.floor(y));
+  if (c === "B") return DECK_Z;
+  if (c === "O" && !underpass) return DECK_Z;
+  return 0;
+}
+```
+
+In `game/src/engine/ground.ts` change `export const BRIDGE_Z = 7;` to:
+
+```ts
+export const BRIDGE_Z = DECK_Z;
+```
+
+and add `import { DECK_Z } from "./roads/pose.ts";` to its imports.
+
+- [ ] **Step 4: Run the test**
+
+Run: `node --test tests/roads-pose.test.ts`
+Expected: 3 tests pass.
+
+- [ ] **Step 5: Rewrite the car half of `game/src/engine/traffic.ts`**
+
+Replace everything from the top of the file through the end of `drawLamps` (current lines 1-257) with the code below.
+Keep `waterRuns`, `class Boat`, and `drawBoat` (current lines 259-363) exactly as they are, below it.
+
+```ts
 // Traffic: draws the road sim's cars (moving, parked, and fading out) and
 // runs the boats. The sim (roads/sim.ts) steps at a fixed 1/20 s; each frame
 // runs the steps the frame covers and draws every car between its last two
@@ -7,7 +111,7 @@ import { Container, Graphics, GraphicsContext } from "pixi.js";
 import { shade } from "./color";
 import type { CityGrid } from "./grid";
 import { WATER_Z } from "./ground";
-import { depthOf, iso } from "./iso";
+import { iso } from "./iso";
 import type { Pose } from "./roads/geometry";
 import type { RoadNet } from "./roads/graph";
 import { elevation, facingOf, lerpPose } from "./roads/pose";
@@ -155,9 +259,7 @@ export class Traffic {
       4;
     const p = iso(pose.x, pose.y, z);
     v.view.position.set(p.x, p.y);
-    // A highway car under an overpass sorts below the deck (drawn at its tile's depth + 60).
-    const tx = Math.floor(pose.x), ty = Math.floor(pose.y);
-    v.view.zIndex = underpass && this.grid.at(tx, ty) === "O" ? depthOf(tx, ty, 50) : (pose.x + pose.y) * 100 + 40 + (z > 0 ? 45 : 0);
+    v.view.zIndex = (pose.x + pose.y) * 100 + 40 + (z > 0 ? 45 : 0);
     const facing = facingOf(pose.h);
     if (facing !== v.facing) {
       v.facing = facing;
@@ -289,109 +391,72 @@ function cache(key: string, g: GraphicsContext): GraphicsContext {
   contexts.set(key, g);
   return g;
 }
+```
 
-/** Straight runs of open water, used as boat routes. */
-function waterRuns(grid: CityGrid): { x0: number; y0: number; x1: number; y1: number; length: number }[] {
-  const runs: { x0: number; y0: number; x1: number; y1: number; length: number }[] = [];
-  for (let y = 0; y < grid.h; y++) {
-    let start = -1;
-    for (let x = 0; x <= grid.w; x++) {
-      const wet = x < grid.w && grid.isWater(x, y);
-      if (wet && start < 0) start = x;
-      if (!wet && start >= 0) {
-        runs.push({ x0: start, y0: y, x1: x - 1, y1: y, length: x - start });
-        start = -1;
-      }
-    }
-  }
-  for (let x = 0; x < grid.w; x++) {
-    let start = -1;
-    for (let y = 0; y <= grid.h; y++) {
-      const wet = y < grid.h && grid.isWater(x, y);
-      if (wet && start < 0) start = y;
-      if (!wet && start >= 0) {
-        runs.push({ x0: x, y0: start, x1: x, y1: y - 1, length: y - start });
-        start = -1;
-      }
-    }
-  }
-  // Skip runs that hug the same line as a longer parallel run.
-  return runs.filter((r, i) => !runs.some((o, j) => j < i && o.length >= r.length && Math.abs(o.x0 - r.x0) + Math.abs(o.y0 - r.y0) <= 1 && (o.x0 === o.x1) === (r.x0 === r.x1)));
-}
+Fix up the kept boat code:
 
-class Boat {
-  private t: number;
-  private forward = true;
-  private readonly view = new Container();
-  private readonly hull: [Graphics, Graphics];
-  private readonly lamps = new Graphics();
-  private bob = 0;
-  private readonly speed: number;
-  private readonly run: { x0: number; y0: number; x1: number; y1: number; length: number };
+- `Boat`'s constructor takes `rng: Rng`, so keep `type Rng` in the rng import (it is there above).
+- `drawBoat` uses `shade` and `iso`, both imported above; `WATER_Z` is imported for `Boat.step`.
+- `CAR_COLORS` now lives in `roads/trips.ts`; delete it from this file.
+- Remove the unused `pick` import if `tsc` reports it.
 
-  constructor(kind: BoatKind, run: { x0: number; y0: number; x1: number; y1: number; length: number }, rng: Rng, layer: Container) {
-    this.run = run;
-    this.t = rng();
-    this.speed = (kind === "cruise" || kind === "tanker" ? 0.12 : kind === "kayak" ? 0.2 : 0.3) / run.length;
-    const alongX = run.y0 === run.y1;
-    this.hull = [drawBoat(kind, alongX, false), drawBoat(kind, alongX, true)];
-    this.view.addChild(this.hull[0], this.hull[1], this.lamps);
-    this.lamps.circle(0, -10, 1.8).fill(0xfff2b0);
-    this.lamps.blendMode = "add";
-    layer.addChild(this.view);
-    this.bob = rng() * 6;
-  }
+In `game/src/engine/roads/trips.ts`, `newLook`, give cable cars their color:
 
-  step(dt: number, night: number, tint: number): void {
-    this.t += (this.forward ? 1 : -1) * this.speed * dt;
-    if (this.t > 1) {
-      this.t = 1;
-      this.forward = false;
-    } else if (this.t < 0) {
-      this.t = 0;
-      this.forward = true;
-    }
-    this.bob += dt * 2;
-    const r = this.run;
-    const x = r.x0 + 0.5 + (r.x1 - r.x0) * this.t;
-    const y = r.y0 + 0.5 + (r.y1 - r.y0) * this.t;
-    const p = iso(x, y, WATER_Z + Math.sin(this.bob) * 0.8);
-    this.view.position.set(p.x, p.y);
-    this.hull[0].visible = this.forward;
-    this.hull[1].visible = !this.forward;
-    this.lamps.alpha = night;
-    for (const h of this.hull) h.tint = tint;
-  }
-}
+```ts
+    const color = kind === "taxi" ? 0xffc928 : kind === "police" ? 0xffffff : kind === "bus" ? 0x2f7de1 : kind === "cable-car" ? 0xc8452f : pick(this.rng, CAR_COLORS);
+```
 
-function drawBoat(kind: BoatKind, alongX: boolean, reverse: boolean): Graphics {
-  const g = new Graphics();
-  const size = kind === "cruise" ? 1.6 : kind === "tanker" ? 1.5 : kind === "ferry" ? 0.9 : kind === "kayak" ? 0.3 : 0.55;
-  const sgn = reverse ? -1 : 1;
-  const a = alongX ? iso(-size / 2, 0) : iso(0, -size / 2);
-  const b = alongX ? iso(size / 2, 0) : iso(0, size / 2);
-  const bow = { x: b.x + (b.x - a.x) * 0.12 * sgn, y: b.y + (b.y - a.y) * 0.12 * sgn };
-  const w = kind === "kayak" ? 2.5 : kind === "cruise" || kind === "tanker" ? 9 : 6;
-  // Wake.
-  g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: w * 2.4, color: 0xffffff, alpha: 0.25 });
-  const hull = kind === "tanker" ? 0x8b2f2a : kind === "cruise" ? 0xffffff : kind === "ferry" ? 0xf08a24 : kind === "tug" ? 0xd84315 : kind === "kayak" ? 0xffb300 : 0xf4f4f4;
-  g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: w * 1.6, color: shade(hull, 0.75), cap: "round" });
-  g.moveTo(a.x, a.y - 2).lineTo(bow.x, bow.y - 2).stroke({ width: w * 1.3, color: hull, cap: "round" });
-  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-  if (kind === "sailboat") {
-    g.poly([mid.x, mid.y - 3, mid.x, mid.y - 22, mid.x + 10, mid.y - 5]).fill(0xffffff);
-    g.poly([mid.x, mid.y - 6, mid.x, mid.y - 18, mid.x - 7, mid.y - 6]).fill(0xe53935);
-  } else if (kind === "cruise" || kind === "ferry") {
-    for (let k = 0; k < (kind === "cruise" ? 3 : 2); k++) {
-      g.moveTo(a.x + (b.x - a.x) * 0.15, a.y - 6 - k * 5).lineTo(a.x + (b.x - a.x) * 0.8, a.y + (b.y - a.y) * 0.65 - 6 - k * 5).stroke({ width: w * 1.1, color: k % 2 ? 0x1e88e5 : 0xffffff, cap: "round" });
-    }
-    g.rect(mid.x - 3, mid.y - 24, 5, 8).fill(kind === "cruise" ? 0xe53935 : 0x333333);
-  } else if (kind === "tanker") {
-    const stern = { x: a.x + (b.x - a.x) * (reverse ? 0.8 : 0.15), y: a.y + (b.y - a.y) * (reverse ? 0.8 : 0.15) };
-    g.rect(stern.x - 5, stern.y - 16, 10, 12).fill(0xffffff);
-    g.rect(stern.x - 2, stern.y - 22, 4, 6).fill(0x333333);
-  } else if (kind === "speedboat" || kind === "tug") {
-    g.rect(mid.x - 3, mid.y - 9, 6, 5).fill(kind === "tug" ? 0xffffff : 0x90caf9);
-  }
-  return g;
-}
+- [ ] **Step 6: Wire the scene**
+
+In `game/src/engine/scene.ts`:
+
+Imports: add
+
+```ts
+import { buildGraph, type RoadNet } from "./roads/graph";
+import { buildPlaces, demand } from "./roads/trips";
+```
+
+Fields: add `private readonly net: RoadNet;` next to `traffic`.
+
+Constructor: after `this.grid` is built and the home yard is cleared, add:
+
+```ts
+    this.net = buildGraph(this.city.roads, { core: this.city.core });
+```
+
+Delete the current `this.traffic = new Traffic(...)` line (line 108), and after the `for (const b of this.buildings)` loop (after `this.replant();`) add:
+
+```ts
+    const places = buildPlaces(this.net, this.buildings.map((b) => ({ x: b.x, y: b.y, w: b.w, d: b.d })), (x, y) => zoneAt(this.city, x, y));
+    this.traffic = new Traffic(this.net, this.grid, this.objects, this.ground.waterLayer, this.city.vehicles, this.city.boats, places, seed, clock.visualDaySeconds / 24);
+```
+
+In `update()`, replace `cars *= 1 - night * 0.35;` with:
+
+```ts
+    cars *= demand(this.clock.timeOfDay * 24);
+```
+
+and just before `this.traffic.setTarget(...)` add `this.traffic.setHour(this.clock.timeOfDay * 24);`.
+
+- [ ] **Step 7: Typecheck, suite, and a look**
+
+Run: `npx tsc --noEmit -p tsconfig.json && npm test`
+Expected: clean.
+Run `npm run dev`, open Houston and San Francisco, and watch for two minutes at 1x:
+
+- cars follow lanes on the right, turn on smooth curves, and stop at stop lines;
+- queues form at red lights and clear on green; left turns wait for oncoming cars;
+- cars merge onto and leave the highway ring by the ramps and ride over the overpasses;
+- cars park at the curb and pull out again; buses stop along their routes; the SF cable cars run on the tram line;
+- no car pops in or out except with a fade, and none jitter between facings on a straight road.
+
+Anything that looks off is a bug to fix now, per Cayden's standard (screenshots at 1x and at max zoom).
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add src/engine/roads/pose.ts src/engine/traffic.ts src/engine/scene.ts src/engine/ground.ts src/engine/roads/trips.ts tests/roads-pose.test.ts
+git commit -m "Traffic: draw the road sim's cars, parked cars, and buses in 8 facings"
+```

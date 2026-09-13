@@ -3,7 +3,8 @@
 // own island in the bay, and Miami Beach on a long barrier island (east) with
 // a pastel Art Deco hotel strip facing the sand and the open Atlantic.
 
-import { LayoutBuilder } from "../engine/layout";
+import { LayoutBuilder } from "../engine/layout.ts";
+import type { RoadDef } from "../engine/roads/types";
 import type { CityDef, Climate, LandmarkPlacement } from "../engine/types";
 
 // Column plan (x): mainland 0-13, bay 14-22 (port island 16-20), barrier
@@ -20,7 +21,7 @@ const landmarks: LandmarkPlacement[] = [
   ] as const).map(([x, y]) => ({ id: "mia-palms", x, y, w: 1, d: 1 })),
 ];
 
-function layout(): string[] {
+function layout(): { layout: string[]; roads: RoadDef[] } {
   const L = new LayoutBuilder(36, 32);
   L.rect(14, 0, 9, 32, "w"); // Biscayne Bay
   L.rect(31, 0, 5, 32, "w"); // Atlantic Ocean
@@ -29,14 +30,15 @@ function layout(): string[] {
 
   // Mainland grid.
   for (const y of [2, 18, 29]) L.roadX(y, 0, 11);
-  for (const x of [2, 6, 11]) L.roadY(x, 0, 31);
+  L.roadY(2, 0, 31).roadY(11, 0, 31);
+  L.arterialY(6, 0, 31); // Biscayne Boulevard
   // Two causeways from the mainland across the bay to the island spine.
   for (const y of [12, 24]) L.roadX(y, 0, 25);
   // Port Boulevard: mainland -> bridge -> port island -> bridge down to the north causeway.
   L.roadX(6, 0, 18);
   L.roadY(18, 6, 12);
   // Collins-style spine down the barrier island.
-  L.roadY(25, 0, 31);
+  L.arterialY(24, 0, 31);
 
   L.frontage(2);
   // Bayfront park on the mainland shore and a neighborhood park inland.
@@ -52,8 +54,11 @@ function layout(): string[] {
   L.set(3, 20, "h"); // the player's home, on the road at x = 2
   L.shore("s", (x) => x >= 28);
   L.clipCorners(3);
-  return L.build();
+  const grid = L.build();
+  return { layout: grid, roads: L.roads() };
 }
+
+const core = layout();
 
 // Monthly odds per day, January first. Dry, mild winters; a wet season of
 // near-daily afternoon storms from June to September; hurricane risk peaking
@@ -79,7 +84,8 @@ export const miami: CityDef = {
   state: "FL",
   tagline: "Magic City: Art Deco pastels, Biscayne Bay, and the cruise capital",
   plates: "miami",
-  layout: layout(),
+  layout: core.layout,
+  roads: core.roads,
   zones: [
     { x: 7, y: 8, r: 5, kind: "downtown" }, // downtown
     { x: 8, y: 15, r: 4, kind: "downtown" }, // Brickell

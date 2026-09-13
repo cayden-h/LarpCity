@@ -7,8 +7,11 @@ import { Container, Graphics } from "pixi.js";
 import { shade } from "./color";
 import type { CityGrid } from "./grid";
 import { BRIDGE_Z } from "./ground";
-import { DIRS, iso } from "./iso";
+import { iso } from "./iso";
 import { pick, rngFor, type Rng } from "./rng";
+import type { RoadNet } from "./roads/graph";
+import { Sidewalks, type Ped } from "./roads/sidewalks";
+import type { Sim } from "./roads/sim";
 
 export type Mood = "normal" | "bear" | "boom" | "pandemic" | "storm" | "night";
 
@@ -77,12 +80,8 @@ const HAIR = [0x2b1b0e, 0x5d3a1a, 0xd4a017, 0x111111, 0xa0522d, 0xdcdcdc, 0x7b3f
 
 interface Walker {
   street: boolean;
-  // Street walkers: tile, direction, progress, and which sidewalk (+1/-1).
-  x: number;
-  y: number;
-  dir: number;
-  t: number;
-  side: number;
+  // Street walkers: their pedestrian on the sidewalk network.
+  ped: Ped | null;
   // Plaza strollers: continuous position and target.
   px: number;
   py: number;
@@ -107,7 +106,6 @@ interface Walker {
 export class People {
   tint = 0xffffff;
   private readonly walkers: Walker[] = [];
-  private readonly sidewalks: [number, number][] = [];
   private readonly plazas: [number, number][] = [];
   private readonly plazaSet = new Set<string>();
   private target = 0;
@@ -116,14 +114,15 @@ export class People {
   private readonly grid: CityGrid;
   private readonly objects: Container;
   private readonly seed: number;
+  private readonly walk: Sidewalks;
 
-  constructor(grid: CityGrid, objects: Container, seed: number, residents: ResidentSeed[] = []) {
+  constructor(grid: CityGrid, net: RoadNet, sim: Sim, objects: Container, seed: number, residents: ResidentSeed[] = []) {
     this.grid = grid;
     this.objects = objects;
     this.seed = seed;
     this.rng = rngFor(seed, "people");
+    this.walk = new Sidewalks(net, sim, rngFor(seed, "sidewalks"), (x, y) => grid.at(x, y) === "B" || grid.at(x, y) === "O");
     for (const { x, y, c } of grid.cells()) {
-      if (c === "=" && grid.roadLinks(x, y).filter(Boolean).length < 4) this.sidewalks.push([x, y]);
       if (c === "P" || c === "p") {
         this.plazas.push([x, y]);
         this.plazaSet.add(`${x},${y}`);
@@ -141,6 +140,7 @@ export class People {
   }
 
   update(dt: number, night: number): void {
+    this.walk.step(dt);
     const live = this.count;
     if (live < this.target && this.rng() < dt * 12) this.spawn();
     if (live > this.target) {
@@ -149,7 +149,7 @@ export class People {
     }
     for (let i = this.walkers.length - 1; i >= 0; i--) {
       const w = this.walkers[i];
-      if (w.street) this.stepStreet(w, dt);
+      if (w.street) this.stepStreet(w);
       else this.stepPlaza(w, dt);
       // Walk cycle.
       const moving = w.pause <= 0;
@@ -165,6 +165,7 @@ export class People {
         if (w.view.alpha <= 0) {
           w.view.destroy({ children: true });
           this.walkers.splice(i, 1);
+          if (w.ped) this.walk.remove(w.ped);
         }
       } else if (w.view.alpha < 1) w.view.alpha = Math.min(1, w.view.alpha + dt * 2);
     }
@@ -191,18 +192,14 @@ export class People {
   /** A named roster NPC (data/npcs.ts): a fixed walker that never despawns, marked so ui/npccard.ts can fetch its real bank statement. */
   private spawnResident(r: ResidentSeed): void {
     const rng = rngFor(this.seed, "resident", r.id);
-    const useStreet = !this.plazas.length || rng() < 0.5;
-    const pool = useStreet ? this.sidewalks : this.plazas;
-    if (!pool.length) return;
-    const [x, y] = pick(rng, pool);
+    // Street residents walk the sidewalk network; plaza residents stroll, and take a plaza if no sidewalk spot is free.
+    const ped = !this.plazas.length || rng() < 0.5 ? this.walk.spawn() : null;
+    if (!ped && !this.plazas.length) return;
+    const [x, y] = ped ? [0, 0] : pick(rng, this.plazas);
     const fig = drawPerson(rng);
-    const dirs = this.grid.roadLinks(x, y).map((ok, i) => (ok ? i : -1)).filter((i) => i >= 0);
     const w: Walker = {
-      street: useStreet,
-      x, y,
-      dir: dirs.length ? pick(rng, dirs) : 0,
-      t: rng(),
-      side: rng() < 0.5 ? 1 : -1,
+      street: !!ped,
+      ped,
       px: x + 0.2 + rng() * 0.6,
       py: y + 0.2 + rng() * 0.6,
       tx: x + 0.5,
@@ -227,20 +224,22 @@ export class People {
 
   private spawn(): void {
     const useStreet = !this.plazas.length || this.rng() < 0.7;
-    const pool = useStreet ? this.sidewalks : this.plazas;
-    if (!pool.length) return;
-    const [x, y] = pick(this.rng, pool);
+    let ped: Ped | null = null;
+    let x = 0, y = 0;
+    if (useStreet) {
+      ped = this.walk.spawn();
+      if (!ped) return;
+    } else {
+      if (!this.plazas.length) return;
+      [x, y] = pick(this.rng, this.plazas);
+    }
     const index = this.spawned++;
     const r = rngFor(this.seed, "npc", index);
     const fig = drawPerson(r);
     const info = { name: `${pick(r, FIRST)} ${pick(r, LAST)}`, age: 18 + Math.floor(r() * 60), job: pick(r, JOBS) };
-    const dirs = this.grid.roadLinks(x, y).map((ok, i) => (ok ? i : -1)).filter((i) => i >= 0);
     const w: Walker = {
       street: useStreet,
-      x, y,
-      dir: dirs.length ? pick(this.rng, dirs) : 0,
-      t: this.rng(),
-      side: this.rng() < 0.5 ? 1 : -1,
+      ped,
       px: x + 0.2 + this.rng() * 0.6,
       py: y + 0.2 + this.rng() * 0.6,
       tx: x + 0.5,
@@ -259,23 +258,13 @@ export class People {
     this.objects.addChild(w.view);
   }
 
-  private stepStreet(w: Walker, dt: number): void {
-    w.t += w.speed * dt;
-    while (w.t >= 1) {
-      w.t -= 1;
-      w.x += DIRS[w.dir].dx;
-      w.y += DIRS[w.dir].dy;
-      const links = this.grid.roadLinks(w.x, w.y);
-      const back = (w.dir + 2) % 4;
-      const options = [0, 1, 2, 3].filter((d) => links[d] && d !== back);
-      w.dir = options.length ? (options.includes(w.dir) && this.rng() < 0.7 ? w.dir : pick(this.rng, options)) : back;
-    }
-    const d = DIRS[w.dir];
-    // Sidewalks run along both edges of the road.
-    const ox = -d.dy * 0.4 * w.side, oy = d.dx * 0.4 * w.side;
-    const px = w.x + 0.5 + d.dx * w.t + ox, py = w.y + 0.5 + d.dy * w.t + oy;
-    const z = this.grid.at(w.x, w.y) === "B" ? BRIDGE_Z : 0;
-    this.place(w, px, py, z, (d.dx - d.dy) >= 0 ? 1 : -1);
+  private stepStreet(w: Walker): void {
+    const p = w.ped!;
+    const c = this.grid.at(Math.floor(p.x), Math.floor(p.y));
+    const z = c === "B" || c === "O" ? BRIDGE_Z : 0;
+    w.pause = p.vx === 0 && p.vy === 0 ? 1 : 0;
+    const facing = p.vx - p.vy >= 0 ? 1 : -1;
+    this.place(w, p.x, p.y, z, p.vx === 0 && p.vy === 0 ? w.view.scale.x : facing);
   }
 
   private stepPlaza(w: Walker, dt: number): void {

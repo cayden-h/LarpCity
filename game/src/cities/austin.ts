@@ -5,7 +5,8 @@
 // trail lines both shores; bungalow neighborhoods and a food-truck lot fill
 // the south bank.
 
-import { LayoutBuilder } from "../engine/layout";
+import { LayoutBuilder } from "../engine/layout.ts";
+import type { RoadDef } from "../engine/roads/types";
 import type { CityDef, Climate, LandmarkPlacement } from "../engine/types";
 
 const landmarks: LandmarkPlacement[] = [
@@ -16,19 +17,21 @@ const landmarks: LandmarkPlacement[] = [
   { id: "atx-food-trucks", x: 19, y: 22, w: 3, d: 3 },
 ];
 
-function layout(): string[] {
+function layout(): { layout: string[]; roads: RoadDef[] } {
   const L = new LayoutBuilder(36, 32);
   // Lady Bird Lake, wider to the east and with a cove by the park to the west.
   L.rect(0, 17, 36, 3, "w");
   L.rect(26, 16, 5, 1, "w");
   L.rect(5, 20, 4, 1, "w");
-  // East-west streets; the lakeshore drives are rows 15 and 21.
-  for (const y of [1, 6, 10, 15, 21, 26, 30]) L.roadX(y, 3, 32);
+  // East-west streets; the lakeshore drives are rows 14-15 (four lanes) and 21.
+  for (const y of [1, 6, 10, 21, 26, 30]) L.roadX(y, 3, 32);
+  L.arterialX(14, 3, 32);
   // North-south streets. Columns 3, 17 (the main avenue), and 32 bridge the lake.
   L.roadY(3, 1, 30);
   L.roadY(32, 1, 30);
   L.roadY(17, 10, 30); // the avenue starts at the capitol's front steps
-  for (const x of [10, 24]) L.roadY(x, 1, 15).roadY(x, 21, 30);
+  L.roadY(10, 1, 15).roadY(10, 21, 30);
+  L.arterialY(24, 1, 15).arterialY(24, 21, 30);
   L.frontage(2);
   // Hike-and-bike trail greenbelt along both shores, plus the big park to the southwest.
   L.replace(0, 16, 36, 1, "b", "p").replace(0, 16, 36, 1, ".", "p");
@@ -48,8 +51,11 @@ function layout(): string[] {
   }
   L.set(12, 25, "h"); // a south-side bungalow, next to the street on row 26
   L.clipCorners(3);
-  return L.build();
+  const grid = L.build();
+  return { layout: grid, roads: L.roads() };
 }
+
+const core = layout();
 
 // Monthly odds per day, January first. Scorching July-August, a stormy
 // spring (April-June), mild winters with a rare ice day.
@@ -74,7 +80,8 @@ export const austin: CityDef = {
   state: "TX",
   tagline: "Live music, a pink granite capitol, and bats under the bridge",
   plates: "austin",
-  layout: layout(),
+  layout: core.layout,
+  roads: core.roads,
   zones: [
     // Towers sit east of the capitol, and low midtown blocks stand in front of
     // it, so the pink dome stays visible from the default camera.

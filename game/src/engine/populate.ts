@@ -10,6 +10,9 @@ import { pick, range, rngFor, type Rng } from "./rng";
 import { pickSprite } from "./sprite-pick";
 import { buildSprite, type SpriteSet } from "./sprites";
 import type { CityDef, ZoneKind } from "./types";
+import { zoneAt } from "./zones.ts";
+
+export { zoneAt };
 
 export interface Placed {
   built: Built;
@@ -23,19 +26,6 @@ export interface Plant {
   view: Container;
   x: number;
   y: number;
-}
-
-export function zoneAt(city: CityDef, x: number, y: number): ZoneKind {
-  let best: ZoneKind = "residential";
-  let bestScore = Infinity;
-  for (const z of city.zones) {
-    const score = Math.hypot(x - z.x, y - z.y) / z.r;
-    if (score < bestScore) {
-      bestScore = score;
-      best = z.kind;
-    }
-  }
-  return bestScore <= 1.35 ? best : "residential";
 }
 
 /** In the inner part of a zone of this kind: where a branded building is seen from the default camera. */

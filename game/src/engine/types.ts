@@ -3,6 +3,7 @@
 
 import type { Container } from "pixi.js";
 import type { Clock } from "./clock";
+import type { RoadDef } from "./roads/types";
 import type { SpriteSet } from "./sprites";
 
 /**
@@ -11,10 +12,11 @@ import type { SpriteSet } from "./sprites";
  *   w  water           s  sand / beach    ~  marsh / reeds
  *   b  building lot    p  park (trees)    P  plaza (paved, for landmarks)
  *   h  player's home   t  tram road (road with rails)
+ *   O  overpass (a road over another road)
  *   f  farmland        F  forest          m  mountain rock
  *   ' ' (space) is outside the map; the world builder fills it in.
  */
-export type TileChar = "." | "=" | "B" | "w" | "s" | "~" | "b" | "p" | "P" | "h" | "t" | "f" | "F" | "m" | " ";
+export type TileChar = "." | "=" | "B" | "w" | "s" | "~" | "b" | "p" | "P" | "h" | "t" | "O" | "f" | "F" | "m" | " ";
 
 export type Terrain = "plains" | "forest" | "hills" | "mountains" | "desert" | "swamp" | "tundra" | "island";
 
@@ -149,6 +151,10 @@ export interface CityDef {
   /** Folder under public/cities/ holding the 4 background plates. */
   plates: string;
   layout: string[];
+  /** The road network; the layout's road tiles are stamped from it. */
+  roads: RoadDef[];
+  /** The hand-made core's rectangle in world tiles; set by the world builder. */
+  core?: { x: number; y: number; w: number; h: number };
   zones: Zone[];
   palette: CityPalette;
   backdrop: BackdropDef;

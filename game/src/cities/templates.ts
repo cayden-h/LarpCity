@@ -3,10 +3,10 @@
 // state's vibe (vibes.ts) shapes the core (water, grid, size, density) and
 // the world around it (terrain, farms, forest, signature features).
 
-import { LayoutBuilder } from "../engine/layout";
-import { hashKeys, rngFor } from "../engine/rng";
+import { LayoutBuilder } from "../engine/layout.ts";
+import { hashKeys, rngFor } from "../engine/rng.ts";
 import type { BackdropDef, BoatKind, CityDef, CityPalette, Climate, LandmarkPlacement, StateInfo, VehicleKind, WeatherKind } from "../engine/types";
-import { DEFAULT_VIBE, VIBES, type Side, type StateVibe } from "./vibes";
+import { DEFAULT_VIBE, VIBES, type Side, type StateVibe } from "./vibes.ts";
 
 interface TemplateStyle {
   shore: "s" | "~" | ".";
@@ -147,23 +147,49 @@ export function templateCity(state: StateInfo): CityDef {
 
   carveWater(L, vibe, rng, W, H);
   const S = vibe.grid;
-  for (let y = 2; y < H - 1; y += S) L.roadX(y, 0, W - 1, "=", 5);
+  const by = 2 + S * Math.max(0, Math.floor((H / 2 - 2) / S) - 1);
+  // The main street: the grid line below the capitol block, widened to four lanes.
+  const main = by + S + 1 < H - 1 ? by + S : -1;
+  for (let y = 2; y < H - 1; y += S) if (y !== main) L.roadX(y, 0, W - 1, "=", 5);
+  if (main >= 0) L.arterialX(main, 0, W - 1, 5);
   for (let x = 2; x < W - 1; x += S) L.roadY(x, 0, H - 1, "=", 5);
   L.frontage(2);
   if (style.shore !== ".") L.shore(style.shore);
 
-  // The capitol in its own green square near the middle.
-  const bx = 2 + S * Math.max(0, Math.floor((W / 2 - 2) / S) - 1), by = 2 + S * Math.max(0, Math.floor((H / 2 - 2) / S) - 1);
+  // The capitol in its own green square near the middle. Try the original
+  // block first, but a river from carveWater can cross it, so search every
+  // road-grid block for the closest one whose footprint is actually free.
+  const bx0 = 2 + S * Math.max(0, Math.floor((W / 2 - 2) / S) - 1);
+  const by0 = by;
   const free = (x: number, y: number, w: number, d: number) => {
     for (let j = y; j < y + d; j++) for (let i = x; i < x + w; i++) if (!["b", ".", "p"].includes(L.get(i, j))) return false;
     return true;
   };
-  const cx = bx + 1, cy = by + 1, cw = Math.min(3, S - 2), cd = Math.min(3, S - 2);
-  if (free(cx, cy, cw, cd)) {
-    L.replace(bx + 1, by + 1, S - 1, S - 1, "b", "p").replace(bx + 1, by + 1, S - 1, S - 1, ".", "p");
-    landmarks.push({ id: `capitol-${style.dome}`, x: cx, y: cy, w: cw, d: cd });
-    for (let j = cy; j < cy + cd; j++) for (let i = cx; i < cx + cw; i++) L.set(i, j, "P");
+  const cw = Math.min(3, S - 2), cd = Math.min(3, S - 2);
+  const blocks: { bx: number; by: number }[] = [];
+  for (let by1 = 2; by1 + S - 1 < H - 1; by1 += S)
+    for (let bx1 = 2; bx1 + S - 1 < W - 1; bx1 += S) blocks.push({ bx: bx1, by: by1 });
+  blocks.sort((a, b) => {
+    const da = (a.bx - bx0) ** 2 + (a.by - by0) ** 2;
+    const db = (b.bx - bx0) ** 2 + (b.by - by0) ** 2;
+    return da - db;
+  });
+  let bx = bx0;
+  let cby = by0;
+  let found = false;
+  for (const blk of blocks) {
+    if (free(blk.bx + 1, blk.by + 1, cw, cd)) {
+      bx = blk.bx;
+      cby = blk.by;
+      found = true;
+      break;
+    }
   }
+  const cx = bx + 1, cy = cby + 1;
+  if (!found) for (let j = cy; j < cy + cd; j++) for (let i = cx; i < cx + cw; i++) L.set(i, j, ".");
+  L.replace(bx + 1, cby + 1, S - 1, S - 1, "b", "p").replace(bx + 1, cby + 1, S - 1, S - 1, ".", "p");
+  landmarks.push({ id: `capitol-${style.dome}`, x: cx, y: cy, w: cw, d: cd });
+  for (let j = cy; j < cy + cd; j++) for (let i = cx; i < cx + cw; i++) L.set(i, j, "P");
   // The player's home: the first lot next to a road, a block or two from the capitol.
   let placedHome = false;
   for (let r = S + 2; r < Math.max(W, H) && !placedHome; r++)
@@ -185,6 +211,7 @@ export function templateCity(state: StateInfo): CityDef {
     tagline: vibe.tagline,
     plates: state.cityId,
     layout: L.build(),
+    roads: L.roads(),
     // Towers stand behind the capitol (toward the back of the map) so the
     // skyline frames the dome instead of hiding it.
     zones: [

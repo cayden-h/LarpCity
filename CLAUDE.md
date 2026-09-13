@@ -77,6 +77,7 @@ That is what makes rewind, fast-forward, and "what if" comparisons possible: sto
 
 **Rendering and world (`game/src/engine/`, `game/src/cities/`)**: a PixiJS v8 isometric renderer.
 `engine/world.ts` wraps each city in generated suburbs, farms, and terrain; `engine/bricks.ts` is the procedural building builder where no sprite set exists; `cities/` holds the 6 hand-made cities (Houston, Dallas, Austin, San Francisco, New York, Miami) plus per-state "vibe" templates.
+Roads are vectors: `engine/roads/` turns each city's `RoadDef`s into a lane graph with controlled intersections, and a headless fixed-step sim (`roads/sim.ts`, `roads/trips.ts`) drives trip-based traffic and pedestrians that `traffic.ts` and `people.ts` only draw.
 Cities with a sprite set draw pre-rendered Blender sprites (`engine/sprite-pick.ts`; pipeline in `game/art/`, see `game/README.md`).
 Everything random is seeded, so a city's weather and traffic replay identically.
 

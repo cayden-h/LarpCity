@@ -3,7 +3,8 @@
 // bridge to the port, downtown towers in the north, Rice and Hermann Park in
 // the southwest, the domed stadium and the space center in the south.
 
-import { LayoutBuilder } from "../engine/layout";
+import { LayoutBuilder } from "../engine/layout.ts";
+import type { RoadDef } from "../engine/roads/types";
 import type { CityDef, Climate, LandmarkPlacement } from "../engine/types";
 
 const landmarks: LandmarkPlacement[] = [
@@ -15,13 +16,15 @@ const landmarks: LandmarkPlacement[] = [
   { id: "ship-channel-bridge", x: 30, y: 20, w: 4, d: 1 },
 ];
 
-function layout(): string[] {
+function layout(): { layout: string[]; roads: RoadDef[] } {
   const L = new LayoutBuilder(36, 32);
   L.rect(30, 0, 4, 32, "w"); // Ship Channel
   L.path([[0, 16.5], [5, 16], [10, 17.5], [15, 16.5], [20, 17], [25, 16], [30, 16.5]], "w", 2); // Buffalo Bayou
   for (const y of [2, 14, 26]) L.roadX(y, 0, 29);
-  for (const y of [8, 20]) L.roadX(y, 0, 35); // these two cross the channel to the port
-  for (const x of [2, 8, 14, 20, 26]) L.roadY(x, 0, 31);
+  L.roadX(20, 0, 35); // crosses the channel to the port
+  L.arterialX(8, 0, 35); // four lanes across the channel to the port
+  for (const x of [2, 8, 20, 26]) L.roadY(x, 0, 31);
+  L.arterialY(13, 0, 31); // the main north-south avenue, west of the beacon tower
   L.roadY(34, 8, 20); // port road on the east bank
   L.frontage(2);
   // Parks: Memorial Park (west), Hermann Park (by Rice), a downtown green.
@@ -35,8 +38,11 @@ function layout(): string[] {
   L.set(21, 22, "h"); // the player's home, next to a road
   L.shore("~", (x, y) => (x * 7 + y * 3) % 3 !== 0);
   L.clipCorners(3);
-  return L.build();
+  const grid = L.build();
+  return { layout: grid, roads: L.roads() };
 }
+
+const core = layout();
 
 // Monthly odds per day, January first. Hurricane season peaks Aug-Sep.
 const climate: Climate[] = [
@@ -60,7 +66,8 @@ export const houston: CityDef = {
   state: "TX",
   tagline: "Space City: bayous, refineries, and Rice University",
   plates: "houston",
-  layout: layout(),
+  layout: core.layout,
+  roads: core.roads,
   zones: [
     { x: 15, y: 5, r: 6, kind: "downtown" },
     { x: 9, y: 11, r: 5, kind: "midtown" },

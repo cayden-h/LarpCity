@@ -8,7 +8,8 @@
 // of the downtown street (x 28); at x 29 its clock tower clears the island
 // prison from the default camera.
 
-import { LayoutBuilder } from "../engine/layout";
+import { LayoutBuilder } from "../engine/layout.ts";
+import type { RoadDef } from "../engine/roads/types";
 import type { CityDef, Climate, LandmarkPlacement } from "../engine/types";
 
 const landmarks: LandmarkPlacement[] = [
@@ -22,18 +23,19 @@ const landmarks: LandmarkPlacement[] = [
   { id: "sf-ferry-building", x: 29, y: 5, w: 4, d: 1 },
 ];
 
-function layout(): string[] {
+function layout(): { layout: string[]; roads: RoadDef[] } {
   const L = new LayoutBuilder(36, 32);
   L.rect(4, 0, 5, 32, "w"); // the Golden Gate strait
   L.rect(0, 21, 4, 11, "w"); // open Pacific south of the headlands
   L.rect(9, 0, 27, 6, "w"); // the bay along the north shore
   L.rect(23, 1, 3, 3, "P"); // the island prison, surrounded by bay water
   L.shore("s"); // Ocean Beach, Crissy Field, and the Marin coves
-  // City grid: the Embarcadero along the bay, the bridge approach, and cross streets.
-  L.roadX(6, 10, 34);
+  // City grid: the Embarcadero along the bay (four lanes), the bridge approach, and cross streets.
+  L.arterialX(6, 10, 34);
   L.roadX(12, 3, 34); // crosses the strait as the Golden Gate
   for (const y of [17, 23, 29]) L.roadX(y, 10, 34);
-  for (const x of [10, 28, 34]) L.roadY(x, 6, 29);
+  for (const x of [10, 34]) L.roadY(x, 6, 29);
+  L.arterialY(27, 6, 29); // the main avenue, waterfront to the southern hills
   L.roadY(16, 6, 17).roadY(16, 23, 29); // broken by Golden Gate Park
   L.roadY(22, 6, 29, "t"); // the cable car line, bay to the southern hills
   // Marin headlands loop on the far side of the bridge.
@@ -52,8 +54,11 @@ function layout(): string[] {
   }
   L.set(11, 25, "h"); // the player's home in the Sunset, next to a road
   L.clipCorners(3);
-  return L.build();
+  const grid = L.build();
+  return { layout: grid, roads: L.roads() };
 }
+
+const core = layout();
 
 // Monthly odds per day, January first. Winter is the rainy season; summer is
 // fog season, when the marine layer pours through the Gate most mornings.
@@ -80,7 +85,8 @@ export const sanFrancisco: CityDef = {
   state: "CA",
   tagline: "Fog, cable cars, and the Golden Gate",
   plates: "san-francisco",
-  layout: layout(),
+  layout: core.layout,
+  roads: core.roads,
   zones: [
     { x: 29, y: 11, r: 6, kind: "downtown" },
     { x: 20, y: 14, r: 4, kind: "midtown" },
