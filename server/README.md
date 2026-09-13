@@ -66,6 +66,21 @@ The client (`src/adapters/gemini.ts`) tries `GEMINI_TEXT_MODEL` and then `GEMINI
 key in a header. The same moment asked twice is cached in memory, and the routes share the strict
 rate limit.
 
+## News Progression Engine
+
+Every `POST /api/events` batch is scored for newsworthiness before it's inserted (`src/news/scorer.ts`:
+severity + rarity + the player's own dollar magnitude relative to their net worth), and whatever clears
+the publish threshold is stored in `news_stories` with its facts verbatim, no prose yet. Prose is written
+lazily — Gemini with the same template fallback as the coach and newspaper above — the first time a day
+range is read.
+
+| Route | Query | Returns |
+| --- | --- | --- |
+| `GET /api/news/:runId` | `?from&to` | stories in that day range, oldest first, with prose already filled in (writing capped at 20 per request) |
+
+Branches don't exist server-side yet, so every story's `branch_id` is its `run_id` (the root branch); see
+`docs/superpowers/specs/2026-09-12-news-progression-engine-design.md` for the rewind design this reserves.
+
 ## Bank mirror (Capital One Nessie)
 
 The player and the game's named NPCs (`game/src/data/npcs.ts`) each have a Nessie bank statement.

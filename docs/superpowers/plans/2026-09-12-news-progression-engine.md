@@ -108,8 +108,9 @@ test("bankruptcy_eligible always clears the floor regardless of baseline or hist
 
 test("rarity decays: the same kind happening again scores lower, all else equal", () => {
   const first = score({ kind: "late_mark", payload: { severity: 30, scoreBefore: 700, scoreAfter: 660 }, netWorthBaseline: 50_000, priorCount: 0 })!;
-  const fifth = score({ kind: "late_mark", payload: { severity: 30, scoreBefore: 700, scoreAfter: 660 }, netWorthBaseline: 50_000, priorCount: 4 })!;
-  assert.ok(first.score > fifth.score, `first ${first.score} should outscore fifth ${fifth.score}`);
+  const third = score({ kind: "late_mark", payload: { severity: 30, scoreBefore: 700, scoreAfter: 660 }, netWorthBaseline: 50_000, priorCount: 2 })!;
+  assert.ok(first !== null && third !== null, "late_mark has no magnitude term, so severity + rarity alone must still clear the threshold at priorCount 0 and 2");
+  assert.ok(first.score > third.score, `first ${first.score} should outscore third ${third.score}`);
 });
 
 test("prominence tiers follow the score", () => {
@@ -174,7 +175,11 @@ const SEVERITY: Record<string, number> = {
   job: 55,
   paid_off: 50,
   penalty_apr: 45,
-  missed: 40,
+  // Below PUBLISH_THRESHOLD (40) on its own, unlike every other kind above: a missed payment must
+  // clear the bar with rarity + the dollar amount's own magnitude, so a small one at a big net worth
+  // can score null (this is the case the design spec's "$500 matters more at $2k than $2M" example
+  // is about — every other kind here is already newsworthy at severity alone, missed isn't).
+  missed: 25,
   moved: 40,
   late_mark: 35,
   trade: 20,
@@ -934,9 +939,9 @@ Create `server/src/news/writer.test.ts`:
 ```ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { JsonModel } from "../adapters/gemini.ts";
-import type { NewsStoryRow } from "./store.ts";
-import { storyPrompt, templateStory, writeStory } from "./writer.ts";
+import type { JsonModel } from "../adapters/gemini.js";
+import type { NewsStoryRow } from "./store.js";
+import { storyPrompt, templateStory, writeStory } from "./writer.js";
 
 const row: NewsStoryRow = {
   id: "s1",
@@ -1016,10 +1021,10 @@ Create `server/src/news/writer.ts`:
 // Fills in one news_stories row's headline/blurb/impact: Gemini first, the same
 // deterministic-template-from-facts fallback pattern as server/src/ai/coach.ts otherwise.
 import { z } from "zod";
-import type { JsonModel } from "../adapters/gemini.ts";
-import { describe, gameDate, impactOf } from "../ai/facts.ts";
-import { logger } from "../logger.ts";
-import { markNewsStoryWritten, unwrittenNewsStories, type Db, type NewsStoryRow } from "./store.ts";
+import type { JsonModel } from "../adapters/gemini.js";
+import { describe, gameDate, impactOf } from "../ai/facts.js";
+import { logger } from "../logger.js";
+import { markNewsStoryWritten, unwrittenNewsStories, type Db, type NewsStoryRow } from "./store.js";
 
 export type Source = "gemini" | "template";
 
@@ -1128,7 +1133,7 @@ Create `server/src/routes/news.test.ts` (validation-only, no real database — m
 ```ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { feedQuery } from "./news.ts";
+import { feedQuery } from "./news.js";
 
 test("from/to default to the full day range", () => {
   const q = feedQuery.parse({});

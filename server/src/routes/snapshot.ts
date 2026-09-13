@@ -12,6 +12,7 @@ import { z } from "zod";
 import { pool } from "../db.js";
 import { env } from "../env.js";
 import { handle, HttpError, parse, Reply } from "../http.js";
+import { scoreAndStoreEvents } from "../news/pipeline.js";
 import { createRun, history, insertEvents, insertSnapshots, leaderboard, listEvents, ownsRun } from "../store/runs.js";
 
 export const snapshotRouter = Router();
@@ -106,7 +107,12 @@ snapshotRouter.post(
   "/events",
   handle(async (req) => {
     const body = parse(eventsBody, req.body);
-    return { stored: await insertEvents(pool, await ownRun(req, body.runId), body.events) };
+    const runId = await ownRun(req, body.runId);
+    // Scores before inserting: priorKindCounts reads the events table, and scoring after insert would
+    // count this batch's own rows, making a kind's first occurrence in the batch look like a repeat
+    // (server/src/news/pipeline.ts's file header has the full reasoning).
+    await scoreAndStoreEvents(pool, runId, body.events);
+    return { stored: await insertEvents(pool, runId, body.events) };
   }),
 );
 

@@ -99,7 +99,7 @@ export interface Feedback {
 const whole = Math.round;
 const cash = (s: SnapshotRow) => s.checking + s.savings;
 const invested = (s: SnapshotRow) => s.brokerage + s.retirement;
-const money = (x: number) => `${x < 0 ? "-" : ""}$${Math.round(Math.abs(x)).toLocaleString("en-US")}`;
+export const money = (x: number) => `${x < 0 ? "-" : ""}$${Math.round(Math.abs(x)).toLocaleString("en-US")}`;
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
@@ -311,7 +311,7 @@ export function templateNews(f: NewsFacts): Story[] {
   return stories;
 }
 
-function impactOf(kind: string): string {
+export function impactOf(kind: string): string {
   switch (kind) {
     case "paid_off":
       return "That payment is now free for savings or the next debt.";
