@@ -2,7 +2,7 @@
 
 Date: 2026-09-12
 Branch: `GameEngine`
-Status: Approved design; implementation plan below is ready for `subagent-driven-development`/`executing-plans`.
+Status: Implemented with subagent development and integration review. See [engine contracts, validation and remaining model assumptions](docs/life-goals-wellbeing.md). The original plan below is retained as the design record.
 
 ## Problem
 

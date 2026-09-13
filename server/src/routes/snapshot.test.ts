@@ -1,7 +1,7 @@
 // server/src/routes/snapshot.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dayToTimestamp, snapshotBody } from "./snapshot.js";
+import { dayToTimestamp, eventsBody, snapshotBody } from "./snapshot.js";
 
 test("dayToTimestamp maps day 0 to 2000-01-01", () => {
   assert.equal(dayToTimestamp(0), "2000-01-01T00:00:00.000Z");
@@ -23,4 +23,9 @@ test("snapshot rows may carry the investing lines", () => {
 test("snapshot rows reject non-finite investing lines", () => {
   assert.equal(snapshotBody.safeParse({ runId: RUN, entries: [{ ...row, held: Infinity }] }).success, false);
   assert.equal(snapshotBody.safeParse({ runId: RUN, entries: [{ ...row, you: "5" }] }).success, false);
+});
+
+test("life goal events fit the existing event ingestion contract", () => {
+  const event = { key: "112:0", day: 112, kind: "marriage", payload: { type: "marriage", day: 112 } };
+  assert.deepEqual(eventsBody.parse({ runId: RUN, events: [event] }).events, [event]);
 });
