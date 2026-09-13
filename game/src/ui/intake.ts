@@ -507,7 +507,10 @@ class Intake {
     const answers = completeAnswers({ ...this.moneyAnswers, name: String(data.get("name") ?? ""), avatar: this.avatarChoice, goals });
     // The money fields were already validated before this screen showed, and goals are always
     // complete here (buildGoals always covers the 4 required kinds), so this should never be null.
-    if (!answers) return;
+    if (!answers) {
+      console.warn("intake: completeAnswers returned null after the goal screen; this should be unreachable");
+      return;
+    }
     void this.finish(answers);
   }
 

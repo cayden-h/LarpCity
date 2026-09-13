@@ -3,10 +3,13 @@
 // fires. Mounted on demand (no persistent DOM); the pop-up is appended to
 // `document.body`, not the phone, so it's visible even though the phone panel
 // clips its own contents.
-import { triggerPulse } from "../sim/wellbeing/index.ts";
+import { PULSE_TABLE, triggerPulse } from "../sim/wellbeing/index.ts";
 
 const STYLE_ID = "vacation-popup-style";
 const POPUP_MS = 3600;
+/** A vacation can't be retriggered to hold happiness at its cap; this is roughly how long the
+ *  pulse's own decay (14-day half-life) takes to become negligible, with room to spare. */
+export const VACATION_COOLDOWN_DAYS = 90;
 
 function ensureStyles(): void {
   if (document.getElementById(STYLE_ID)) return;
@@ -42,7 +45,7 @@ function ensureStyles(): void {
       border: 3px solid var(--edge, #101a23);
       background: linear-gradient(#ffe778, #ffcf2f);
       color: #16212b;
-      font: inherit;
+      font-family: "Pixelify Sans", monospace;
       font-size: 18px;
       font-weight: 700;
       padding: 10px 18px;
@@ -82,11 +85,29 @@ function showPopup(): void {
   window.setTimeout(() => overlay.remove(), POPUP_MS);
 }
 
+interface VacationLife {
+  addPulse(p0: number, halfLifeDays: number, day: number): void;
+  pulses: readonly { p0: number; halfLifeDays: number; startDay: number }[];
+}
+
+/** True if a `vacation` pulse fired within the cooldown window, identified by its shape (pulses don't carry a name).
+ *  Exported so the cooldown logic tests without a DOM (`goOnVacation` itself pops up a plane onto `document.body`). */
+export function onVacationCooldown(life: VacationLife, today: number): boolean {
+  const { p0, halfLifeDays } = PULSE_TABLE.vacation;
+  return life.pulses.some(
+    (p) => p.p0 === p0 && p.halfLifeDays === halfLifeDays && today - p.startDay < VACATION_COOLDOWN_DAYS,
+  );
+}
+
 /**
  * Sends the player on vacation: shows the plane pop-up and fires the
- * `vacation` wellbeing pulse via the shared `triggerPulse` helper.
+ * `vacation` wellbeing pulse via the shared `triggerPulse` helper. No-ops
+ * (and returns false) within `VACATION_COOLDOWN_DAYS` of the last vacation,
+ * so spamming the button can't hold happiness at its cap.
  */
-export function goOnVacation(life: { addPulse(p0: number, halfLifeDays: number, day: number): void }, today: number): void {
+export function goOnVacation(life: VacationLife, today: number): boolean {
+  if (onVacationCooldown(life, today)) return false;
   showPopup();
   triggerPulse(life, "vacation", today);
+  return true;
 }

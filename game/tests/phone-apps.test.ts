@@ -173,6 +173,12 @@ test("isStockMarketStory keeps only market-related stories", () => {
   assert.equal(isStockMarketStory({ title: "New park opens", where: "City Hall", blurb: "...", impact: "..." }), false);
 });
 
+test("isStockMarketStory's short ticker keywords match on word boundaries, not as substrings of ordinary words", () => {
+  assert.equal(isStockMarketStory({ title: "COF drops on earnings", where: "Wall St", blurb: "...", impact: "..." }), true);
+  assert.equal(isStockMarketStory({ title: "New coffee shop opens", where: "Downtown", blurb: "Locals love the coffee.", impact: "..." }), false);
+  assert.equal(isStockMarketStory({ title: "Residents are googling the new park hours", where: "Downtown", blurb: "...", impact: "..." }), false, "GOOG shouldn't match inside \"googling\"");
+});
+
 test("isBillingMail keeps only bill/debt-related mail kinds, and treats old mail without a kind as billing", () => {
   const base: MailItem = { id: "m1", day: 1, from: "x", subject: "s", body: "b", tone: "info", decision: false, read: false };
   assert.equal(isBillingMail({ ...base, kind: "bill" }), true);
@@ -180,6 +186,12 @@ test("isBillingMail keeps only bill/debt-related mail kinds, and treats old mail
   assert.equal(isBillingMail({ ...base, kind: "moved" }), false);
   assert.equal(isBillingMail({ ...base, kind: "paycheck" }), false);
   assert.equal(isBillingMail(base), true, "mail from before `kind` existed isn't hidden");
+});
+
+test("isBillingMail keeps a decision letter even when its kind isn't a billing kind (e.g. bear_market)", () => {
+  const base: MailItem = { id: "m1", day: 1, from: "x", subject: "s", body: "b", tone: "info", read: false, decision: true, kind: "bear_market" };
+  assert.equal(isBillingMail(base), true);
+  assert.equal(isBillingMail({ ...base, decision: false }), false, "sanity check: without decision, this non-billing kind is dropped");
 });
 
 test("the Ledger only prints stock-market stories, falling back to the quiet-month message otherwise", async () => {

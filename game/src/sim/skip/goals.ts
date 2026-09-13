@@ -188,7 +188,7 @@ export function priceTag(goal: Goal, v: GoalView, placeName: string, currentAge 
       };
     case "retirement_age":
       return {
-        text: currentAge > 0 ? `Retire at ${goal.targetAge}. You are ${currentAge}.` : `Retire at ${goal.targetAge}.`,
+        text: currentAge > 0 ? `Retire at ${goal.targetAge}. You are ${Math.floor(currentAge)}.` : `Retire at ${goal.targetAge}.`,
         progress: progressOf(goal, v, currentAge),
       };
     case "debt_free_by_age":

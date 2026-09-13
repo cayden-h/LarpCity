@@ -599,7 +599,9 @@
   line-height: 1.3;
 }
 .app-retry,
-.mail-open {
+.mail-open,
+.goals-ff-open,
+.goals-retire-open {
   width: 100%;
   min-height: 38px;
   border: 3px solid var(--edge, #101a23);
@@ -611,7 +613,9 @@
   cursor: pointer;
 }
 .app-retry:hover,
-.mail-open:hover { filter: brightness(1.05); }
+.mail-open:hover,
+.goals-ff-open:hover,
+.goals-retire-open:hover:not(:disabled) { filter: brightness(1.05); }
 /* The unread count on the Mail icon. */
 .phone .app-badge.count {
   top: -6px;
@@ -689,18 +693,8 @@
   font-size: 13px;
   line-height: 1.3;
 }
-.goals-ff-open {
-  width: 100%;
-  min-height: 38px;
-  border: 3px solid var(--edge, #101a23);
-  background: linear-gradient(#ffe778, #ffcf2f);
-  color: #16212b;
-  font: inherit;
-  font-size: 16px;
-  box-shadow: inset 3px 3px #fff5ac, inset -3px -3px #c58b13, 0 3px #11283a;
-  cursor: pointer;
-}
-.goals-ff-open:hover { filter: brightness(1.05); }
+.goals-retire-open { margin-top: 8px; }
+/* Same pixel-button shape as .goals-ff-open/.goals-retire-open, just a different color. */
 .goals-vacation-open {
   width: 100%;
   min-height: 38px;
@@ -714,19 +708,6 @@
   cursor: pointer;
 }
 .goals-vacation-open:hover { filter: brightness(1.05); }
-.goals-retire-open {
-  width: 100%;
-  min-height: 38px;
-  margin-top: 8px;
-  border: 3px solid var(--edge, #101a23);
-  background: linear-gradient(#ffe778, #ffcf2f);
-  color: #16212b;
-  font: inherit;
-  font-size: 16px;
-  box-shadow: inset 3px 3px #fff5ac, inset -3px -3px #c58b13, 0 3px #11283a;
-  cursor: pointer;
-}
-.goals-retire-open:hover:not(:disabled) { filter: brightness(1.05); }
 .goals-retire-open:disabled {
   cursor: not-allowed;
   filter: grayscale(0.6) brightness(0.9);

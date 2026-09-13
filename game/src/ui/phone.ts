@@ -3,8 +3,10 @@
 // stocks at today's game prices (tap one to open its page), the real interest
 // rates the game doesn't simulate (labeled as real), and opens the
 // Money desk (/debt.html) in a window over the city, sharing the city's player
-// and clock through window.larpMoney. Goals opens the fast-forward setup screen
-// (ui/skip-setup.ts). Map shows where the player is. Calendar (ui/calendar.ts) shows the player's days, goes
+// and clock through window.larpMoney. Goals opens the Goals app view (each of
+// the player's permanent goals with a progress bar); the fast-forward setup
+// screen (ui/skip-setup.ts) and Retire are reachable from inside it.
+// Map shows where the player is. Calendar (ui/calendar.ts) shows the player's days, goes
 // back to a past one, skips to the next decision, sets the clock's speed, and
 // (in its year view) starts a new life. Mail, News, and Bank are the life's
 // letters, the Larp City Ledger, and the Nessie bank statement (ui/phone-apps.ts).
@@ -46,7 +48,6 @@ const APPS: AppDef[] = [
   { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: true },
 ];
 
-/** Real interest rates the game doesn't simulate: shown from the FRED snapshot and labeled as real. */
 /** One title per `Goal["kind"]`, shown in the Goals app; the `Record` keeps this exhaustive as new kinds are added. */
 const GOAL_TITLES: Record<Goal["kind"], string> = {
   debt_free: "Pay off all debt",
@@ -59,6 +60,7 @@ const GOAL_TITLES: Record<Goal["kind"], string> = {
   debt_free_by_age: "Debt-free by a target age",
 };
 
+/** Real interest rates the game doesn't simulate: shown from the FRED snapshot and labeled as real. */
 const RATES: { id: SeriesId; ticker: string; name: string }[] = [
   { id: "DFF", ticker: "FED", name: "Fed funds rate" },
   { id: "DGS10", ticker: "10Y", name: "10-year Treasury" },
@@ -411,7 +413,10 @@ export class Phone {
     if (btn.dataset.mailId) return this.toggleMail(btn.dataset.mailId);
     if (btn.dataset.newsRetry !== undefined) return void this.news.load();
     if (btn.dataset.openFf !== undefined) return this.deps.openFastForward?.();
-    if (btn.dataset.vacation !== undefined) return goOnVacation(this.deps.player, this.deps.clock.day);
+    if (btn.dataset.vacation !== undefined) {
+      if (!goOnVacation(this.deps.player, this.deps.clock.day)) this.toast("Already relaxed — take another vacation later.");
+      return;
+    }
     if (btn.dataset.retire !== undefined) return this.onRetire();
     const id = btn.dataset.app as AppDef["id"] | undefined;
     if (!id) return;
@@ -434,14 +439,14 @@ export class Phone {
       ? life.goals.map((g) => this.goalItem(g, view)).join("")
       : `<li class="app-empty">No goals set yet.</li>`;
     // Retirement readiness changes over the run, so re-check on every open rather than once.
-    this.q<HTMLButtonElement>("[data-retire]").disabled = !retirementReady(life);
+    this.q<HTMLButtonElement>("[data-retire]").disabled = !retirementReady(life, life.goals, view, life.age);
   }
 
   /** Retiring is a one-way action: pause the clock (like the Money desk) and show the final score. */
   private onRetire(): void {
     this.resumeSpeed = this.deps.clock.speed || this.resumeSpeed;
     this.deps.clock.speed = 0;
-    const score = buildEndgameScore(this.deps.player, this.deps.player.age, this.deps.player.today);
+    const score = buildEndgameScore(this.deps.player, Math.floor(this.deps.player.age), this.deps.player.today);
     mountEndgame(document.body, { score });
   }
 

@@ -17,16 +17,17 @@ export interface Story {
 
 export type NewsView = { status: "loading" } | { status: "off" } | { status: "ready"; label: string; stories: Story[] };
 
-/** Sponsor tickers and issuer names the game's own market simulates (sim/market/path.ts's InstrumentId). */
-const MARKET_KEYWORDS = [
-  "stock", "share", "market", "bear market", "bull market", "larp markets",
-  "ltm", "bond", "nnst", "cof", "goog", "gddy", "elvn", "tgdt", "vltr", "bkbd", "prsn",
-];
+/** Multi-word phrases: unambiguous, so plain substring matching is fine. */
+const MARKET_PHRASES = ["stock", "share", "market", "bear market", "bull market", "larp markets"];
+/** Short ticker-style keywords: plain substring matching false-positives inside ordinary words
+ *  ("cof" inside "coffee"), so these match on a word boundary instead. */
+const MARKET_TICKERS = ["ltm", "bond", "nnst", "cof", "goog", "gddy", "elvn", "tgdt", "vltr", "bkbd", "prsn"];
+const MARKET_TICKER_RE = new RegExp(`\\b(?:${MARKET_TICKERS.join("|")})\\b`, "i");
 
 /** True if any of a story's text fields mention the market or one of the game's tradeable instruments — the closest client-side proxy available, since the client Story type carries no category field. */
 export function isStockMarketStory(s: Story): boolean {
   const text = `${s.title} ${s.where} ${s.blurb} ${s.impact}`.toLowerCase();
-  return MARKET_KEYWORDS.some((k) => text.includes(k));
+  return MARKET_PHRASES.some((k) => text.includes(k)) || MARKET_TICKER_RE.test(text);
 }
 
 /** A "ready" view with only stock-market stories; other statuses pass through unchanged. */
@@ -67,7 +68,7 @@ const BILLING_MAIL_KINDS: ReadonlySet<NonNullable<MailItem["kind"]>> = new Set([
 ]);
 
 export function isBillingMail(item: MailItem): boolean {
-  return item.kind === undefined || BILLING_MAIL_KINDS.has(item.kind);
+  return item.kind === undefined || item.decision || BILLING_MAIL_KINDS.has(item.kind);
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);

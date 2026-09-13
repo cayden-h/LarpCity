@@ -45,6 +45,28 @@ test("triggerPulse pushes the named pulse onto the life's pulse list via addPuls
   assert.deepEqual(life.pulses[0], { p0: PULSE_TABLE.vacation.p0, halfLifeDays: PULSE_TABLE.vacation.halfLifeDays, startDay: 5 });
 });
 
+test("a vacation pulse blocks another one for 90 days, so triggering it twice within the window only adds one pulse", async () => {
+  // vacation.ts's goOnVacation also touches the DOM (a pop-up appended to document.body), which
+  // Node's built-in test runner doesn't provide; onVacationCooldown is the DOM-free guard it uses,
+  // exported so the cooldown logic itself tests without stubbing a document.
+  const { onVacationCooldown, VACATION_COOLDOWN_DAYS } = await import("../src/ui/vacation.ts");
+  const life = new PlayerLife({ place: TX, day: 0 });
+
+  // Attempt 1 on day 0: not on cooldown, so it fires.
+  assert.equal(onVacationCooldown(life, 0), false);
+  triggerPulse(life, "vacation", 0);
+  assert.equal(life.pulses.length, 1);
+
+  // Attempt 2, well inside the cooldown: blocked, no second pulse.
+  assert.equal(onVacationCooldown(life, VACATION_COOLDOWN_DAYS - 1), true);
+  assert.equal(life.pulses.length, 1);
+
+  // Attempt 3, once the cooldown has elapsed: fires again.
+  assert.equal(onVacationCooldown(life, VACATION_COOLDOWN_DAYS), false);
+  triggerPulse(life, "vacation", VACATION_COOLDOWN_DAYS);
+  assert.equal(life.pulses.length, 2);
+});
+
 test("the nine factors match their thresholds and research weights", () => {
   assert.equal(work({ employed: true, reemployedDay: null }, 0).s, 1);
   assert.equal(work({ employed: false, reemployedDay: null }, 0).s, 0);

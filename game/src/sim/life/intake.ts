@@ -44,6 +44,8 @@ export const DEFAULT_GOALS: Goal[] = [
   { kind: "debt_free_by_age", targetAge: 45 },
   { kind: "house", downPct: 0.1 },
 ];
+// Assigned directly into PlayerLife.goals by multiple callers; frozen so none of them can mutate the shared array.
+Object.freeze(DEFAULT_GOALS);
 
 /** Caps that keep a typo or a joke answer from breaking the sim. */
 export const INTAKE_LIMITS = { salary: 5_000_000, rent: 50_000, debt: 5_000_000, savings: 10_000_000 } as const;

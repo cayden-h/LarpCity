@@ -52,10 +52,10 @@ export class Hud {
     this.q("[data-who]").textContent = text ? `· ${text}` : "";
   }
 
-  /** Fills the ID card once at boot; name/age/avatar never change after intake. */
+  /** Fills the ID card; name/avatar are fixed at intake, but age advances daily, so this is called again from `clock.onDay`. */
   setPlayer(name: string, age: number, avatar: "male" | "female"): void {
     this.q("[data-player-name]").textContent = name;
-    this.q("[data-player-age]").textContent = `Age ${age}`;
+    this.q("[data-player-age]").textContent = `Age ${Math.floor(age)}`;
     this.q("[data-player-avatar]").textContent = AVATAR_EMOJI[avatar];
   }
 

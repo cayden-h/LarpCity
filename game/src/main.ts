@@ -219,6 +219,7 @@ clock.onDay((day) => {
   const cue = cueForEvents(events);
   if (cue) narrator.cue(cue);
   syncHomeTier();
+  hud.setPlayer(player.name, player.age, player.avatar);
   happiness.update(day);
   town.onDay(day);
   void bank.tick(day);
@@ -299,6 +300,7 @@ function rewindTo(day: number): void {
   // so a save before the desk reports again doesn't bring the discarded days back.
   if (desk) desk = trimDesk(desk, day);
   syncHomeTier();
+  happiness.update(day);
   phone.rewound(day, player.log.filter((e) => e.day === day && player.needsDecision([e])));
 }
 

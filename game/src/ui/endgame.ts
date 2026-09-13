@@ -5,15 +5,23 @@
 
 import { finalScore, type WellbeingLife } from "../sim/wellbeing/index.ts";
 import { retirementReadiness, type RetirementLife } from "../sim/wellbeing/retirement.ts";
+import { isMet } from "../sim/skip/goals.ts";
+import type { Goal, GoalView } from "../sim/skip/types.ts";
 
 /**
  * `retirementReadiness` is built (research/09 3.4) to top out at exactly 100
  * (its four terms — savings 50, credit 20, net worth 15, debt 15 — each clamp
- * to their share and sum to 100 at best). "Fully ready" is therefore the top
- * of its own scale, not an arbitrary cutoff: >= 100.
+ * to their share and sum to 100 at best), but the credit term alone needs an
+ * exact 850 score to max out, which makes >= 100 practically unreachable in
+ * real play. The Retire button instead enables at two independently
+ * sufficient conditions: "fully prepared" lowered to 85 (still demanding on
+ * every term without requiring a perfect credit score), OR the player's own
+ * retirement_age goal (set at intake) being met.
  */
-export function retirementReady(life: RetirementLife): boolean {
-  return retirementReadiness(life) >= 100;
+export function retirementReady(life: RetirementLife, goals: Goal[], view: GoalView, age: number): boolean {
+  if (retirementReadiness(life) >= 85) return true;
+  const retirementGoal = goals.find((g): g is Extract<Goal, { kind: "retirement_age" }> => g.kind === "retirement_age");
+  return retirementGoal ? isMet(retirementGoal, view, age) : false;
 }
 
 export interface EndgameScore {
