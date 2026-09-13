@@ -24,6 +24,8 @@ import type { Inbox } from "../sim/mail/inbox";
 import { INSTRUMENTS, type Instrument, type InstrumentId } from "../sim/market";
 import type { RunRecorder } from "../sim/record";
 import type { DeskState } from "../sim/save/types";
+import { isMet, priceTag, viewOf } from "../sim/skip/goals";
+import type { Goal, GoalView } from "../sim/skip/types";
 
 interface AppDef {
   id: "stocks" | "goals" | "taxes" | "map" | "weather" | "calendar" | "news" | "mail" | "bank";
@@ -45,6 +47,18 @@ const APPS: AppDef[] = [
 ];
 
 /** Real interest rates the game doesn't simulate: shown from the FRED snapshot and labeled as real. */
+/** One title per `Goal["kind"]`, shown in the Goals app; the `Record` keeps this exhaustive as new kinds are added. */
+const GOAL_TITLES: Record<Goal["kind"], string> = {
+  debt_free: "Pay off all debt",
+  emergency_fund: "Emergency fund",
+  net_worth: "Net worth goal",
+  house: "Buy a house",
+  marriage: "Get married",
+  status: "Income goal",
+  retirement_age: "Retire early",
+  debt_free_by_age: "Debt-free by a target age",
+};
+
 const RATES: { id: SeriesId; ticker: string; name: string }[] = [
   { id: "DFF", ticker: "FED", name: "Fed funds rate" },
   { id: "DGS10", ticker: "10Y", name: "10-year Treasury" },
@@ -355,6 +369,15 @@ export class Phone {
             <ul class="app-scroll mail-list" data-mail-list></ul>
           </section>
 
+          <section class="view view-app view-goals" data-view="goals" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">Goals</div><div class="st-sub">Set once, for the whole run</div></div>
+            </header>
+            <ul class="app-scroll goals-list" data-goals-list></ul>
+            <button class="goals-ff-open" data-open-ff>Fast-forward to a goal <span aria-hidden="true">↗</span></button>
+          </section>
+
           <section class="view view-app view-news" data-view="news" hidden>
             <header class="phone-app-head">
               <button class="st-back" data-home aria-label="Back to home">‹</button>
@@ -432,16 +455,39 @@ export class Phone {
     if (btn.dataset.openMap !== undefined) return this.deps.openMap?.();
     if (btn.dataset.mailId) return this.toggleMail(btn.dataset.mailId);
     if (btn.dataset.newsRetry !== undefined) return void this.news.load();
+    if (btn.dataset.openFf !== undefined) return this.deps.openFastForward?.();
     const id = btn.dataset.app as AppDef["id"] | undefined;
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;
     if (!app.ready) return this.toast(`${app.name} is coming soon`);
-    if (id === "goals") return this.deps.openFastForward?.();
     if (id === "taxes") return this.openDesk(undefined, "taxes");
     this.show(id);
     if (id === "mail") this.renderMail();
     if (id === "news") void this.news.load();
     if (id === "bank") void this.bank.load();
+    if (id === "goals") this.renderGoals();
+  }
+
+  /** The Goals app: the 4 permanent goals set once at intake, each with a progress bar. */
+  private renderGoals(): void {
+    const life = this.deps.player;
+    const view = viewOf(life);
+    const list = this.q("[data-goals-list]");
+    list.innerHTML = life.goals.length
+      ? life.goals.map((g) => this.goalItem(g, view)).join("")
+      : `<li class="app-empty">No goals set yet.</li>`;
+  }
+
+  private goalItem(goal: Goal, view: GoalView): string {
+    const life = this.deps.player;
+    const tag = priceTag(goal, view, life.place.name, life.age);
+    const title = GOAL_TITLES[goal.kind];
+    const met = isMet(goal, view, life.age);
+    return `<li class="goals-item${met ? " met" : ""}">
+      <div class="goals-item-title">${title}${met ? " ✓" : ""}</div>
+      <div class="goals-item-text">${tag.text}</div>
+      ${tag.progress === null ? "" : `<div class="ff-meter" role="progressbar" aria-valuenow="${Math.round(tag.progress * 100)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${(tag.progress * 100).toFixed(1)}%"></i></div>`}
+    </li>`;
   }
 
   /**
