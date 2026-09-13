@@ -116,6 +116,39 @@ test("with no run to save under, it reports offline and sends nothing", async ()
   assert.equal(puts.length, 0);
 });
 
+test("a save requested while the run is forking (no runId yet) retries and lands on the new run", async () => {
+  const t = fakeTimers();
+  const { api, puts } = fakeApi();
+  let runId: string | null = null;
+  const m = new SaveManager({ api, build: () => game(4), runId: () => runId, baseRev: null, timers: t.timers });
+  m.request();
+  t.run();
+  await settle();
+  assert.equal(m.status, "offline");
+  assert.equal(puts.length, 0);
+  assert.equal(t.pending.size, 1, "a retry is scheduled instead of dropping the save");
+  runId = "forked";
+  t.run();
+  await settle();
+  assert.equal(m.status, "saved");
+  assert.equal(puts.length, 1);
+  assert.equal(puts[0].runId, "forked");
+  assert.equal(puts[0].gameDay, 4);
+});
+
+test("a manager that is off never writes, not even on the way out", async () => {
+  const t = fakeTimers();
+  const { api, puts, keepalive } = fakeApi();
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: null, timers: t.timers, off: true });
+  assert.equal(m.status, "offline");
+  m.request();
+  await m.flush();
+  m.flushOnUnload();
+  assert.equal(t.pending.size, 0);
+  assert.equal(puts.length, 0);
+  assert.equal(keepalive.length, 0);
+});
+
 test("the hide save uses keepalive only when it fits", () => {
   const t = fakeTimers();
   const { api, keepalive } = fakeApi();

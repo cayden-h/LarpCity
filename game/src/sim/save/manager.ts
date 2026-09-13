@@ -38,6 +38,9 @@ export interface SaveManagerOptions {
   baseRev: number | null;
   timers?: Timers;
   onStatus?: (status: SaveStatus) => void;
+  /** Never write (the player chose to play without saving, or the server couldn't be trusted with
+   *  this life); the status stays "offline". */
+  off?: boolean;
 }
 
 const browserTimers: Timers = { set: (fn, ms) => window.setTimeout(fn, ms), clear: (id) => window.clearTimeout(id) };
@@ -66,6 +69,7 @@ export class SaveManager {
     this.o = o;
     this.rev = o.baseRev;
     this.timers = o.timers ?? browserTimers;
+    if (o.off) this.status = "offline";
   }
 
   /** Save soon; a burst of requests sends one write. */
@@ -109,9 +113,9 @@ export class SaveManager {
     this.o.api.putSaveKeepalive(json);
   }
 
-  /** Once a conflict or failure has landed, request()/flush() become no-ops. */
+  /** Once a conflict or failure has landed, or when saving is off, request()/flush() become no-ops. */
   private done(): boolean {
-    return this.status === "conflict" || this.status === "failed";
+    return this.o.off === true || this.status === "conflict" || this.status === "failed";
   }
 
   private body(): SavePut | null {
@@ -131,7 +135,12 @@ export class SaveManager {
 
   private async write(): Promise<void> {
     const body = this.body();
-    if (!body) return this.setStatus("offline");
+    if (!body) {
+      // No run yet (recording is starting, or a rewind is forking it): try again later rather than drop the save.
+      this.setStatus("offline");
+      this.schedule(Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** this.failures++));
+      return;
+    }
     const mark = this.dirtyMark;
     this.setStatus("saving");
     try {

@@ -15,6 +15,7 @@ import { BankSync } from "./sim/mirror";
 import { NpcTown } from "./sim/npcs";
 import { RunRecorder } from "./sim/record";
 import { LifeTimeline } from "./sim/rewind";
+import { bootPath, fetchMe, resumePlace } from "./sim/save/boot";
 import { saveApi } from "./sim/save/client";
 import { encodeGame, parseSave, restoreGame, SaveFormatError, type RestoredGame } from "./sim/save/codec";
 import { trimDesk } from "./sim/save/desk";
@@ -54,42 +55,71 @@ const stateFor = (h: string) => STATES.find((s) => s.abbr === h.toUpperCase()) ?
 const fromHash = () => stateFor(location.hash.slice(1));
 const TX = STATES.find((s) => s.abbr === "TX")!;
 
-// Who this is and where they left off (server/src/routes/save.ts); null when the server is down,
-// in which case the player gets a fresh life that isn't saved (the HUD says so).
+// Who this is and where they left off (server/src/routes/save.ts), retried through a blip. A /me
+// that still fails is never taken as "no save" (sim/save/boot.ts): the player picks between trying
+// again and a fresh life that is never saved, so their real profile and save are left alone.
 const saves = saveApi();
-const me = await saves.me().catch(() => null);
+const meResult = await fetchMe(() => saves.me(), { tries: 3, delayMs: 800 });
 // ?intake=1 starts a new life over the save (the save manager then overwrites it).
+let path = bootPath(meResult, { intake: params.get("intake") === "1" });
+const me = meResult.ok ? meResult.me : null;
+/** Whether this life may be written to the server (its profile and its save). */
+let saving = path !== "offline";
+if (path === "offline") {
+  const choice = await showNotice({
+    title: "Can't reach Larp City's server",
+    body: "Your saved life is safe, but it can't be loaded right now. Try again in a moment, or play a new life that won't be saved.",
+    actions: ["Try again", "Play without saving"],
+  });
+  if (choice === 0) {
+    location.reload();
+    await new Promise(() => undefined);
+  }
+}
+
 let saved: GameSave | null = null;
 let restored: RestoredGame | null = null;
-if (me?.save && params.get("intake") !== "1") {
+/** A resumed game's state (its rent depends on it) and the city it was showing inside that state. */
+let resumed: { home: StateInfo; city: StateInfo } | null = null;
+if (path === "resume" && me?.save) {
   try {
     saved = parseSave(me.save.state);
+    resumed = resumePlace(saved.life.place?.abbr, saved.hash, STATES, stateFor);
+    if (!resumed) throw new SaveFormatError(`the saved state ${saved.life.place?.abbr} doesn't exist`);
     // Decoded whole before anything live is built, so a bad save can't half-load (sim/save/codec.ts).
-    restored = restoreGame(saved, { market: new MarketPath(saved.seed, clock.start), place: stateFor(saved.hash) ?? TX, start: clock.start });
+    restored = restoreGame(saved, { market: new MarketPath(saved.seed, clock.start), place: resumed.home, start: clock.start });
   } catch (err) {
     if (!(err instanceof SaveFormatError)) throw err;
     console.warn("[save] can't load the saved game:", err.message);
     await showNotice({
       title: "A save this version can't load",
       body: "This life was saved by a different version of Larp City, or the save is damaged, so it can't be loaded here.",
-      action: "Start a new life",
+      actions: ["Start a new life"],
     });
-    await saves.deleteSave().catch(() => undefined);
-    saved = restored = null;
+    // If the old save can't be deleted, every write of the new life would 409 against it: play unsaved instead.
+    if (!(await saves.deleteSave().then(() => true, () => false))) saving = false;
+    saved = restored = resumed = null;
     me.save = null;
     me.profile = null;
+    path = "intake";
   }
 }
 
 // A saved game goes back where the player was. Otherwise start where the link points, so the
 // rent the player states belongs to that state, or in their profile's state.
-let state: StateInfo =
-  (saved ? stateFor(saved.hash) : undefined) ?? fromHash() ?? STATES.find((s) => s.abbr === me?.profile?.state) ?? TX;
-if (saved?.hash) history.replaceState(null, "", `#${saved.hash}`);
+let state: StateInfo = resumed?.city ?? fromHash() ?? STATES.find((s) => s.abbr === me?.profile?.state) ?? TX;
 
 // The run's seed: the market path and every random draw hang off it (?seed= to replay one).
 const seed = saved?.seed ?? (Number(params.get("seed")) || 20260912);
 const market = restored?.life.market ?? new MarketPath(seed, clock.start);
+// Read once: a reload (another tab's conflict, the back/forward cache) must not start the intake over
+// the save again, and a resumed game's seed is its own.
+if (params.has("intake") || (saved && params.has("seed"))) {
+  const url = new URL(location.href);
+  url.searchParams.delete("intake");
+  if (saved) url.searchParams.delete("seed");
+  history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+}
 
 // The player's money life: paychecks, rent for the current state, and the debt engine run once
 // per game day (research/07-debt-system-design.md), with a starter portfolio on the seeded market.
@@ -99,15 +129,16 @@ let player: PlayerLife;
 if (saved && restored) {
   clock.jumpTo(saved.day);
   player = restored.life;
-  player.place = state;
+  // The saved state itself (same abbr, so the rent doesn't change), not the city picked inside it.
+  player.place = resumed!.home;
 } else {
-  let profile = me?.profile ?? null;
-  if (!profile || params.get("intake") === "1") {
+  let profile = path === "fromProfile" ? (me?.profile ?? null) : null;
+  if (!profile) {
     const r = await runIntake({ backdrop: `${import.meta.env.BASE_URL}cities/${state.cityId}/plates/day.jpg` });
     const p = profileFromIntake(r.answers, r.source, state.abbr);
     profile = { ...p, displayName: null };
-    // With the server down this is lost and the next visit asks again, like the save itself.
-    void saves.putProfile(p).catch(() => undefined);
+    // Played without saving, the real profile on the server must stay as it is.
+    if (saving) void saves.putProfile(p).catch(() => undefined);
   }
   const answers = answersFromProfile(profile);
   player = answers
@@ -199,6 +230,8 @@ const npcCard = new NpcCard(document.getElementById("npc")!);
 const SKIP_STEPS = 60;
 
 function stopSkip(): void {
+  // A time-lapse that was running is a lot of days to lose: save where it ended.
+  if (skipTimer) saver.request();
   clearInterval(skipTimer);
   skipTimer = 0;
   clock.skipping = false;
@@ -226,13 +259,16 @@ function rewindTo(day: number): void {
   town.rewind(day);
   mail.rewind(day);
   bank.rewind(day);
-  void recorder.rewind(day);
+  // The rewound game saves onto the forked run, so wait for the fork to answer (sim/record).
+  void recorder
+    .rewind(day)
+    .catch(() => undefined)
+    .then(() => saver.request());
   // The desk trims its own lists when it hears about the rewind; trim the city's copy of them too,
   // so a save before the desk reports again doesn't bring the discarded days back.
   if (desk) desk = trimDesk(desk, day);
   syncHomeTier();
   phone.rewound(day, player.log.filter((e) => e.day === day && player.needsDecision([e])));
-  saver.request();
 }
 
 const hud = new Hud(document.getElementById("hud")!, {
@@ -323,17 +359,21 @@ const saver = new SaveManager({
   runId: () => recorder.runId,
   // ?intake=1 over an existing save overwrites it rather than conflicting with it.
   baseRev: me?.save?.rev ?? null,
+  off: !saving,
   onStatus: (s) => {
     hud.setSave(s);
     if (s !== "conflict") return;
+    stopSkip();
     clock.speed = 0;
     void showNotice({
       title: "Playing somewhere else",
       body: "This life is open in another tab, so this one stopped saving. Reload to carry on from there.",
-      action: "Reload",
+      actions: ["Reload"],
     }).then(() => location.reload());
   },
 });
+// Played without saving: the HUD says so from the start.
+hud.setSave(saver.status);
 hud.setWho(player.job);
 void recorder.begin().then(() => saver.request());
 document.addEventListener("visibilitychange", () => {

@@ -899,3 +899,4 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 }
 .notice-card h2 { margin: 0 0 10px; font-size: 24px; line-height: 1.1; }
 .notice-card p { margin: 0 0 18px; font-size: 17px; line-height: 1.4; }
+.notice-actions { display: flex; flex-wrap: wrap; gap: 10px; }
