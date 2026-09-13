@@ -337,7 +337,12 @@ def stucco_row(w, d, floors, seed, variant=0, color=None, lit=0.6):
         beam("arch-right", ((dx0 + dx1) / 2, yf - 0.02, px(10) + FZ * 0.9), (dx1 + 0.025, yf - 0.02, px(10) + FZ * 0.78), 0.02, m["trim"])
         hip("roof", x0, yf, x1, yb, top, px(14), m["tile"], over=0.0)
         return top + px(14)
-    box("parapet", x0, yf, top, x1, yb, top + px(5), m["stucco"])
+    # A parapet ring around a tar roof, so the wall tint stops at the coping instead of painting the whole top.
+    t = 0.05
+    for name, bx in (("parapet-front", (x0, yf, x1, yf + t)), ("parapet-back", (x0, yb - t, x1, yb)),
+                     ("parapet-left", (x0, yf + t, x0 + t, yb - t)), ("parapet-right", (x1 - t, yf + t, x1, yb - t))):
+        box(name, bx[0], bx[1], top, bx[2], bx[3], top + px(5), m["stucco"])
+    box("roof", x0 + t, yf + t, top, x1 - t, yb - t, top + px(2), m["tar"])
     box("planter", 0.12, yf - 0.06, FZ * 1.05, 0.88, yf, FZ * 1.18, m["hedge"])
     return top + px(5)
 

@@ -371,21 +371,49 @@ def build_palette(images, n: int, ink: bool = True, snap: bool = False) -> list:
     return seen[:n]
 
 
+# Three reserved green tones cover sunlit lawn, shaded grass, and darker hedges.
+# This is a color-family heuristic: the face IDs do not identify material semantics.
+VEGETATION_COLORS = 3
+VEGETATION_GREEN_MARGIN = 12
+
+
 def build_day_palette(images, signs, n: int, n_sign: int) -> list:
-    """The day palette: n_sign of its n colors are cut from the sign pixels alone (signs: one bool mask per
-    image of the pixels whose colors matter beyond their area: signs, and glass lit by day), the rest from
-    everything else, with INK last. Brand colors cover little area next to walls and
-    glass, so a shared median cut spends every color on the buildings and remaps a sign's red to brown. The sign
-    colors are snapped (build_palette), so a brand color stays itself instead of averaging with its blends. Sign
-    slots the signs do not need (fewer distinct colors than n_sign) go back to the buildings. With no sign
-    pixels at all it is build_palette(images, n)."""
-    if not any(m.any() for m in signs):
+    """Allocate sign and vegetation colors before the area-weighted building palette.
+
+    Sign masks include lit shop glass and take priority over green surface detection.
+    Up to VEGETATION_COLORS green-dominant, opaque, non-sign colors survive even when
+    lawns cover very little of a tower-heavy city's pixels. Reserved colors snap to
+    actual source shades; unused slots return to buildings. INK is unique and last,
+    and every reservation comes out of n, never on top of it.
+    """
+    if n < 2 or n_sign < 0:
+        raise ValueError("day palette needs n >= 2 and n_sign >= 0")
+    if len(images) != len(signs):
+        raise ValueError("each day image needs a sign mask")
+    sign_masks = [m & opaque(im) for im, m in zip(images, signs)]
+    green_masks = []
+    for im, sign in zip(images, sign_masks):
+        rgb = im[..., :3].astype(np.int16)
+        green_masks.append(opaque(im) & ~sign &
+                           (rgb[..., 1] > np.maximum(rgb[..., 0], rgb[..., 2]) + VEGETATION_GREEN_MARGIN))
+    if not any(m.any() for m in sign_masks + green_masks):
         return build_palette(images, n)
-    rest = [np.where(m[..., None], 0, im) for im, m in zip(images, signs)]
-    only = [np.where(m[..., None], im, 0) for im, m in zip(images, signs)]
-    sign = build_palette(only, n_sign, ink=False, snap=True)
-    base = build_palette(rest, n - len(sign)) if any(opaque(im).any() for im in rest) else [INK]
-    return base[:-1] + [c for c in sign if c not in base] + [INK]
+    sign_slots = min(n_sign, n - 2)  # retain room for a building color and ink
+    sign_colors = []
+    if sign_slots and any(m.any() for m in sign_masks):
+        only = [np.where(m[..., None], im, 0) for im, m in zip(images, sign_masks)]
+        sign_colors = build_palette(only, sign_slots, ink=False, snap=True)
+    green_slots = min(VEGETATION_COLORS, n - len(sign_colors) - 2)
+    green_colors = []
+    if green_slots and any(m.any() for m in green_masks):
+        only = [np.where(m[..., None], im, 0) for im, m in zip(images, green_masks)]
+        green_colors = build_palette(only, green_slots, ink=False, snap=True)
+    reserved = list(dict.fromkeys(c for c in sign_colors + green_colors if c != INK))
+    # Only remove families whose colors were actually reserved (small budgets may skip one).
+    rest = [np.where(((sm if sign_colors else False) | (gm if green_colors else False))[..., None], 0, im)
+            for im, sm, gm in zip(images, sign_masks, green_masks)] if reserved else images
+    base = build_palette(rest, n - len(reserved)) if any(opaque(im).any() for im in rest) else [INK]
+    return base[:-1] + [c for c in reserved if c not in base] + [INK]
 
 
 def sign_misfit(images, signs, palette) -> float:

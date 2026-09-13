@@ -149,6 +149,31 @@ def check_studio_light():
     assert luminous == ["home-window"], ("studio must have one lit window only", luminous)
 
 
+def check_tent():
+    from mathutils.bvhtree import BVHTree
+
+    tent = bpy.data.objects["tent"]
+    b = bounds(tent)
+    assert (b[0][1] - b[0][0]) / (b[2][1] - b[2][0]) > 1.6, "tent must be wider than it is tall"
+    assert {"tarp", "cart-base", "stool", "lantern", "bags"} <= {ob.name for ob in meshes()}
+    for ob in meshes():
+        ob_bounds = bounds(ob)
+        assert ob_bounds[0][0] >= -1e-6 and ob_bounds[0][1] <= 1 + 1e-6, ob.name
+        assert ob_bounds[1][0] >= -1 - 1e-6 and ob_bounds[1][1] <= 1e-6, ob.name
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    shell = BVHTree.FromObject(tent, depsgraph)
+    props = [ob for ob in meshes() if ob.name.startswith(("cart-", "basket-", "stool", "lantern", "bags"))]
+    for prop in props:
+        assert not shell.overlap(BVHTree.FromObject(prop, depsgraph)), ("tent intersects prop", prop.name)
+    # Sample either side of the central zipper, where the old raised flap could be hidden.
+    for x in (0.4, 0.44):
+        origin = Vector((x, -1, houses.px(7)))
+        hit, _, _, index, ob, _ = bpy.context.scene.ray_cast(depsgraph, origin, Vector((0, 1, 0)))
+        assert hit and ob.name == "tent-door", "doorway must be unobstructed and have a separate pixel ID"
+        mat = ob.data.materials[ob.data.polygons[index].material_index]
+        assert mat.name == "tent-door", "doorway must show its dark material"
+
+
 def check_model(label, builder, args, opts):
     clear()
     peak = builder(*args, **opts)
@@ -164,6 +189,8 @@ def check_model(label, builder, args, opts):
         check_rear_entrance()
     if label == "home-1":
         check_studio_light()
+    if label == "home-0":
+        check_tent()
     before = fingerprint()
     clear()
     builder(*args, **opts)

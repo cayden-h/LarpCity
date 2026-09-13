@@ -38,28 +38,38 @@ def home_tent(w, d, floors, seed):
     box("dirt", 0.18, -0.84, 0, 0.84, -0.2, px(1.5), M.flat("dirt", (0.52, 0.42, 0.3, 1), rough=1.0))
     canvas = M.flat("tent", (0.9, 0.48, 0.16, 1), rough=0.8)
     seam = M.flat("tent-seam", (0.5, 0.24, 0.12, 1), rough=0.9)
-    # Three curved rings and one apex form a dome, with no coincident pole vertices.
+    opening = M.flat("tent-door", (0.045, 0.035, 0.03, 1), rough=1.0)
+    # A low, broad oval dome leaves the foreground stool/lantern and rear cart clear.
+    # The doorway follows the shell but gets its own object ID for the pixel pass.
     verts = []
-    for radius, z in ((0.26, px(1.5)), (0.245, px(10)), (0.16, px(19))):
-        verts.extend((0.44 + radius * math.cos(math.tau * i / 12),
-                      -0.54 + radius * math.sin(math.tau * i / 12), z) for i in range(12))
-    verts.append((0.44, -0.54, px(23)))
+    for radius, z in ((1.0, px(2)), (0.9, px(6)), (0.55, px(10))):
+        verts.extend((0.4 + 0.30 * radius * math.cos(math.tau * i / 12),
+                      -0.5 + 0.19 * radius * math.sin(math.tau * i / 12), z) for i in range(12))
+    verts.append((0.4, -0.5, px(13)))
     faces = [tuple(reversed(range(12)))]
+    doorway = []
     for ring in range(2):
         for i in range(12):
             j = (i + 1) % 12
             faces.append((ring * 12 + i, ring * 12 + j, (ring + 1) * 12 + j, (ring + 1) * 12 + i))
+            if i in (8, 9):
+                doorway.append(faces[-1])
     faces.extend((24 + i, 24 + (i + 1) % 12, 36) for i in range(12))
     _mesh("tent", verts, faces, [canvas])
+    indices = sorted({i for face in doorway for i in face})
+    remap = {old: new for new, old in enumerate(indices)}
+    front = [(verts[i][0], verts[i][1] - 0.012, verts[i][2]) for i in indices]
+    n = len(front)
+    door_faces = [tuple(remap[i] for i in face) for face in doorway]
+    edges = [(face[i], face[(i + 1) % len(face)]) for face in door_faces for i in range(len(face))]
+    boundary = [(a, b) for a, b in edges if (b, a) not in edges]
+    closed = door_faces + [tuple(i + n for i in reversed(face)) for face in door_faces]
+    closed.extend((a, b, b + n, a + n) for a, b in boundary)
+    _mesh("tent-door", front + [(x, y + 0.006, z) for x, y, z in front], closed, [opening])
     for i in (0, 3, 6, 9):
         for ring in range(2):
             beam(f"tent-rib{i}-{ring}", verts[ring * 12 + i], verts[(ring + 1) * 12 + i], 0.012, seam)
         beam(f"tent-rib{i}-top", verts[24 + i], verts[36], 0.012, seam)
-    flap = [(0.36, -0.785, px(2)), (0.52, -0.785, px(2)),
-            (0.49, -0.758, px(10)), (0.44, -0.707, px(18)), (0.39, -0.758, px(10))]
-    # Closed thin shell over the front of the dome: a dark zippered opening.
-    _mesh("tent-door", flap + [(x, y + 0.012, z) for x, y, z in flap],
-          [(4, 3, 2, 1, 0), (5, 6, 7, 8, 9)] + [(i, (i + 1) % 5, (i + 1) % 5 + 5, i + 5) for i in range(5)], [seam])
     box("tarp", 0.16, -0.82, px(1.5), 0.72, -0.24, px(2), M.flat("tarp", (0.2, 0.4, 0.62, 1), rough=0.7))
     box("cart-base", 0.64, -0.38, px(3), 0.84, -0.22, px(4), m["metal"])
     for x in (0.64, 0.83):
@@ -81,7 +91,7 @@ def home_tent(w, d, floors, seed):
         beam(f"stool-leg{y}a", (0.22, y, 0), (0.3, y, px(4)), 0.014, m["metal"])
         beam(f"stool-leg{y}b", (0.3, y, 0), (0.22, y, px(4)), 0.014, m["metal"])
     box("lantern", 0.34, -0.84, 0, 0.38, -0.8, px(5), m["lamp"])
-    return px(24)
+    return px(14)  # the cart's belongings now stand just above the low dome
 
 
 @_inset
