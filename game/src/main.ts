@@ -306,6 +306,7 @@ const hud = new Hud(document.getElementById("hud")!, {
   tier: (delta) => scene?.hero?.setTier(scene.hero.tier + delta),
   focusHome: () => scene?.focusHome(),
 });
+hud.setPlayer(player.name, player.age, player.avatar);
 
 const happiness = mountHappinessMeter(document.getElementById("happiness")!, { life: player });
 
