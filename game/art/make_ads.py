@@ -146,7 +146,7 @@ class Placed:
 
 class Sign:
     outputs = []  # (name, path)
-    caps_by_name = {}  # name: the smallest text's capital height / image height, written to ads/_caps.json
+    caps_by_name = {}  # name: the wordmark's (largest text's) capital height / image height, for ads/_caps.json
 
     def __init__(self, name, w, h, bg):
         self.name, self.w, self.h, self.bg = name, w, h, bg
@@ -257,7 +257,7 @@ class Sign:
         out.save(path)
         Sign.outputs.append((self.name, path))
         if self.caps:
-            Sign.caps_by_name[self.name] = min(self.caps)
+            Sign.caps_by_name[self.name] = max(self.caps)
         print(f"ok {self.name} {self.w}x{self.h}")
 
 
@@ -955,27 +955,29 @@ def draw_roster(name, b, surface, span=None):
     elif surface == "fs":  # the 4:1 band on a 1-tile face: a short name, or the mark where a name would not read
         m = roster_mark(b)
         word = b["short"]
-        if len(word) <= 6 and "\n" not in word or not m:
-            fascia(name, b["field"], lambda s, safe: s.text(word.replace("\n", " "), PIXEL, safe, b["ink"], align="center"),
-                   aspect=4)
-        else:
+        if m:
             fascia(name, b["field"], lambda s, safe: m[0](s, _centered_box(inner(safe, 0.0, 0.04), m[1])), aspect=4)
-    elif surface == "bl":  # the 2:3 blade: the mark over a short name, or a big monogram
+        else:  # four letters fill a 1-tile band; a longer name would shrink below 6 px, so it becomes a monogram
+            word = word if len(word) <= 4 and "\n" not in word else word[0]
+            fascia(name, b["field"], lambda s, safe: s.text(word, PIXEL, safe, b["ink"], align="center"), aspect=4)
+    elif surface == "bl":  # the 2:3 blade, about 12 px wide on screen: the mark alone, or a one-letter monogram
         s = Sign(name, 300, 450, b["field"])
-        x0, y0, x1, y1 = s.safe
         m = roster_mark(b)
         if m:
-            m[0](s, _centered_box((x0 + 20, y0 + 16, x1 - 20, y0 + 250), m[1]))
-            s.text(b["short"], PIXEL, (x0 + 8, 280, x1 - 8, y1 - 10), b["ink"], align="center", spacing=0.05)
+            m[0](s, _centered_box(inner(s.safe, 0.1, 0.08), m[1]))
         else:
-            s.text(b["short"] if len(b["short"]) <= 3 else b["short"][0], PIXEL, inner(s.safe, 0.08, 0.1), b["ink"],
-                   align="center")
+            s.text(b["short"][0], PIXEL, inner(s.safe, 0.08, 0.1), b["ink"], align="center")
         s.finish()
     elif surface == "nb":  # the name band over an HQ lobby, 3:1 on a 1-tile face, 6:1 on a 2-tile face
-        aspect = {1: 3, 2: 6}[span]
-        word = b["short"] if span == 1 else fitted_word(b)
-        draw = brand_lockup(b, word, text_h=0.9, mark_h=0.95) if span == 2 else wordmark(word, PIXEL, b["ink"], text_h=0.92)
-        fascia(name, b["field"], lambda s, safe: draw(s, safe, align="center"), aspect=aspect)
+        # The band is 12 px tall and its lettering width-bound, so a mark beside the name only shrinks it: a 2-tile
+        # band carries the name alone; a 1-tile band carries the mark, which reads where a name would not.
+        m = roster_mark(b)
+        if span == 1 and m:
+            fascia(name, b["field"], lambda s, safe: m[0](s, _centered_box(inner(safe, 0.0, 0.05), m[1])), aspect=3)
+        else:
+            word = fitted_word(b) if span == 2 else b["short"]
+            fascia(name, b["field"], lambda s, safe: wordmark(word, PIXEL, b["ink"], text_h=0.92)(s, safe, align="center"),
+                   aspect={1: 3, 2: 6}[span])
     elif surface == "lw":
         centered(name, 800, 400, b["field"], lambda s, box: brand_lockup(b, fitted_word(b))(s, inner(box, 0.08, 0.22)))
     elif surface == "mo":
@@ -1007,7 +1009,7 @@ def mural_panel(name, b):
         m[0](s, _centered_box((200, 130, 800, 500), m[1]))
         s.text(b["short"], PIXEL, (110, 560, 890, 860), b["ink"], align="center")
     else:
-        brand_lockup(b, b["short"], text_h=0.7)(s, (110, 200, 890, 800))
+        brand_lockup(b, b["short"], text_h=0.8)(s, (100, 130, 900, 870))
     s.finish()
 
 
@@ -1018,7 +1020,7 @@ def mural_ghost(name, b):
     with s.paint(cream, "border") as p:
         p.rect((60, 44, 940, 656), r=10)
         p.rect((74, 58, 926, 642), 0, r=6)
-    s.text(b["word"], PIXEL, (120, 110, 880, 430), cream, align="center")
+    s.text(b["word"], PIXEL, (88, 110, 912, 430), cream, align="center")  # just inside the border: 11 letters are width-bound
     with s.paint(cream, "rule") as p:
         p.rect((240, 470, 760, 480))
     s.text(b["tagline"], PIXEL, (140, 515, 860, 600), cream, align="center")

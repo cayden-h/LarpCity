@@ -1,7 +1,7 @@
 """End-to-end tests of art/pixelize.py on a synthetic raw render. Run from game/:  python3 -m unittest discover -s art/tests -v"""
-import colorsys
 import contextlib
 import io
+import itertools
 import json
 import os
 import sys
@@ -49,13 +49,15 @@ class SignColors(unittest.TestCase):
     def test_warns_when_signs_need_more_colors_than_are_reserved(self):
         # a sign in far more distinct brand colors than SIGN_COLORS: the palette build says so instead of
         # quietly remapping the brand colors the median cut had no room for
+        # 64 colors on a 4 x 4 x 4 grid of the RGB cube are all at least 85 apart, so however many of them the
+        # SIGN_COLORS slots hold (fewer than 64), the rest land far from every palette color.
         layers, entry = building("rainbow")
-        n = pixelize.SIGN_COLORS * 2
-        for i in range(n):
-            r, g, b = colorsys.hsv_to_rgb(i / n, 1.0, 1.0)
+        assert pixelize.SIGN_COLORS < 64
+        levels = (0, 85, 170, 255)
+        for i, (r, g, b) in enumerate(itertools.product(levels, repeat=3)):
             x = 2 * S + (i % 8) * S
             y = 4 * S + (i // 8) * S
-            layers["day"][y:y + S, x:x + S] = (round(r * 255), round(g * 255), round(b * 255), 255)
+            layers["day"][y:y + S, x:x + S] = (r, g, b, 255)
             layers["ids"][y:y + S, x:x + S] = (*P.sign_id(0), 255)
         with tempfile.TemporaryDirectory() as tmp:
             art, public = Path(tmp) / "art", Path(tmp) / "public"

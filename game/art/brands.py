@@ -121,7 +121,7 @@ BRANDS = [
     brand("solana", "Solana", "SOLANA", "#141414", "#FFFFFF", ("bars", "#9945FF", "#14F195"), sponsor=True),
     brand("gemini", "Gemini", "Gemini", "#FFFFFF", "#3C6FE0", ("sparkle", "#3C6FE0", "#9B72CB"), sponsor=True,
           places=[bulletin(1, 2, 3, 82, face="+X")]),
-    brand("backboard", "Backboard", "Backboard", "#0F3D2E", "#FFFFFF", ("board", "#FFFFFF", "#F2C14E"), sponsor=True,
+    brand("backboard", "Backboard", "Backboard", "#0F3D2E", "#FFFFFF", sponsor=True,
           short="BACKBOARD", places=[wall_board("concrete_office", 1, 2, 6, 83)]),
     brand("godaddy", "GoDaddy Registry", "GoDaddy", "#FFFFFF", "#111111", ("underline", "#1BDBDB"), sponsor=True,
           places=[mural(1, 2, 4, 84)]),
@@ -145,10 +145,10 @@ BRANDS = [
     brand("lyft", "Lyft", "lyft", "#FF00BF", "#FFFFFF"),
     brand("doordash", "DoorDash", "DOORDASH", "#FF3008", "#FFFFFF", ("dash", "#FFFFFF"),
           places=[bulletin(1, 2, 4, 93, face="+X")]),
-    brand("ghirardelli", "Ghirardelli", "GHIRARDELLI", "#EFE4CF", "#EFE4CF",
-          tagline="CHOCOLATE · SAN FRANCISCO", places=[mural(1, 2, 5, 94, style="ghost", aspect=1000 / 700)]),
+    brand("ghirardelli", "Ghirardelli", "GHIRARDELLI", "#4A2C21", "#EFE4CF", short="GHIRAR-\nDELLI",
+          places=[mural(1, 2, 5, 94)]),
     brand("blue-bottle", "Blue Bottle Coffee", "BLUE BOTTLE", "#FFFFFF", "#1F8FD6", ("bottle", "#1F8FD6"),
-          short="BLUE\nBOTTLE", places=[shop(1, 1, 3, 95, area="embarcadero")]),
+          short="BLUE\nBOTTLE", places=[shop(1, 2, 3, 95, area="embarcadero")]),
     brand("gap", "Gap", "GAP", "#002664", "#FFFFFF", places=[shop(1, 2, 3, 96)]),
 ]
 

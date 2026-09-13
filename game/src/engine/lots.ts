@@ -142,7 +142,8 @@ export function planLots(grid: CityGrid, city: CityDef, seed: number, manifest: 
 }
 
 /**
- * Every branded building first, in catalog order, each on the best free lot
+ * Every branded building first, the hardest to fit first (biggest footprint,
+ * then tallest, then catalog order), each on the best free lot
  * of its footprint in one of its zones under the sightline cap: inside its
  * area (CityDef.areas), else in its zone's core, else anywhere in the zone,
  * ties broken by the seeded RNG. So every brand appears whenever its
@@ -156,8 +157,9 @@ function brandLots(grid: CityGrid, city: CityDef, seed: number, manifest: Sprite
       if (grid.at(i, j) !== "b" || taken.has(`${i},${j}`)) return false;
     return true;
   };
-  for (const e of manifest.sprites) {
-    if (!e.unique || (e.kind && e.kind !== "building")) continue;
+  const brands = manifest.sprites.filter((e) => e.unique && (!e.kind || e.kind === "building"))
+    .map((e, i) => ({ e, i })).sort((a, b) => b.e.w * b.e.d - a.e.w * a.e.d || b.e.floors - a.e.floors || a.i - b.i).map(({ e }) => e);
+  for (const e of brands) {
     const area = e.area ? city.areas?.find((a) => a.id === e.area) : undefined;
     let best: { x: number; y: number; zone: ZoneKind } | null = null;
     let bestKey = Infinity;

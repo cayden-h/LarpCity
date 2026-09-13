@@ -18,7 +18,7 @@ test('shipped SF catalog includes 16 complete four-facing house models', () => {
   assert.equal(m.scale, 1);
   const houses = m.sprites.filter(e => e.style);
   assert.equal(houses.length, 64);
-  assert.equal(m.sprites.filter(e => !e.style).length, 43);
+  assert.equal(m.sprites.filter(e => !e.style).length, 61); // 2 landmarks, 43 branded entries (33 buildings, 4 freeway V boards, 6 shelters), 16 generic buildings
   const groups = Map.groupBy(houses, e => e.id.slice(0, -2));
   assert.equal(groups.size, 16);
   for (const [id, entries] of groups) {
