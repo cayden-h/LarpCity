@@ -111,6 +111,9 @@ interface Piece {
   road: RoadDef;
   a: P;
   b: P;
+  /** The ends as the road drew them, before junctions snapped them; junctions are found against these. */
+  a0: P;
+  b0: P;
   horiz: boolean;
   hw: number;
   stops: Stop[];
@@ -166,7 +169,7 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
       const [ax, ay] = road.path[k], [bx, by] = road.path[k + 1];
       if (ax === bx && ay === by) continue;
       pieces.push({
-        road, a: { x: ax, y: ay }, b: { x: bx, y: by }, horiz: ay === by, hw, stops: [],
+        road, a: { x: ax, y: ay }, b: { x: bx, y: by }, a0: { x: ax, y: ay }, b0: { x: bx, y: by }, horiz: ay === by, hw, stops: [],
         edgeA: k === 0 && !!road.edge?.[0], edgeB: k + 2 === road.path.length && !!road.edge?.[1],
       });
     }
@@ -174,6 +177,10 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
   const along = (pc: Piece, p: P) => (pc.horiz ? p.x : p.y);
   const lo = (pc: Piece) => Math.min(along(pc, pc.a), along(pc, pc.b));
   const hi = (pc: Piece) => Math.max(along(pc, pc.a), along(pc, pc.b));
+  // Original extents: whether two pieces meet must not depend on the order
+  // earlier junctions snapped their ends in.
+  const olo = (pc: Piece) => Math.min(along(pc, pc.a0), along(pc, pc.b0));
+  const ohi = (pc: Piece) => Math.max(along(pc, pc.a0), along(pc, pc.b0));
   /** Move the piece end nearest v (an along-axis coordinate) out or in to v. */
   const snapEnd = (pc: Piece, v: number) => {
     if (v >= lo(pc) && v <= hi(pc)) return;
@@ -183,6 +190,13 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
     else e.y = v;
   };
   const tOf = (pc: Piece, p: P) => dist(pc.a, p);
+  /** Whether along-axis coordinate v is within reach of a ramp piece's highway end. */
+  const atRampHighwayEnd = (pc: Piece, v: number, reachHw: number) => {
+    const road = pc.road;
+    if (road.cls !== "ramp" || !road.ramp) return false;
+    const [ex, ey] = road.ramp === "off" ? road.path[0] : road.path[road.path.length - 1];
+    return Math.abs((pc.horiz ? ex : ey) - v) <= reachHw + 0.51;
+  };
 
   // 2. Junctions between pieces.
   const pending: { pc: Piece; p: P; merge?: boolean }[] = [];
@@ -194,11 +208,13 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
         const H = A.horiz ? A : B, V = A.horiz ? B : A;
         const x = V.a.x, y = H.a.y;
         const eH = V.hw + 0.51, eV = H.hw + 0.51;
-        if (x < lo(H) - eH || x > hi(H) + eH || y < lo(V) - eV || y > hi(V) + eV) continue;
-        const through = (pc: Piece, v: number) => v > lo(pc) + 0.51 && v < hi(pc) - 0.51;
+        if (x < olo(H) - eH || x > ohi(H) + eH || y < olo(V) - eV || y > ohi(V) + eV) continue;
+        const through = (pc: Piece, v: number) => v > olo(pc) + 0.51 && v < ohi(pc) - 0.51;
         const hwyH = isHwy(H.road), hwyV = isHwy(V.road);
         if (hwyH !== hwyV) continue; // overpass, or a street dead-ending beside a highway
         if (hwyH && hwyV && through(H, x) && through(V, y)) continue; // highways cross on a flyover
+        // A ramp's highway end joins only the highway, never a street that passes close by.
+        if (atRampHighwayEnd(H, x, V.hw) || atRampHighwayEnd(V, y, H.hw)) continue;
         snapEnd(H, x);
         snapEnd(V, y);
         const p = { x, y };
@@ -209,10 +225,10 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
       const gapAcross = Math.abs(across(A) - across(B));
       if (gapAcross < 0.01) {
         // Collinear: join ends at most one tile apart.
-        const [first, second] = lo(A) <= lo(B) ? [A, B] : [B, A];
-        const gap = lo(second) - hi(first);
+        const [first, second] = olo(A) <= olo(B) ? [A, B] : [B, A];
+        const gap = olo(second) - ohi(first);
         if (gap < -0.01 || gap > 1.01) continue;
-        const v = (hi(first) + lo(second)) / 2;
+        const v = (ohi(first) + olo(second)) / 2;
         snapEnd(first, v);
         snapEnd(second, v);
         const p = first.horiz ? { x: v, y: across(first) } : { x: across(first), y: v };
@@ -225,12 +241,12 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
       if (!ramp || !isHwy(hwy.road) || gapAcross > hwy.hw + 0.51) continue;
       // Only the ramp's highway end joins: the first point of an off-ramp, the last of an on-ramp.
       const road = ramp.road;
-      const isFirst = ramp.a.x === road.path[0][0] && ramp.a.y === road.path[0][1];
-      const isLast = ramp.b.x === road.path[road.path.length - 1][0] && ramp.b.y === road.path[road.path.length - 1][1];
+      const isFirst = ramp.a0.x === road.path[0][0] && ramp.a0.y === road.path[0][1];
+      const isLast = ramp.b0.x === road.path[road.path.length - 1][0] && ramp.b0.y === road.path[road.path.length - 1][1];
       const ends = road.ramp === "off" ? (isFirst ? [ramp.a] : []) : road.ramp === "on" ? (isLast ? [ramp.b] : []) : [];
       for (const e of ends) {
         const v = along(hwy, e);
-        if (v <= lo(hwy) + 1.5 || v >= hi(hwy) - 1.5) continue;
+        if (v <= olo(hwy) + 1.5 || v >= ohi(hwy) - 1.5) continue;
         const p = hwy.horiz ? { x: v, y: across(hwy) } : { x: across(hwy), y: v };
         const n = nodeAt(p);
         merges.add(n);
@@ -352,29 +368,31 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
     const ins = (a: Arm) => insByArm[node.arms.indexOf(a)];
     const outs = (a: Arm) => outsByArm[node.arms.indexOf(a)];
     if (node.kind === "merge") {
-      const rampArm = node.arms.find((a) => a.seg.road.cls === "ramp");
-      const hwyArms = node.arms.filter((a) => a !== rampArm);
+      // A diamond puts one side's on-ramp and the other side's off-ramp on the same node.
+      const rampArms = node.arms.filter((a) => a.seg.road.cls === "ramp");
+      const hwyArms = node.arms.filter((a) => a.seg.road.cls !== "ramp");
       for (const hin of hwyArms) {
         const hout = hwyArms.find((a) => a !== hin);
         if (!hout) continue;
         const I = ins(hin), O = outs(hout);
         I.forEach((l, k) => O.length && addMove(node, l, O[Math.min(k, O.length - 1)], "straight"));
       }
-      if (!rampArm) continue;
-      const rampSide = sub(rampArm.start ? rampArm.seg.ca : rampArm.seg.cb, node.p);
-      for (const rl of rampArm.seg.lanes) {
-        const rdir = unit(sub(rl.path.at(rl.path.length), rl.path.at(0)));
-        if (rl.to === node) {
-          for (const hout of hwyArms) {
-            const O = outs(hout);
-            if (O.length && dot(hout.dir, rdir) > 0.5) addMove(node, rl, O[O.length - 1], "merge");
-          }
-        } else {
-          for (const hin of hwyArms) {
-            const I = ins(hin);
-            if (!I.length) continue;
-            const din = mul(hin.dir, -1);
-            if (dot(din, rdir) > 0.5 && cross(din, rampSide) > 0) addMove(node, I[I.length - 1], rl, "diverge");
+      for (const rampArm of rampArms) {
+        const rampSide = sub(rampArm.start ? rampArm.seg.ca : rampArm.seg.cb, node.p);
+        for (const rl of rampArm.seg.lanes) {
+          const rdir = unit(sub(rl.path.at(rl.path.length), rl.path.at(0)));
+          if (rl.to === node) {
+            for (const hout of hwyArms) {
+              const O = outs(hout);
+              if (O.length && dot(hout.dir, rdir) > 0.5) addMove(node, rl, O[O.length - 1], "merge");
+            }
+          } else {
+            for (const hin of hwyArms) {
+              const I = ins(hin);
+              if (!I.length) continue;
+              const din = mul(hin.dir, -1);
+              if (dot(din, rdir) > 0.5 && cross(din, rampSide) > 0) addMove(node, I[I.length - 1], rl, "diverge");
+            }
           }
         }
       }

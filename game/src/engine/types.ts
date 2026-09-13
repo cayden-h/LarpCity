@@ -153,6 +153,8 @@ export interface CityDef {
   layout: string[];
   /** The road network; the layout's road tiles are stamped from it. */
   roads: RoadDef[];
+  /** The hand-made core's rectangle in world tiles; set by the world builder. */
+  core?: { x: number; y: number; w: number; h: number };
   zones: Zone[];
   palette: CityPalette;
   backdrop: BackdropDef;

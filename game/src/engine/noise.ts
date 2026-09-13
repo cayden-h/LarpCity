@@ -1,6 +1,6 @@
 // Seeded value noise for terrain: forests, ponds, mountains, farm patchwork.
 
-import { hashKeys } from "./rng";
+import { hashKeys } from "./rng.ts";
 
 function lattice(seed: number, x: number, y: number): number {
   return hashKeys(seed, x, y) / 4294967296;
