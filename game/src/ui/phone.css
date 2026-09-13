@@ -783,6 +783,7 @@
 .endgame-score-row dd { margin: 0; font-weight: 700; }
 .endgame-final { font-size: 17px; }
 .endgame-final dd { color: #b8860b; }
+.endgame-review { margin: 14px 0 0; font-size: 13px; line-height: 1.4; }
 
 .news-date {
   margin: 0;

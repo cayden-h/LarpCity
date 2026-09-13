@@ -90,6 +90,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .id-card-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .id-card-name { color: var(--ink); font-size: 17px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .id-card-age { color: var(--ink); font-size: 13px; opacity: 0.85; }
+.id-card-job { color: var(--ink); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.id-card-job:empty { display: none; }
 
 .phone { font-family: "Pixelify Sans", monospace; -webkit-font-smoothing: auto; }
 .phone-body {
@@ -1085,9 +1087,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   }
 }
 
-/* HUD: who the player is, and a chip when saving stops (ui/hud.ts). The label is a flex
-   row with a 12px gap; the name pulls back so "·" sits as close to "home" as to the job. */
-.hud-who { font-weight: 400; opacity: 0.75; margin-left: -4px; }
+/* HUD: a chip when saving stops (ui/hud.ts). */
 .hud-chip {
   margin-top: 8px;
   padding: 4px 8px;

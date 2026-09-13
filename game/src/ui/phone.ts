@@ -126,6 +126,8 @@ export interface PhoneDeps {
   rewindTo?: (day: number) => void;
   /** Whether going back is open (only in the end-of-game review); open when not given. */
   canGoBack?: () => boolean;
+  /** The player retired from the Goals app: the end-of-game review opens (going back unlocks). */
+  onRetire?: () => void;
   /** Opens the save slot picker (the Calendar year view's "Save slots"). */
   openSlots?: () => void;
   /** The earliest day the player can go back to. */
@@ -465,6 +467,7 @@ export class Phone {
   private onRetire(): void {
     this.resumeSpeed = this.deps.clock.speed || this.resumeSpeed;
     this.deps.clock.speed = 0;
+    this.deps.onRetire?.();
     const score = buildEndgameScore(this.deps.player, Math.floor(this.deps.player.age), this.deps.player.today);
     mountEndgame(document.body, { score });
   }
