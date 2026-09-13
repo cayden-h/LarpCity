@@ -63,7 +63,8 @@ The answers are remembered in the browser: add `?intake=1` to do the intake agai
   The ones with a choice (repair or replace the car, pay the hospital or take its 0% plan, buy the tip or pass, sign a prenup at the wedding) pause the city and open in the Money desk; one left unanswered for a week takes its default.
 - **Taxes:** the Money desk's Taxes tab walks the first return through a tutorial that ends by asking for the bottom line; get it right and every later return files itself on tax day.
 
-From the browser console, `larp.visit("CO")` opens a state and `larp.step(5)` simulates 5 seconds (useful in background tabs, which throttle animation).
+The game is always San Francisco, California: any other state in the URL hash (`#TX`) falls back to `#CA`.
+From the browser console, `larp.step(5)` simulates 5 seconds (useful in background tabs, which throttle animation).
 `larp.slots()` opens the save slots, and `larp.review()` opens going back to past days (until P2's Retire button opens it at the end of the game).
 
 ## How it is built

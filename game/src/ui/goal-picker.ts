@@ -12,18 +12,22 @@ export interface GoalPicks {
   debtFreeAge: number;
   /** "House down payment" slider, as a fraction (0.05-0.30), not a percent. */
   downPct: number;
+  /** "Own a home by age" slider. */
+  houseAge?: number;
+  /** "Married by age" slider, or null when the player said marriage isn't for them. */
+  marryAge?: number | null;
 }
 
 /**
- * The 4 required goals from the screen's picks. Marriage has no configurable
- * target (the Goal union's `marriage` kind takes none) and is always included:
- * the yes/no toggle next to it is flavor copy, not a real choice.
+ * The 4 required goals from the screen's picks. Marriage is always one of the
+ * four (it can't be bought, only hoped for); without an age it's tracked but
+ * not a priority.
  */
 export function buildGoals(picks: GoalPicks): Goal[] {
   return [
     { kind: "retirement_age", targetAge: picks.retireAge },
-    { kind: "marriage" },
+    picks.marryAge ? { kind: "marriage", targetAge: picks.marryAge } : { kind: "marriage" },
     { kind: "debt_free_by_age", targetAge: picks.debtFreeAge },
-    { kind: "house", downPct: picks.downPct },
+    picks.houseAge ? { kind: "house", downPct: picks.downPct, targetAge: picks.houseAge } : { kind: "house", downPct: picks.downPct },
   ];
 }

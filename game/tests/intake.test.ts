@@ -170,31 +170,27 @@ test("rent is paid from savings while checking is still empty", () => {
   assert.equal(rent.paid, 1_200);
 });
 
-import { answersFromProfile, DEFAULT_GOALS, profileFromIntake } from "../src/sim/life/intake.ts";
+import { profileFromIntake, SAVINGS_RANGE, STARTER_JOBS, starterFor } from "../src/sim/life/intake.ts";
+import { rngFor } from "../src/engine/rng.ts";
 
-test("intake answers become a profile, and a resumed profile reconstructs the real money fields with default goals", () => {
+test("intake answers become a profile of the money fields only", () => {
   const a: IntakeAnswers = { job: "Nurse", salary: 72_000, rent: 1_400, debt: 9_000, savings: 3_000, name: "Alex", avatar: "female", goals: GOALS };
   const p = profileFromIntake(a, "voice", "TX");
   assert.deepEqual(p, { job: a.job, salary: a.salary, rent: a.rent, debt: a.debt, savings: a.savings, state: "TX", source: "voice" });
-  // The server profile is local money-only state (job/salary/rent/debt/savings); goals/name/avatar
-  // never leave the browser. A "fromProfile" resume with no local save still needs its real stated
-  // finances back, not the sample household, so it gets name "You", avatar "male", and DEFAULT_GOALS.
-  assert.deepEqual(answersFromProfile({ ...p, displayName: null }), {
-    job: a.job,
-    salary: a.salary,
-    rent: a.rent,
-    debt: a.debt,
-    savings: a.savings,
-    name: "You",
-    avatar: "male",
-    goals: DEFAULT_GOALS,
-  });
 });
 
-test("a skipped intake is a profile with no numbers, and no answers", () => {
+test("a skipped intake is a profile with no numbers", () => {
   const p = profileFromIntake(null, "skipped", "CA");
   assert.deepEqual(p, { job: null, salary: null, rent: null, debt: null, savings: null, state: "CA", source: "skipped" });
-  assert.equal(answersFromProfile({ ...p, displayName: null }), null);
+});
+
+test("starterFor generates a new life's money from the seed, the same every time", () => {
+  const CA = { abbr: "CA", name: "California", rpp: { all: 110.72, goods: 104, housing: 154.9 } };
+  const a = starterFor(CA, rngFor("starter", 20260912));
+  assert.deepEqual(starterFor(CA, rngFor("starter", 20260912)), a);
+  assert.ok((STARTER_JOBS as readonly string[]).includes(a.job));
+  assert.ok(a.savings >= SAVINGS_RANGE.min && a.savings <= SAVINGS_RANGE.max && a.savings % 50 === 0);
+  assert.equal(a.creditScore, 600);
 });
 
 test("randomizeStarter stays within the base range for a normal cost-of-living place", () => {

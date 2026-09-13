@@ -2,7 +2,7 @@
 // and a Learn button over a blurred San Francisco. Learn hands the screen to
 // Sammy's real narrator box (ui/narrator.ts) in tour mode, centered, to read
 // the walkthrough in narration/learn.ts with Back, Next, and Skip; finishing
-// or skipping it (or "Skip to setup") resolves, and the intake opens.
+// or skipping it (or "Skip to save slots") resolves, and the save slots open.
 
 import { LEARN } from "../narration/learn";
 import type { Narrator } from "./narrator";
@@ -51,7 +51,7 @@ class Title {
         <p class="tt-sub">Your money, your life, all the way to retirement.</p>
         <div class="tt-owl"></div>
         <button type="button" class="btn tt-learn" data-act="learn">Learn</button>
-        <button type="button" class="tt-link" data-act="skip">Skip to setup</button>
+        <button type="button" class="tt-link" data-act="skip">Skip to save slots</button>
       </section>`;
     this.el.querySelector(".tt-owl")!.appendChild(this.owl.el);
     this.el.addEventListener("click", (ev) => {

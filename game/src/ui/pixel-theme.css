@@ -306,7 +306,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 }
 .map-place-pin { width: 44px; height: 44px; }
 .map-place-copy { min-width: 0; }
-/* The city and its state stay on one line; the tier badge wraps under them when there's no room. */
+/* The city and its state wrap rather than cut off; the tier badge wraps under them when there's no room. */
 .map-place-title {
   display: flex;
   flex-wrap: wrap;
@@ -316,11 +316,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .map-place-title strong {
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
   font-size: 19px;
   line-height: 1.1;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .map-place-title .tier {
   flex: none;
