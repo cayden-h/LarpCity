@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ApiError } from "../src/net/api.ts";
-import { KEEPALIVE_MAX, SaveManager, type SaveStatus } from "../src/sim/save/manager.ts";
+import { KEEPALIVE_MAX, RUN_WAIT_MS, RUN_WAIT_TRIES, SaveManager, type SaveStatus } from "../src/sim/save/manager.ts";
 import type { Me, SaveApi, SavePut } from "../src/sim/save/client.ts";
 import type { GameSave } from "../src/sim/save/types.ts";
 
@@ -107,11 +107,16 @@ test("while the server is down it retries with a growing wait, then recovers", a
   assert.equal(puts.length, 1);
 });
 
-test("with no run to save under, it reports offline and sends nothing", async () => {
+test("with no run ever to save under, it reports offline after its checks, and sends nothing", async () => {
   const t = fakeTimers();
   const { api, puts } = fakeApi();
   const m = new SaveManager({ api, build: () => game(1), runId: () => null, baseRev: null, timers: t.timers });
   await m.flush();
+  for (let i = 0; i < RUN_WAIT_TRIES; i++) {
+    assert.notEqual(m.status, "offline");
+    t.run();
+    await settle();
+  }
   assert.equal(m.status, "offline");
   assert.equal(puts.length, 0);
 });
@@ -124,7 +129,7 @@ test("a save requested while the run is forking (no runId yet) retries and lands
   m.request();
   t.run();
   await settle();
-  assert.equal(m.status, "offline");
+  assert.notEqual(m.status, "offline");
   assert.equal(puts.length, 0);
   assert.equal(t.pending.size, 1, "a retry is scheduled instead of dropping the save");
   runId = "forked";
@@ -414,4 +419,70 @@ test("a stopped manager sends nothing, even on unload", async () => {
   await m.flush();
   m.flushOnUnload();
   assert.equal(puts.length + keepalive.length, 0);
+});
+
+test("a rewind's fork gap is not offline: a saved game checks for the new run every second, without backing off", async () => {
+  const t = fakeTimers();
+  const { api, puts } = fakeApi();
+  const statuses: SaveStatus[] = [];
+  let runId: string | null = "run";
+  const m = new SaveManager({ api, build: () => game(1), runId: () => runId, baseRev: null, timers: t.timers, onStatus: (s) => statuses.push(s) });
+  m.request();
+  t.run();
+  await settle();
+  assert.equal(m.status, "saved");
+  runId = null; // the rewind is forking the run
+  m.request();
+  for (let i = 0; i < 4; i++) {
+    assert.deepEqual(t.run(), [i === 0 ? 1000 : RUN_WAIT_MS]);
+    await settle();
+  }
+  runId = "forked";
+  t.run();
+  await settle();
+  assert.ok(!statuses.includes("offline"), `statuses were ${statuses.join(", ")}`);
+  assert.equal(m.status, "saved");
+  assert.equal(puts.at(-1)!.runId, "forked");
+});
+
+test("stop() resolves once the write in flight answers, and its 409 raises no conflict", async () => {
+  const t = fakeTimers();
+  let fail: (e: Error) => void = () => undefined;
+  const statuses: SaveStatus[] = [];
+  const api: SaveApi = {
+    me: async () => ({ player: { id: "p", name: null }, profile: null, save: null }),
+    putProfile: async () => undefined,
+    deleteSave: async () => undefined,
+    putSave: () => new Promise((_, rej) => (fail = rej)),
+    putSaveKeepalive: () => undefined,
+  };
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: 3, timers: t.timers, onStatus: (s) => statuses.push(s) });
+  m.request();
+  t.run(); // the write is in flight
+  let stopped = false;
+  const done = m.stop().then(() => (stopped = true));
+  await settle();
+  assert.equal(stopped, false, "stop() waits for the write in flight");
+  fail(new ApiError(409, "conflict")); // it lands against the save being erased
+  await done;
+  assert.equal(stopped, true);
+  assert.ok(!statuses.includes("conflict"));
+  assert.notEqual(m.status, "conflict");
+  assert.equal(t.pending.size, 0);
+});
+
+test("resume() after a stop whose erase failed saves the change that was waiting", async () => {
+  const t = fakeTimers();
+  const { api, puts } = fakeApi();
+  const m = new SaveManager({ api, build: () => game(2), runId: () => "run", baseRev: null, timers: t.timers });
+  m.request();
+  await m.stop();
+  assert.equal(t.pending.size, 0);
+  m.resume();
+  assert.deepEqual(t.run(), [1000]);
+  await settle();
+  assert.equal(puts.length, 1);
+  assert.equal(m.status, "saved");
+  m.request();
+  assert.equal(t.pending.size, 1, "requests work again");
 });

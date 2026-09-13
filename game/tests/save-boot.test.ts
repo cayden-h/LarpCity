@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ApiError } from "../src/net/api.ts";
-import { bootPath, fetchMe, resumePlace, type MeOutcome } from "../src/sim/save/boot.ts";
+import { bootPath, fetchMe, offlineNotice, resumePlace, type MeOutcome } from "../src/sim/save/boot.ts";
 import type { Me } from "../src/sim/save/client.ts";
 
 const profile = { displayName: null, job: "Nurse", salary: 60000, rent: 1200, debt: 0, savings: 0, state: "TX", source: "typed" as const };
@@ -48,18 +48,35 @@ test("fetchMe gives up after its tries", async () => {
     calls++;
     throw new ApiError(500, "down");
   }, { tries: 3, delayMs: 0, sleep: noSleep });
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, status: 500 });
   assert.equal(calls, 3);
 });
 
-test("fetchMe doesn't retry a 4xx answer, but it is still a failure", async () => {
+test("fetchMe that never reaches the server has no status", async () => {
+  const r = await fetchMe(async () => {
+    throw new TypeError("network down");
+  }, { tries: 2, delayMs: 0, sleep: noSleep });
+  assert.deepEqual(r, { ok: false });
+});
+
+test("fetchMe doesn't retry a 4xx answer, but it is still a failure, with its status", async () => {
   let calls = 0;
   const r = await fetchMe(async () => {
     calls++;
     throw new ApiError(401, "who");
   }, { tries: 3, delayMs: 0, sleep: noSleep });
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, status: 401 });
   assert.equal(calls, 1);
+});
+
+test("the boot notice tells a refused save (4xx) from a server it can't reach", () => {
+  for (const status of [401, 403, 404]) {
+    const n = offlineNotice({ ok: false, status });
+    assert.equal(n.title, "Larp City couldn't open your save");
+    assert.match(n.body, new RegExp(String(status)));
+  }
+  assert.equal(offlineNotice({ ok: false }).title, "Can't reach Larp City's server");
+  assert.equal(offlineNotice({ ok: false, status: 503 }).title, "Can't reach Larp City's server");
 });
 
 const TX = { abbr: "TX", cityId: "houston" };

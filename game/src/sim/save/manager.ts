@@ -19,6 +19,10 @@ export const KEEPALIVE_MAX = 60_000;
 const DEBOUNCE_MS = 1_000;
 const RETRY_BASE_MS = 2_000;
 const RETRY_MAX_MS = 60_000;
+/** While there's no run yet (recording starting, a rewind forking), how often to check for one... */
+export const RUN_WAIT_MS = 1_000;
+/** ...and how many times before the save counts as offline. */
+export const RUN_WAIT_TRIES = 30;
 
 /** Statuses a write will never succeed from if retried unchanged. */
 const NO_RETRY_STATUSES = new Set([400, 403, 404, 413]);
@@ -52,6 +56,8 @@ export class SaveManager {
   private readonly timers: Timers;
   private timer: number | null = null;
   private failures = 0;
+  /** Checks in a row that found no run to save under. */
+  private runWaits = 0;
   private inflight: Promise<void> | null = null;
   private again = false;
   /** Set by stop(): this life was erased, so nothing may write it back. */
@@ -115,12 +121,21 @@ export class SaveManager {
     this.o.api.putSaveKeepalive(json);
   }
 
-  /** Never save again (the life was just erased for a new one): a pending write is dropped and
-   *  request(), flush(), and flushOnUnload() do nothing from here on. */
-  stop(): void {
+  /** Stop saving (the life is about to be erased for a new one): a pending write is dropped and
+   *  request(), flush(), and flushOnUnload() do nothing until resume(). Resolves once a write that was
+   *  already in flight has answered, so the erase can't be overwritten by it. */
+  stop(): Promise<void> {
     this.stopped = true;
     if (this.timer !== null) this.timers.clear(this.timer);
     this.timer = null;
+    return this.inflight ? this.inflight.then(() => undefined, () => undefined) : Promise.resolve();
+  }
+
+  /** Save again after stop() (the erase didn't happen): a change that wasn't saved yet is written soon. */
+  resume(): void {
+    if (!this.stopped) return;
+    this.stopped = false;
+    if (this.dirty && !this.done()) this.schedule(DEBOUNCE_MS);
   }
 
   /** Once stopped, a conflict or failure has landed, or when saving is off, request()/flush()/flushOnUnload() are no-ops. */
@@ -146,11 +161,19 @@ export class SaveManager {
   private async write(): Promise<void> {
     const body = this.body();
     if (!body) {
-      // No run yet (recording is starting, or a rewind is forking it): try again later rather than drop the save.
+      // No run yet (recording is starting, or a rewind is forking it): that's not the network failing,
+      // so check again shortly without touching the status or the backoff. Only a run that never shows
+      // up (recording is off) counts as offline.
+      if (this.runWaits < RUN_WAIT_TRIES) {
+        this.runWaits++;
+        this.schedule(RUN_WAIT_MS);
+        return;
+      }
       this.setStatus("offline");
       this.schedule(Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** this.failures++));
       return;
     }
+    this.runWaits = 0;
     const mark = this.dirtyMark;
     this.setStatus("saving");
     try {
@@ -163,7 +186,15 @@ export class SaveManager {
     } catch (err) {
       // A write that was in flight when the life was erased: its answer (a 409 against the deleted
       // save, most likely) means nothing now, and must not raise the "playing somewhere else" notice.
-      if (this.stopped) return;
+      // It didn't land, though, so if saving resumes (the erase failed) the change is still unsaved.
+      if (this.stopped) {
+        this.dirty = true;
+        if (!(err instanceof ApiError)) {
+          this.uncertain = true;
+          this.uncertainState = JSON.stringify(body.state);
+        }
+        return;
+      }
       if (err instanceof ApiError && err.status === 409) {
         if (this.uncertain) {
           await this.resolveUncertain(body.runId);

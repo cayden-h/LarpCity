@@ -15,7 +15,7 @@ import { BankSync } from "./sim/mirror";
 import { NpcTown } from "./sim/npcs";
 import { RunRecorder } from "./sim/record";
 import { LifeTimeline } from "./sim/rewind";
-import { bootPath, fetchMe, resumePlace } from "./sim/save/boot";
+import { bootPath, fetchMe, offlineNotice, resumePlace } from "./sim/save/boot";
 import { saveApi } from "./sim/save/client";
 import { encodeGame, parseSave, restoreGame, SaveFormatError, type RestoredGame } from "./sim/save/codec";
 import { trimDesk } from "./sim/save/desk";
@@ -66,11 +66,8 @@ const me = meResult.ok ? meResult.me : null;
 /** Whether this life may be written to the server (its profile and its save). */
 let saving = path !== "offline";
 if (path === "offline") {
-  const choice = await showNotice({
-    title: "Can't reach Larp City's server",
-    body: "Your saved life is safe, but it can't be loaded right now. Try again in a moment, or play a new life that won't be saved.",
-    actions: ["Try again", "Play without saving"],
-  });
+  // A 4xx is the server refusing this save, not the server being down; the notice says which.
+  const choice = await showNotice({ ...offlineNotice(meResult), actions: ["Try again", "Play without saving"] });
   if (choice === 0) {
     location.reload();
     await new Promise(() => undefined);
@@ -342,12 +339,23 @@ const phone = new Phone({
   },
   deskState: () => desk,
   mail,
+  // A letter read is kept read.
+  mailChanged: () => saver.request(),
   newLife: async () => {
+    // Stop saving first, and let a write already on its way answer, so nothing lands after the erase
+    // and brings this life back.
+    await saver.stop();
     // Played without saving there is no save to erase: the reload asks the server again, so the
     // player's real save comes back if the server does, or they get a fresh unsaved life.
-    if (saving) await saves.deleteSave();
-    // The erased life must not be saved again on the way out.
-    saver.stop();
+    if (saving) {
+      try {
+        await saves.deleteSave();
+      } catch (err) {
+        // Nothing was erased: this life carries on, and saves again (the Calendar says so).
+        saver.resume();
+        throw err;
+      }
+    }
     // With the save and the profile gone, the reload starts the intake.
     history.replaceState(null, "", location.pathname);
     location.reload();
