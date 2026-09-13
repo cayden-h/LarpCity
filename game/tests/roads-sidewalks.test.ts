@@ -62,3 +62,24 @@ test("walkers stay on the sidewalk unless crossing, and crossing counts stay in 
   for (const p of [...walk.peds]) walk.remove(p);
   assert.equal([...sim.crossing.values()].reduce((a, b) => a + b, 0), 0);
 });
+
+test("on a bridge or overpass deck, walkers keep to the deck instead of stepping off its edge", () => {
+  const net = buildGraph([{ id: "a", cls: "arterial", path: [[0.5, 10], [30.5, 10]], lanes: [2, 2] } as RoadDef]);
+  const sim = new Sim(net);
+  const deck = (x: number) => x >= 10 && x < 20;
+  const walk = new Sidewalks(net, sim, mulberry32(2), (x) => deck(x));
+  for (let i = 0; i < 40; i++) walk.spawn();
+  let onDeck = 0;
+  for (let i = 0; i < 60 / DT; i++) {
+    walk.step(DT);
+    for (const p of walk.peds) {
+      if (p.queue.length) continue;
+      const off = Math.abs(p.y - 10);
+      if (deck(Math.floor(p.x))) {
+        onDeck++;
+        assert.ok(off < 1, `a walker on the deck is ${off.toFixed(2)} from the centerline, off a 2-tile deck`);
+      } else if (Math.floor(p.x) > 1 && Math.floor(p.x) < 29) assert.ok(off >= 1, `a walker off the deck is ${off.toFixed(2)} from the centerline, in the road`);
+    }
+  }
+  assert.ok(onDeck > 0, "someone walked over the deck");
+});

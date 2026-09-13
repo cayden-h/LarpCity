@@ -48,11 +48,14 @@ export class Sidewalks {
   private readonly sim: Sim;
   private readonly rng: Rng;
   private readonly segs: Segment[];
+  private readonly deckAt: (x: number, y: number) => boolean;
   private nextId = 1;
 
-  constructor(net: RoadNet, sim: Sim, rng: Rng) {
+  /** `deckAt` says whether a tile is a bridge or overpass deck, where people keep to the deck's edge instead of stepping off it. */
+  constructor(net: RoadNet, sim: Sim, rng: Rng, deckAt: (x: number, y: number) => boolean = () => false) {
     this.sim = sim;
     this.rng = rng;
+    this.deckAt = deckAt;
     this.segs = net.segments.filter((s) => WALKABLE.has(s.road.cls) && Math.hypot(s.cb.x - s.ca.x, s.cb.y - s.ca.y) > 1);
   }
 
@@ -100,8 +103,11 @@ export class Sidewalks {
   }
 
   private pointOf(st: Street): P {
-    const s = st.seg, n = right(s.dir), off = st.sigma * (s.width / 2 + 0.05);
-    return { x: s.ca.x + s.dir.x * st.t + n.x * off, y: s.ca.y + s.dir.y * st.t + n.y * off };
+    const s = st.seg, n = right(s.dir);
+    const cx = s.ca.x + s.dir.x * st.t, cy = s.ca.y + s.dir.y * st.t;
+    // Off a deck the sidewalk is just past the curb; on one, it is just inside the railing.
+    const off = st.sigma * (s.width / 2 + (this.deckAt(Math.floor(cx), Math.floor(cy)) ? -0.08 : 0.05));
+    return { x: cx + n.x * off, y: cy + n.y * off };
   }
 
   private stepPed(ped: Ped, dt: number): void {

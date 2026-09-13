@@ -99,7 +99,7 @@ export class People {
     this.objects = objects;
     this.seed = seed;
     this.rng = rngFor(seed, "people");
-    this.walk = new Sidewalks(net, sim, rngFor(seed, "sidewalks"));
+    this.walk = new Sidewalks(net, sim, rngFor(seed, "sidewalks"), (x, y) => grid.at(x, y) === "B" || grid.at(x, y) === "O");
     for (const { x, y, c } of grid.cells()) {
       if (c === "P" || c === "p") {
         this.plazas.push([x, y]);
