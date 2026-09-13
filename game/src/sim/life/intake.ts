@@ -7,7 +7,16 @@ import { creditCard, installment, newBook } from "../debt/factory.ts";
 import type { Debt } from "../debt/types.ts";
 import type { InstrumentId, MarketPath } from "../market/index.ts";
 import { withholdingForPaycheck } from "../tax/withholding.ts";
-import { defaultAccounts, PlayerLife, type Place } from "./player.ts";
+import {
+  DEFAULT_CAR_INSURANCE_MONTHLY,
+  DEFAULT_CAR_LOAN,
+  DEFAULT_EXPENSE_TIERS,
+  defaultAccounts,
+  PlayerLife,
+  type ExpenseCategory,
+  type ExpenseTierLevel,
+  type Place,
+} from "./player.ts";
 import { applyOrders, currentOrders } from "../skip/orders.ts";
 import type { Profile, ProfileSource } from "../save/client.ts";
 import { BEGINNER_CARD_SLUGS } from "../../data/cards-beginner.ts";
@@ -53,6 +62,8 @@ export interface IntakeAnswers {
   k401Pct?: number;
   /** Roth IRA contribution chosen at onboarding, as a share of gross pay; clamped so the yearly total never exceeds the IRS Roth limit. */
   rothPct?: number;
+  /** Low/medium/high pick for each expense category, from the intake screen. Unset defaults to all-medium. */
+  expenseTiers?: Record<ExpenseCategory, ExpenseTierLevel>;
 }
 
 /** Caps that keep a typo or a joke answer from breaking the sim. */
@@ -63,6 +74,17 @@ export const CARD_PORTION = 5_000;
 const CARD_APR = 0.2396;
 const LOAN_APR = 0.11;
 const LOAN_MONTHS = 60;
+/**
+ * Fixed auto-loan rate for the onboarding car loan: within Bankrate Q2 2026's
+ * auto-loan range (4.41% super-prime to 16.11% deep-subprime, see
+ * sim/debt/rates.ts's `offeredApr`), reasonable for the fixed 600 starting
+ * credit score (subprime-ish) every fresh life starts with.
+ */
+export const CAR_LOAN_APR = 0.10;
+/** The onboarding car loan's starting balance: `DEFAULT_CAR_LOAN`'s $500/mo over 72 months at `CAR_LOAN_APR`, inverting the standard amortization formula so balance and payment agree. */
+export const CAR_LOAN_BALANCE = Math.round((((DEFAULT_CAR_LOAN.monthly * (1 - (1 + CAR_LOAN_APR / 12) ** -DEFAULT_CAR_LOAN.months)) / (CAR_LOAN_APR / 12)) * 100)) / 100;
+const EXPENSE_CATEGORIES: ExpenseCategory[] = ["food", "houseBills", "fitness", "gas", "carMaintenance"];
+const TIER_LEVELS: ExpenseTierLevel[] = ["low", "medium", "high"];
 
 /** Every fresh life (voice, typed, or randomized) starts the debt engine's credit score here, not wherever the seeded debts happen to score. */
 export const CREDIT_SCORE_START = 600;
@@ -110,6 +132,12 @@ export function coerceAnswers(raw: unknown): Partial<IntakeAnswers> {
   if (typeof r.emergencyMonths === "number" && Number.isFinite(r.emergencyMonths) && r.emergencyMonths >= 0) out.emergencyMonths = r.emergencyMonths;
   if (typeof r.k401Pct === "number" && Number.isFinite(r.k401Pct) && r.k401Pct >= 0) out.k401Pct = r.k401Pct;
   if (typeof r.rothPct === "number" && Number.isFinite(r.rothPct) && r.rothPct >= 0) out.rothPct = r.rothPct;
+  if (r.expenseTiers && typeof r.expenseTiers === "object") {
+    const raw = r.expenseTiers as Record<string, unknown>;
+    if (EXPENSE_CATEGORIES.every((c) => TIER_LEVELS.includes(raw[c] as ExpenseTierLevel))) {
+      out.expenseTiers = Object.fromEntries(EXPENSE_CATEGORIES.map((c) => [c, raw[c]])) as Record<ExpenseCategory, ExpenseTierLevel>;
+    }
+  }
   for (const k of NUMBER_KEYS) {
     const n = parseDollars(r[k]);
     if (n !== undefined) out[k] = Math.min(Math.round(n), INTAKE_LIMITS[k]);
@@ -133,6 +161,7 @@ export function completeAnswers(p: Partial<IntakeAnswers>): IntakeAnswers | null
     ...(p.emergencyMonths !== undefined ? { emergencyMonths: p.emergencyMonths } : {}),
     ...(p.k401Pct !== undefined ? { k401Pct: p.k401Pct } : {}),
     ...(p.rothPct !== undefined ? { rothPct: p.rothPct } : {}),
+    ...(p.expenseTiers ? { expenseTiers: p.expenseTiers } : {}),
   };
 }
 
@@ -157,6 +186,28 @@ export function debtsFor(total: number, day: number): Debt[] {
   return debts;
 }
 
+/**
+ * The onboarding's fixed car loan: `payment` a month for `months`, at
+ * `CAR_LOAN_APR`. The starting balance is derived by inverting the standard
+ * amortization formula (`monthlyPayment` in sim/debt/math.ts), so balance and
+ * payment agree instead of one being an arbitrary guess.
+ */
+function carLoanDebt(o: { monthly: number; months: number }, day: number): Debt {
+  const r = CAR_LOAN_APR / 12;
+  const balance = Math.round(((o.monthly * (1 - (1 + r) ** -o.months)) / r) * 100) / 100;
+  return installment({
+    id: "car",
+    kind: "auto",
+    name: "Car loan",
+    balance,
+    apr: CAR_LOAN_APR,
+    months: o.months,
+    payment: o.monthly,
+    day,
+    openedDay: day - 30,
+  });
+}
+
 /** The onboarding answers, minus the numbers a fresh (not-yet-stated) intake doesn't have yet. */
 type IntakeAnswersInput = Omit<IntakeAnswers, "salary" | "debt"> & Partial<Pick<IntakeAnswers, "salary" | "debt">>;
 
@@ -173,6 +224,9 @@ export function lifeFromIntake(a: IntakeAnswersInput, o: { place: Place; day: nu
   const monthlyTakeHome = takeHomeFor(salary, o.place.abbr);
   const book = newBook({ debts: debtsFor(debt, o.day), agi: salary, monthlyTakeHome, strategy: "avalanche", day: o.day });
   book.profile.score = CREDIT_SCORE_START;
+  // Every fresh life also gets a fixed car loan, separate from the randomized/stated
+  // debt total debtsFor splits above (that's a different pool of debt entirely).
+  book.debts.push(carLoanDebt(DEFAULT_CAR_LOAN, o.day));
   // Savings sit in the high-yield account. Checking fills with the first
   // paycheck, and bills draw on savings when it runs short (Ledger.wallet).
   const accounts = defaultAccounts(o.day).map((acct) => ({ ...acct, balance: acct.id === "savings" ? a.savings : 0 }));
@@ -185,6 +239,9 @@ export function lifeFromIntake(a: IntakeAnswersInput, o: { place: Place; day: nu
     avatar: a.avatar,
     insurancePlanId: a.insurancePlanId,
     selectedCardId: a.selectedCardId,
+    expenseTiers: a.expenseTiers ?? { ...DEFAULT_EXPENSE_TIERS },
+    carLoan: { ...DEFAULT_CAR_LOAN },
+    carInsuranceMonthly: DEFAULT_CAR_INSURANCE_MONTHLY,
     rent: a.rent,
     book,
     accounts,

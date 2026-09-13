@@ -429,3 +429,40 @@
   accent-color: var(--yellow, #ffcf33);
   background: transparent;
 }
+
+/* Expense-range presets (low/medium/high per category) + car loan/insurance summary */
+.in-expenses {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+  margin: 0 auto 14px;
+  text-align: left;
+}
+.in-expense-row {
+  display: grid;
+  gap: 6px;
+}
+.in-expense-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.in-expense-toggle {
+  display: flex;
+  gap: 6px;
+}
+.in-expense-btn {
+  flex: 1;
+  padding: 6px 0;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.in-expense-btn.sel {
+  box-shadow: 0 0 0 3px var(--yellow, #ffcf33);
+}
+.in-expense-summary {
+  max-width: 420px;
+  margin: 0 auto 14px;
+  font-size: 13px;
+  opacity: 0.85;
+  text-align: center;
+}

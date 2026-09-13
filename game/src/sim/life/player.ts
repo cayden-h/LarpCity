@@ -58,6 +58,41 @@ export const US_MEDIAN_RENT = 1_487;
 export const US_LIVING = 950;
 /** Unemployment benefits replace roughly 40% of pay (research/03). */
 export const UNEMPLOYMENT_SHARE = 0.4;
+
+/** The 5 expense categories the intake's low/medium/high toggles cover. */
+export type ExpenseCategory = "food" | "houseBills" | "fitness" | "gas" | "carMaintenance";
+export type ExpenseTierLevel = "low" | "medium" | "high";
+
+/**
+ * Monthly dollars for each category at each tier, at national-average cost of
+ * living (place-scaled the same way `baseLiving` is, by `place.rpp.goods`).
+ * The medium column sums to about $800, close to `US_LIVING` ($950) so a
+ * medium-everything player's living cost doesn't wildly diverge from a life
+ * that never went through intake.
+ */
+export const EXPENSE_TIER_AMOUNTS: Record<ExpenseCategory, Record<ExpenseTierLevel, number>> = {
+  food: { low: 250, medium: 350, high: 500 },
+  houseBills: { low: 150, medium: 220, high: 320 },
+  fitness: { low: 0, medium: 40, high: 120 },
+  gas: { low: 80, medium: 120, high: 200 },
+  carMaintenance: { low: 40, medium: 70, high: 130 },
+};
+
+/** The expense tiers a fresh intake-built life defaults to when the player doesn't change anything. */
+export const DEFAULT_EXPENSE_TIERS: Record<ExpenseCategory, ExpenseTierLevel> = {
+  food: "medium",
+  houseBills: "medium",
+  fitness: "medium",
+  gas: "medium",
+  carMaintenance: "medium",
+};
+
+/** A car loan's terms as offered at onboarding: fixed $500/mo over 72 months. */
+export const DEFAULT_CAR_LOAN = { monthly: 500, months: 72 } as const;
+/** Monthly car insurance premium billed at onboarding; frontend-only default until real quotes exist. */
+export const DEFAULT_CAR_INSURANCE_MONTHLY = 200;
+/** Day of month car insurance bills, chosen to avoid the rent (1st) and living-costs (15th) bills. */
+export const CAR_INSURANCE_BILL_DOM = 5;
 /**
  * Take-home as a share of gross pay: roughly what a single filer near the
  * median keeps after federal income tax and FICA. Used only until onboarding
@@ -152,6 +187,17 @@ export interface LifeOptions {
   market?: MarketPath;
   /** Dollars of each fund or stock already held on the first day, bought a year earlier. */
   holdings?: Partial<Record<InstrumentId, number>>;
+  /**
+   * Low/medium/high pick for each expense category, from the intake screen.
+   * Defaults to all-medium for a fresh life; left `undefined` on an old
+   * restored save (that predates this field) so it keeps its exact prior
+   * `living` calculation instead of switching to the tier-based one.
+   */
+  expenseTiers?: Record<ExpenseCategory, ExpenseTierLevel>;
+  /** Car loan terms offered at onboarding; defaults to `DEFAULT_CAR_LOAN` ($500/mo, 72 months). */
+  carLoan?: { monthly: number; months: number };
+  /** Monthly car insurance premium billed on `CAR_INSURANCE_BILL_DOM`; defaults to `DEFAULT_CAR_INSURANCE_MONTHLY`. */
+  carInsuranceMonthly?: number;
 }
 
 /** A position valued at a day's price. */
@@ -233,6 +279,12 @@ export interface LifeSave {
   convertedTaxDueDays?: number[];
   marriageRollYears?: number[];
   bankruptcyPulseDays?: number[];
+  /** Optional so a save from before expense tiers existed still loads with the legacy `living` calculation (see `LifeOptions.expenseTiers`). */
+  expenseTiers?: Record<ExpenseCategory, ExpenseTierLevel>;
+  /** Optional so a save from before car loan defaults existed still loads with its own defaults. */
+  carLoan?: { monthly: number; months: number };
+  /** Optional so a save from before car insurance existed still loads with its own default. */
+  carInsuranceMonthly?: number;
 }
 
 /** Days of daily history a saved player life keeps; older days keep every 7th. */
@@ -302,6 +354,20 @@ export class PlayerLife {
   insurancePlanId = "silver";
   /** Beginner credit card chosen at onboarding (src/data/cards-beginner.ts); frontend-only for now, no card is opened from this pick. */
   selectedCardId: string = BEGINNER_CARD_SLUGS[0];
+  /**
+   * Low/medium/high pick for each expense category, from the intake screen.
+   * `undefined` only for a life restored from a save that predates this
+   * field (or built outside intake, e.g. `sampleHousehold`); the `living`
+   * getter falls back to the legacy lifestyle-factor calculation in that
+   * case. A fresh life built through the constructor's non-restore branch
+   * always has this set (defaulting to all "medium"), so it always uses the
+   * tier-based calculation.
+   */
+  expenseTiers?: Record<ExpenseCategory, ExpenseTierLevel>;
+  /** Car loan terms offered at onboarding (see `intake.ts`'s car loan debt). */
+  carLoan: { monthly: number; months: number } = { ...DEFAULT_CAR_LOAN };
+  /** Monthly car insurance premium, billed on `CAR_INSURANCE_BILL_DOM`. */
+  carInsuranceMonthly: number = DEFAULT_CAR_INSURANCE_MONTHLY;
   /** The plan from the fast-forward setup screen (sim/skip), in force from the day it was set. */
   orders: StandingOrders | null = null;
   /**
@@ -415,6 +481,13 @@ export class PlayerLife {
       this.avatar = s.avatar ?? "male";
       this.insurancePlanId = s.insurancePlanId ?? "silver";
       this.selectedCardId = s.selectedCardId ?? BEGINNER_CARD_SLUGS[0];
+      // Left as-is (undefined for an old save that predates this field), not
+      // defaulted: defaulting here would switch every old restored save onto
+      // the new tier-based `living` calculation, shifting its living costs
+      // unexpectedly. Only a FRESH life (below) defaults to all-medium.
+      this.expenseTiers = s.expenseTiers;
+      this.carLoan = s.carLoan ?? { ...DEFAULT_CAR_LOAN };
+      this.carInsuranceMonthly = s.carInsuranceMonthly ?? DEFAULT_CAR_INSURANCE_MONTHLY;
       this.employed = s.employed;
       this.rentAnchor = s.rentAnchor;
       this.orders = s.orders;
@@ -469,6 +542,11 @@ export class PlayerLife {
     this.avatar = o.avatar ?? "male";
     this.insurancePlanId = o.insurancePlanId ?? "silver";
     this.selectedCardId = o.selectedCardId ?? BEGINNER_CARD_SLUGS[0];
+    // A fresh life always gets a tier set (defaulting to all-medium), so it
+    // always uses the tier-based `living` calculation, not the legacy one.
+    this.expenseTiers = o.expenseTiers ?? { ...DEFAULT_EXPENSE_TIERS };
+    this.carLoan = o.carLoan ?? { ...DEFAULT_CAR_LOAN };
+    this.carInsuranceMonthly = o.carInsuranceMonthly ?? DEFAULT_CAR_INSURANCE_MONTHLY;
     this.commuteMinutes = o.commuteMinutes ?? 23;
     this.rentAnchor = o.rent === undefined ? null : { amount: o.rent, housing: o.place.rpp.housing };
     // The engine's bankruptcy test compares minimums with the book's take-home, so keep them in sync.
@@ -500,6 +578,9 @@ export class PlayerLife {
       avatar: this.avatar,
       insurancePlanId: this.insurancePlanId,
       selectedCardId: this.selectedCardId,
+      expenseTiers: this.expenseTiers,
+      carLoan: this.carLoan,
+      carInsuranceMonthly: this.carInsuranceMonthly,
       orders: this.orders,
       recurring: this.recurring,
       today: this.today,
@@ -591,8 +672,25 @@ export class PlayerLife {
     return Math.round((US_LIVING * this.place.rpp.goods) / 100);
   }
 
-  /** Monthly living costs besides rent, at the plan's lifestyle. */
+  /**
+   * Monthly living costs besides rent. When the intake's expense tiers are
+   * set (every fresh life; see `expenseTiers`), this is the sum of each
+   * category's tier amount, place-scaled the same way `baseLiving` is. That
+   * replaces the legacy lifestyle-factor calculation entirely, so there is
+   * exactly one source of truth for `living` at any given time (no double
+   * counting). Only a life without tiers (an old restored save, or one built
+   * outside intake, e.g. `sampleHousehold`) falls back to the legacy
+   * `baseLiving * LIFESTYLE_FACTOR[...]` formula.
+   */
   get living(): number {
+    if (this.expenseTiers) {
+      const tiers = this.expenseTiers;
+      const total = (Object.keys(EXPENSE_TIER_AMOUNTS) as ExpenseCategory[]).reduce(
+        (s, cat) => s + EXPENSE_TIER_AMOUNTS[cat][tiers[cat]],
+        0,
+      );
+      return Math.round((total * this.place.rpp.goods) / 100);
+    }
     return Math.round(this.baseLiving * LIFESTYLE_FACTOR[this.orders?.lifestyle ?? "normal"]);
   }
 
@@ -685,9 +783,9 @@ export class PlayerLife {
     );
   }
 
-  /** Rent, living costs, and minimum payments: what an emergency fund month has to cover. */
+  /** Rent, living costs, car insurance, and minimum payments: what an emergency fund month has to cover. */
   monthlyExpenses(): number {
-    return round2(this.rent + this.living + this.minimums());
+    return round2(this.rent + this.living + this.carInsuranceMonthly + this.minimums());
   }
 
   /** Debt-to-income: minimum payments over take-home pay. */
@@ -824,9 +922,13 @@ export class PlayerLife {
         federalWithheld: withheld.federalIncomeTax, stateWithheld: withheld.stateIncomeTax,
       });
     }
-    // Rent on the 1st and living costs on the 15th come before debt payments.
-    const bill = dom === 1 ? { name: "Rent", amount: this.rent } : dom === 15 ? { name: "Living costs", amount: this.living } : null;
-    if (bill) events.push({ type: "bill", day, name: bill.name, amount: bill.amount, paid: wallet.withdraw(bill.amount, bill.name) });
+    // Rent on the 1st, car insurance on the 5th, and living costs on the 15th
+    // come before debt payments; each is its own bill event.
+    const bills: { name: string; amount: number }[] = [];
+    if (dom === 1) bills.push({ name: "Rent", amount: this.rent });
+    if (dom === CAR_INSURANCE_BILL_DOM) bills.push({ name: "Car insurance", amount: this.carInsuranceMonthly });
+    if (dom === 15) bills.push({ name: "Living costs", amount: this.living });
+    for (const bill of bills) events.push({ type: "bill", day, name: bill.name, amount: bill.amount, paid: wallet.withdraw(bill.amount, bill.name) });
 
     events.push(...tickDay(this.book, { day, date, env: { cashRateAnnual: this.cashRate(date) }, wallet }));
 

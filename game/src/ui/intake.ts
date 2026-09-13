@@ -11,7 +11,15 @@
 import type { VoiceConversation } from "@elevenlabs/client";
 import { apiFetch } from "../net/api";
 import { coerceAnswers, completeAnswers, DEFAULT_INSURANCE_PLAN_ID, INSURANCE_PLANS, takeHomeFor, type IntakeAnswers } from "../sim/life/intake";
-import { MATCH_UP_TO, ROTH_LIMIT } from "../sim/life/player";
+import {
+  DEFAULT_CAR_INSURANCE_MONTHLY,
+  DEFAULT_CAR_LOAN,
+  DEFAULT_EXPENSE_TIERS,
+  MATCH_UP_TO,
+  ROTH_LIMIT,
+  type ExpenseCategory,
+  type ExpenseTierLevel,
+} from "../sim/life/player";
 import { BEGINNER_CARDS } from "../data/cards-beginner";
 import { cardArt } from "../debt-demo/shop.ts";
 import type { ProfileSource } from "../sim/save/client";
@@ -79,8 +87,10 @@ class Intake {
   private k401Pct = MATCH_UP_TO;
   /** Roth IRA contribution chosen on the sliders screen, in dollars a year (0-ROTH_LIMIT); defaults to 0. */
   private rothDollars = 0;
-  /** The amounts form's answers, held while the sliders screen runs between it and finish(). */
+  /** The amounts form's answers, held while the sliders and expenses screens run between it and finish(). */
   private pendingAnswers: IntakeAnswers | null = null;
+  /** Low/medium/high pick for each expense category, from the expenses screen; defaults to all-medium. */
+  private expenseTiers: Record<ExpenseCategory, ExpenseTierLevel> = { ...DEFAULT_EXPENSE_TIERS };
   private lines: { role: Role; text: string }[] = [];
   /** Set once the narrator starts the goodbye after the answers arrive. */
   private goodbye = false;
@@ -301,6 +311,60 @@ class Intake {
     }
   }
 
+  /** Category labels for the expenses screen, in display order. */
+  private static readonly EXPENSE_LABELS: [ExpenseCategory, string][] = [
+    ["food", "Groceries and eating out"],
+    ["houseBills", "Utilities, phone, internet"],
+    ["fitness", "Gym and fitness"],
+    ["gas", "Gas"],
+    ["carMaintenance", "Car maintenance"],
+  ];
+
+  /**
+   * Low/medium/high presets for the 5 expense categories the intake asks
+   * about, plus a read-only summary of the fixed car loan and insurance
+   * (not editable here; see sim/life/player.ts's DEFAULT_CAR_LOAN and
+   * DEFAULT_CAR_INSURANCE_MONTHLY).
+   */
+  private expensesScreen(): void {
+    const level = (l: ExpenseTierLevel) => l[0].toUpperCase() + l.slice(1);
+    this.show(`
+      <div class="in-owl-slot"></div>
+      <div class="in-name">The Narrator</div>
+      <p class="in-lead">Last thing: how do you spend, day to day?</p>
+      <div class="in-expenses">
+        ${Intake.EXPENSE_LABELS.map(
+          ([cat, label]) => `
+          <div class="in-expense-row">
+            <span class="in-expense-label">${label}</span>
+            <div class="in-expense-toggle" role="group" aria-label="${label}">
+              ${(["low", "medium", "high"] as ExpenseTierLevel[])
+                .map(
+                  (l) => `
+                <button type="button" class="btn in-expense-btn ${this.expenseTiers[cat] === l ? "sel" : ""}" data-act="tier-${cat}-${l}">${level(l)}</button>`,
+                )
+                .join("")}
+            </div>
+          </div>`,
+        ).join("")}
+      </div>
+      <p class="in-expense-summary">
+        Car loan: ${money(DEFAULT_CAR_LOAN.monthly)}/mo for ${DEFAULT_CAR_LOAN.months} months &middot;
+        Car insurance: ${money(DEFAULT_CAR_INSURANCE_MONTHLY)}/mo
+      </p>
+      <div class="in-actions">
+        <button type="button" class="btn in-big" data-act="expenses-continue">Move in 🏠</button>
+      </div>`);
+    this.mountOwl(OWL_BIG);
+    void this.owl.play("idle");
+    this.focus("[data-act=expenses-continue]");
+  }
+
+  private chooseExpenseTier(cat: ExpenseCategory, level: ExpenseTierLevel): void {
+    this.expenseTiers = { ...this.expenseTiers, [cat]: level };
+    this.expensesScreen();
+  }
+
   private show(html: string): void {
     this.body.innerHTML = html;
   }
@@ -329,8 +393,13 @@ class Intake {
       else this.typeInstead();
     } else if (act?.startsWith("insurance-")) this.chooseInsurance(act.slice("insurance-".length));
     else if (act?.startsWith("card-")) this.chooseCard(act.slice("card-".length));
-    else if (act === "sliders-continue") void this.finish(this.pendingAnswers);
-    else if (act === "hangup") void this.hangUp(this.callSeq);
+    else if (act === "sliders-continue") this.expensesScreen();
+    else if (act === "expenses-continue") void this.finish(this.pendingAnswers);
+    else if (act?.startsWith("tier-")) {
+      const rest = act.slice("tier-".length);
+      const sep = rest.lastIndexOf("-");
+      this.chooseExpenseTier(rest.slice(0, sep) as ExpenseCategory, rest.slice(sep + 1) as ExpenseTierLevel);
+    } else if (act === "hangup") void this.hangUp(this.callSeq);
     else if (act === "skip") void this.finish(null);
   }
 
@@ -621,6 +690,7 @@ class Intake {
               emergencyMonths: this.emergencyMonths,
               k401Pct: this.k401Pct,
               rothPct,
+              expenseTiers: this.expenseTiers,
             },
             source: this.source,
           }

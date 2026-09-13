@@ -4,6 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  CAR_LOAN_BALANCE,
   CARD_PORTION,
   coerceAnswers,
   completeAnswers,
@@ -21,7 +22,15 @@ import {
   takeHomeFor,
   type IntakeAnswers,
 } from "../src/sim/life/intake.ts";
-import { MATCH_UP_TO, PlayerLife, ROTH_LIMIT, STARTER_PORTFOLIO, type Place } from "../src/sim/life/index.ts";
+import {
+  EXPENSE_TIER_AMOUNTS,
+  MATCH_UP_TO,
+  PlayerLife,
+  ROTH_LIMIT,
+  STARTER_PORTFOLIO,
+  type ExpenseCategory,
+  type Place,
+} from "../src/sim/life/index.ts";
 import { MarketPath } from "../src/sim/market/index.ts";
 import { BEGINNER_CARD_SLUGS, BEGINNER_CARDS } from "../src/data/cards-beginner.ts";
 
@@ -96,7 +105,7 @@ test("lifeFromIntake sets pay, job, rent, debt, and savings from the answers", (
   assert.equal(life.book.monthlyTakeHome, 5_719);
   assert.equal(life.job, "Nurse");
   assert.equal(life.rent, 1_500);
-  assert.equal(Math.round(life.totalDebt()), 20_000);
+  assert.equal(Math.round(life.totalDebt()), Math.round(20_000 + CAR_LOAN_BALANCE));
   assert.equal(life.ledger.get("savings").balance, 5_000);
   assert.equal(life.ledger.get("checking").balance, 0);
 });
@@ -173,7 +182,7 @@ test("lifeFromIntake randomizes salary and debt when they're left unstated, scal
   const life = lifeFromIntake({ job, rent, savings }, { place: TX, day: 0, market: new MarketPath(), rng });
   const { salary: expectedSalary, debt: expectedDebt } = randomizeStarter(TX, rng);
   assert.equal(life.grossAnnual, expectedSalary);
-  assert.equal(Math.round(life.totalDebt()), expectedDebt);
+  assert.equal(Math.round(life.totalDebt()), Math.round(expectedDebt + CAR_LOAN_BALANCE));
 });
 
 test("a stated salary or debt overrides randomization even when the other is missing", () => {
@@ -181,13 +190,13 @@ test("a stated salary or debt overrides randomization even when the other is mis
   const life = lifeFromIntake({ job: "Nurse", rent: 1_500, savings: 5_000, salary: 85_000 }, { place: TX, day: 0, market: new MarketPath(), rng });
   assert.equal(life.grossAnnual, 85_000);
   const { debt: expectedDebt } = randomizeStarter(TX, rng);
-  assert.equal(Math.round(life.totalDebt()), expectedDebt);
+  assert.equal(Math.round(life.totalDebt()), Math.round(expectedDebt + CAR_LOAN_BALANCE));
 });
 
 test("an explicit typed intake (both salary and debt stated) is never randomized", () => {
   const life = lifeFor();
   assert.equal(life.grossAnnual, 85_000);
-  assert.equal(Math.round(life.totalDebt()), 20_000);
+  assert.equal(Math.round(life.totalDebt()), Math.round(20_000 + CAR_LOAN_BALANCE));
 });
 
 test("a freshly-built life always starts with a 600 credit score", () => {
@@ -251,4 +260,55 @@ test("lifeFromIntake clamps a stated rothPct so the yearly Roth contribution nev
   const life = lifeFromIntake({ ...NURSE, rothPct: 0.5 }, { place: TX, day: 0, market: new MarketPath() });
   assert.ok(life.orders);
   assert.ok((life.orders?.rothPct ?? 0) * life.grossAnnual <= ROTH_LIMIT + 1e-9);
+});
+
+test("EXPENSE_TIER_AMOUNTS has high > medium > low for every expense category", () => {
+  const categories = Object.keys(EXPENSE_TIER_AMOUNTS) as ExpenseCategory[];
+  assert.ok(categories.length === 5);
+  for (const cat of categories) {
+    const t = EXPENSE_TIER_AMOUNTS[cat];
+    assert.ok(t.high > t.medium, `${cat} high should exceed medium`);
+    assert.ok(t.medium > t.low, `${cat} medium should exceed low`);
+  }
+});
+
+test("a fresh lifeFromIntake life defaults all expense tiers to medium and has a medium-tier living cost", () => {
+  const life = lifeFor();
+  assert.deepEqual(life.expenseTiers, { food: "medium", houseBills: "medium", fitness: "medium", gas: "medium", carMaintenance: "medium" });
+  const mediumTotal = (Object.keys(EXPENSE_TIER_AMOUNTS) as ExpenseCategory[]).reduce((s, c) => s + EXPENSE_TIER_AMOUNTS[c].medium, 0);
+  assert.equal(life.living, Math.round((mediumTotal * TX.rpp.goods) / 100));
+});
+
+test("a sample household or any fresh construction also defaults its expense tiers to medium", () => {
+  const life = new PlayerLife({ place: TX, day: 0 });
+  assert.deepEqual(life.expenseTiers, { food: "medium", houseBills: "medium", fitness: "medium", gas: "medium", carMaintenance: "medium" });
+});
+
+test("a save from before expense tiers existed restores with expenseTiers left undefined, keeping the legacy lifestyle-based living calc", () => {
+  const market = new MarketPath();
+  const life = lifeFromIntake(NURSE, { place: TX, day: 0, market });
+  const save = life.toSave();
+  delete (save as { expenseTiers?: unknown }).expenseTiers;
+  const restored = PlayerLife.fromSave(save, { market });
+  assert.equal(restored.expenseTiers, undefined);
+  assert.equal(restored.living, restored.baseLiving);
+});
+
+test("a fresh lifeFromIntake life has a $500/mo, 72-month auto loan alongside the card and personal loan", () => {
+  const life = lifeFor();
+  const car = life.book.debts.find((d) => d.kind === "auto");
+  assert.ok(car, "expected an auto debt");
+  assert.equal(car?.scheduledPayment, 500);
+  assert.equal(car?.termMonths, 72);
+});
+
+test("a fresh lifeFromIntake life bills $200/mo car insurance on the 5th", () => {
+  const life = lifeFor({ job: "", salary: 0, rent: 0, debt: 0, savings: 5_000 });
+  // Sept 11 + 24 days is Oct 5: car insurance day.
+  const events = [];
+  for (let day = 1; day <= 24; day++) events.push(...life.onDay(day, dateOf(day)));
+  const insurance = events.find((e) => e.type === "bill" && e.name === "Car insurance");
+  assert.ok(insurance && insurance.type === "bill");
+  assert.equal(insurance.amount, 200);
+  assert.equal(insurance.paid, 200);
 });
