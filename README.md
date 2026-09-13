@@ -185,7 +185,7 @@ Still to come: the Calendar app with "Skip to next event", life events (marriage
 
 Status (2026-09-13): the Calendar with "Skip to next event" is built.
 The revamp's P3 adds seeded life events (car breakdowns, injuries, divorce and the prenup, penny-stock tips, recessions), the year-1 tax tutorial, three save slots with judge demo lives, and going back only in the end-of-game review.
-P1 (Sammy's onboarding) and P2 (goals, happiness, and the Retire button) are in progress.
+P1 (Sammy's onboarding) and P2 (goals, happiness, and the Retire button with its "You passed!" end screen) are built.
 
 ## Open questions
 

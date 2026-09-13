@@ -48,7 +48,8 @@ The first visit opens the title screen, where Sammy (the owl narrator) can walk 
   **Calendar** shows the player's days as a month grid in the pixel theme: red chips for money days and events, blue for their own choices, only scheduled money on future days, and a yellow "?" on the next decision day, which never says what it is.
   Tapping a past day goes back to that morning (a real rewind, `src/sim/rewind/`) once the end-of-game review opens it; during play the day's sheet says so instead, tapping the "?" plays the days up to it as a time-lapse, the back arrow zooms out to the year, and the speed strip is pause, 1x, and 2x.
   "Start a new life," in the year view, erases the save and starts over.
-  **Save slots**, also in the year view (or open the game at `/?slots=1`), lists your three lives and loads a judges' demo life into any slot: year one in San Francisco before the first tax day, married into the AI bubble, or almost retired.
+  **Save slots**, also in the year view (or open the game at `/?slots=1`), lists your three lives and loads a judges' demo life into any slot: year one in San Francisco before the first tax day, married into the AI bubble, or ready to retire.
+  The "Ready to retire" demo (`/?slot=2&demo=almost-retired`) loads at 61 with Retire already on, so pressing it in Goals always shows the "You passed!" end screen (`src/ui/endgame.ts`); its "Play again" button loads the same life fresh for the next judge.
   Your life is saved on the server as you play and resumes where you left off on reload.
   **Mail** shows your life's letters (a bank statement, a missed payment, a goal reached).
   **News** is the Larp City Ledger, a monthly newspaper the server writes from your run's stored data.
@@ -65,7 +66,7 @@ The first visit opens the title screen, where Sammy (the owl narrator) can walk 
 
 The game is always San Francisco, California: any other state in the URL hash (`#TX`) falls back to `#CA`.
 From the browser console, `larp.step(5)` simulates 5 seconds (useful in background tabs, which throttle animation).
-`larp.slots()` opens the save slots, and `larp.review()` opens going back to past days (until P2's Retire button opens it at the end of the game).
+`larp.slots()` opens the save slots, and `larp.review()` opens going back to past days, as retiring from the Goals app does.
 
 ## How it is built
 

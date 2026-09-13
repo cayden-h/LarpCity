@@ -31,7 +31,7 @@ import { saveApi } from "./sim/save/client";
 import { encodeGame, parseSave, restoreGame, SaveFormatError, type RestoredGame } from "./sim/save/codec";
 import { trimDesk } from "./sim/save/desk";
 import { SaveManager } from "./sim/save/manager";
-import { activeSlot, DEMOS, rememberSlot } from "./sim/save/slot";
+import { activeSlot, demoFor, DEMOS, rememberDemo, rememberSlot } from "./sim/save/slot";
 import { openSlots } from "./ui/slots";
 import type { DeskState, GameSave } from "./sim/save/types";
 import { Hud } from "./ui/hud";
@@ -171,8 +171,11 @@ let player: PlayerLife;
 if (saved && restored) {
   clock.jumpTo(saved.day);
   player = restored.life;
+  // The end screen offers to play a demo life again, for the next judge.
+  if (demoState && demo) rememberDemo(slot, demo);
   player.place = HOME;
 } else {
+  rememberDemo(slot, null);
   // Every new life is the default start (median rent, the default savings), with its job, salary,
   // and debt drawn from the seed.
   const starter = starterFor(state, rngFor("starter", seed));
@@ -402,6 +405,21 @@ const phone = new Phone({
   canGoBack: () => review.unlocked,
   onRetire: () => review.unlock(),
   openSlots: () => void openSlots({ current: slot, start: clock.start }),
+  // A demo life loads fresh from public/demo/ into this slot again, the same for every judge.
+  replayDemo: () => {
+    const d = demoFor(slot);
+    if (!d) return null;
+    return {
+      title: d.title,
+      play: () => {
+        const url = new URL(location.href);
+        url.search = "";
+        url.searchParams.set("slot", String(slot));
+        url.searchParams.set("demo", d.id);
+        location.href = url.toString();
+      },
+    };
+  },
   firstDay: () => timeline.firstDay,
   getWorld: () => ({ state, city: scene?.city ?? cityFor(state), status: scene?.status() ?? null }),
   changed: (d, o) => {

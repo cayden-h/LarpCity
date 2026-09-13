@@ -29,6 +29,7 @@ import { isMet, priceTag, viewOf } from "../sim/skip/goals";
 import type { Goal, GoalView } from "../sim/skip/types";
 import { goOnVacation } from "./vacation";
 import { buildEndgameScore, mountEndgame, retirementReady } from "./endgame.ts";
+import "./endgame.css";
 
 interface AppDef {
   id: "stocks" | "goals" | "taxes" | "map" | "calendar" | "news" | "mail" | "bank";
@@ -131,6 +132,8 @@ export interface PhoneDeps {
   onRetire?: () => void;
   /** Opens the save slot picker (the Calendar year view's "Save slots"). */
   openSlots?: () => void;
+  /** This slot's demo life, to play again from the end screen; null for a life of the player's own. */
+  replayDemo?: () => { title: string; play: () => void } | null;
   /** The earliest day the player can go back to. */
   firstDay?: () => number;
   /** Where the player is, for the Map app. */
@@ -464,13 +467,28 @@ export class Phone {
     this.q<HTMLButtonElement>("[data-retire]").disabled = !retirementReady(life, life.goals, view, life.age);
   }
 
-  /** Retiring is a one-way action: pause the clock (like the Money desk) and show the final score. */
+  /**
+   * Retiring ends the run: pause the clock (like the Money desk), open the review so the
+   * Calendar can go back to any day, and show the end screen. Closing it leaves the city
+   * paused; the Retire button shows the same screen again.
+   */
   private onRetire(): void {
     this.resumeSpeed = this.deps.clock.speed || this.resumeSpeed;
     this.deps.clock.speed = 0;
+    const life = this.deps.player;
     this.deps.onRetire?.();
-    const score = buildEndgameScore(this.deps.player, Math.floor(this.deps.player.age), this.deps.player.today);
-    mountEndgame(document.body, { score });
+    const view = viewOf(life);
+    mountEndgame(document.body, {
+      score: buildEndgameScore(life, Math.floor(life.age), life.today),
+      // Retiring is the moment the retirement goal is judged: at or before its age, it's met.
+      goals: life.goals.map((g) => ({
+        title: GOAL_TITLES[g.kind],
+        met: g.kind === "retirement_age" ? Math.floor(life.age) <= g.targetAge : isMet(g, view, life.age),
+      })),
+      onLookBack: () => this.openApp("calendar"),
+      replay: this.deps.replayDemo?.() ?? null,
+      onNewLife: () => this.deps.newLife(),
+    });
   }
 
   private goalItem(goal: Goal, view: GoalView): string {

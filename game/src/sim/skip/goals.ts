@@ -85,6 +85,8 @@ export function isMet(goal: Goal, v: GoalView, currentAge = 0): boolean {
     case "net_worth":
       return netWorthOf(v) >= goal.amount;
     case "house": {
+      // A home already bought meets it; otherwise it's met once one is affordable with the cash to close.
+      if (v.homeValue > 0) return true;
       const h = houseMath(v, goal.downPct);
       return h.affordable && h.available >= h.cashNeeded;
     }

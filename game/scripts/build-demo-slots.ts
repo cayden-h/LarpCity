@@ -19,6 +19,7 @@ import { MarketPath, type InstrumentId } from "../src/sim/market/index.ts";
 import { NpcTown } from "../src/sim/npcs/index.ts";
 import { encodeGame } from "../src/sim/save/codec.ts";
 import { DEMOS } from "../src/sim/save/slot.ts";
+import { retirementReadiness } from "../src/sim/wellbeing/retirement.ts";
 
 /** main.ts's default seed and Clock.start, so a demo plays the same market the city does. */
 const SEED = 20260912;
@@ -108,6 +109,11 @@ mkdirSync(OUT, { recursive: true });
       life.monthlyTakeHome = Math.round(life.monthlyTakeHome * step[2]);
       if (life.employed) life.book.monthlyTakeHome = life.monthlyTakeHome;
     }
+    // The house goal: a small house with 10% down, the first year the bank says yes.
+    if (year >= 8 && life.homeTier() < 2) life.chooseHome(2, day, { downPct: 0.1 });
   }
+  if (life.homeTier() < 2) throw new Error("almost-retired never bought its house; retune its saving");
+  // The judges' end screen: Retire must be on the moment the demo loads (ui/endgame.ts, retirementReady).
+  if (retirementReadiness(life) < 85) throw new Error(`almost-retired can't retire on load (readiness ${retirementReadiness(life)}); retune its saving`);
   write("almost-retired", life, day, market);
 }
