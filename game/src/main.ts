@@ -29,7 +29,7 @@ import { saveApi } from "./sim/save/client";
 import { encodeGame, parseSave, restoreGame, SaveFormatError, type RestoredGame } from "./sim/save/codec";
 import { trimDesk } from "./sim/save/desk";
 import { SaveManager } from "./sim/save/manager";
-import { activeSlot, rememberSlot } from "./sim/save/slot";
+import { activeSlot, DEMOS, rememberSlot } from "./sim/save/slot";
 import { openSlots } from "./ui/slots";
 import type { DeskState, GameSave } from "./sim/save/types";
 import { Hud } from "./ui/hud";
@@ -543,7 +543,9 @@ if (player.pendingChoices().length) phone.showDecision([]);
 if (params.get("slots") === "1") void openSlots({ current: slot, start: clock.start });
 
 // The owl opens the story once per browser tab, or welcomes a returning player back.
-if (saved) narrator.speak(welcomeBackLine(player.job || null, clock.date), "arrival");
+const demoLife = demoState ? DEMOS.find((d) => d.id === demo) : undefined;
+if (demoLife) narrator.speak(`A demo life: ${demoLife.title}. ${demoLife.pitch}`, "arrival");
+else if (saved) narrator.speak(welcomeBackLine(player.job || null, clock.date), "arrival");
 else {
   try {
     if (!sessionStorage.getItem("larp.narrator.arrived")) {

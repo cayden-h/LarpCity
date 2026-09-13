@@ -371,9 +371,9 @@ export interface LifeSave {
 /** Days of daily history a saved player life keeps; older days keep every 7th. */
 export const SAVE_DAILY_DAYS = 400;
 
-/** History for a save: every day in the last `keepDaily` days before `today`, and every 7th day before that. */
-export function compactHistory(history: LifeSnapshot[], today: number, keepDaily: number): LifeSnapshot[] {
-  return history.filter((s) => s.day > today - keepDaily || s.day % 7 === 0);
+/** History for a save: every day in the last `keepDaily` days before `today`, and every `olderEvery`th day before that (none when 0). */
+export function compactHistory(history: LifeSnapshot[], today: number, keepDaily: number, olderEvery = 7): LifeSnapshot[] {
+  return history.filter((s) => s.day > today - keepDaily || (olderEvery > 0 && s.day % olderEvery === 0));
 }
 
 /** Checking, a high-yield savings account, an emergency fund, an empty brokerage account, and an empty 401(k). */
@@ -672,8 +672,12 @@ export class PlayerLife {
     return new PlayerLife({ place: s.place, day: s.startDay, market: o.market, cashRate: o.cashRate }, s);
   }
 
-  /** Everything needed to carry on from today, as plain JSON; history keeps `keepDaily` days daily and weekly before. */
-  toSave(keepDaily = SAVE_DAILY_DAYS): LifeSave {
+  /**
+   * Everything needed to carry on from today, as plain JSON; history keeps `keepDaily` days daily,
+   * and every `olderEvery`th day before that (0 keeps none: an NPC's past isn't shown, and 50 NPCs'
+   * weekly rows would outgrow the server's save limit within a few game years).
+   */
+  toSave(keepDaily = SAVE_DAILY_DAYS, olderEvery = 7): LifeSave {
     // A JSON round trip, not structuredClone: the save is exactly what the server
     // stores, so a value JSON can't carry (a key set to undefined, NaN) shows up here.
     const save: LifeSave = {
@@ -692,7 +696,7 @@ export class PlayerLife {
       orders: this.orders,
       recurring: this.recurring,
       today: this.today,
-      history: compactHistory(this.history, this.today, keepDaily),
+      history: compactHistory(this.history, this.today, keepDaily, olderEvery),
       log: this.log.filter((e) => e.day > this.today - keepDaily),
       book: this.book,
       applications: this.applications,
@@ -1875,9 +1879,13 @@ export class PlayerLife {
   }
 
   private record(day: number) {
+    const last = this.history[this.history.length - 1];
+    // A late record for a day already past (an NPC's habit spend during catch-up) keeps that day's
+    // row: a second, out-of-order row would scramble the charts and grow the save.
+    if (last && day < last.day) return;
     const snap = this.snapshot(day);
     // Trades and skips can record the same day twice; keep one snapshot per day.
-    if (this.history.length && this.history[this.history.length - 1].day === day) this.history[this.history.length - 1] = snap;
+    if (last && last.day === day) this.history[this.history.length - 1] = snap;
     else this.history.push(snap);
   }
 }

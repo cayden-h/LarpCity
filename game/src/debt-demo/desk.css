@@ -28,6 +28,8 @@
   font-family: "Pixelify Sans", monospace;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  /* Pixelify's "fi" and "fl" ligatures squeeze two letters into one cell ("filer" read "fler"), as in ui/pixel-theme.css. */
+  font-variant-ligatures: no-common-ligatures;
   color: var(--ink);
   background: var(--bg);
   scrollbar-gutter: stable;
