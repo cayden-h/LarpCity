@@ -1,22 +1,32 @@
-/* Money desk (/debt.html) in Robinhood's look: white ground, one accent that
-   follows the direction of the big number (green #00C805 up, orange-red
-   #FF5000 down, the orange hint keeping a down day from reading as an error),
-   tabular numbers, and no chrome. Action buttons stay green on down days so
-   "Buy" never reads as a warning. The Card Shop (shop.css) uses the same look. */
+/* Money desk (/debt.html), pixel-art skin matching the rest of Larp City's UI:
+   Pixelify Sans, hard square borders with beveled inset shadows, dashed pixel
+   dividers instead of hairlines. Colors stay Robinhood's own (white ground,
+   one accent that follows the direction of the big number: green #00C805 up,
+   orange-red #FF5000 down) — only the geometry changed, not the palette.
+   The Card Shop keeps the city game's look inside its own panel (shop.css). */
+
+@font-face {
+  font-family: "Pixelify Sans";
+  src: url("/fonts/pixelify-sans-bold.ttf") format("truetype");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   --up: #00c805;
   --down: #ff5000;
   --accent: var(--up);
-  --brand: var(--up);
-  --brand-ink: #0a7a12;
   --ink: #0b0b0c;
   --sub: #6b7280;
-  --line: #ececef;
+  --edge: #0b0b0c;
+  --line: #d8dadc;
   --soft: #f5f6f7;
   --bg: #ffffff;
+  --bevel-lo: #ececef;
   color-scheme: light;
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Pixelify Sans", monospace;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
   background: var(--bg);
@@ -31,7 +41,7 @@
 }
 body {
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.4;
   background: var(--bg);
 }
@@ -52,9 +62,8 @@ button:disabled {
   cursor: default;
 }
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 3px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 6px;
 }
 
 /* Top bar ------------------------------------------------------------------ */
@@ -63,51 +72,46 @@ button:disabled {
   top: 0;
   z-index: 5;
   background: var(--bg);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 3px solid var(--edge);
 }
 .top-in {
-  max-width: 1120px;
+  max-width: 980px;
   margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 28px;
-  padding: 12px 24px;
+  gap: 20px;
+  padding: 10px 16px;
 }
 .logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
+  gap: 7px;
+  font-weight: 800;
   white-space: nowrap;
 }
 .logo i {
   display: inline-grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--edge);
   background: var(--ink);
   color: #fff;
   font-style: normal;
-  font-size: 14px;
+  font-size: 13px;
 }
 .tabs {
   display: flex;
-  gap: 22px;
+  gap: 16px;
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  scrollbar-width: none;
-  justify-content: flex-end;
-}
-.tabs::-webkit-scrollbar {
-  display: none;
 }
 .tabs button {
-  padding: 8px 0;
-  font-weight: 600;
+  padding: 6px 0;
+  font-weight: 700;
   color: var(--sub);
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
   white-space: nowrap;
 }
 .tabs button.on {
@@ -117,22 +121,22 @@ button:disabled {
 .time {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   white-space: nowrap;
 }
 .time-date {
   color: var(--sub);
-  font-size: 13px;
-  margin-right: 6px;
+  font-size: 12px;
+  margin-right: 4px;
 }
 .time button {
-  min-width: 32px;
-  height: 30px;
-  padding: 0 9px;
-  border-radius: 999px;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 7px;
+  border: 2px solid var(--edge);
   background: var(--soft);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
 }
 .time button.on {
   background: var(--ink);
@@ -144,13 +148,12 @@ button:disabled {
 .menu {
   position: absolute;
   right: 0;
-  top: 40px;
-  width: 260px;
-  padding: 8px;
+  top: 36px;
+  width: 250px;
+  padding: 6px;
   background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  border: 2px solid var(--edge);
+  box-shadow: 3px 3px var(--edge);
 }
 .menu button,
 .menu label {
@@ -159,75 +162,69 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 9px 10px;
   text-align: left;
-  font-weight: 500;
+  font-weight: 600;
 }
 .menu button:hover {
   background: var(--soft);
 }
 .menu select {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 4px 6px;
+  border: 2px solid var(--edge);
+  padding: 3px 5px;
   background: var(--bg);
 }
 .menu hr {
   border: 0;
-  border-top: 1px solid var(--line);
-  margin: 6px 0;
+  border-top: 2px dashed var(--line);
+  margin: 5px 0;
 }
 
-/* Search: Robinhood's field in the top bar, Stripe's grouped results under it. */
+/* Search: the field in the top bar, and the grouped results under it. */
 .search {
   position: relative;
-  flex: 0 1 440px;
-  min-width: 200px;
+  flex: 0 1 380px;
+  min-width: 160px;
 }
 .search > svg {
   position: absolute;
-  left: 13px;
+  left: 11px;
   top: 50%;
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   transform: translateY(-50%);
   color: var(--sub);
   pointer-events: none;
 }
 .search input {
   width: 100%;
-  height: 40px;
-  padding: 0 40px 0 38px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  height: 34px;
+  padding: 0 36px 0 32px;
+  border: 2px solid var(--edge);
   background: var(--soft);
-  font-size: 14px;
+  font-size: 13px;
   outline: none;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 .search input::-webkit-search-cancel-button {
   display: none;
 }
 .search input:focus {
   background: var(--bg);
-  border-color: var(--ink);
-  box-shadow: 0 0 0 3px rgba(11, 11, 12, 0.07);
+  box-shadow: 2px 2px var(--edge);
 }
 .search kbd {
   position: absolute;
-  right: 10px;
+  right: 8px;
   top: 50%;
   display: grid;
   place-items: center;
-  min-width: 22px;
-  height: 22px;
+  min-width: 20px;
+  height: 20px;
   transform: translateY(-50%);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  border: 2px solid var(--edge);
   background: var(--bg);
   color: var(--sub);
-  font: 600 12px/1 inherit;
+  font: 700 11px/1 inherit;
   pointer-events: none;
 }
 .search input:focus ~ kbd {
@@ -236,22 +233,21 @@ button:disabled {
 .search-pop {
   position: absolute;
   z-index: 10;
-  top: 46px;
+  top: 40px;
   left: 0;
   right: 0;
   max-height: min(70vh, 520px);
   overflow-y: auto;
-  padding: 6px;
+  padding: 4px;
   background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 18px 44px rgba(11, 11, 12, 0.14);
+  border: 2px solid var(--edge);
+  box-shadow: 3px 3px var(--edge);
 }
 .sr-h {
-  padding: 10px 10px 4px;
+  padding: 9px 9px 4px;
   color: var(--sub);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
 }
 .sr {
   display: grid;
@@ -259,23 +255,22 @@ button:disabled {
   align-items: baseline;
   gap: 10px;
   width: 100%;
-  padding: 9px 10px;
-  border-radius: 8px;
+  padding: 8px 9px;
   text-align: left;
 }
 .sr b {
-  font-weight: 600;
+  font-weight: 700;
 }
 .sr small {
   overflow: hidden;
   color: var(--sub);
-  font-size: 13px;
+  font-size: 12px;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .sr-r {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   white-space: nowrap;
 }
 .sr.on,
@@ -283,7 +278,7 @@ button:disabled {
   background: var(--soft);
 }
 .sr-empty {
-  padding: 14px 10px;
+  padding: 13px 9px;
   color: var(--sub);
 }
 
@@ -292,34 +287,35 @@ button:disabled {
   position: fixed;
   z-index: 7;
   left: 50%;
-  bottom: 16px;
+  bottom: 14px;
   transform: translateX(-50%);
-  padding: 6px 6px 6px 16px;
+  display: flex;
+  align-items: center;
+  padding: 5px 5px 5px 14px;
   background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  box-shadow: 0 10px 30px rgba(11, 11, 12, 0.12), 0 2px 6px rgba(11, 11, 12, 0.06);
+  border: 3px solid var(--edge);
+  box-shadow: 3px 3px var(--edge);
 }
 .dock-sep {
-  width: 1px;
-  height: 18px;
-  margin: 0 4px;
+  width: 2px;
+  height: 16px;
+  margin: 0 5px;
   background: var(--line);
 }
 .dock .menu {
   top: auto;
-  bottom: 46px;
+  bottom: 42px;
 }
 
 /* Layout ------------------------------------------------------------------- */
 .page {
-  max-width: 1120px;
+  max-width: 980px;
   margin: 0 auto;
-  /* Room at the bottom for the time dock. */
-  padding: 28px 24px 104px;
+  /* Room at the bottom for the fixed time dock. */
+  padding: 18px 16px 96px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 48px;
+  grid-template-columns: minmax(0, 1fr) 268px;
+  gap: 24px;
 }
 .page.wide {
   grid-template-columns: minmax(0, 1fr);
@@ -327,45 +323,35 @@ button:disabled {
 @media (max-width: 900px) {
   .page {
     grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
+    gap: 22px;
   }
   .top-in {
     flex-wrap: wrap;
-    gap: 12px 20px;
-  }
-  /* The section tabs get their own row under the logo and the time controls. */
-  .top-in .tabs {
-    order: 3;
-    flex: 1 1 100%;
-    justify-content: flex-start;
-  }
-  .search {
-    flex: 1 1 auto;
+    gap: 10px 16px;
   }
 }
 
 /* Hero --------------------------------------------------------------------- */
 .back {
   color: var(--sub);
-  font-weight: 600;
-  margin-bottom: 10px;
+  font-weight: 700;
+  margin-bottom: 8px;
 }
 .eyebrow {
   color: var(--sub);
-  font-weight: 500;
+  font-weight: 700;
 }
 .hero {
-  font-size: 44px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 38px;
+  font-weight: 900;
   line-height: 1.1;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 .change {
   margin-top: 4px;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--accent);
-  min-height: 21px;
+  min-height: 19px;
 }
 .change .when {
   color: var(--sub);
@@ -377,8 +363,8 @@ button:disabled {
 /* Big chart ---------------------------------------------------------------- */
 .bc {
   position: relative;
-  height: 240px;
-  margin: 26px 0 8px;
+  height: 220px;
+  margin: 22px 0 6px;
   touch-action: pan-y;
 }
 .bc svg {
@@ -421,7 +407,8 @@ button:disabled {
   position: absolute;
   right: 0;
   transform: translateY(calc(-100% - 4px));
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--sub);
   background: none;
   text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 0 0 4px var(--bg);
@@ -434,42 +421,41 @@ button:disabled {
 }
 .bc-when {
   position: absolute;
-  top: -20px;
+  top: -19px;
   transform: translateX(-50%);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--sub);
   white-space: nowrap;
   pointer-events: none;
 }
 .bc-dot {
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   margin: -5px 0 0 -5px;
-  border-radius: 50%;
   background: var(--accent);
   border: 2px solid var(--bg);
   pointer-events: none;
 }
 .bc-empty {
   position: absolute;
-  inset: auto 0 20px;
+  inset: auto 0 18px;
   text-align: center;
   color: var(--sub);
-  font-size: 13px;
+  font-size: 12px;
 }
 .ranges {
   display: flex;
   gap: 4px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+  border-bottom: 2px dashed var(--line);
   flex-wrap: wrap;
 }
 .ranges button {
-  padding: 5px 12px;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 13px;
+  padding: 4px 11px;
+  border: 2px solid transparent;
+  font-weight: 700;
+  font-size: 12px;
 }
 .ranges button:hover {
   background: var(--soft);
@@ -477,71 +463,72 @@ button:disabled {
 .ranges button.on {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: var(--edge);
 }
 
 /* Cards, rows, pills ----------------------------------------------------- */
 .card {
-  margin-top: 22px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 16px 18px;
+  margin-top: 18px;
+  border: 3px solid var(--edge);
+  box-shadow: inset 2px 2px #fff, inset -2px -2px var(--bevel-lo), 3px 3px var(--edge);
+  padding: 13px 15px;
 }
 .card.next {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
 }
 .card p {
   margin: 3px 0 0;
   color: var(--sub);
 }
 .card b {
-  font-weight: 600;
+  font-weight: 800;
 }
 .cta {
   flex: none;
-  background: var(--brand);
+  background: var(--accent);
   color: #fff;
-  font-weight: 600;
-  padding: 10px 22px;
-  border-radius: 999px;
+  font-weight: 800;
+  padding: 9px 18px;
+  border: 2px solid var(--edge);
+  box-shadow: 2px 2px var(--edge);
   white-space: nowrap;
 }
-.cta:hover:not(:disabled) {
-  filter: brightness(0.95);
-}
 .cta.soft {
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
-  color: var(--brand-ink);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  box-shadow: 2px 2px var(--edge);
 }
 .cta.plain {
   background: var(--soft);
   color: var(--ink);
+  box-shadow: 2px 2px var(--edge);
 }
 .section {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
-  margin: 30px 0 4px;
+  margin: 26px 0 4px;
 }
 .section h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
 }
 .section span {
   color: var(--sub);
-  font-size: 13px;
+  font-size: 12px;
 }
 .row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px auto;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 68px auto;
+  gap: 14px;
   align-items: center;
   width: 100%;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+  border-bottom: 2px dashed var(--line);
   text-align: left;
 }
 .row.link:hover {
@@ -550,7 +537,7 @@ button:disabled {
 }
 .row b {
   display: block;
-  font-weight: 600;
+  font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -558,7 +545,7 @@ button:disabled {
 .row small {
   display: block;
   color: var(--sub);
-  font-size: 13px;
+  font-size: 12px;
 }
 .row .end {
   display: flex;
@@ -574,13 +561,13 @@ button:disabled {
   opacity: 0.5;
 }
 .pill {
-  min-width: 88px;
+  min-width: 82px;
   text-align: center;
-  padding: 7px 10px;
-  border-radius: 8px;
+  padding: 6px 9px;
+  border: 2px solid var(--edge);
   color: #fff;
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 800;
+  font-size: 13px;
   white-space: nowrap;
 }
 .pill.up {
@@ -593,11 +580,11 @@ button:disabled {
   background: #9ca3af;
 }
 .mini {
-  padding: 6px 12px;
-  border-radius: 999px;
+  padding: 6px 11px;
+  border: 2px solid var(--edge);
   background: var(--soft);
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 700;
+  font-size: 12px;
   white-space: nowrap;
 }
 .mini:hover:not(:disabled) {
@@ -605,8 +592,9 @@ button:disabled {
   color: var(--accent);
 }
 .spark {
-  width: 72px;
-  height: 28px;
+  width: 68px;
+  height: 26px;
+  shape-rendering: crispEdges;
 }
 .spark path,
 .spark line {
@@ -623,10 +611,10 @@ button:disabled {
   stroke: #b8bcc4;
 }
 .chip {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 3px 9px;
-  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border: 2px solid var(--edge);
   background: var(--soft);
   color: var(--sub);
   white-space: nowrap;
@@ -640,16 +628,15 @@ button:disabled {
   color: #0a7a12;
 }
 .meter {
-  height: 6px;
+  height: 8px;
+  border: 2px solid var(--edge);
   background: var(--soft);
-  border-radius: 99px;
   overflow: hidden;
   margin-top: 8px;
 }
 .meter span {
   display: block;
   height: 100%;
-  border-radius: 99px;
 }
 .meter .good {
   background: var(--up);
@@ -663,28 +650,162 @@ button:disabled {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 16px;
+  margin-top: 14px;
 }
 .seg button {
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  font-weight: 600;
-  font-size: 14px;
+  padding: 8px 13px;
+  border: 2px solid var(--edge);
+  font-weight: 700;
+  font-size: 13px;
   text-align: left;
 }
 .seg button small {
   display: block;
   color: var(--sub);
   font-weight: 500;
-  font-size: 12px;
+  font-size: 11px;
 }
 .seg button.on {
-  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
+  box-shadow: 2px 2px var(--edge);
 }
-/* Typed amounts instead of sliders (Monarch, Copilot): the number is the control. It reads as
-   plain text, shows a field on hover, and a firm ring while you type. */
+.slider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  align-items: center;
+}
+.slider input {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--accent);
+}
+.amounts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.amounts button {
+  padding: 8px 13px;
+  border: 2px solid var(--edge);
+  font-weight: 700;
+}
+.amounts button.on {
+  color: var(--accent);
+  box-shadow: 2px 2px var(--edge);
+}
+.trade {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--sub);
+}
+.toggle input {
+  accent-color: var(--accent);
+  width: 18px;
+  height: 18px;
+}
+.msg {
+  margin-top: 9px;
+  font-size: 12px;
+  color: var(--sub);
+}
+.msg.bad {
+  color: #b33a00;
+}
+
+/* Side panel --------------------------------------------------------------- */
+.side {
+  position: sticky;
+  top: 76px;
+  align-self: start;
+  border: 3px solid var(--edge);
+  box-shadow: inset 2px 2px #fff, inset -2px -2px var(--bevel-lo), 3px 3px var(--edge);
+  overflow: hidden;
+}
+.side h3 {
+  margin: 0;
+  padding: 13px 15px;
+  font-size: 15px;
+  border-bottom: 2px solid var(--edge);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.side h3 span {
+  color: var(--sub);
+  font-weight: 600;
+  font-size: 12px;
+}
+.side h3 + .row,
+.side .row {
+  padding: 10px 15px;
+  grid-template-columns: minmax(0, 1fr) 50px auto;
+}
+.side .row:last-child {
+  border-bottom: 0;
+}
+.side .pill {
+  min-width: 68px;
+  font-size: 12px;
+  padding: 5px 7px;
+}
+.side .h3-gap {
+  border-top: 2px solid var(--edge);
+}
+
+/* Activity ------------------------------------------------------------------ */
+.feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.feed li {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 2px dashed var(--line);
+  font-size: 13px;
+}
+.feed .f-date {
+  color: var(--sub);
+}
+.feed .f-amt.up {
+  color: #0a7a12;
+}
+.feed .f-amt.down {
+  color: #b33a00;
+}
+.feed .empty {
+  display: block;
+  color: var(--sub);
+}
+
+.foot {
+  margin-top: 26px;
+  color: var(--sub);
+  font-size: 11px;
+}
+.live-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: var(--up);
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+
+/* Typed amounts instead of sliders: the number is the control. */
 .field-head {
   display: flex;
   align-items: center;
@@ -694,12 +815,10 @@ button:disabled {
 .amt-edit {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  font-weight: 600;
+  padding: 3px 7px;
+  border: 2px solid transparent;
+  font-weight: 700;
   cursor: text;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 .amt-edit:hover {
   background: var(--soft);
@@ -707,8 +826,8 @@ button:disabled {
 }
 .amt-edit:focus-within {
   background: var(--bg);
-  border-color: var(--ink);
-  box-shadow: 0 0 0 3px rgba(11, 11, 12, 0.07);
+  border-color: var(--edge);
+  box-shadow: 2px 2px var(--edge);
 }
 .amt-edit input {
   width: 7ch;
@@ -720,7 +839,7 @@ button:disabled {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
-/* Preset amounts (Monzo, Robinhood order entry); the chosen one fills black. */
+/* Preset amounts; the chosen one fills black. */
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -728,14 +847,13 @@ button:disabled {
   margin-top: 10px;
 }
 .chips button {
-  padding: 6px 13px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
+  padding: 6px 12px;
+  border: 2px solid var(--edge);
+  font-size: 12px;
+  font-weight: 700;
 }
 .chips button:hover {
-  border-color: #cfd2d8;
+  box-shadow: 2px 2px var(--edge);
 }
 .chips button.on {
   background: var(--ink);
@@ -743,25 +861,11 @@ button:disabled {
   color: #fff;
 }
 
-/* Stock rows: price over today's move, colored like the sparkline (Robinhood's list). */
-.row.stock .px {
-  display: grid;
-  justify-items: end;
-  gap: 1px;
-  white-space: nowrap;
-}
-.row.stock .px b {
-  font-weight: 600;
-}
-.row.stock .px small {
-  font-size: 13px;
-  font-weight: 600;
-}
 .txt-up {
-  color: var(--brand-ink);
+  color: #0a7a12;
 }
 .txt-down {
-  color: #c43d00;
+  color: #b33a00;
 }
 .txt-flat {
   color: var(--sub);
@@ -771,20 +875,20 @@ button:disabled {
 .stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  column-gap: 24px;
+  column-gap: 20px;
 }
 .stats > div {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+  border-bottom: 2px dashed var(--line);
 }
 .stats > div > span {
   display: block;
   color: var(--sub);
-  font-size: 13px;
+  font-size: 12px;
 }
 .stats b {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 800;
 }
 @media (max-width: 640px) {
   .stats {
@@ -795,33 +899,16 @@ button:disabled {
   margin: 8px 0 0;
   line-height: 1.55;
 }
-.amounts {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
-.amounts button {
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  font-weight: 600;
-}
-.amounts button.on {
-  border-color: var(--accent);
-  color: var(--accent);
-}
 .amt-in {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-weight: 600;
+  padding: 0 12px;
+  border: 2px solid var(--edge);
+  font-weight: 700;
 }
 .amt-in:focus-within {
-  border-color: var(--accent);
+  box-shadow: 2px 2px var(--edge);
 }
 .amt-in input {
   width: 72px;
@@ -829,33 +916,7 @@ button:disabled {
   border: 0;
   outline: none;
   background: transparent;
-  font-weight: 600;
-}
-.trade {
-  display: flex;
-  gap: 10px;
-  margin-top: 14px;
-  flex-wrap: wrap;
-}
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 14px;
-  color: var(--sub);
-}
-.toggle input {
-  accent-color: var(--accent);
-  width: 18px;
-  height: 18px;
-}
-.msg {
-  margin-top: 10px;
-  font-size: 13px;
-  color: var(--sub);
-}
-.msg.bad {
-  color: #b33a00;
+  font-weight: 700;
 }
 
 /* Cash tab: quick actions, accounts, the statement ------------------------------ */
@@ -863,11 +924,11 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 18px;
 }
 .acct .amt {
-  font-weight: 600;
-  font-size: 16px;
+  font-weight: 700;
+  font-size: 15px;
   white-space: nowrap;
 }
 .acct b .chip {
@@ -886,212 +947,125 @@ button:disabled {
   align-items: center;
   gap: 8px;
   color: var(--sub);
-  font-size: 14px;
+  font-size: 13px;
 }
 .xfer-row select {
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
+  padding: 7px 10px;
+  border: 2px solid var(--edge);
   background: var(--bg);
   color: var(--ink);
-  font-weight: 600;
+  font-weight: 700;
 }
 .t-day {
   margin-top: 14px;
   padding: 8px 0 6px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 2px solid var(--edge);
   color: var(--sub);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
 }
 .txn {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 9px 0;
+  border-bottom: 2px dashed var(--line);
 }
 .txn .av {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--edge);
   background: var(--soft);
-  font-size: 17px;
+  font-size: 16px;
 }
 .txn b {
   display: block;
-  font-weight: 600;
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .txn small {
   color: var(--sub);
-  font-size: 13px;
+  font-size: 12px;
 }
 .t-amt {
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
 }
 .t-amt.in {
-  color: var(--brand-ink);
+  color: #0a7a12;
 }
 .t-amt.move {
   color: var(--sub);
 }
 
-/* Side panel --------------------------------------------------------------- */
-/* Taller than the screen, so it scrolls on its own and ends above the time dock. */
-.side {
-  position: sticky;
-  top: 84px;
-  align-self: start;
-  max-height: calc(100vh - 172px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-}
-.side h3 {
-  margin: 0;
-  padding: 16px 18px;
-  font-size: 16px;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-.side h3 span {
-  color: var(--sub);
-  font-weight: 500;
-  font-size: 13px;
-}
-.side h3 + .row,
-.side .row {
-  padding: 12px 18px;
-  grid-template-columns: minmax(0, 1fr) 56px auto;
-}
-.side .row:last-child {
-  border-bottom: 0;
-}
-.side .pill {
-  min-width: 74px;
-  font-size: 13px;
-  padding: 6px 8px;
-}
-.side .h3-gap {
-  border-top: 1px solid var(--line);
-}
-
-/* Activity ------------------------------------------------------------------ */
-.feed {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.feed li {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) auto;
-  gap: 12px;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--line);
-  font-size: 14px;
-}
-.feed .f-date {
-  color: var(--sub);
-}
-.feed .f-amt.up {
-  color: #0a7a12;
-}
-.feed .f-amt.down {
-  color: #b33a00;
-}
-.feed .empty {
-  display: block;
-  color: var(--sub);
-}
-
-.foot {
-  margin-top: 28px;
-  color: var(--sub);
-  font-size: 12px;
-}
-.live-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--up);
-  margin-right: 6px;
-  vertical-align: 1px;
-}
-
-/* The Card Shop sits under the Cards page in the same column. */
+/* Card Shop panel, styled by shop.css to match the rest of this window ---------- */
 .page.wide {
-  padding-bottom: 8px;
+  padding-bottom: 26px;
+}
+.shop-panel {
+  margin: 0 16px 24px;
+  overflow: hidden;
+  background: var(--bg);
 }
 
 /* Decision sheet ------------------------------------------------------------- */
-/* Above everything on the page, the time dock (z-index 7) included, so the dock dims with the rest;
-   the bottom padding keeps a tall sheet clear of the dock, and a sheet taller than the window scrolls. */
 .sheet-back {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: 20;
   display: grid;
-  place-items: safe center;
-  overflow-y: auto;
-  padding: 20px 20px 76px;
+  place-items: center;
+  padding: 20px;
   background: rgba(11, 11, 12, 0.45);
 }
 .sheet {
-  width: min(520px, 100%);
+  width: min(500px, 100%);
   background: var(--bg);
-  border-radius: 16px;
-  padding: 22px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+  border: 3px solid var(--edge);
+  padding: 20px;
+  box-shadow: 6px 6px var(--edge);
 }
 .sheet .tag {
   color: var(--down);
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 700;
+  font-size: 12px;
 }
 .sheet h3 {
   margin: 6px 0 4px;
-  font-size: 22px;
+  font-size: 20px;
 }
 .sheet > p {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   color: var(--sub);
 }
 .opt {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 14px 16px;
-  margin-top: 10px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  padding: 13px 15px;
+  margin-top: 9px;
+  border: 2px solid var(--edge);
 }
 .opt:hover {
-  border-color: var(--ink);
+  box-shadow: 2px 2px var(--edge);
 }
 .opt b {
   display: block;
 }
 .opt span {
   color: var(--sub);
-  font-size: 14px;
+  font-size: 13px;
 }
 .opt.good b::after {
   content: "  Recommended";
   color: #0a7a12;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* Standalone /debt.html with nothing to open (main.ts, Start): no saved life yet, or a save only the city can sort out. */

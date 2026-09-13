@@ -83,8 +83,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/chase-sapphire-preferred.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://creditcards.chase.com/content/dam/jpmc-marketplace/card-art/sapphire-preferredcard2026.png"
     },
     "terms": {
@@ -177,8 +177,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/chase-sapphire-reserve.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://creditcards.chase.com/content/dam/jpmc-marketplace/card-art/sapphire_reserve_card_Halo.png"
     },
     "terms": {
@@ -273,8 +273,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/chase-freedom-unlimited.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://www.chase.com/content/dam/unified-assets/card-art/chase-freedom/freedom-unlimited/card_freedomUtld_V.png"
     },
     "terms": {
@@ -381,8 +381,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/chase-freedom-flex.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://www.chase.com/content/dam/unified-assets/card-art/chase-freedom/freedom-flex/card_freedomFlex_MC.png"
     },
     "terms": {
@@ -477,8 +477,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/amex-platinum.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1573,
+      "height": 1000,
       "sourceUrl": "https://icm.aexp-static.com/acquisition/card-art/NUS000000237_480x304_straight_withname.png"
     },
     "terms": {
@@ -585,8 +585,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/amex-gold.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1583,
+      "height": 994,
       "sourceUrl": "https://icm.aexp-static.com/acquisition/card-art/NUS000000174_480x304_straight_withname.png"
     },
     "terms": {
@@ -684,8 +684,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/amex-blue-cash-everyday.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1573,
+      "height": 1000,
       "sourceUrl": "https://icm.aexp-static.com/acquisition/card-art/NUS000000305_480x304_straight_withname.png"
     },
     "terms": {
@@ -794,8 +794,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/amex-blue-cash-preferred.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1573,
+      "height": 1000,
       "sourceUrl": "https://icm.aexp-static.com/acquisition/card-art/NUS000000264_480x304_straight_withname.png"
     },
     "terms": {
@@ -887,8 +887,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/capital-one-venture-x.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://ecm.capitalone.com/WCM/card/products/venturex-cg-static-card-1000x630-2.png"
     },
     "terms": {
@@ -974,8 +974,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/capital-one-venture.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://ecm.capitalone.com/WCM/card/products/venture_cardart_prim_323x203-1.png"
     },
     "terms": {
@@ -1080,8 +1080,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/capital-one-savor.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://ecm.capitalone.com/WCM/card/products/new-savor-card-art.png"
     },
     "terms": {
@@ -1165,8 +1165,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/capital-one-quicksilver.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://ecm.capitalone.com/WCM/card/products/qs_cardart_prim_323x203.png"
     },
     "terms": {
@@ -1243,8 +1243,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/capital-one-platinum.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://ecm.capitalone.com/WCM/card/products/plat_cardart_prim_323x203.png"
     },
     "terms": {
@@ -1312,8 +1312,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/capital-one-platinum-secured.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://ecm.capitalone.com/WCM/card/products/plat_cardart_prim_323x203.png"
     },
     "terms": {
@@ -1406,8 +1406,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/capital-one-savor-student.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://ecm.capitalone.com/WCM/card/products/new-savor-card-art.png"
     },
     "terms": {
@@ -1494,8 +1494,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/discover-it-cash-back.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://ecm.capitalone.com/WCM/dfs-card/products/cardart-cashit-with-shadow.png"
     },
     "terms": {
@@ -1583,8 +1583,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/discover-it-student.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://ecm.capitalone.com/WCM/dfs-card/products/cardart-student-it-iridescent-shadow.png"
     },
     "terms": {
@@ -1667,8 +1667,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/discover-it-secured.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://ecm.capitalone.com/WCM/dfs-card/products/cardart-cashit-with-shadow.png"
     },
     "terms": {
@@ -1757,8 +1757,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/citi-double-cash.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://aemapi.citi.com/content/dam/cfs/uspb/usmkt/cards/en/static/images/citi-double-cash-credit-card/citi-double-cash-credit-card_306x192.webp"
     },
     "terms": {
@@ -1839,8 +1839,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/citi-custom-cash.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://aemapi.citi.com/content/dam/cfs/uspb/usmkt/cards/en/static/images/citi-custom-cash-credit-card/citi-custom-cash-credit-card_306x192.webp"
     },
     "terms": {
@@ -1924,8 +1924,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/wells-fargo-active-cash.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1579,
+      "height": 996,
       "sourceUrl": "https://creditcards.wellsfargo.com/W-Card-MarketPlace/v9-1-26/images/Products/ActiveCash/WF_ActiveCash_VS_Collateral_Front_RGB.png"
     },
     "terms": {
@@ -2001,8 +2001,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/wells-fargo-reflect.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1389,
+      "height": 864,
       "sourceUrl": "https://creditcards.wellsfargo.com/rv/bcs/production/reflect.B_Nc3OR8_Z2bs2bf.webp"
     },
     "terms": {
@@ -2094,8 +2094,8 @@ export const CURATED: CuratedCard[] = [
     "checked": "2026-09-11",
     "art": {
       "src": "/cards/art/bofa-customized-cash.webp",
-      "width": 1200,
-      "height": 757,
+      "width": 1573,
+      "height": 1000,
       "sourceUrl": "https://www.bankofamerica.com/content/images/ContextualSiteGraphics/CreditCardArt/en_US/Approved_PCM/8ckn_cshsigcm_v_250x158.png"
     },
     "terms": {
