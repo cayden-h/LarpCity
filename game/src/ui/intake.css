@@ -250,6 +250,44 @@
   margin-top: 6px;
 }
 
+/* Plaid connection screen */
+.in-plaid-card {
+  max-width: 300px;
+  margin: 20px auto;
+  padding: 16px 20px;
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.12);
+  text-align: center;
+}
+.in-plaid-status {
+  margin-bottom: 12px;
+}
+.in-plaid-icon {
+  display: inline-block;
+  font-size: 40px;
+  line-height: 1;
+  animation: in-spinner 1s linear infinite;
+}
+.in-plaid-icon.in-plaid-done {
+  animation: none;
+  color: #90ee90;
+}
+.in-plaid-account {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+@keyframes in-spinner {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 540px) {
   .in-card {
     padding: 42px 18px 18px;

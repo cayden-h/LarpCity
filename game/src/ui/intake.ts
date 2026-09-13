@@ -138,8 +138,36 @@ class Intake {
 
   private chooseAvatar(avatar: "male" | "female"): void {
     this.avatar = avatar;
-    if (this.nextAfterAvatar === "talk") void this.talk();
-    else this.typeInstead();
+    this.plaidScreen();
+  }
+
+  /** Fake Plaid connection screen: static UI showing a connected account. */
+  private plaidScreen(): void {
+    this.show(`
+      <div class="in-owl-slot"></div>
+      <div class="in-name">Connecting…</div>
+      <p class="in-lead">Secure connection via Plaid</p>
+      <div class="in-plaid-card">
+        <div class="in-plaid-status">
+          <span class="in-plaid-icon" aria-hidden="true">⏳</span>
+        </div>
+        <div class="in-plaid-account">Sunrise Bank •••• 4821</div>
+      </div>
+      <div class="in-actions">
+        <button type="button" class="btn in-big" data-act="plaid-continue">Continue</button>
+      </div>`);
+    this.mountOwl(OWL_BIG);
+    void this.owl.play("idle");
+    this.focus("[data-act=plaid-continue]");
+
+    // After 1 second, animate the spinner to a checkmark (CSS only, no network call).
+    window.setTimeout(() => {
+      const icon = this.body.querySelector<HTMLElement>(".in-plaid-icon");
+      if (icon) {
+        icon.classList.add("in-plaid-done");
+        icon.textContent = "✓";
+      }
+    }, 1000);
   }
 
   private show(html: string): void {
@@ -163,7 +191,10 @@ class Intake {
     else if (act === "type") this.avatarScreen("type");
     else if (act === "avatar-male") this.chooseAvatar("male");
     else if (act === "avatar-female") this.chooseAvatar("female");
-    else if (act === "hangup") void this.hangUp(this.callSeq);
+    else if (act === "plaid-continue") {
+      if (this.nextAfterAvatar === "talk") void this.talk();
+      else this.typeInstead();
+    } else if (act === "hangup") void this.hangUp(this.callSeq);
     else if (act === "skip") void this.finish(null);
   }
 
