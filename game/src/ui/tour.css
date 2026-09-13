@@ -1,0 +1,59 @@
+/* Sammy's tours (ui/tour.ts): a dim over everything but the step's target, a
+   pixel frame around the target in the HUD's palette (ui/pixel-theme.css), and
+   blockers so only the target can be used. Above the Money window (20) and the
+   map (10), under Sammy's tour bubble (28) and the intake (30). */
+
+.tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 26;
+  pointer-events: none;
+}
+.tour-layer[hidden] {
+  display: none;
+}
+/* The cutout over the target; the four blockers around it are the dim (a huge
+   box-shadow would do it in one box, but Chrome doesn't always paint one that big). */
+.tour-hole {
+  position: fixed;
+  pointer-events: none;
+}
+.tour-block {
+  position: fixed;
+  background: rgba(8, 18, 32, 0.58);
+  pointer-events: auto;
+}
+.tour-block.hole-block {
+  background: none;
+}
+.tour-block[hidden] {
+  display: none;
+}
+.tour-frame {
+  position: fixed;
+  overflow: visible;
+  pointer-events: none;
+  shape-rendering: crispEdges;
+}
+.tf-edge {
+  fill: var(--edge, #101a23);
+}
+.tf-glow {
+  fill: var(--yellow, #ffdb39);
+  animation: tour-pulse 1.4s steps(1, end) infinite;
+}
+/* A gentle two-color pulse, stepped like the rest of the pixel theme. */
+@keyframes tour-pulse {
+  50% {
+    fill: #fff1a0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tf-glow {
+    animation: none;
+  }
+}
+.tour-layer.reduced .tf-glow {
+  animation: none;
+}
