@@ -18,11 +18,11 @@ import { PlayerLife, STARTER_PORTFOLIO, seriesOn, type LifeEvent, type LifeSnaps
 import { INSTRUMENTS, MarketPath, instrument, type InstrumentId } from "../sim/market/index.ts";
 import { fetchRecoveryLesson } from "../net/recap.ts";
 import { RunRecorder } from "../sim/record/index.ts";
+import { finalScore, wellbeing } from "../sim/wellbeing/index.ts";
 import {
   compareStrategies,
   effectiveApr,
   enrollHardship,
-  fileBankruptcy,
   isOpen,
   owed,
   payNow,
@@ -33,7 +33,7 @@ import {
   type Strategy,
 } from "../sim/debt/index.ts";
 
-type Tab = "home" | "cash" | "investing" | "debt" | "credit" | "cards" | "taxes";
+type Tab = "home" | "cash" | "investing" | "debt" | "credit" | "score" | "cards" | "taxes";
 type Range = "1W" | "1M" | "3M" | "1Y" | "ALL";
 type Tone = "up" | "down" | "flat";
 interface FeedItem {
@@ -84,6 +84,7 @@ const TABS: [Tab, string][] = [
   ["investing", "Investing"],
   ["debt", "Debt"],
   ["credit", "Credit"],
+  ["score", "Score"],
   ["cards", "Cards"],
   ["taxes", "Taxes"],
 ];
@@ -157,6 +158,7 @@ const PAGE_SUB: Record<Tab, string> = {
   investing: "Stocks and funds",
   debt: "Your payoff plan",
   credit: "Your score and what moves it",
+  score: "Retirement readiness and wellbeing",
   cards: "Your card and the Card Shop",
   taxes: "Your federal and state return",
 };
@@ -408,7 +410,7 @@ function askBankruptcy(reason: string) {
         label: "File Chapter 7",
         lesson: "Wipes cards and personal loans in about 4 months. Student loans stay. It's on your report for 10 years.",
         act: () => {
-          const r = fileBankruptcy(life.book, 7, clock.day);
+          const r = life.fileBankruptcy(7, clock.day);
           log(clock.day, `Chapter 7: ${usd(r.discharged)} wiped out`, "down", -r.cost);
         },
       },
@@ -416,7 +418,7 @@ function askBankruptcy(reason: string) {
         label: "File Chapter 13",
         lesson: "A 5-year plan repays part of it and you keep your car. It's on your report for 7 years.",
         act: () => {
-          const r = fileBankruptcy(life.book, 13, clock.day);
+          const r = life.fileBankruptcy(13, clock.day);
           log(clock.day, `Chapter 13 plan: ${usd(r.planPayment ?? 0)} a month for 5 years`, "down");
         },
       },
@@ -1052,6 +1054,46 @@ function creditPage(): Page {
   };
 }
 
+// ---- Life score --------------------------------------------------------------------
+
+const FACTOR_LABELS = {
+  work: "Work",
+  cashCushion: "Cash cushion",
+  debtLoad: "Debt load",
+  realIncome: "Real income",
+  relationships: "Relationships",
+  retirementOnTrack: "Retirement on track",
+  healthCoverage: "Health coverage",
+  commute: "Commute",
+  homeStability: "Home stability",
+} as const;
+
+function scorePage(): Page {
+  const snapshot = wellbeing(life, clock.day);
+  const score = finalScore(life, clock.day);
+  return {
+    side: false,
+    tone: score.final >= 50 ? "up" : "down",
+    main: `<div class="eyebrow">Your Larp City life score</div>
+      <div class="hero">${score.final.toFixed(1)}</div>
+      <div class="change neutral">60% retirement readiness · 40% lifetime wellbeing</div>
+      <div class="stats">${[
+        ["Retirement readiness", score.RR],
+        ["Lifetime wellbeing", score.Wlife],
+        ["Wellbeing today", snapshot.W],
+      ]
+        .map(([label, value]) => `<div class="stat"><span>${label}</span><b>${(value as number).toFixed(1)}</b></div>`)
+        .join("")}</div>
+      <div class="section"><h2>What moves wellbeing</h2><span>Your game meter is ${snapshot.W.toFixed(0)}. CFPB 2017 report reference: 54.</span></div>
+      ${snapshot.factors
+        .map(
+          (factor) => `<div class="row r2"><div><b>${FACTOR_LABELS[factor.name]}</b><small>${factor.note}</small><div class="meter"><span class="${factor.s >= 0.8 ? "good" : "bad"}" style="width:${Math.max(4, factor.s * 100).toFixed(0)}%"></span></div></div><span class="chip">${factor.points.toFixed(1)} / ${factor.weight}</span></div>`,
+        )
+        .join("")}
+      <p class="foot">This is Larp City's custom life score. The CFPB reference is a financial well-being survey benchmark, not the instrument used to calculate this game score.</p>`,
+  };
+}
+
 // ---- Cards ---------------------------------------------------------------------------
 
 function cardsPage(): Page {
@@ -1383,7 +1425,7 @@ function render() {
   const sel = active instanceof HTMLInputElement && active.type === "number" ? null : null;
   void sel;
   renderTop();
-  const pages: Record<Tab, () => Page> = { home: homePage, cash: cashPage, investing: investingPage, debt: debtPage, credit: creditPage, cards: cardsPage, taxes: taxesPage };
+  const pages: Record<Tab, () => Page> = { home: homePage, cash: cashPage, investing: investingPage, debt: debtPage, credit: creditPage, score: scorePage, cards: cardsPage, taxes: taxesPage };
   const page = pages[tab]();
   const el = q("[data-page]");
   el.className = `page${page.side ? "" : " wide"}`;
