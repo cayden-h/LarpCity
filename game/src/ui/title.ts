@@ -17,6 +17,8 @@ export interface TitleOptions {
 }
 
 const OWL_SIZE = 170;
+/** Sammy's height beside the walkthrough's bubble, on a wide and a narrow screen. */
+const LEARN_OWL = { wide: 150, narrow: 96 };
 /** How long the overlay takes to fade (title.css). */
 const FADE_MS = 300;
 
@@ -65,7 +67,9 @@ class Title {
   private learn(): void {
     this.el.classList.add("learning");
     this.owl.stop();
-    this.narrator.beginTour({ next: () => this.go(1), back: () => this.go(-1), skip: () => this.finish() });
+    // Sammy stays close to the title's size, since nothing else is on screen.
+    const owl = innerWidth < 600 ? LEARN_OWL.narrow : LEARN_OWL.wide;
+    this.narrator.beginTour({ next: () => this.go(1), back: () => this.go(-1), skip: () => this.finish() }, { owl });
     addEventListener("keydown", this.onKey, true);
     addEventListener("resize", this.onResize);
     this.show(0);
