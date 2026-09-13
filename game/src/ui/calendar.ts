@@ -218,7 +218,7 @@ export class CalendarApp {
 
   private stateKey(): string {
     const { clock, life } = this.deps;
-    return `${clock.day}:${life.log.length}:${clock.speed}:${this.mode}:${this.year}:${this.month}:${this.selected}:${this.erase}`;
+    return `${clock.day}:${life.log.length}:${clock.speed}:${clock.held}:${this.mode}:${this.year}:${this.month}:${this.selected}:${this.erase}`;
   }
 
   // ---- Drawing ---------------------------------------------------------------
@@ -279,7 +279,7 @@ export class CalendarApp {
       </header>
       <div class="cal-dow" aria-hidden="true">${["S", "M", "T", "W", "T", "F", "S"].map((c) => `<span>${c}</span>`).join("")}</div>
       <div class="cal-grid">${grid}</div>
-      <div class="cal-speeds">${SPEEDS.map((s) => `<button data-cal-speed="${s.speed}" class="${s.speed === speed ? "on" : ""}" aria-label="${s.name}" aria-pressed="${s.speed === speed}">${s.label}</button>`).join("")}</div>
+      <div class="cal-speeds">${SPEEDS.map((s) => `<button data-cal-speed="${s.speed}" class="${s.speed === speed ? "on" : ""}" aria-label="${s.name}" aria-pressed="${s.speed === speed}" ${this.deps.clock.held ? "disabled" : ""}>${s.label}</button>`).join("")}</div>
       ${this.selected !== null ? this.sheetHtml(this.selected, decision) : ""}`;
   }
 
@@ -295,7 +295,8 @@ export class CalendarApp {
     if (kind === "future" && day === decision) {
       kicker = `${weekday(date)} · ${howFar(day - this.deps.clock.day)}`;
       content = `<div class="cal-mystery"><span class="cal-q">?</span><span>Something will need your call this day. You'll find out what when you get there.</span></div>`;
-      action = `<button class="cal-action" data-cal-skip="${day}">Skip to ${short(date)}</button>`;
+      // A tour holds the clock (ui/tour.ts); skipping waits until it ends.
+      action = `<button class="cal-action" data-cal-skip="${day}" ${this.deps.clock.held ? "disabled" : ""}>Skip to ${short(date)}</button>`;
     } else if (kind === "future") {
       kicker = `${weekday(date)} · coming up`;
       const marks = this.marksOn(day, kind);
@@ -395,6 +396,7 @@ export class CalendarApp {
       this.deps.rewindTo(Number(data.calGo));
       return;
     }
+    if (this.deps.clock.held && (data.calSkip !== undefined || data.calSpeed !== undefined)) return;
     if (data.calSkip !== undefined) {
       this.selected = null;
       this.deps.skipTo(Number(data.calSkip));

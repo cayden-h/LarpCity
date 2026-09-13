@@ -26,6 +26,11 @@ export class Clock {
   pinnedTimeOfDay: number | null = null;
   /** True while a skip or fast-forward holds the sky still. */
   skipping = false;
+  /**
+   * Set while Sammy's tour is open: the calendar stops without touching `speed`, so it resumes at
+   * the same speed afterward, and the speed buttons, skips, and fast-forward stay off meanwhile.
+   */
+  held = false;
 
   private readonly listeners: ((day: number) => void)[] = [];
 
@@ -47,7 +52,7 @@ export class Clock {
       this.timeOfDay = (this.timeOfDay + dtSeconds / this.visualDaySeconds) % 1;
     }
 
-    if (this.speed === 0) return;
+    if (this.speed === 0 || this.held) return;
     this.dayFraction += (dtSeconds * this.speed * 7) / SECONDS_PER_GAME_WEEK;
     while (this.dayFraction >= 1) {
       this.dayFraction -= 1;
