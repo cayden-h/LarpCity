@@ -218,6 +218,23 @@ button {
   font-size: 14px;
 }
 
+.npc-bank {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.85em;
+}
+.npc-bank-row,
+.npc-bank-txn {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.npc-bank-recent {
+  margin-top: 4px;
+  opacity: 0.8;
+}
+
 /* States map overlay */
 #map {
   position: fixed;

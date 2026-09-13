@@ -8,6 +8,7 @@ import "./skip-setup.css";
 import type { Clock } from "../engine/clock";
 import { project, type Strategy } from "../sim/debt";
 import type { PlayerLife } from "../sim/life";
+import { finalScore } from "../sim/wellbeing";
 import {
   applyOrders,
   budget,
@@ -40,12 +41,15 @@ type OrderKey = keyof StandingOrders;
 const GOALS: { kind: GoalKind; icon: string; title: string }[] = [
   { kind: "emergency_fund", icon: "🛟", title: "Build an emergency fund" },
   { kind: "debt_free", icon: "💳", title: "Become debt-free" },
-  { kind: "net_worth", icon: "💰", title: "Reach a net worth" },
+  { kind: "net_worth", icon: "💰", title: "Build your life savings" },
   { kind: "house", icon: "🏡", title: "Buy a home" },
+  { kind: "marriage", icon: "💍", title: "Get married" },
+  { kind: "status", icon: "📈", title: "Reach a career level" },
 ];
 const EMERGENCY_MONTHS = [3, 6, 9, 12];
 const NET_WORTH = [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
 const DOWN = [0.05, 0.1, 0.2];
+const TARGET_INCOME = [50_000, 75_000, 100_000, 150_000, 250_000, 500_000];
 const LIFESTYLES: [Lifestyle, string][] = [
   ["frugal", "Frugal"],
   ["normal", "Normal"],
@@ -124,6 +128,7 @@ export class FastForward {
   private months = 6;
   private amount = 100_000;
   private downPct = 0.1;
+  private targetIncome = 100_000;
   private capAge = 67;
   private orders!: StandingOrders;
   private now!: StandingOrders;
@@ -237,6 +242,10 @@ export class FastForward {
         return { kind: "net_worth", amount: this.amount };
       case "house":
         return { kind: "house", downPct: this.downPct };
+      case "marriage":
+        return { kind: "marriage" };
+      case "status":
+        return { kind: "status", annualIncome: this.targetIncome };
     }
   }
 
@@ -299,6 +308,8 @@ export class FastForward {
           ? `<select data-gp="amount" aria-label="Net worth">${NET_WORTH.map((a) => option(a, compact(a), this.amount)).join("")}</select>`
           : kind === "house"
             ? `<select data-gp="downPct" aria-label="Down payment">${DOWN.map((d) => option(d, `${Math.round(d * 100)}% down`, this.downPct)).join("")}</select>`
+            : kind === "status"
+              ? `<select data-gp="targetIncome" aria-label="Target annual income">${TARGET_INCOME.map((income) => option(income, `${compact(income)}/yr`, this.targetIncome)).join("")}</select>`
             : "";
     const disabled = kind === "debt_free" && noDebt;
     return `<div class="ff-goal" data-goal="${kind}" role="radio" tabindex="0" aria-checked="false"${disabled ? ' aria-disabled="true"' : ""}>
@@ -450,6 +461,7 @@ export class FastForward {
     if (gp === "months") this.months = Number(t.value);
     else if (gp === "amount") this.amount = Number(t.value);
     else if (gp === "downPct") this.downPct = Number(t.value);
+    else if (gp === "targetIncome") this.targetIncome = Number(t.value);
     if (gp) {
       const card = t.closest<HTMLElement>("[data-goal]");
       if (card) this.goalKind = card.dataset.goal as GoalKind;
@@ -526,6 +538,10 @@ export class FastForward {
     const endAge = Math.floor(player.age + p.months / 12);
     const rows: string[] = [];
     if (p.reachTypical === 0) rows.push(`<li><span class="ff-k">Goal</span><b>Already reached</b></li>`);
+    else if (p.goalTiming === "relationship_unsupported")
+      rows.push(`<li><span class="ff-k">Goal timing</span><b>Not estimated in this preview</b><small>Relationships can change during the real seeded run; the chart still shows what this money plan could do.</small></li>`);
+    else if (p.goalTiming === "income_static")
+      rows.push(`<li><span class="ff-k">Goal timing</span><b>Needs a career change or raise</b><small>This preview holds your current annual pay steady, so it cannot estimate when your income will reach the target.</small></li>`);
     else if (p.reached === 0 || p.reachTypical === null)
       rows.push(`<li class="bad"><span class="ff-k">Goal</span><b>Not reached before age ${endAge}</b><small>in any of ${p.runs} futures. Try saving more, or a smaller goal.</small></li>`);
     else
@@ -647,7 +663,8 @@ export class FastForward {
   }
 
   private showResult(r: SkipResult): void {
-    const { clock } = this.deps;
+    const { clock, player } = this.deps;
+    const goal = this.goal();
     const dateOf = (day: number) => {
       const d = new Date(clock.start);
       d.setDate(d.getDate() + day);
@@ -669,6 +686,10 @@ export class FastForward {
     ];
     const paid = r.counts.paid_off ?? 0;
     if (paid) facts.push(["Debts paid off", String(paid)]);
+    if (r.stoppedBy === "goal" && (goal.kind === "marriage" || goal.kind === "status" || goal.kind === "net_worth")) {
+      const score = finalScore(player, player.today);
+      facts.push(["Final score", `${score.final.toFixed(1)} · retirement ${score.RR.toFixed(1)} · lifetime wellbeing ${score.Wlife.toFixed(1)}`]);
+    }
     this.q("[data-body]").innerHTML = `<div class="ff-result ${r.stoppedBy}">
       <div class="ff-result-icon" aria-hidden="true">${head.icon}</div>
       <h2>${head.title}</h2>

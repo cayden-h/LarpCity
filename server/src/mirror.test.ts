@@ -105,6 +105,25 @@ test("no more than the cap of NPC customers is ever created", async () => {
   assert.equal(fake.customers.length, MAX_NPC_CUSTOMERS + 1, "players don't count toward the NPC cap");
 });
 
+test("two sessions' statements for the same shared NPC customer never mix", async () => {
+  const { mirror } = setup();
+  await mirror.open(SESSION_A, "npc-maya", { run: "r1", name: "Maya", opening: OPENING });
+  await mirror.post(SESSION_A, "npc-maya", { run: "r1", entries: [entry("a1", "checking", "deposit", 50)] });
+
+  await mirror.open(SESSION_B, "npc-maya", { run: "r1", name: "Maya", opening: OPENING });
+  await mirror.post(SESSION_B, "npc-maya", { run: "r1", entries: [entry("b1", "checking", "deposit", 999)] });
+
+  const a = await mirror.statement(SESSION_A, "npc-maya");
+  const b = await mirror.statement(SESSION_B, "npc-maya");
+
+  const checkingA = a.accounts.find((x) => x.account === "checking")!;
+  const checkingB = b.accounts.find((x) => x.account === "checking")!;
+  assert.equal(checkingA.balance, OPENING.checking + 50, "session A sees only its own +50");
+  assert.equal(checkingB.balance, OPENING.checking + 999, "session B sees only its own +999");
+  assert.ok(!checkingA.transactions.some((t) => t.memo === "b1"), "session A must never see session B's transaction");
+  assert.ok(!checkingB.transactions.some((t) => t.memo === "a1"), "session B must never see session A's transaction");
+});
+
 test("statement for an entity that was never opened is a 404", async () => {
   const { mirror } = setup();
   await assert.rejects(mirror.statement(SESSION_A, "npc-maya"), (e: MirrorError) => e.status === 404);
@@ -177,6 +196,30 @@ test("a rejected customer create lets the next open create it", async () => {
   await mirror.open(SESSION_A, "npc-maya", { run: "r1", opening: OPENING });
   await mirror.open(SESSION_A, "npc-leo", { run: "r1", opening: OPENING });
   assert.equal(fake.customers.length, 2, "the failed create didn't block the NPC lock either");
+});
+
+test("a MirrorService constructed with a higher cap allows more NPC customers than the module default", async () => {
+  const fake = fakeNessie();
+  const nessie = new Nessie({ baseUrl: "https://nessie.test", apiKey: "k", fetchFn: fake.fetchFn, retries: 0 });
+  const mirror = new MirrorService(nessie, "bgtest", 60);
+  for (let i = 0; i < 20; i++) {
+    await mirror.open(SESSION_A, `npc-bg${i}`, { run: "r1", name: `Bg${i}`, opening: { checking: 0, savings: 0, credit: 0 } });
+  }
+  // 20 > the module's MAX_NPC_CUSTOMERS (12) but under this instance's own cap of 60.
+  assert.equal(fake.customers.length, 20);
+});
+
+test("the default cap (no third argument) is unchanged at MAX_NPC_CUSTOMERS", async () => {
+  const fake = fakeNessie();
+  const nessie = new Nessie({ baseUrl: "https://nessie.test", apiKey: "k", fetchFn: fake.fetchFn, retries: 0 });
+  const mirror = new MirrorService(nessie, "captest");
+  for (let i = 0; i < MAX_NPC_CUSTOMERS; i++) {
+    await mirror.open(SESSION_A, `npc-x${i}`, { run: "r1", name: `X${i}`, opening: { checking: 0, savings: 0, credit: 0 } });
+  }
+  await assert.rejects(
+    () => mirror.open(SESSION_A, "npc-over", { run: "r1", name: "Over", opening: { checking: 0, savings: 0, credit: 0 } }),
+    /At most \d+ NPC customers/,
+  );
 });
 
 test("request bodies are validated before anything reaches Nessie", () => {

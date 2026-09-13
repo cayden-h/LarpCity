@@ -61,9 +61,16 @@ test("completeAnswers needs all four amounts but allows zeros and a blank job", 
   assert.deepEqual(completeAnswers({ salary: 0, rent: 0, debt: 0, savings: 0 }), { job: "", salary: 0, rent: 0, debt: 0, savings: 0 });
 });
 
-test("take-home is 80% of gross pay, by the month", () => {
-  assert.equal(takeHomeFor(85_000), 5_667);
-  assert.equal(takeHomeFor(0), 0);
+test("take-home is real per-paycheck withholding, by the month, for the given state", () => {
+  assert.equal(takeHomeFor(0, "TX"), 0);
+  assert.ok(takeHomeFor(85_000, "TX") > 0);
+  assert.ok(takeHomeFor(85_000, "TX") < 85_000 / 12); // withholding is never negative or over 100%
+});
+
+test("takeHomeFor is lower in a state with income tax than in one without, same salary", () => {
+  const noTax = takeHomeFor(80_000, "TX");
+  const withTax = takeHomeFor(80_000, "CA");
+  assert.ok(withTax < noTax);
 });
 
 test("debt splits into a credit card for the first $5,000 and a personal loan for the rest", () => {
@@ -77,8 +84,8 @@ test("debt splits into a credit card for the first $5,000 and a personal loan fo
 test("lifeFromIntake sets pay, job, rent, debt, and savings from the answers", () => {
   const life = lifeFor();
   assert.equal(life.grossAnnual, 85_000);
-  assert.equal(life.monthlyTakeHome, 5_667);
-  assert.equal(life.book.monthlyTakeHome, 5_667);
+  assert.equal(life.monthlyTakeHome, 5_719);
+  assert.equal(life.book.monthlyTakeHome, 5_719);
   assert.equal(life.job, "Nurse");
   assert.equal(life.rent, 1_500);
   assert.equal(Math.round(life.totalDebt()), 20_000);

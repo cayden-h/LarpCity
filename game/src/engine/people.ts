@@ -12,11 +12,29 @@ import { pick, rngFor, type Rng } from "./rng";
 
 export type Mood = "normal" | "bear" | "boom" | "pandemic" | "storm" | "night";
 
+export interface ResidentSeed {
+  id: string;
+  first: string;
+  last: string;
+  job: string;
+  age: number;
+  /** Shown as this resident's thought instead of a mood-pool line — their `story` from data/npcs.ts. */
+  story: string;
+  /** Primary-tier NPCs get the visible gold-ring marker (markResident); background NPCs blend into the crowd like ambient extras but are still real, clickable residents. */
+  marked: boolean;
+  /** The server route (`/api/bank` or `/api/bank-bg`) this resident's statement lives behind. */
+  bankBase: string;
+}
+
 export interface NpcInfo {
   name: string;
   age: number;
   job: string;
   thought: string;
+  /** Set only for named roster NPCs (primary and background); drives the bank-statement card (ui/npccard.ts). */
+  residentId?: string;
+  /** Set alongside residentId: which server route to fetch this resident's statement from. */
+  bankBase?: string;
 }
 
 const FIRST = ["Maya", "Jordan", "Luis", "Aisha", "Wei", "Priya", "Marcus", "Sofia", "Kenji", "Amara", "Diego", "Hannah", "Omar", "Grace", "Mateo", "Zoe", "Tariq", "Elena", "Kwame", "Lily", "Andre", "Nadia", "Sam", "Rosa", "Jamal", "Mei", "Carlos", "Ava", "Dev", "Fatima", "Noah", "Imani"];
@@ -80,6 +98,10 @@ interface Walker {
   info: Omit<NpcInfo, "thought">;
   seedIndex: number;
   leaving: boolean;
+  resident: boolean;
+  residentId?: string;
+  bankBase?: string;
+  fixedThought?: string;
 }
 
 export class People {
@@ -95,7 +117,7 @@ export class People {
   private readonly objects: Container;
   private readonly seed: number;
 
-  constructor(grid: CityGrid, objects: Container, seed: number) {
+  constructor(grid: CityGrid, objects: Container, seed: number, residents: ResidentSeed[] = []) {
     this.grid = grid;
     this.objects = objects;
     this.seed = seed;
@@ -107,6 +129,7 @@ export class People {
         this.plazaSet.add(`${x},${y}`);
       }
     }
+    for (const r of residents) this.spawnResident(r);
   }
 
   setTarget(n: number): void {
@@ -114,14 +137,14 @@ export class People {
   }
 
   get count(): number {
-    return this.walkers.filter((w) => !w.leaving).length;
+    return this.walkers.filter((w) => !w.leaving && !w.resident).length;
   }
 
   update(dt: number, night: number): void {
     const live = this.count;
     if (live < this.target && this.rng() < dt * 12) this.spawn();
     if (live > this.target) {
-      const w = this.walkers.find((p) => !p.leaving);
+      const w = this.walkers.find((p) => !p.leaving && !p.resident);
       if (w) w.leaving = true;
     }
     for (let i = this.walkers.length - 1; i >= 0; i--) {
@@ -162,7 +185,44 @@ export class People {
     }
     if (!best) return null;
     const pool = THOUGHTS[mood];
-    return { ...best.info, thought: pool[best.seedIndex % pool.length] };
+    return { ...best.info, thought: best.fixedThought ?? pool[best.seedIndex % pool.length], residentId: best.residentId, bankBase: best.bankBase };
+  }
+
+  /** A named roster NPC (data/npcs.ts): a fixed walker that never despawns, marked so ui/npccard.ts can fetch its real bank statement. */
+  private spawnResident(r: ResidentSeed): void {
+    const rng = rngFor(this.seed, "resident", r.id);
+    const useStreet = !this.plazas.length || rng() < 0.5;
+    const pool = useStreet ? this.sidewalks : this.plazas;
+    if (!pool.length) return;
+    const [x, y] = pick(rng, pool);
+    const fig = drawPerson(rng);
+    const dirs = this.grid.roadLinks(x, y).map((ok, i) => (ok ? i : -1)).filter((i) => i >= 0);
+    const w: Walker = {
+      street: useStreet,
+      x, y,
+      dir: dirs.length ? pick(rng, dirs) : 0,
+      t: rng(),
+      side: rng() < 0.5 ? 1 : -1,
+      px: x + 0.2 + rng() * 0.6,
+      py: y + 0.2 + rng() * 0.6,
+      tx: x + 0.5,
+      ty: y + 0.5,
+      pause: 0,
+      speed: 0.24 + rng() * 0.1,
+      phase: rng() * 6,
+      ...fig,
+      info: { name: `${r.first} ${r.last}`, age: r.age, job: r.job },
+      seedIndex: 0,
+      leaving: false,
+      resident: true,
+      residentId: r.id,
+      bankBase: r.bankBase,
+      fixedThought: r.story,
+    };
+    if (r.marked) markResident(w.view);
+    w.view.alpha = 1;
+    this.walkers.push(w);
+    this.objects.addChild(w.view);
   }
 
   private spawn(): void {
@@ -192,6 +252,7 @@ export class People {
       info: { ...info, job: info.age > 67 ? "retiree" : info.age < 22 ? "student" : info.job },
       seedIndex: index,
       leaving: false,
+      resident: false,
     };
     w.view.alpha = 0;
     this.walkers.push(w);
@@ -250,6 +311,12 @@ export class People {
     w.view.scale.x = facing;
     w.view.zIndex = (px + py) * 100 + 45 + (z > 0 ? 30 : 0);
   }
+}
+
+/** A small gold ring at a resident's feet, so the 8 real NPCs read as distinct from ambient foot traffic. */
+function markResident(view: Container): void {
+  const ring = new Graphics().ellipse(0, 0.5, 5.5, 2.4).stroke({ width: 0.8, color: 0xf4c430, alpha: 0.85 });
+  view.addChildAt(ring, 0);
 }
 
 function drawPerson(r: Rng): { view: Container; body: Graphics; legL: Graphics; legR: Graphics } {

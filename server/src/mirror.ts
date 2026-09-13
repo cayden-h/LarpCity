@@ -95,15 +95,17 @@ const HOUSTON = { street_number: "6100", street_name: "Main Street", city: "Hous
 export class MirrorService {
   private readonly nessie: NessieLike;
   private readonly tag: string;
+  private readonly maxNpcCustomers: number;
   private readonly live = new Map<string, Live>();
   private readonly chains = new Map<string, Promise<unknown>>();
   private customers: Promise<Map<string, Customer>> | null = null;
   private readonly customerCreates = new Map<string, Promise<Customer>>();
   private npcLock: Promise<unknown> = Promise.resolve();
 
-  constructor(nessie: NessieLike, tag: string) {
+  constructor(nessie: NessieLike, tag: string, maxNpcCustomers: number = MAX_NPC_CUSTOMERS) {
     this.nessie = nessie;
     this.tag = tag;
+    this.maxNpcCustomers = maxNpcCustomers;
   }
 
   /** Nessie is reachable with our key; counts our customers. */
@@ -224,7 +226,7 @@ export class MirrorService {
       if (already) return already;
       if (entity !== "player") {
         const npcs = [...freshMap.keys()].filter((k) => k.startsWith(`${this.tag}-npc-`)).length;
-        if (npcs >= MAX_NPC_CUSTOMERS) throw new MirrorError(429, `At most ${MAX_NPC_CUSTOMERS} NPC customers (Nessie customers can't be deleted).`);
+        if (npcs >= this.maxNpcCustomers) throw new MirrorError(429, `At most ${this.maxNpcCustomers} NPC customers (Nessie customers can't be deleted).`);
       }
       const first = name ?? (entity === "player" ? "Player" : entity.slice(4, 5).toUpperCase() + entity.slice(5));
       const created = await this.nessie.createCustomer({ first_name: first, last_name: last, address: HOUSTON });

@@ -123,6 +123,22 @@ test("sync stays off when the server can't reach Nessie", async () => {
   assert.deepEqual(server.calls.map((c) => c.path), ["/api/bank/status"]);
 });
 
+test("a spend event becomes a checking withdrawal memo'd by category", () => {
+  const life = new PlayerLife({ place: TX, day: 0, monthlyTakeHome: 4_000 });
+  life.ledger.get("checking").balance = 200;
+  const mirror = new MonthMirror(life, START);
+  mirror.rebase({ checking: 200, savings: 0, credit: 0 });
+  life.spend(5, "Dining out", 25);
+  // Force the month to close by advancing to October (day 20 is Oct 1)
+  for (let day = 1; day <= 20; day++) life.onDay(day, dateOf(day));
+  const batch = mirror.prepare(20)!;
+  const entry = batch.entries.find((e) => e.memo === "Dining out");
+  assert.ok(entry, "Dining out should appear as its own line item");
+  assert.equal(entry!.account, "checking");
+  assert.equal(entry!.kind, "withdrawal");
+  assert.equal(entry!.amount, 25);
+});
+
 test("sync opens each life, posts finished months with the session cookie, and reopens after a 409", async () => {
   let entriesStatus = 200;
   const server = fakeServer({ entriesStatus: () => entriesStatus });

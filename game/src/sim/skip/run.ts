@@ -36,6 +36,11 @@ export function runSkip(life: PlayerLife, o: SkipOptions): SkipResult {
       date.setDate(date.getDate() + 1);
       const events = life.onDay(o.fromDay + days, new Date(date));
       for (const e of events) counts[e.type] = (counts[e.type] ?? 0) + 1;
+      // A multi-year skip must never silently blow past a filing deadline
+      // (see PlayerLife.autoFilePending): auto-file with the standard
+      // deduction so penalties never accrue unseen by the player.
+      const filed = life.autoFilePending(o.fromDay + days);
+      if (filed) counts[filed.type] = (counts[filed.type] ?? 0) + 1;
       const snap = life.history[life.history.length - 1];
       if (snap.netWorth < low.netWorth) low = snap;
       if (snap.netWorth > high.netWorth) high = snap;

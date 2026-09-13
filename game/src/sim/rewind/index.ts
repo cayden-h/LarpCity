@@ -27,6 +27,14 @@ export interface TimelineOptions {
   maxGap?: number;
   /** Nothing outside the sim ever changes this life (an NPC), so replaying always reproduces it: thin without checking. */
   neverActs?: boolean;
+  /**
+   * Something besides `life.onDay` also changes this life once a day (an NPC's
+   * discretionary-spending habit, sim/npcs/habits.ts's `applyDailyHabit`, called
+   * from `NpcTown.onDay` after `onDay` itself). Every internal replay here
+   * (a rewind's catch-up, and `neverActs`'s shadow check) must call it too, or
+   * a rewound life drifts from one that was never rewound.
+   */
+  onReplayDay?: (life: PlayerLife, day: number, date: Date) => void;
 }
 
 export class LifeTimeline {
@@ -35,6 +43,7 @@ export class LifeTimeline {
   private readonly window: number;
   private readonly maxGap: number;
   private readonly neverActs: boolean;
+  private readonly onReplayDay?: (life: PlayerLife, day: number, date: Date) => void;
   /** Oldest first, one per day inside the window. */
   private readonly cps: LifeCheckpoint[] = [];
   /** How many checkpoints at the front were judged and kept for good. */
@@ -49,6 +58,7 @@ export class LifeTimeline {
     this.window = o.window ?? 365;
     this.maxGap = o.maxGap ?? 90;
     this.neverActs = o.neverActs ?? false;
+    this.onReplayDay = o.onReplayDay;
     this.cps.push(life.checkpoint());
     this.lastDay = life.today;
     life.onEvents(() => {
@@ -75,7 +85,15 @@ export class LifeTimeline {
     if (cp.day > day) throw new Error(`No checkpoint at or before day ${day}.`);
     this.life.restore(cp);
     this.life.quietly(() => {
-      for (let d = cp.day + 1; d <= day; d++) this.life.onDay(d, this.dateOf(d));
+      // A checkpoint is taken on its own day's `onDay` tick (the emit at the end of `onDay`), before
+      // `onReplayDay` (an NPC's separately-timed daily habit spend) runs for that same day — so the
+      // checkpoint's day is always missing its own `onReplayDay`, once, however it was reached.
+      this.onReplayDay?.(this.life, cp.day, this.dateOf(cp.day));
+      for (let d = cp.day + 1; d <= day; d++) {
+        const date = this.dateOf(d);
+        this.life.onDay(d, date);
+        this.onReplayDay?.(this.life, d, date);
+      }
     });
     this.cps.length = i + 1;
     this.judged = Math.min(this.judged, this.cps.length);
@@ -101,8 +119,16 @@ export class LifeTimeline {
         this.cps.splice(i, 1);
         return;
       }
+      const fresh = !this.shadow;
       const shadow = this.shadow ?? prev.state.detached();
-      for (let d = shadow.today + 1; d <= cp.day; d++) shadow.onDay(d, this.dateOf(d));
+      // Same reason as rewindTo: a freshly detached checkpoint is missing its own day's onReplayDay.
+      // A reused shadow (this.shadow) already had it applied on a prior judge() pass.
+      if (fresh) this.onReplayDay?.(shadow, shadow.today, this.dateOf(shadow.today));
+      for (let d = shadow.today + 1; d <= cp.day; d++) {
+        const date = this.dateOf(d);
+        shadow.onDay(d, date);
+        this.onReplayDay?.(shadow, d, date);
+      }
       shadow.history.length = 0;
       shadow.log.length = 0;
       if (serialize(shadow) === serialize(cp.state)) {

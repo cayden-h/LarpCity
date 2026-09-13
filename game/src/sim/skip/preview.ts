@@ -26,6 +26,8 @@ export interface Preview {
   broke: number;
   /** Month the last debt is paid off on this plan; 0 with no debt, null if never. */
   debtFreeMonth: number | null;
+  /** Whether this financial projection can estimate when the selected goal happens. */
+  goalTiming: "modeled" | "relationship_unsupported" | "income_static";
 }
 
 export interface PreviewOptions {
@@ -51,6 +53,7 @@ export function runPreview(life: PlayerLife, orders: StandingOrders, goal: Goal,
   const living = life.baseLiving * LIFESTYLE_FACTOR[orders.lifestyle];
   const minimums = life.minimums();
   const price = homePrice(life.place);
+  const goalTiming = goal.kind === "marriage" ? "relationship_unsupported" : goal.kind === "status" ? "income_static" : "modeled";
 
   // Debt follows the payoff projection; the total payment stays level until the last debt is gone.
   const plan = project(life.book.debts, orders.debtStrategy, orders.extraMonthly);
@@ -126,6 +129,8 @@ export function runPreview(life: PlayerLife, orders: StandingOrders, goal: Goal,
           monthlyExpenses: rent + living + (inDebt ? minimums : 0),
           monthlyGross: gross,
           homePrice: price,
+          relationship: life.relationship,
+          grossAnnual: life.grossAnnual,
         };
         if (isMet(goal, view)) reachedAt = mo;
       }
@@ -156,5 +161,6 @@ export function runPreview(life: PlayerLife, orders: StandingOrders, goal: Goal,
     reachBadLuck: reachMonths.length ? quantile(reachMonths, 0.9) : null,
     broke,
     debtFreeMonth: plan.stuck ? null : plan.months,
+    goalTiming,
   };
 }

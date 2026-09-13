@@ -83,6 +83,9 @@ const ACH_DAY = 100;
 
 /** The player's choices, on fixed days, the same for the saved and the unsaved life. */
 function decide(life: PlayerLife, day: number): void {
+  // GameEngine's tax filing (sim/tax): files the prior year's return the same day it's ready
+  // (around April 15), so `pendingReturn`, `taxReadyDay`, and (on a shortfall) `unpaidTax` all cross a save.
+  if (life.pendingTaxReturn()) life.fileTaxes(day);
   if (day === 20) life.buy("LTM", 300, day);
   if (day === 30) applyCard(life, "capital-one-quicksilver", day, 0);
   if (day === 35) {
