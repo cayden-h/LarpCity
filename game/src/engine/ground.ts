@@ -9,6 +9,8 @@ import { mix, shade } from "./color";
 import type { CityGrid } from "./grid";
 import { iso, flat, tileCorners, type Pt } from "./iso";
 import { rngFor } from "./rng";
+import type { RoadNet } from "./roads/graph";
+import { roadMarks, type Mark } from "./roads/marks";
 import { DECK_Z } from "./roads/pose.ts";
 import type { CityPalette } from "./types";
 
@@ -47,16 +49,25 @@ export class Ground {
   private readonly landChunks = new Container();
   private readonly shimmer = new Container();
   private readonly shimmerSprites: { s: Sprite; phase: number; speed: number }[] = [];
+  private readonly marksByChunk = new Map<string, Mark[]>();
   private look: GroundLook | null = null;
   private readonly grid: CityGrid;
   private readonly palette: CityPalette;
 
-  constructor(grid: CityGrid, palette: CityPalette, seed: number) {
+  constructor(grid: CityGrid, palette: CityPalette, seed: number, net: RoadNet | null = null) {
     this.grid = grid;
     this.palette = palette;
     this.waterLayer.addChild(this.waterChunks, this.shimmer);
     this.landLayer.addChild(this.landChunks);
     this.buildShimmer(seed);
+    if (net)
+      for (const m of roadMarks(net, (x, y) => grid.at(x, y) === "B")) {
+        const p = m.pts[0];
+        const key = `${Math.floor(p.x / CHUNK) * CHUNK},${Math.floor(p.y / CHUNK) * CHUNK}`;
+        const list = this.marksByChunk.get(key) ?? [];
+        list.push(m);
+        this.marksByChunk.set(key, list);
+      }
   }
 
   setLook(look: GroundLook): void {
@@ -103,6 +114,7 @@ export class Ground {
     const tops = new Graphics();
     const marks = new Graphics();
     const bridges = new Graphics();
+    const raisedMarks = new Graphics();
     const grass = this.grassColor();
     const snow = look.snow;
     const waterColor = mix(this.palette.water, 0xdfe9f0, snow * 0.25);
@@ -167,11 +179,23 @@ export class Ground {
       }
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (g.at(x, y) === "B") this.drawBridge(bridges, x, y);
 
+    const markColor = (c: Mark["color"]) => mix(c === "yellow" ? 0xf3d23b : 0xf2f2f2, 0xffffff, snow * 0.6);
+    for (const m of this.marksByChunk.get(`${x0},${y0}`) ?? []) {
+      const target = m.raised ? raisedMarks : marks;
+      const pts = m.pts.map((p) => iso(p.x, p.y, m.raised ? BRIDGE_Z : 0));
+      if (m.kind === "quad") target.poly(flat(pts)).fill({ color: markColor(m.color), alpha: 0.88 });
+      else {
+        target.moveTo(pts[0].x, pts[0].y);
+        for (const p of pts.slice(1)) target.lineTo(p.x, p.y);
+        target.stroke({ width: m.width, color: markColor(m.color), alpha: 0.9 });
+      }
+    }
+
     const area = chunkRect(x0, y0, x1, y1);
     const w = new Container();
     w.addChild(water, edges);
     const l = new Container();
-    l.addChild(tops, marks, bridges);
+    l.addChild(tops, marks, bridges, raisedMarks);
     for (const c of [w, l]) {
       c.cullable = true;
       c.cullArea = area;
@@ -183,10 +207,6 @@ export class Ground {
   private drawRoad(marks: Graphics, x: number, y: number, tram: boolean): void {
     const g = this.grid;
     const [n, e, s, w] = g.roadLinks(x, y);
-    const links = [n, e, s, w].filter(Boolean).length;
-    const snow = this.look!.snow;
-    const dash = mix(0xf3d23b, 0xffffff, snow * 0.6);
-
     // Curbs on sides that touch non-road land.
     const curb = (from: Pt, to: Pt, inward: Pt) => {
       const k = 0.14;
@@ -200,73 +220,43 @@ export class Ground {
     if (!e && !g.isWater(x + 1, y)) curb(R, B, v(R, T));
     if (!s && !g.isWater(x, y + 1)) curb(L, B, v(L, T));
     if (!w && !g.isWater(x - 1, y)) curb(T, L, v(T, R));
-
-    if (links >= 3) {
-      // Intersection: zebra crossings on each connected side.
-      const zebra = (p0: Pt, p1: Pt, p2: Pt, p3: Pt) => {
-        for (let i = 0; i < 4; i++) {
-          const t0 = 0.18 + i * 0.18, t1 = t0 + 0.09;
-          const a = lerp(p0, p1, t0), b = lerp(p0, p1, t1), c = lerp(p3, p2, t1), d = lerp(p3, p2, t0);
-          marks.poly(flat([a, b, c, d])).fill({ color: 0xf2f2f2, alpha: 0.85 });
-        }
-      };
-      const inset = 0.16;
-      if (n) zebra(iso(x, y), iso(x + 1, y), iso(x + 1, y + inset), iso(x, y + inset));
-      if (s) zebra(iso(x, y + 1 - inset), iso(x + 1, y + 1 - inset), iso(x + 1, y + 1), iso(x, y + 1));
-      if (w) zebra(iso(x, y), iso(x, y + 1), iso(x + inset, y + 1), iso(x + inset, y));
-      if (e) zebra(iso(x + 1 - inset, y), iso(x + 1 - inset, y + 1), iso(x + 1, y + 1), iso(x + 1, y));
-      return;
-    }
-    // Straight or corner: dashed center line along each connected axis.
-    const along = (a: Pt, b: Pt) => {
-      for (const [t0, t1] of [[0.08, 0.36], [0.6, 0.88]]) {
-        const p = lerp(a, b, t0), q = lerp(a, b, t1);
-        marks.moveTo(p.x, p.y).lineTo(q.x, q.y);
-      }
-      marks.stroke({ width: 2, color: dash, alpha: 0.9 });
+    if (!tram) return;
+    const rails = (a: Pt, b: Pt, off: Pt) => {
+      for (const k of [-1, 1]) marks.moveTo(a.x + off.x * k, a.y + off.y * k).lineTo(b.x + off.x * k, b.y + off.y * k);
+      marks.stroke({ width: 1.5, color: 0x9aa3ad });
     };
-    const c = iso(x + 0.5, y + 0.5);
-    if (n) along(iso(x + 0.5, y), c);
-    if (s) along(c, iso(x + 0.5, y + 1));
-    if (w) along(iso(x, y + 0.5), c);
-    if (e) along(c, iso(x + 1, y + 0.5));
-    if (tram) {
-      const rails = (a: Pt, b: Pt, off: Pt) => {
-        for (const k of [-1, 1]) marks.moveTo(a.x + off.x * k, a.y + off.y * k).lineTo(b.x + off.x * k, b.y + off.y * k);
-        marks.stroke({ width: 1.5, color: 0x9aa3ad });
-      };
-      if (n || s) rails(iso(x + 0.5, y), iso(x + 0.5, y + 1), { x: 7, y: -3.5 });
-      if (e || w) rails(iso(x, y + 0.5), iso(x + 1, y + 0.5), { x: 7, y: 3.5 });
-    }
+    if (n || s) rails(iso(x + 0.5, y), iso(x + 0.5, y + 1), { x: 7, y: -3.5 });
+    if (e || w) rails(iso(x, y + 0.5), iso(x + 1, y + 0.5), { x: 7, y: 3.5 });
   }
 
   private drawBridge(gfx: Graphics, x: number, y: number): void {
     const g = this.grid;
-    const alongX = g.isRoad(x - 1, y) || g.isRoad(x + 1, y);
+    const run = (dx: number, dy: number) => {
+      let k = 1;
+      while (g.at(x + dx * k, y + dy * k) === "B" || g.isRoad(x + dx * k, y + dy * k)) k++;
+      let j = 1;
+      while (g.at(x - dx * j, y - dy * j) === "B" || g.isRoad(x - dx * j, y - dy * j)) j++;
+      return k + j;
+    };
+    const alongX = run(1, 0) >= run(0, 1);
     const deck = 0x5b616b;
     const [T, R, B, L] = tileCorners(x, y, BRIDGE_Z);
-    // Pillar under the deck.
     const mid = iso(x + 0.5, y + 0.5, BRIDGE_Z);
     gfx.rect(mid.x - 5, mid.y, 10, BRIDGE_Z - WATER_Z + 6).fill(0xb9b3a8);
     gfx.rect(mid.x - 5, mid.y, 4, BRIDGE_Z - WATER_Z + 6).fill(0xd4cec2);
-    // Deck sides.
     face(gfx, L, B, 6, shade(deck, 0.8), 1);
     face(gfx, B, R, 6, shade(deck, 0.62), 1);
     gfx.poly(flat([T, R, B, L])).fill(deck);
-    // Railings on both long edges, with posts.
-    const [a0, a1, b0, b1] = alongX ? [T, R, L, B] : [T, L, R, B];
-    for (const [p, q] of [[a0, a1], [b0, b1]] as const) {
+    // Railings on the long edges that have no more bridge beside them.
+    const edges: [Pt, Pt, number, number][] = alongX ? [[T, R, x, y - 1], [L, B, x, y + 1]] : [[T, L, x - 1, y], [R, B, x + 1, y]];
+    for (const [p, q, nx, ny] of edges) {
+      if (g.at(nx, ny) === "B") continue;
       gfx.moveTo(p.x, p.y - 5).lineTo(q.x, q.y - 5).stroke({ width: 2, color: 0xe24b3b });
       for (let i = 0; i <= 3; i++) {
         const m = lerp(p, q, i / 3);
         gfx.moveTo(m.x, m.y).lineTo(m.x, m.y - 5).stroke({ width: 1.5, color: 0xb83a2e });
       }
     }
-    const c0 = alongX ? iso(x, y + 0.5, BRIDGE_Z) : iso(x + 0.5, y, BRIDGE_Z);
-    const c1 = alongX ? iso(x + 1, y + 0.5, BRIDGE_Z) : iso(x + 0.5, y + 1, BRIDGE_Z);
-    gfx.moveTo(lerp(c0, c1, 0.15).x, lerp(c0, c1, 0.15).y).lineTo(lerp(c0, c1, 0.45).x, lerp(c0, c1, 0.45).y);
-    gfx.moveTo(lerp(c0, c1, 0.6).x, lerp(c0, c1, 0.6).y).lineTo(lerp(c0, c1, 0.9).x, lerp(c0, c1, 0.9).y);
-    gfx.stroke({ width: 2, color: 0xf3d23b });
   }
 
   private buildShimmer(seed: number): void {
