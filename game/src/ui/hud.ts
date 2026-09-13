@@ -3,6 +3,8 @@
 
 import "./home-picker.css";
 import { pixelIcon } from "./pixel-icons";
+// The same pixel character as the avatar picker in intake.ts.
+import { playerBust } from "./pixel-art";
 import { HOME_TIERS } from "../engine/hero";
 import type { SaveStatus } from "../sim/save/manager";
 
@@ -38,6 +40,12 @@ export class Hud {
       </section>`;
     this.q<HTMLButtonElement>("[data-home]").addEventListener("click", () => actions.chooseHome());
     this.q<HTMLButtonElement>("[data-home-focus]").addEventListener("click", () => actions.focusHome());
+    // The happiness meter and the Player card stack on the home card, which grows when the save chip shows.
+    const home = this.q(".home");
+    new ResizeObserver(() => {
+      const top = window.innerHeight - home.getBoundingClientRect().top;
+      document.documentElement.style.setProperty("--hud-stack-bottom", `${Math.round(top + 12)}px`);
+    }).observe(home);
   }
 
   render(homeTier: number | null): void {
@@ -53,7 +61,7 @@ export class Hud {
   setPlayer(name: string, age: number, avatar: "male" | "female"): void {
     this.q("[data-player-name]").textContent = name;
     this.q("[data-player-age]").textContent = `Age ${Math.floor(age)}`;
-    this.q("[data-player-avatar]").textContent = AVATAR_EMOJI[avatar];
+    this.q("[data-player-avatar]").innerHTML = playerBust(avatar);
   }
 
   /** Shows a chip only when saving has stopped; a working save stays quiet. */
@@ -63,9 +71,6 @@ export class Hud {
     chip.hidden = !chip.textContent;
   }
 }
-
-/** Matches the avatar picker in intake.ts so the same pixel character shows here. */
-const AVATAR_EMOJI: Record<"male" | "female", string> = { male: "🧑", female: "👩" };
 
 /** What the HUD says for each save status where saving has stopped. */
 const SAVE_CHIPS: Partial<Record<SaveStatus, string>> = {
