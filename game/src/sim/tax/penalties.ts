@@ -25,6 +25,9 @@ const MIN_PENALTY = 525;
 /** Flat approximate annual rate (IRS underpayment rate runs close to this in recent years). */
 const INTEREST_ANNUAL_RATE = 0.08;
 
+/** The rates above, for Sammy's tax tour; the monthly ones are fractions of what's owed. */
+export const PENALTY_RATES = { fileMonthly: FTF_MONTHLY, fileCap: FTF_CAP, payMonthly: FTP_MONTHLY, payCap: FTP_CAP, interestAnnual: INTEREST_ANNUAL_RATE } as const;
+
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
 export function penaltyFor(o: { owed: number; monthsUnfiled: number; monthsUnpaid: number }): PenaltyResult {

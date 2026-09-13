@@ -26,7 +26,7 @@ export const MEDICARE_ADDITIONAL_THRESHOLD_SINGLE = 200_000;
 
 /** Childless EIC 2026: max credit $664, phases out to $0 at $19,540 (IRS 2026 parameters). */
 const EIC_MAX_CHILDLESS = 664;
-const EIC_INCOME_LIMIT_CHILDLESS = 19_540;
+export const EIC_INCOME_LIMIT_CHILDLESS = 19_540;
 /** Approximate phase-in end (exact IRS bend point not published as of this doc; this triangle uses only the two published numbers above and errs toward less credit at low income, never more than the real one at any income). */
 const EIC_PHASE_IN_END = 8_490;
 
@@ -53,4 +53,33 @@ export function childlessEic(annualEarnedIncome: number): number {
   if (annualEarnedIncome <= EIC_PHASE_IN_END) return round2((annualEarnedIncome / EIC_PHASE_IN_END) * EIC_MAX_CHILDLESS);
   const phaseOutSpan = EIC_INCOME_LIMIT_CHILDLESS - EIC_PHASE_IN_END;
   return round2(EIC_MAX_CHILDLESS * (1 - (annualEarnedIncome - EIC_PHASE_IN_END) / phaseOutSpan));
+}
+
+/** One bracket's slice of taxable income: how many dollars fall in it and the tax on them. */
+export interface BracketSlice {
+  rate: number;
+  from: number;
+  to: number;
+  amount: number;
+  tax: number;
+}
+
+/**
+ * Taxable income cut into its federal brackets (the Taxes tab's bracket bar and
+ * Sammy's explanation): only the top slice pays the top rate. `marginal` is the
+ * rate on the next dollar; `effective` is the tax over taxable income.
+ */
+export function bracketSlices(taxableIncome: number, brackets: Bracket[] = FEDERAL_BRACKETS_SINGLE_2026): { slices: BracketSlice[]; marginal: number; effective: number } {
+  const slices: BracketSlice[] = [];
+  let lower = 0;
+  for (const b of brackets) {
+    if (taxableIncome <= lower) break;
+    const to = Math.min(taxableIncome, b.upTo);
+    const amount = round2(to - lower);
+    slices.push({ rate: b.rate, from: lower, to, amount, tax: round2(amount * b.rate) });
+    lower = b.upTo;
+  }
+  const top = slices[slices.length - 1];
+  const tax = slices.reduce((s, x) => s + x.tax, 0);
+  return { slices, marginal: top?.rate ?? brackets[0].rate, effective: taxableIncome > 0 ? tax / taxableIncome : 0 };
 }
