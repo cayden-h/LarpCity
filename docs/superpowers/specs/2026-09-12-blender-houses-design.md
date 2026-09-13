@@ -31,6 +31,7 @@ Each of the others gets its own spec, plan, and build, and each follows the art 
 - The Ferry Building's rooftop letters (about 3 px tall at 1x, unreadable) are replaced by a shorter sign on the facade, large enough for a 5 to 7 px pixel font.
 - Branded storefronts get signs sized to read at 1x (a taller fascia or a blade sign); generic shops keep small bands.
 - Brand wordmarks are lettered in Pixelify Sans rather than the real logotypes; drawn logo shapes (the Capital One swoosh, the Meta infinity, and so on) stay.
+- Second check (after flat materials and the new signs): cast shadows stay capped at about 1.2 tiles past the lot, even for the tallest towers, so shadows never lie across neighbors; the palette is 40 colors with 12 reserved for sign colors; before the city re-render, a polish pass fixes the Wells Fargo band, the shop windows' warm glow, and the dark patches on the Salesforce Tower.
 
 ## Art direction
 
