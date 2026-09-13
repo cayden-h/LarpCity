@@ -24,6 +24,8 @@ export const HOME_OPTIONS = [
   { tier: 4, name: 'Large house', tenure: 'own', multiplier: 1.8 },
   { tier: 5, name: 'Retirement villa', tenure: 'own', multiplier: 4 },
 ] as const;
+/** Dollars with thousands separators, matching the picker. */
+const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const HOME_SELLING_SHARE = 0.06;
 export const FORECLOSURE_DAYS = 120;
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -164,7 +166,7 @@ export function quoteHome(life: PlayerLife, tier: number, day: number, options: 
     if (q.application.decision !== 'approved') q.reasons.push(...(q.application.reasons.length ? q.application.reasons : ['The mortgage was not approved.']));
     if (![q.price, q.down, q.closing, q.cashNeeded, q.mortgagePayment, q.monthlyPayment].every(Number.isFinite)) q.reasons.push('The mortgage could not be priced.');
   }
-  if (q.cashAvailable + 0.005 < q.cashNeeded) q.reasons.push(`This home needs $${q.cashNeeded.toFixed(2)} in cash; checking, savings, and net sale proceeds provide $${q.cashAvailable.toFixed(2)}.`);
+  if (q.cashAvailable + 0.005 < q.cashNeeded) q.reasons.push(`This home needs ${money(q.cashNeeded)} in cash; checking, savings, and net sale proceeds provide ${money(q.cashAvailable)}.`);
   q.ok = q.reasons.length === 0;
   return q;
 }
