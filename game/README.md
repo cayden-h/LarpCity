@@ -13,16 +13,16 @@ npm run dev
 
 Open the printed URL.
 Add a state to the URL to jump straight there, for example `#CA` or `#NY`; `#TX` (Houston) is the default.
-The first visit opens Sammy's intake (Sammy is the owl narrator); the voice call needs the server from `../server` running and a microphone, and typing the numbers or skipping works without either.
-The answers are remembered in the browser: add `?intake=1` to do the intake again, or `?intake=0` to skip it (the sample household).
+The first visit opens the title screen, where Sammy (the owl narrator) can walk you through the game before you pick who's moving in.
+Add `?intake=1` to start a new life over the save, or `?intake=0` to skip the title screen.
 
 ## What you can do
 
 - **Title screen and Learn:** a new life opens on Larp City's name, Sammy, and a Learn button over a blurred San Francisco (`src/ui/title.ts`).
-  Learn has Sammy walk through the game in eight bubbles (the retirement goal, the phone, milestones and where you live, time and skips, what stops a skip, his tips, then setup), with Back, Next, and Skip; the script is `src/narration/learn.ts`.
-  Finishing or skipping it, or "Skip to setup", opens the intake.
-- **Intake:** before the city opens, Sammy the owl (an ElevenLabs voice agent with a dry, deadpan English voice) asks for your job, salary, rent, debt, and savings, real or made up, and you check the numbers before moving in. You can type them instead, or skip to the sample household. Your life starts from those numbers: take-home is 80% of the salary, the rent is what you said (rescaled if you move states), the debt is a credit card for the first $5,000 plus a personal loan for the rest, and the savings sit in high-yield savings.
-  Everyone also starts with the starter portfolio (`STARTER_PORTFOLIO`), on top of the stated savings and debt, so net worth moves with the market from day one.
+  Learn has Sammy walk through the game in eight bubbles (who you are, the retirement goal, the phone, milestones and where you live, time and skips, what stops a skip, his tips, then your goals), with Back, Next, and Skip; the script is `src/narration/learn.ts`.
+  Finishing or skipping it, or "Skip the intro", asks the one thing a new life chooses: who's moving in, a man or a woman.
+- **The default life:** everyone starts the same way (`defaultAnswers` in `src/sim/life/intake.ts`): age 22, a salary drawn from $35,000-$50,000 (20% higher in a high cost-of-living state), $20,000-$40,000 of debt as a credit card plus a personal loan, a 600 credit score, the fixed car loan, rent at the state's median, $3,700 in high-yield savings, and the default goals (retire by 65, marriage, debt-free by 45, a house with 10% down).
+  Everyone also starts with the starter portfolio (`STARTER_PORTFOLIO`), so net worth moves with the market from day one.
 - **Sammy:** the owl narrator reads out the big moments at the bottom of the screen, read aloud with each word lighting up as it's spoken: arriving, paying off a debt, a missed payment, collections, bankruptcy, a big credit score change, a new home, a move, a market crash (a bear market, as the Money window opens on the crash decision) and the market's return to its high, and the end of a fast-forward.
   While Sammy talks over the U.S. map, the Money window, or the fast-forward, the window leaves a band clear at the bottom for it.
   The mute button keeps the captions and drops the voice.
@@ -90,7 +90,7 @@ From the browser console, `larp.visit("CO")` opens a state and `larp.step(5)` si
 - `src/sim/mail/`: the phone's Mail app (`inbox.ts`, `MAX_MAIL` letters kept, newest first): letters built from the life's events (a bill, a missed payment, a credit score move, a raise, a market crash), skipping routine days so the inbox reads like the moments that matter; opening a decision letter opens the Money desk on it.
   The inbox is part of the saved game.
 - `src/sim/wellbeing/`: pure wellbeing factors, decaying event pulses, retirement readiness and the combined life score. `PlayerLife` supplies state and stores a daily wellbeing value alongside its separate credit score.
-- `src/ui/title.ts`: the title screen before a new life's intake; Learn borrows the `Narrator` in tour mode (`beginTour`, `tourLine`, `place`, `endTour`), centered, to read `src/narration/learn.ts`.
+- `src/ui/title.ts`: the title screen and the man-or-woman pick that start every new life; Learn borrows the `Narrator` in tour mode (`beginTour`, `tourLine`, `place`, `endTour`), centered, to read `src/narration/learn.ts`.
   Its lines join `allLines()`, so the narration pack voices them like every other line.
 - `src/ui/phone.ts`: the phone hub and its app registry (add new apps to `APPS`), with the Stocks, Map, Weather, and Timeline views, the Calendar (`src/ui/calendar.ts`, data in `src/sim/calendar/`), and the Money window.
   `src/main.ts` gives it the city (`getWorld`), the U.S. map (`openMap`, with a preview from `captureCityPreview`), and the time-lapse skip (`skipDays`).

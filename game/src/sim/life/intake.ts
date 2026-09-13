@@ -1,7 +1,8 @@
-// Onboarding answers (Sammy's voice interview or the typed form, see
-// ui/intake.ts) and the starting money life they build: gross pay and
-// take-home, the stated rent, the total debt as a credit card plus a personal
-// loan, and savings.
+// A new life's starting answers and the money life they build: gross pay and
+// take-home, the rent, the total debt as a credit card plus a personal loan,
+// and savings. Every new life starts from `defaultAnswers` (the title screen,
+// ui/title.ts, only asks who's moving in); the rest of the answer helpers read
+// numbers a player states, as the old voice and typed intake did.
 
 import { creditCard, installment, newBook } from "../debt/factory.ts";
 import type { Debt } from "../debt/types.ts";
@@ -18,6 +19,7 @@ import {
   type ExpenseTierLevel,
   type Place,
 } from "./player.ts";
+import { medianRent } from "./homes.ts";
 import { applyOrders, currentOrders } from "../skip/orders.ts";
 import type { Profile, ProfileSource } from "../save/client.ts";
 import { BEGINNER_CARD_SLUGS } from "../../data/cards-beginner.ts";
@@ -224,7 +226,18 @@ function carLoanDebt(o: { monthly: number; months: number }, day: number): Debt 
 }
 
 /** The onboarding answers, minus the numbers a fresh (not-yet-stated) intake doesn't have yet. */
-type IntakeAnswersInput = Omit<IntakeAnswers, "salary" | "debt"> & Partial<Pick<IntakeAnswers, "salary" | "debt">>;
+export type IntakeAnswersInput = Omit<IntakeAnswers, "salary" | "debt"> & Partial<Pick<IntakeAnswers, "salary" | "debt">>;
+
+/** What a new life has in high-yield savings on day one (the old sample household's checking and savings together). */
+export const DEFAULT_SAVINGS = 3_700;
+
+/**
+ * Every new life: only who moves in is chosen. The salary and debt are left for
+ * `randomizeStarter`, the rent is the state's median, and the goals are the defaults.
+ */
+export function defaultAnswers(place: Place, avatar: "male" | "female"): IntakeAnswersInput {
+  return { job: "", name: "You", avatar, rent: medianRent(place), savings: DEFAULT_SAVINGS, goals: DEFAULT_GOALS };
+}
 
 /**
  * The player's starting life from the onboarding answers. A stated salary or

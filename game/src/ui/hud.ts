@@ -64,8 +64,8 @@ export class Hud {
   }
 }
 
-/** Matches the avatar picker in intake.ts so the same pixel character shows here. */
-const AVATAR_EMOJI: Record<"male" | "female", string> = { male: "🧑", female: "👩" };
+/** The two characters a new life picks between on the title screen (ui/title.ts); the ID card shows the same one. */
+export const AVATAR_EMOJI: Record<"male" | "female", string> = { male: "🧑", female: "👩" };
 
 /** What the HUD says for each save status where saving has stopped. */
 const SAVE_CHIPS: Partial<Record<SaveStatus, string>> = {

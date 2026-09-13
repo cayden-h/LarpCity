@@ -110,6 +110,27 @@
   color: var(--yellow, #ffdb39);
 }
 
+/* Who's moving in: two pixel buttons, the character over its name. */
+.tt-avatars {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+.tt-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 150px;
+  padding: 14px 24px 16px;
+  font-size: 24px;
+}
+.tt-avatar span {
+  font-size: 48px;
+  line-height: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tt-overlay,
   .tt-home {

@@ -66,7 +66,7 @@ That is what makes rewind, fast-forward, and "what if" comparisons possible: sto
 - `sim/life/` (`PlayerLife`): the player's daily life: paychecks (1st and 15th), state-scaled rent and living costs, brokerage holdings and recurring buys, standing orders (401(k) match, emergency fund, crash rule), and the starter portfolio (`STARTER_PORTFOLIO`).
   `events.ts` rolls the seeded life events (car breakdowns, injuries, divorce and the prenup, penny-stock tips, recession layoffs) keyed by (seed, kind, day); the ones with a choice wait on the life as pending choices (`pendingChoices`, `choose`), pause the city through `needsDecision`, and take their default after a week unanswered.
   `twins.ts` keeps the "if you had held" and 90/10 autopilot shadow portfolios; `PlayerLife` emits `bear_market` and `market_recovered`, and `needsDecision` marks the events that pause the city for a decision.
-  `intake.ts` (`lifeFromIntake`) builds a life from the voice or typed intake.
+  `intake.ts` (`lifeFromIntake`, `defaultAnswers`) builds every new life from the same default start; the player only picks a man or a woman.
   Driven from `Clock.onDay` in `src/main.ts`.
 - `sim/market/` (`MarketPath`): real FRED history before game day 0, then a bull/bear regime model on trading days with the preset AI Boom and AI Bubble Pop, pricing LTM, BOND, NNST, and the HackRice sponsor stocks.
 - `sim/skip/`: goal fast-forwards: standing orders, goals and price tags, the shared crash rule, a 100-future preview in a Web Worker (`futures.worker.ts`), and the headless run.
@@ -85,7 +85,7 @@ Everything random is seeded, so a city's weather and traffic replay identically.
 **UI (`game/src/ui/`)**: DOM over the canvas, in Eric's pixel theme (`pixel-theme.css`, the Pixelify Sans font, `pixel-icons.ts`).
 The HUD (`hud.ts`) is just the "Your home" card; the phone (`phone.ts`, pulled up from the bottom-right) is the hub: Stocks (sponsor stocks and markets, opens the Money desk), Goals (the fast-forward, `skip-setup.ts`), Map (the pixel U.S. map, `usmap.ts`), Weather, Calendar (`calendar.ts`: the month and year views, going back to a past day once the end-of-game review opens it, skipping to the next decision day, the speed, and "Start a new life" and "Save slots" (`slots.ts`) from the year view), and the live Mail, News, and Bank apps (`phone-apps.ts`), reading the life's inbox, the Ledger, and the Nessie statement.
 Add new phone apps to `APPS`.
-`intake.ts` is the onboarding (voice interview through ElevenLabs, or a typed form), and `narrator.ts` with `src/narration/lines.ts` is Sammy, the owl narrator, and his pre-voiced lines; `tour.ts` with `src/narration/tour.ts` and `tours.ts` are his guided tours (stocks and taxes).
+`title.ts` is the onboarding (the title screen, Sammy's Learn walkthrough from `src/narration/learn.ts`, and the man-or-woman pick), and `narrator.ts` with `src/narration/lines.ts` is Sammy, the owl narrator, and his pre-voiced lines; `tour.ts` with `src/narration/tour.ts` and `tours.ts` are his guided tours (stocks and taxes).
 Scene events, camera reset, and the pinned sky time have no buttons anymore; use them from the console (`larp.scene().trigger("crash")`).
 
 **Money desk (`game/debt.html` + `src/debt-demo/`)**: a separate page, a Robinhood-style view of the same `PlayerLife`: Home, Cash, Investing, Debt, Credit, and Cards (with the Card Shop, `shop.ts`).
