@@ -1,5 +1,5 @@
 {
- "scale": 2,
+ "scale": 1,
  "sprites": [
   {
    "id": "salesforce-tower",
@@ -32,8 +32,8 @@
    "unique": false,
    "brand": null,
    "ax": 40,
-   "ay": 216,
-   "topZ": 208,
+   "ay": 232,
+   "topZ": 224,
    "day": "ferry-building.png",
    "night": "ferry-building.night.png",
    "kind": "landmark",
