@@ -36,7 +36,8 @@ test("painted walls, wall boards, and shops keep their sign face clear of the ne
     const { city } = expandWorld(sanFrancisco, seed);
     const grid = new CityGrid(city.layout);
     const plans = planLots(grid, city, seed, manifest);
-    const hidden = signed.filter((b) => { const p = plans.find((q) => q.entry?.id === b.id)!; return signBlocked(grid, new Set(), p.x, p.y, p.w, p.d, b.signFace); });
+    const inLandmark = (x: number, y: number) => city.landmarks.some((l) => x >= l.x && x < l.x + l.w && y >= l.y && y < l.y + l.d);
+    const hidden = signed.filter((b) => { const p = plans.find((q) => q.entry?.id === b.id)!; return signBlocked(grid, new Set(), p.x, p.y, p.w, p.d, b.signFace, inLandmark); });
     assert.ok(hidden.length <= 1, `seed ${seed}: signs against the next lot: ${hidden.map((b) => b.id).join(", ")}`);
   }
 });

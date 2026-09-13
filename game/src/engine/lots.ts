@@ -158,6 +158,7 @@ const BRAND_TOWER_FLOORS = 8;
 function brandLots(grid: CityGrid, city: CityDef, seed: number, manifest: SpriteManifest, taken: Set<string>, used: Set<string>): LotPlan[] {
   const rng = rngFor(seed, city.id, "brands");
   const out: LotPlan[] = [];
+  const inLandmark = (x: number, y: number) => city.landmarks.some((l) => x >= l.x && x < l.x + l.w && y >= l.y && y < l.y + l.d);
   const free = (x: number, y: number, w: number, d: number) => {
     for (let j = y; j < y + d; j++) for (let i = x; i < x + w; i++)
       if (grid.at(i, j) !== "b" || taken.has(`${i},${j}`)) return false;
@@ -181,7 +182,7 @@ function brandLots(grid: CityGrid, city: CityDef, seed: number, manifest: Sprite
       const tower = e.floors >= BRAND_TOWER_FLOORS;
       const depth = tower ? front : 1 - front;
       // A lot built right against a sign's face hides it, so a clear sign face comes first.
-      const blocked = signBlocked(grid, taken, x, y, e.w, e.d, e.signFace);
+      const blocked = signBlocked(grid, taken, x, y, e.w, e.d, e.signFace, inLandmark);
       const key = (blocked ? 2 : 0) + (inArea ? 0 : 1) + depth * 0.9 + rng() * 0.1;
       if (key < bestKey) [bestKey, best] = [key, { x, y, zone }];
     }
@@ -201,9 +202,10 @@ function brandLots(grid: CityGrid, city: CityDef, seed: number, manifest: Sprite
  * face carrying it: the right face looks along column x + w, the left face down row y + d. "right" needs the right
  * face clear; "any" needs one of the two clear; no sign face (rooftop boards, tower bands) is never hidden.
  */
-export function signBlocked(grid: CityGrid, taken: Set<string>, x: number, y: number, w: number, d: number, face?: "right" | "any"): boolean {
+export function signBlocked(grid: CityGrid, taken: Set<string>, x: number, y: number, w: number, d: number, face?: "right" | "any",
+  landmark: (x: number, y: number) => boolean = () => false): boolean {
   if (!face) return false;
-  const lot = (i: number, j: number) => grid.at(i, j) === "b" || taken.has(`${i},${j}`);
+  const lot = (i: number, j: number) => grid.at(i, j) === "b" || taken.has(`${i},${j}`) || landmark(i, j);
   let left = false, right = false;
   for (let i = x; i < x + w; i++) if (lot(i, y + d)) left = true;
   for (let j = y; j < y + d; j++) if (lot(x + w, j)) right = true;

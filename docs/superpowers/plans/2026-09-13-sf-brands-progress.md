@@ -25,6 +25,8 @@ PERF_TABLE
 - HQ towers carry their name band twice: over the lobby (close up) and across the top floor under the parapet, because at the default zoom the towers in front hid every street-level band downtown (decided with Cayden after the first browser check); still no rooftop signs or crowns.
 
 - Goldman Sachs and Meta moved from 2x1 to 2x2 HQs, because downtown has only two 2x1 lots and the Capital One Café needs one; their sprite ids changed with the footprint.
+- Storefronts repeat their bands across the top floor, under the cornice: from the default camera, houses or towers across the street hide a ground-floor band (Schwab's and Gap's did in the browser check). These are low buildings, not towers, so the tower-top rule is untouched; the first brands' shops (the Capital One Café, Wells Fargo, Jeni's) gained the upper bands too.
+- A sign face that looks straight at a landmark's footprint counts as hidden, like one against the next lot (Gap's right face looked at the Salesforce Tower's base).
 - The brand-colored entrance canopy was left out: the lit name band spans the facade right over the lobby entrance in the brand's color, which is the job the canopy was meant to do.
 - Freeway placement uses the highway tiles themselves rather than a named `freeway` area. San Francisco's world has no highway (its outskirts set `beltway: false`), so a city without one gets its V boards beside its four-lane arterials nearest downtown (the Embarcadero and the main avenue), which are SF's stand-in for the freeway.
 - Tiger Data's bulletin stacks its name on two lines ("TIGER / DATA") so its capitals reach 7 px; the spec's "TIGER DATA" on one line came out at 6.3 px.

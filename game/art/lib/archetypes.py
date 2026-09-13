@@ -183,7 +183,14 @@ def storefront(w, d, floors, seed, facade="brick", fascia=None, fascia_side=None
             M.flat("atm-screen", (0.05, 0.12, 0.2, 1), rough=0.2, glow=(0.4, 0.7, 1.0, 1), strength=3.0))
     stone = M.flat("trim", (0.8, 0.77, 0.7, 1), rough=0.85)
     glass = M.windows("win", 0.5, FZ, lit, (0.05, 0.07, 0.09, 1))
-    _punched(w, d, 1, floors, glass, stone)
+    # The top floor carries the same bands just under the cornice, so the name shows over whatever stands across the
+    # street, which hides the ground-floor band from the default camera; that floor keeps no windows.
+    high = fascia and floors >= 2
+    _punched(w, d, 1, floors - 1 if high else floors, glass, stone)
+    if high:
+        z = top - px(3) - band_h - px(1.5)
+        signs.fascia(art[min(w, 2)], "-Y", w, d, z, band_h)
+        signs.fascia(art[min(d, 2)], "+X", w, d, z, band_h)
     if blade:
         signs.blade(blade, BLADE_DEPTH + BLADE_INSET, d, PLINTH + FZ * 1.05, depth=BLADE_DEPTH)
     box("cornice", -0.02, -d - 0.02, top - px(3), w + 0.02, 0.02, top, stone)
