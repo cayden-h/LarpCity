@@ -117,8 +117,18 @@ test("a stuck lane change that keeps replanning to the same target still gets un
   };
   const a = sim.spawn({ kind: "sedan", lane: inLeft, s: 5, steps: [{ kind: "change", to: inRight }], goal: 25, data: { to: inRight } })!;
   const b = sim.spawn({ kind: "sedan", lane: inRight, s: 5.3, steps: [{ kind: "change", to: inLeft }], goal: 25, data: { to: inLeft } })!;
-  run(sim, 40, noErrors(sim));
-  assert.ok(done.has(a) || done.has(b) || a.v > 0.1 || b.v > 0.1, `both cars still stuck: a.v=${a.v} b.v=${b.v}`);
+  // Progress, not an instant reading of v, is what proves the deadlock broke:
+  // a car that finished, or that ever left the lane it was blocked on (by
+  // completing its change or by falling through to a movement instead), is
+  // no longer stuck, even if it happens to be briefly stationary again for
+  // an ordinary reason (a light, a stop line, the car ahead) by the time the
+  // run loop ends.
+  let escaped = false;
+  run(sim, 40, () => {
+    noErrors(sim)();
+    if (done.has(a) || done.has(b) || a.track !== inLeft || b.track !== inRight) escaped = true;
+  });
+  assert.ok(escaped, `both cars still stuck: a.s=${a.s} a.track=${a.track.id} b.s=${b.s} b.track=${b.track.id}`);
 });
 
 /** Random-walk trips on a 3 x 3 arterial grid with local streets between. */
