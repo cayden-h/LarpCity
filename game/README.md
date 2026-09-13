@@ -27,7 +27,11 @@ The answers are remembered in the browser: add `?intake=1` to do the intake agai
 - Drag to pan anywhere in the world, and scroll to zoom (zoom out to see the suburbs, farms, and the state's terrain).
 - **NPCs:** click a person on the sidewalk to see their name, job, and what they are thinking about money right now.
 - **Your home:** the one card always on screen, at the bottom left.
-  Step the player's net-worth tier up or down and watch the home rebuild (tent, studio, small house, townhouse, large house, retirement villa), or press the pin to fly the camera to it.
+  Click the home name or any home lot to compare the six tiers, neighborhoods, monthly payments, cash needed, and mortgage qualification reasons.
+  The picker pauses the calendar; choose 3.5%, 10%, or 20% down and confirm the costs to move.
+  Each tier has its own lot, and the pin moves to the chosen home.
+  The tent is emergency shelter after eviction, foreclosure, or bankruptcy, not a voluntary purchase.
+  Press the pin button to fly the camera to the current home.
 - **Phone:** the hub for everything else, pulled up from the bottom-right corner (click its top edge to put it away or bring it back).
   The home screen shows the date, an S&P 500 widget, and the apps.
   **Stocks** lists the HackRice sponsor stocks at today's game prices (tap one to open its page in the Money desk) and a market watchlist, and opens the Money desk over the city (city time pauses while it is open).
@@ -47,7 +51,7 @@ The answers are remembered in the browser: add `?intake=1` to do the intake agai
   `larp.scene().resetCamera()` recenters the camera, and `larp.clock.pinnedTimeOfDay = 0.8` holds the sky at one time of day (`null` lets it run again).
 - **Goals (fast-forward to a goal):** pick an emergency fund, debt-free, life savings, a home, marriage, or a career-income target. Set the plan, preview its finances across 100 other possible markets, then fast-forward until the goal is met, bankruptcy, or an age cap. Marriage timing is not forecast by the financial preview; income targets use current pay until salary progression exists.
 - **Life score:** the Money desk's Score tab shows retirement readiness, lifetime wellbeing and nine wellbeing factors. Completed marriage, income and life-savings goals show the same combined score. [Engine contracts and assumptions](../docs/life-goals-wellbeing.md) cover frontend integration and the research behind the model.
-- **Money:** every game day the player is paid on the 1st and 15th, pays rent and living costs for the current state, and pays their debts; with a plan in force, paychecks also fund the 401(k) (with the employer match), the emergency fund, and recurring investments. The home tier follows net worth, and bankruptcy stops a skip or fast-forward.
+- **Money:** every game day the player is paid on the 1st and 15th, pays rent and living costs for the current state, and pays their debts; with a plan in force, paychecks also fund the 401(k) (with the employer match), the emergency fund, and recurring investments. Housing follows the player's choice rather than net worth, and bankruptcy stops a skip or fast-forward.
 
 From the browser console, `larp.visit("CO")` opens a state and `larp.step(5)` simulates 5 seconds (useful in background tabs, which throttle animation).
 
@@ -88,6 +92,42 @@ From the browser console, `larp.visit("CO")` opens a state and `larp.step(5)` si
 - `db/`: the Tiger Data schema (`schema.sql`) and loader (`load.py`); see [SETUP.md](../SETUP.md).
 - Everything random is seeded, so a city, its weather, and its traffic replay the same way.
 
+## Houses and choosing a home
+
+The [approved houses design](../docs/superpowers/specs/2026-09-12-blender-houses-design.md) covers the art and housing rules.
+`art/lib/houses.py` builds Victorian, Edwardian, Sunset stucco, suburban, and walk-up models with detailed doors, bays, roofs, yards, and windows.
+`art/lib/homes.py` builds the six shared hero homes in `public/sprites/common/home/`.
+The model rotates for each facing while the camera and light stay fixed.
+The day, night, and painted-wall layers pass through `art/pixelize.py`.
+Wall overlays use dedicated neutral greys, then the game applies a seeded color from the city palette without tinting windows or roof details.
+`art/lib/property_sign.py` supplies the small sale and rental yard boards in `public/sprites/common/property/`, lettered with 3x5 pixel capitals so they read at 1x without hiding the house.
+
+`src/engine/lots.ts` chooses a house's footprint, street-facing door, neighborhood family, and wall tint.
+House styling uses its own seeded randomness and preserves the commercial population stream.
+`src/engine/home-lots.ts` reserves six distinct lots beside surface roads without covering landmarks or violating sightlines, and never behind a landmark.
+Filler buildings in front of a home lot are height-capped like those in front of landmarks, so every home stays visible from the default camera.
+SF's curated locations are translated with the world and tested against the widened roads; other cities use geographic placement rules.
+`src/engine/scene.ts` draws every home, with sale or rental signs on vacant lots and the ring and pin on the occupied lot.
+
+`src/sim/life/homes.ts` is the shared housing price and quote contract.
+`PlayerLife.quoteHome` previews a move without modifying accounts; `chooseHome` rechecks it before spending cash, selling a current property, and opening a mortgage.
+The mortgage, property tax, insurance, and PMI are part of the same daily life used by the Money desk, saves, rewind, and fast-forward.
+Selling deducts 6% costs and repays the mortgage; moving states sells an owned home and starts a studio rental.
+Home value stays flat, and net worth includes the owned property less its debt.
+Goals and fast-forward previews include this asset and the ownership bills; PMI ends at 80% loan-to-value, including when extra debt payments accelerate it.
+`src/ui/home-picker.ts` displays the quote and confirms a move; the HUD no longer has debug tier buttons.
+
+To rebuild the new shared sets from `game/`:
+
+```sh
+blender -b -P art/build.py -- --city common/home
+python3 art/pixelize.py common/home --new-palette
+python3 art/check_register.py common/home
+blender -b -P art/build.py -- --city common/property
+python3 art/pixelize.py common/property --new-palette
+python3 art/check_register.py common/property
+```
+
 ## Scripts and tests
 
 | Command | What it does |
@@ -101,7 +141,7 @@ From the browser console, `larp.visit("CO")` opens a state and `larp.step(5)` si
 ## Building sprites (Blender)
 
 Cities with a sprite set draw their buildings from pre-rendered pixel-art sprites instead of the procedural builder (`src/engine/bricks.ts`, still used for lots no sprite fits and for cities without sprites).
-San Francisco has 43 sprites ([design and approved look](../docs/superpowers/specs/2026-09-12-blender-houses-design.md)).
+San Francisco retains its 43 landmark and commercial sprites and adds 64 house sprites, from 16 models in four facings ([design and approved look](../docs/superpowers/specs/2026-09-12-blender-houses-design.md)).
 Run these commands from `game/`, with Blender and the repository's Python dependencies installed:
 
 ```sh
@@ -109,7 +149,7 @@ brew install --cask blender                         # macOS; runs headless
 python3 art/make_ads.py                             # regenerate sign art
 blender -b -P art/build.py -- --city san-francisco   # raw 4x layers, art/.raw/san-francisco/
 python3 art/pixelize.py san-francisco                # final 1x sprites, using the kept palette
-python3 art/check_register.py san-francisco          # registration, alpha, and palette checks
+python3 art/check_register.py san-francisco          # full catalog, registration, layers, alpha, and palette checks
 python3 art/contact.py san-francisco                 # paged 1x and 4x review sheets
 python3 -m unittest discover -s art/tests            # pixel pipeline unit and integration tests
 npm run art:sf                                     # sign art, render, pixelize, registration check
@@ -157,3 +197,8 @@ Only the JPEGs live in `public/` (about 16 MB for all 14 sets); the full-size PN
 If this folder goes into git, keep `plates-src/` out of it or put it on Git LFS.
 To refine a city's look, edit its prompt and rerun with `--force`.
 If a plate is missing, the game paints a simple fallback sky, so nothing breaks.
+
+The final sprite validator requires the entire catalog and all facings by default.
+Use `--allow-partial` only when reviewing a deliberately incomplete sample render; it keeps every per-sprite check.
+Run `python3 -m unittest discover -s art/tests` for the pixel pipeline and `blender -b --python-exit-code 1 -P art/check_houses.py` for house geometry checks.
+`tests/houses-assets.test.ts` checks the actual shipped catalogs, residential placement coverage, matching layer sizes, and the 8 MB sprite budget.

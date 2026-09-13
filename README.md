@@ -185,3 +185,11 @@ Still open:
 - Whether the ~50 NPCs stay as a city backdrop.
 - How much of the milestone replay to build.
 - Whether to frame it as a finance game or a finance LARP.
+
+## Choosing a home
+
+The player's home is a financial choice with its own lot, rather than an automatic net-worth upgrade.
+Click the home card or a home lot to compare a studio rental and four ownership tiers, inspect monthly costs and qualification reasons, and choose a down payment.
+Purchases, sales, housing bills, and forced moves are recorded in the same saved life as the Money desk.
+San Francisco's residential houses use Blender-rendered pixel sprites, with four facings and palette-tinted walls; six hero home models are shared by every city.
+See [the game architecture and rebuild commands](game/README.md#houses-and-choosing-a-home) and [the design](docs/superpowers/specs/2026-09-12-blender-houses-design.md).
