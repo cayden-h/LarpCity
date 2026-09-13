@@ -1,0 +1,24 @@
+/* Bottom-left happiness meter: stacked directly above the home card so the two
+   never overlap (the home card sits at left: 22px; bottom: 18px; see .home in
+   pixel-theme.css). Task 5 (HUD ID card) should coordinate final placement. */
+.happiness {
+  left: 22px;
+  bottom: 150px;
+  min-width: 0;
+  width: 84px;
+  padding: 8px;
+  display: grid;
+  place-items: center;
+}
+
+.happiness-face {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+}
+
+.happiness-face .pixel-icon {
+  width: 56px;
+  height: 56px;
+}

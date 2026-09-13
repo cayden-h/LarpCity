@@ -29,6 +29,7 @@ import { trimDesk } from "./sim/save/desk";
 import { SaveManager } from "./sim/save/manager";
 import type { DeskState, GameSave } from "./sim/save/types";
 import { Hud } from "./ui/hud";
+import { mountHappinessMeter } from "./ui/happiness";
 import { runIntake } from "./ui/intake";
 import { Narrator } from "./ui/narrator";
 import { NpcCard } from "./ui/npccard";
@@ -37,6 +38,7 @@ import { Phone } from "./ui/phone";
 import { FastForward } from "./ui/skip-setup";
 import { UsMap } from "./ui/usmap";
 import "./ui/pixel-theme.css";
+import "./ui/happiness.css";
 
 // The world is big: skip drawing whatever is off-screen.
 extensions.add(CullerPlugin);
@@ -217,6 +219,7 @@ clock.onDay((day) => {
   const cue = cueForEvents(events);
   if (cue) narrator.cue(cue);
   syncHomeTier();
+  happiness.update(day);
   town.onDay(day);
   void bank.tick(day);
   void recorder.tick();
@@ -303,6 +306,8 @@ const hud = new Hud(document.getElementById("hud")!, {
   tier: (delta) => scene?.hero?.setTier(scene.hero.tier + delta),
   focusHome: () => scene?.focusHome(),
 });
+
+const happiness = mountHappinessMeter(document.getElementById("happiness")!, { life: player });
 
 const map = new UsMap(document.getElementById("map")!, STATES, (s) => void open(s));
 
