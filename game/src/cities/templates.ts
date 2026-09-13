@@ -156,18 +156,40 @@ export function templateCity(state: StateInfo): CityDef {
   L.frontage(2);
   if (style.shore !== ".") L.shore(style.shore);
 
-  // The capitol in its own green square near the middle.
-  const bx = 2 + S * Math.max(0, Math.floor((W / 2 - 2) / S) - 1);
+  // The capitol in its own green square near the middle. Try the original
+  // block first, but a river from carveWater can cross it, so search every
+  // road-grid block for the closest one whose footprint is actually free.
+  const bx0 = 2 + S * Math.max(0, Math.floor((W / 2 - 2) / S) - 1);
+  const by0 = by;
   const free = (x: number, y: number, w: number, d: number) => {
     for (let j = y; j < y + d; j++) for (let i = x; i < x + w; i++) if (!["b", ".", "p"].includes(L.get(i, j))) return false;
     return true;
   };
-  const cx = bx + 1, cy = by + 1, cw = Math.min(3, S - 2), cd = Math.min(3, S - 2);
-  if (free(cx, cy, cw, cd)) {
-    L.replace(bx + 1, by + 1, S - 1, S - 1, "b", "p").replace(bx + 1, by + 1, S - 1, S - 1, ".", "p");
-    landmarks.push({ id: `capitol-${style.dome}`, x: cx, y: cy, w: cw, d: cd });
-    for (let j = cy; j < cy + cd; j++) for (let i = cx; i < cx + cw; i++) L.set(i, j, "P");
+  const cw = Math.min(3, S - 2), cd = Math.min(3, S - 2);
+  const blocks: { bx: number; by: number }[] = [];
+  for (let by1 = 2; by1 + S - 1 < H - 1; by1 += S)
+    for (let bx1 = 2; bx1 + S - 1 < W - 1; bx1 += S) blocks.push({ bx: bx1, by: by1 });
+  blocks.sort((a, b) => {
+    const da = (a.bx - bx0) ** 2 + (a.by - by0) ** 2;
+    const db = (b.bx - bx0) ** 2 + (b.by - by0) ** 2;
+    return da - db;
+  });
+  let bx = bx0;
+  let cby = by0;
+  let found = false;
+  for (const blk of blocks) {
+    if (free(blk.bx + 1, blk.by + 1, cw, cd)) {
+      bx = blk.bx;
+      cby = blk.by;
+      found = true;
+      break;
+    }
   }
+  const cx = bx + 1, cy = cby + 1;
+  if (!found) for (let j = cy; j < cy + cd; j++) for (let i = cx; i < cx + cw; i++) L.set(i, j, ".");
+  L.replace(bx + 1, cby + 1, S - 1, S - 1, "b", "p").replace(bx + 1, cby + 1, S - 1, S - 1, ".", "p");
+  landmarks.push({ id: `capitol-${style.dome}`, x: cx, y: cy, w: cw, d: cd });
+  for (let j = cy; j < cy + cd; j++) for (let i = cx; i < cx + cw; i++) L.set(i, j, "P");
   // The player's home: the first lot next to a road, a block or two from the capitol.
   let placedHome = false;
   for (let r = S + 2; r < Math.max(W, H) && !placedHome; r++)

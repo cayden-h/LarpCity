@@ -40,3 +40,11 @@ for (const city of HANDMADE)
 test("every template city's roads match its road tiles", () => {
   for (const s of STATES) check(templateCity(s));
 });
+
+test("every state gets exactly one capitol landmark", () => {
+  for (const s of STATES) {
+    const city = templateCity(s);
+    const capitols = city.landmarks.filter((l) => l.id.startsWith("capitol-"));
+    assert.equal(capitols.length, 1, `${s.abbr} (${city.id}) should have exactly one capitol landmark, got ${capitols.length}`);
+  }
+});
