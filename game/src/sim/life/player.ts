@@ -1239,6 +1239,7 @@ export class PlayerLife {
     this.rothYtd += put;
     const roth = this.account("roth");
     roth.balance = round2(roth.balance + put);
+    roth.rothContributions = round2((roth.rothContributions ?? 0) + put);
     return { cost: round2(put), added: round2(put) };
   }
 

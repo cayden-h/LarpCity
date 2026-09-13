@@ -262,6 +262,15 @@ test("lifeFromIntake clamps a stated rothPct so the yearly Roth contribution nev
   assert.ok((life.orders?.rothPct ?? 0) * life.grossAnnual <= ROTH_LIMIT + 1e-9);
 });
 
+test("a payroll Roth contribution is tracked as tax-free basis (rothContributions), not just balance", () => {
+  const life = lifeFromIntake({ ...NURSE, rothPct: 0.02 }, { place: TX, day: 0, market: new MarketPath() });
+  // Sept 11 + a few days is Sept 15: a payday.
+  for (let day = 1; day <= 5; day++) life.onDay(day, dateOf(day));
+  const roth = life.ledger.get("roth");
+  assert.ok(roth.balance > 0, "expected a Roth contribution to have landed");
+  assert.equal(roth.rothContributions, roth.balance, "the whole contribution should count as basis, since there's been no market growth yet");
+});
+
 test("EXPENSE_TIER_AMOUNTS has high > medium > low for every expense category", () => {
   const categories = Object.keys(EXPENSE_TIER_AMOUNTS) as ExpenseCategory[];
   assert.ok(categories.length === 5);
