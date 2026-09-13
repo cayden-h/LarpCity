@@ -1,8 +1,7 @@
 """Signs: billboards (rooftop and freeway monopole), storefront fascias, blade
-signs, lobby logo walls, monuments, painted murals, bus shelters, and 3D
-letters. Every image goes on a face with exactly the image's aspect ratio, so
+signs, facade panels, lobby logo walls, monuments, painted murals, and bus
+shelters. Every image goes on a face with exactly the image's aspect ratio, so
 art drawn inside its safe area can never run off the sign."""
-import math
 from pathlib import Path
 
 import bpy
@@ -12,10 +11,6 @@ from .geo import box, cylinder, face_quad, quad
 from .iso import px
 
 ADS = Path(__file__).resolve().parent.parent / "ads"
-FONT = ADS.parent.parent / "public" / "fonts" / "pixelify-sans-bold.ttf"  # the game's pixel font, as in the UI
-# 3D letters are seen at 45 degrees, which squeezes their strokes; widen the outline and give them real depth
-# (both as a share of the font size), so a stroke is still a full pixel after the 4x majority downsample.
-LETTER_BOLD, LETTER_DEPTH = 0.035, 0.05
 BULLETIN = 14 / 48  # height / width of a 14 x 48 ft bulletin
 
 
@@ -93,11 +88,19 @@ def monopole(image_a, image_b, height_px=46, bw=1.1):
     return max(top_a, top_b)
 
 
+def _aspect(image_name):
+    """An ad image's width / height, read from the file, so a sign face always matches its art."""
+    w, h = bpy.data.images.load(str(ADS / image_name), check_existing=True).size
+    return w / h
+
+
 def fascia(image_name, face, w, d, z0, max_h, strength=1.6):
-    """A storefront sign band (8:1 art) centered on a facade over a dark raceway that spans the whole front."""
+    """A storefront sign band centered on a facade over a dark raceway that spans the whole front: as wide as
+    fits (92% of the facade) at most max_h tall, with the art's own aspect."""
     span = w if face == "-Y" else d
-    width = min(span * 0.92, max_h * 8)
-    h = width / 8
+    aspect = _aspect(image_name)
+    width = min(span * 0.92, max_h * aspect)
+    h = width / aspect
     u0 = (span - width) / 2
     raceway = M.flat("raceway", (0.06, 0.06, 0.07, 1), rough=0.5)
     if face == "-Y":
@@ -106,6 +109,15 @@ def fascia(image_name, face, w, d, z0, max_h, strength=1.6):
         box("raceway-x", w - 0.01, -d, z0 - 0.004, w + 0.012, 0, z0 + h + 0.004, raceway)
     face_quad(f"fascia{face}", face, w, d, u0, u0 + width, z0, z0 + h, M.image(f"fa-{image_name}", ADS / image_name, strength=strength), off=0.014)
     return z0 + h
+
+
+def panel(image_name, face, w, d, z0, h, strength=1.0):
+    """A flat sign board on a facade, h tall with the art's aspect, centered along the face."""
+    span = w if face == "-Y" else d
+    width = h * _aspect(image_name)
+    u0 = (span - width) / 2
+    return face_quad(f"panel{face}", face, w, d, u0, u0 + width, z0, z0 + h,
+                     M.image(f"pa-{image_name}", ADS / image_name, strength=strength), off=0.006)
 
 
 def blade(image_name, bx, d, z0, depth=0.26, strength=1.8):
@@ -172,27 +184,6 @@ def shelter(image_name, side):
         box("panel", 0.98 - pw, -0.83, 0, 0.98, -0.8, z0 + ph + 0.012, metal)
         quad("ad", [(0.98 - pw, -0.832, z0), (0.98, -0.832, z0), (0.98, -0.832, z0 + ph), (0.98 - pw, -0.832, z0 + ph)], art)
     return roof_z + px(1.5)
-
-
-def letters(text, color, glow, x0, x1, y, z, height_px, strength=8.0, max_scale=1.0):
-    """3D letters standing on a roof edge, facing -Y, scaled down if needed to fit between x0 and x1.
-    Returns the scale used, so a second line can match it."""
-    cu = bpy.data.curves.new("letters", "FONT")
-    cu.body = text
-    cu.font = bpy.data.fonts.load(str(FONT), check_existing=True)
-    cu.size = px(height_px) * 1.35  # cap height is about 0.72 of the font size
-    cu.offset = cu.size * LETTER_BOLD
-    cu.extrude = cu.size * LETTER_DEPTH
-    cu.align_x = "CENTER"
-    ob = bpy.data.objects.new("letters", cu)
-    bpy.context.scene.collection.objects.link(ob)
-    ob.data.materials.append(M.flat("letters", srgb(color), rough=0.6, glow=srgb(glow), strength=strength))
-    ob.rotation_euler = (math.pi / 2, 0, 0)
-    ob.location = ((x0 + x1) / 2, y, z)
-    bpy.context.view_layer.update()
-    s = min(max_scale, (x1 - x0) * 0.96 / ob.dimensions.x)
-    ob.scale = (s, s, s)
-    return s
 
 
 def place(sign, w, d, z):

@@ -101,15 +101,14 @@ San Francisco is the first city with a set ([design](../docs/superpowers/specs/2
 
 ```sh
 brew install --cask blender   # once; the scripts run it headless
-npm run art:sf                # textures, ad art, render, registration check
+npm run art:sf                # ad art, render, registration check
 blender -b -P art/build.py -- --city san-francisco --only glass-2x2-f16-salesforce   # rerender one sprite
 ```
 
 - `art/catalog.py`: which sprites a city gets (archetype, footprint, floors, zones, and brand signage); branded entries are placed once per city, first.
-- `art/lib/`: the camera matched to the game's 2:1 projection (`iso.py`, `scene.py`), materials with a day/night switch, the archetypes (glass tower, brick loft, concrete office), and signs (3D channel letters, rooftop billboard).
-- Signage follows how SF actually looks (research in the [spec](../docs/superpowers/specs/2026-09-12-realistic-sprites-design.md)): no brand names on tower tops (SF bans rooftop signs downtown), brands at street level (the Capital One Café, Jeni's, a Wells Fargo branch, lobby logo walls and monuments for Google, Uber, Meta, OpenAI, Goldman Sachs), AI-style billboards on old SoMa lofts and freeway V boards, painted murals and the Levi's ghost sign, backlit Muni shelters, the Salesforce Tower's LED crown, and the Ferry Building's red "PORT OF SAN FRANCISCO" letters.
+- `art/lib/`: the camera matched to the game's 2:1 projection (`iso.py`, `scene.py`), materials with a day/night switch, the archetypes (glass tower, brick loft, concrete office), and signs (rooftop billboards, storefront fascias and blades, facade panels, murals). Materials are flat pixel colors whose patterns (brick running bond, stone courses) sit on the sprite's 1x pixel grid.
+- Signage follows how SF actually looks (research in the [spec](../docs/superpowers/specs/2026-09-12-realistic-sprites-design.md)): no brand names on tower tops (SF bans rooftop signs downtown), brands at street level (the Capital One Café, Jeni's, a Wells Fargo branch, lobby logo walls and monuments for Google, Uber, Meta, OpenAI, Goldman Sachs), AI-style billboards on old SoMa lofts and freeway V boards, painted murals and the Levi's ghost sign, backlit Muni shelters, the Salesforce Tower's LED crown, and the Ferry Building's red "PORT OF SAN FRANCISCO" name on its frieze.
 - `art/make_ads.py` draws all sign and ad art into `art/ads/` (review sheet: `art/ads/_contact.png`). Every text element is fitted to its box and the script fails if anything leaves the sign's safe area; Blender maps each image onto a face with exactly its aspect ratio, so art never runs off a sign.
-- `art/fetch_textures.sh` downloads CC0 photo textures from [ambientCG](https://ambientcg.com) into `art/textures/`.
 - Output: `public/sprites/<city>/`, a day PNG and a night PNG per sprite (the night pass is black except what glows, drawn with additive blending) plus `sprites.json` (footprint, anchor pixel, height).
 - `art/check_register.py` fails if a sprite is off its tile diamond by more than one game pixel.
 - `src/engine/sprite-pick.ts` chooses a sprite per lot (tested in `tests/sprites.test.ts`); `src/engine/sprites.ts` loads the set and returns the same `Built` shape as the brick builder.

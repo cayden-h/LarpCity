@@ -13,7 +13,25 @@ PLINTH = px(PLINTH_PX)
 # are the lightest tone, and a near-black roof reads as a hole at 1x. Tar is a flat color (its photo texture
 # is too dark to tint up, and only turns into speckle).
 TAR = (0.42, 0.39, 0.36, 1)
-SLAB_TINT = (0.5, 0.5, 0.48, 1)
+# Flat pixel colors for what were photo textures: the photo's mean (linear) color times its old tint, so the
+# approved palette holds. Concrete034 averaged 0.482 grey; Bricks075A (0.276, 0.235, 0.163).
+SLAB = (0.24, 0.24, 0.23, 1)
+DARK_SLAB = (0.16, 0.16, 0.16, 1)
+CONCRETE = (0.46, 0.45, 0.42, 1)
+BRICKS = [(0.28, 0.14, 0.075, 1), (0.25, 0.15, 0.08, 1), (0.22, 0.12, 0.065, 1)]  # SF's red and brown masonry
+STONE, STUCCO, SANDSTONE = (0.35, 0.33, 0.29, 1), (0.4, 0.39, 0.35, 1), (0.4, 0.38, 0.32, 1)
+# Dressed stone reads as courses coarser than brick; concrete and stucco are smooth.
+STONE_COURSE = 5
+# A shop's glass fills this share of the ground floor, leaving the rest for a sign band about 9 px tall, so a
+# brand's lettering is 6 to 7 px at 1x (art/make_ads.py fascia).
+SHOP_GLASS = 0.5
+# The blade sign sticks this far out (Blender units): about 10 px wide on screen, so its mark reads at 1x. It
+# hangs at least BLADE_DEPTH + BLADE_INSET along the front, so its outer edge stays on screen inside the lot's
+# left corner and the sprite still registers on its diamond (art/check_register.py).
+BLADE_DEPTH, BLADE_INSET = 0.36, 0.06
+# The Ferry Building's frieze over its top floor, tall enough for its 10 px name panel plus a px above and below
+# and the cornice on top.
+FERRY_FRIEZE_PX, FERRY_SIGN_PX = 15, 10
 
 
 def _tar():
@@ -46,9 +64,7 @@ def _hvac():
 
 
 def _brick(rng):
-    # Bricks075A is a pale brick; tint it toward SF's red and brown masonry.
-    tint = rng.choice([(1.0, 0.58, 0.46, 1), (0.9, 0.62, 0.5, 1), (0.8, 0.5, 0.4, 1)])
-    return M.pbr("brick", "Bricks075A", 0.5, tint)
+    return M.brick("brick", rng.choice(BRICKS))
 
 
 def _punched(w, d, f0, floors, glass, stone, faces=("-Y", "+X"), per=2, tall=0.58):
@@ -75,7 +91,7 @@ def glass_tower(w, d, floors, seed, lit=0.35):
     tint = rng.choice([(0.09, 0.16, 0.24, 1), (0.1, 0.19, 0.22, 1), (0.14, 0.16, 0.2, 1)])
     box("tower", 0, -d, 0, w, 0, top, M.windows("curtain", 1 / 3, FZ, lit, tint, frame_frac=0.06))
     metal = M.flat("metal", (0.55, 0.57, 0.6, 1), rough=0.35, metal=0.8)
-    return _roof(rng, w, d, top, M.pbr("roofslab", "Concrete034", 1.0, SLAB_TINT), metal, metal)
+    return _roof(rng, w, d, top, M.flat("roofslab", SLAB, rough=0.8), metal, metal)
 
 
 def brick_loft(w, d, floors, seed, lit=0.55, mural=None):
@@ -100,7 +116,7 @@ def brick_loft(w, d, floors, seed, lit=0.55, mural=None):
 def concrete_office(w, d, floors, seed, lit=0.6):
     rng = random.Random(seed)
     top = body_top(floors)
-    conc = M.pbr("concrete", "Concrete034", 0.6, (0.95, 0.93, 0.88, 1))
+    conc = M.flat("concrete", CONCRETE, rough=0.8)
     box("core", 0.01, -d + 0.01, 0, w - 0.01, -0.01, top, M.windows("ribbon", 1 / 4, FZ, lit, (0.1, 0.15, 0.2, 1), frame_frac=0.05))
     e = 0.01
     for f in range(1, floors):  # floor 0 is the glass lobby
@@ -109,18 +125,19 @@ def concrete_office(w, d, floors, seed, lit=0.6):
     # The canopy reaches the lot line but not past it, so the sprite stays on its tiles.
     box("canopy", -e, -d - e, PLINTH + FZ * 0.88, w + e, e, PLINTH + FZ, conc)
     box("crown", -e, -d - e, top - px(5), w + e, e, top, conc)
-    return _roof(rng, w, d, top, M.pbr("roofslab", "Concrete034", 1.0, (0.34, 0.34, 0.33, 1)), conc, _hvac())
+    return _roof(rng, w, d, top, M.flat("roofslab", DARK_SLAB, rough=0.8), conc, _hvac())
 
 
 FACADES = {
     "brick": lambda rng: _brick(rng),
-    "stone": lambda rng: M.pbr("stone", "Concrete034", 0.7, (0.72, 0.68, 0.6, 1)),
-    "stucco": lambda rng: M.pbr("stucco", "Concrete034", 1.4, (0.84, 0.8, 0.72, 1)),
+    "stone": lambda rng: M.lined("stone", STONE, STONE_COURSE, rough=0.85),
+    "stucco": lambda rng: M.flat("stucco", STUCCO, rough=0.85),
 }
 
 
-def storefront(w, d, floors, seed, facade="brick", fascia=None, blade=None, atm=False, lit=0.5):
-    """A street-corner shop: warm lit shop windows on both faces, a sign band over them, a blade sign, upper-floor windows."""
+def storefront(w, d, floors, seed, facade="brick", fascia=None, fascia_side=None, blade=None, atm=False, lit=0.5):
+    """A street-corner shop: warm lit shop windows on both faces, a sign band over them, a blade sign, upper-floor
+    windows. fascia is the front (-Y) band's art; fascia_side, if given, the side (+X) band's, else the same."""
     rng = random.Random(seed)
     top = body_top(floors)
     wall = FACADES[facade](rng)
@@ -129,13 +146,13 @@ def storefront(w, d, floors, seed, facade="brick", fascia=None, blade=None, atm=
     box("plinth", -0.008, -d - 0.008, 0, w + 0.008, 0.008, PLINTH, dark)
     # Shop glass: a warm lit interior shows through by day (a little emission), fully lit at night.
     shop = M.windows("shop", 1 / 3, FZ, 1.0, (0.62, 0.5, 0.36, 1), frame_frac=0.05, frame_color=(0.1, 0.1, 0.11, 1), strength=1.3)
-    g1 = PLINTH + FZ * 0.72
+    g1 = PLINTH + FZ * SHOP_GLASS
     box("shop-y", 0.03, -d - 0.006, PLINTH, w - 0.03, -d + 0.02, g1, shop)
     box("shop-x", w - 0.02, -d + 0.03, PLINTH, w + 0.006, -0.03, g1, shop)
     band_z, band_h = g1 + px(0.8), PLINTH + FZ * 0.98 - (g1 + px(0.8))
     if fascia:
         signs.fascia(fascia, "-Y", w, d, band_z, band_h)
-        signs.fascia(fascia, "+X", w, d, band_z, band_h)
+        signs.fascia(fascia_side or fascia, "+X", w, d, band_z, band_h)
     if atm:
         red = M.flat("atm", signs.srgb((0.843, 0.118, 0.157)), rough=0.4)
         box("atm", w - 0.004, -d + 0.1, PLINTH + FZ * 0.08, w + 0.016, -d + 0.26, PLINTH + FZ * 0.62, red)
@@ -145,7 +162,7 @@ def storefront(w, d, floors, seed, facade="brick", fascia=None, blade=None, atm=
     glass = M.windows("win", 0.5, FZ, lit, (0.05, 0.07, 0.09, 1))
     _punched(w, d, 1, floors, glass, stone)
     if blade:
-        signs.blade(blade, 0.3, d, PLINTH + FZ * 1.05)
+        signs.blade(blade, BLADE_DEPTH + BLADE_INSET, d, PLINTH + FZ * 1.05, depth=BLADE_DEPTH)
     box("cornice", -0.02, -d - 0.02, top - px(3), w + 0.02, 0.02, top, stone)
     return _roof(rng, w, d, top, _tar(), stone, _hvac())
 
@@ -180,7 +197,7 @@ def hq_lobby(w, d, floors, seed, logo=None, monument=None, lit=0.4):
     if monument:
         signs.monument(monument, 0.14, -d + 0.03)
     metal = M.flat("metal", (0.55, 0.57, 0.6, 1), rough=0.35, metal=0.8)
-    return _roof(rng, w, d, top, M.pbr("roofslab", "Concrete034", 1.0, SLAB_TINT), metal, metal)
+    return _roof(rng, w, d, top, M.flat("roofslab", SLAB, rough=0.8), metal, metal)
 
 
 def salesforce_tower(w, d, floors, seed):
@@ -203,9 +220,9 @@ def salesforce_tower(w, d, floors, seed):
 
 def ferry_building(w, d, floors, seed):
     """The Ferry Building: a long three-story arcaded hall with a clock tower over the middle
-    and red "PORT OF SAN FRANCISCO" letters along the roof edge facing the city."""
-    top = body_top(3)
-    stone = M.pbr("sandstone", "Concrete034", 0.8, (0.84, 0.78, 0.66, 1))
+    and its red "PORT OF SAN FRANCISCO" name on a frieze along the front facing the city."""
+    top = body_top(3) + px(FERRY_FRIEZE_PX)
+    stone = M.lined("sandstone", SANDSTONE, STONE_COURSE, rough=0.85)
     box("hall", 0, -d, 0, w, 0, top, stone)
     glass = M.windows("arcade", 0.25, FZ, 0.5, (0.07, 0.08, 0.1, 1))
     trim = M.flat("trim", (0.9, 0.86, 0.78, 1), rough=0.8)
@@ -223,10 +240,7 @@ def ferry_building(w, d, floors, seed):
     face_quad("clock-y", "-Y", tx + tw / 2, -ty + tw / 2, tx - cs / 2, tx + cs / 2, cz, cz + cs * 1.16, clock, off=0.004)
     face_quad("clock-x", "+X", tx + tw / 2, -ty + tw / 2, tw / 2 - cs / 2, tw / 2 + cs / 2, cz, cz + cs * 1.16, clock, off=0.004)
     pyramid("cap", tx, ty, tw * 0.44, shaft + px(26), px(26), M.flat("cap", (0.45, 0.47, 0.46, 1), rough=0.5, metal=0.3))
-    red, glow = (0.85, 0.12, 0.1), (1.0, 0.22, 0.16)
-    # The longer line sets the letter size; the shorter one matches it.
-    s = signs.letters("SAN FRANCISCO", red, glow, tx + tw / 2 + 0.12, w - 0.2, -d + 0.05, top + px(2), 12)
-    signs.letters("PORT OF", red, glow, 0.2, tx - tw / 2 - 0.12, -d + 0.05, top + px(2), 12, max_scale=s)
+    signs.panel("fe-port-of-sf.png", "-Y", w, d, body_top(3) + px(1), px(FERRY_SIGN_PX))
     return shaft + px(52)
 
 

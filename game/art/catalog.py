@@ -32,7 +32,8 @@ def mural(image, aspect=1.0):
 
 
 def shop(fascia, blade, facade="brick", atm=False):
-    return {"facade": facade, "fascia": f"fa-{fascia}.png", "blade": f"bl-{blade}.png", "atm": atm}
+    return {"facade": facade, "fascia": f"fa-{fascia}.png", "fascia_side": f"fs-{fascia}.png", "blade": f"bl-{blade}.png",
+            "atm": atm}
 
 
 def hq(logo=None, monument=None):
