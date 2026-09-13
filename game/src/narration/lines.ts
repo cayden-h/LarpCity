@@ -1,9 +1,9 @@
-// What the owl says, and when. The game raises cues (a debt paid off, a market
+// What Sammy says, and when. The game raises cues (a debt paid off, a market
 // crash, a move); each cue has a pool of lines, a reaction the owl plays
 // before speaking, the mood it talks in (narration/poses.ts), a priority, and
 // a cooldown so a month-long time-lapse doesn't turn into a monologue.
 //
-// The voice is a dry English narrator talking plainly: concrete, a little
+// Sammy's voice is a dry English narrator talking plainly: concrete, a little
 // deadpan, often with a short re-say at the end ("So, cozy."). Bracketed tags
 // ([sighs], [slow], [whispers], [laughs]) are performed by the expressive
 // voice and never shown. Hard moments (bankruptcy) stay plain and kind.
@@ -11,6 +11,15 @@
 import type { LifeEvent } from "../sim/life/player.ts";
 import type { OwlAnim } from "../ui/owl.ts";
 import type { Mood } from "./poses.ts";
+import { tourLines } from "./tour.ts";
+import { TOURS } from "./tours.ts";
+
+/**
+ * The narrator's name, for every name the player sees. The wire and storage ids stay "narrator"
+ * (the voice API's `voice: "narrator"`, ELEVENLABS_VOICE_NARRATOR, and the larp.narrator.* keys):
+ * renaming them would break saved mute settings and the deployed server's contract.
+ */
+export const NARRATOR_NAME = "Sammy";
 
 export type Cue =
   | "arrival"
@@ -26,7 +35,8 @@ export type Cue =
   | "crash"
   | "boom"
   | "disaster"
-  | "fast_forward";
+  | "fast_forward"
+  | "tax_ready";
 
 interface CueDef {
   /** What the owl does before it speaks. */
@@ -40,7 +50,7 @@ interface CueDef {
   lines: string[];
 }
 
-/** Delivery tags the narrator's voice performs; anything else in brackets would be read aloud. */
+/** Delivery tags Sammy's voice performs; anything else in brackets would be read aloud. */
 export const DELIVERY_TAGS = ["sighs", "slow", "whispers", "laughs"] as const;
 
 export const CUES: Record<Cue, CueDef> = {
@@ -50,9 +60,9 @@ export const CUES: Record<Cue, CueDef> = {
     priority: 40,
     cooldownMs: 0,
     lines: [
-      "So this is Larp City. Rent is due on the first. [slow] Every first. The Narrator checked.",
+      "So this is Larp City. Rent is due on the first. [slow] Every first. Sammy checked.",
       "And so the new arrival moved in, with big plans and a budget that was, honestly, more of a vibe.",
-      "Welcome to Larp City. The Narrator will be keeping an eye on your money. [whispers] Both eyes, actually.",
+      "Welcome to Larp City. I'm Sammy, and I'll be keeping an eye on your money. [whispers] Both eyes, actually.",
     ],
   },
   paid_off: {
@@ -61,9 +71,9 @@ export const CUES: Record<Cue, CueDef> = {
     priority: 70,
     cooldownMs: 30_000,
     lines: [
-      "A debt, paid off. Honestly? Kind of impressive. [whispers] The Narrator is telling everyone.",
-      "Paid in full. The bank is sad about it. The Narrator is not. So yeah, good day.",
-      "One less debt. [laughs] The player did a little dance. The Narrator pretended not to see it.",
+      "A debt, paid off. Honestly? Kind of impressive. [whispers] Sammy is telling everyone.",
+      "Paid in full. The bank is sad about it. Sammy is not. So yeah, good day.",
+      "One less debt. [laughs] The player did a little dance. Sammy pretended not to see it.",
     ],
   },
   missed: {
@@ -74,7 +84,7 @@ export const CUES: Record<Cue, CueDef> = {
     lines: [
       "[sighs] A payment was missed. The late fee showed up right on time, though. So at least someone's punctual.",
       "The due date came and went. The payment did not. [slow] Bold strategy.",
-      "A bill went unpaid. The Narrator is not mad. [slow] Just writing it down. In pen.",
+      "A bill went unpaid. Sammy is not mad. [slow] Just writing it down. In pen.",
     ],
   },
   collections: {
@@ -84,7 +94,7 @@ export const CUES: Record<Cue, CueDef> = {
     cooldownMs: 120_000,
     lines: [
       "The debt went to collections. [sighs] They will call. A lot. Like, a lot a lot.",
-      "Collections has joined the story. The Narrator would like it on record that there were warnings. Several. In writing.",
+      "Collections has joined the story. Sammy would like it on record that there were warnings. Several. In writing.",
     ],
   },
   bankruptcy: {
@@ -104,7 +114,7 @@ export const CUES: Record<Cue, CueDef> = {
     cooldownMs: 180_000,
     lines: [
       "The credit score went up. Somewhere, a lender just smiled for the first time in years.",
-      "Better credit score. The Narrator raised an eyebrow. [whispers] Approvingly. Very approvingly.",
+      "Better credit score. Sammy raised an eyebrow. [whispers] Approvingly. Very approvingly.",
     ],
   },
   score_down: {
@@ -113,7 +123,7 @@ export const CUES: Record<Cue, CueDef> = {
     priority: 35,
     cooldownMs: 180_000,
     lines: [
-      "The credit score dropped. The Narrator has decided not to comment. [sighs] Loudly.",
+      "The credit score dropped. Sammy has decided not to comment. [sighs] Loudly.",
       "Down went the credit score. Quietly. The way bad news kind of just shows up.",
     ],
   },
@@ -133,8 +143,8 @@ export const CUES: Record<Cue, CueDef> = {
     priority: 55,
     cooldownMs: 60_000,
     lines: [
-      "The player downsized. The Narrator prefers the word cozy. So, cozy.",
-      "A smaller place now. [sighs] Fewer rooms to clean, the Narrator pointed out. Helpfully.",
+      "The player downsized. Sammy prefers the word cozy. So, cozy.",
+      "A smaller place now. [sighs] Fewer rooms to clean, Sammy pointed out. Helpfully.",
     ],
   },
   moved: {
@@ -143,7 +153,7 @@ export const CUES: Record<Cue, CueDef> = {
     priority: 60,
     cooldownMs: 0,
     lines: [
-      "A new state, a new rent, same player. The Narrator hopes at least one of those is an upgrade.",
+      "A new state, a new rent, same player. Sammy hopes at least one of those is an upgrade.",
       "And so the player packed up their whole life and moved. The bills, loyal to the end, came too.",
     ],
   },
@@ -154,7 +164,7 @@ export const CUES: Record<Cue, CueDef> = {
     cooldownMs: 45_000,
     lines: [
       "The market fell. [slow] Portfolios everywhere observed a moment of silence.",
-      "Stocks tumbled. Selling in a panic is also a decision, the Narrator notes. Usually the wrong one.",
+      "Stocks tumbled. Selling in a panic is also a decision, Sammy notes. Usually the wrong one.",
     ],
   },
   boom: {
@@ -164,7 +174,7 @@ export const CUES: Record<Cue, CueDef> = {
     cooldownMs: 45_000,
     lines: [
       "The market soared and everyone felt like a genius. [whispers] Not everyone was a genius.",
-      "Stocks are up. The Narrator suspects this will be remembered as skill. [laughs] It was mostly timing.",
+      "Stocks are up. Sammy suspects this will be remembered as skill. [laughs] It was mostly timing.",
     ],
   },
   disaster: {
@@ -173,7 +183,7 @@ export const CUES: Record<Cue, CueDef> = {
     priority: 45,
     cooldownMs: 45_000,
     lines: [
-      "Disaster hit the city. [slow] This, the Narrator notes, is exactly what emergency funds are for. Exactly this.",
+      "Disaster hit the city. [slow] This, Sammy notes, is exactly what emergency funds are for. Exactly this.",
       "The weather turned on Larp City. Suddenly, insurance didn't seem so boring, right?",
     ],
   },
@@ -185,6 +195,17 @@ export const CUES: Record<Cue, CueDef> = {
     lines: [
       "Time rushed forward. The player blinked and years went by. Money, as always, had been busy.",
       "And so the years kind of just happened. Slowly at first, then all at once.",
+    ],
+  },
+  // Flags the deadline once, without pausing time (docs/superpowers/specs/2026-09-12-tax-filing-design.md).
+  tax_ready: {
+    anim: "read",
+    mood: "plain",
+    priority: 60,
+    cooldownMs: 0,
+    lines: [
+      "Tax season. Your return is ready in the Taxes app, and it's due April 15. [slow] Sammy has circled the date. Twice.",
+      "The tax return is ready. See the little File badge on the Taxes app? April 15 is the deadline. [whispers] The IRS is not known for its sense of humor.",
     ],
   },
 };
@@ -210,6 +231,8 @@ export function cueForEvents(events: readonly LifeEvent[]): Cue | null {
     // The market: a bear market (the Money window opens on the crash decision) and its return to the old high.
     else if (e.type === "bear_market") consider("crash");
     else if (e.type === "market_recovered") consider("boom");
+    // A return that filed itself the same day (the tutorial was passed) needs no reminder.
+    else if (e.type === "tax_ready" && !events.some((f) => f.type === "tax_filed" && f.auto)) consider("tax_ready");
     else if (e.type === "score_change") {
       if (e.to - e.from >= SCORE_STEP) consider("score_up");
       else if (e.from - e.to >= SCORE_STEP) consider("score_down");
@@ -218,9 +241,9 @@ export function cueForEvents(events: readonly LifeEvent[]): Cue | null {
   return best;
 }
 
-/** Every line, for pre-generating the voice. */
+/** Every fixed line, cues and tours, for pre-generating the voice. */
 export function allLines(): string[] {
-  return Object.values(CUES).flatMap((c) => c.lines);
+  return [...Object.values(CUES).flatMap((c) => c.lines), ...TOURS.flatMap((t) => tourLines(t))];
 }
 
 /** A line for `cue`, never the same as `last`. `random` is for tests. */
@@ -253,7 +276,7 @@ export class CueGate {
   }
 }
 
-/** The owl's greeting for a returning player: their job (from the intake) and the game date they're back on. */
+/** Sammy's greeting for a returning player: their job (from the intake) and the game date they're back on. */
 export function welcomeBackLine(job: string | null, date: Date): string {
   const t = job?.trim() ?? "";
   // "Nurse" reads "nurse" mid-sentence, but "CEO at AWS" keeps its capitals.

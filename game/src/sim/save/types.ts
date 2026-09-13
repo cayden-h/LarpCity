@@ -3,6 +3,7 @@
 
 import type { LifeSave } from "../life/player.ts";
 import type { InboxSave } from "../mail/inbox.ts";
+import type { TourRecord } from "../../narration/tour.ts";
 
 export type DeskTone = "up" | "down" | "flat";
 
@@ -47,4 +48,6 @@ export interface GameSave {
   npcs: Record<string, LifeSave>;
   mail: InboxSave;
   desk: DeskState | null;
+  /** Sammy's tours the player finished or skipped (narration/tour.ts); added after version 1, read as none when missing. */
+  tours: TourRecord;
 }

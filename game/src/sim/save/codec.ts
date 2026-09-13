@@ -16,6 +16,7 @@ import type { MarketPath } from "../market/index.ts";
 import { PlayerLife, type Place } from "../life/player.ts";
 import { Inbox, type InboxSave, type MailItem } from "../mail/inbox.ts";
 import { NpcTown } from "../npcs/index.ts";
+import { parseTourRecord, type TourRecord } from "../../narration/tour.ts";
 import type { DeskState, GameSave } from "./types.ts";
 
 export const SAVE_VERSION = 1;
@@ -31,6 +32,7 @@ export interface GameParts {
   town: NpcTown;
   mail: Inbox;
   desk: DeskState | null;
+  tours?: TourRecord;
 }
 
 export function encodeGame(g: GameParts): GameSave {
@@ -44,6 +46,7 @@ export function encodeGame(g: GameParts): GameSave {
     npcs: g.town.toSave(),
     mail: g.mail.toSave(),
     desk: g.desk ? structuredClone(g.desk) : null,
+    tours: { ...g.tours },
   };
 }
 
@@ -63,6 +66,7 @@ export function parseSave(raw: unknown): GameSave {
     npcs: isObject(raw.npcs) ? (raw.npcs as GameSave["npcs"]) : {},
     mail: parseMail(raw.mail),
     desk: parseDesk(raw.desk),
+    tours: parseTourRecord(raw.tours),
   };
 }
 
