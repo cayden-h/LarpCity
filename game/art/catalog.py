@@ -3,9 +3,9 @@
 Branded entries come from the roster in brands.py and are unique: the game places each once per city, before any
 generic building, on a lot in its area or the inner part of its zone when one fits, otherwise on another lot in
 the zone (lots.ts), so a small city never repeats a mural or campaign. Following SF's sign rules (no rooftop signs
-downtown), towers carry no brand names on their tops: brands live at street level, on HQ name bands and lobby
-walls, on wall boards on low buildings, on billboards atop older low buildings outside downtown, and on V boards
-beside the freeway.
+downtown), nothing stands on a tower's roof or crowns it: brands live at street level, on HQ name bands (over the
+lobby and across the top floor, as wall signs) and lobby walls, on wall boards on low buildings, on billboards atop
+older low buildings outside downtown, and on V boards beside the freeway.
 """
 from brands import BRANDS, BY_ID
 

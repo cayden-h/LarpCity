@@ -4,9 +4,9 @@ catalog.py turns each placement into a branded catalog entry, and make_ads.py dr
 entries name from the same brand's colors, wordmark, and mark, so adding a company is one entry here (plus a
 mark function in make_ads.py's MARKS if it needs a new shape). Design: docs/superpowers/specs/2026-09-13-sf-brands-design.md.
 
-Following SF's sign rules, no brand goes on a tower's top or crown: downtown brands live at street level, on HQ
-name bands and lobby walls, and on wall boards on low buildings; rooftop bulletins stay on old SoMa lofts, and V
-boards stand beside the freeway.
+Following SF's sign rules, no sign stands on a downtown roof or crowns a tower: downtown brands live at street
+level, on HQ name bands (over the lobby and across the top floor, as wall signs) and lobby walls, and on wall boards
+on low buildings; rooftop bulletins stay on old SoMa lofts, and V boards stand beside the freeway.
 
 A brand is a dict:
   id       file-name stem of its sign art (bb-<id>.png, fa-<id>.png, ...)

@@ -192,8 +192,9 @@ def storefront(w, d, floors, seed, facade="brick", fascia=None, fascia_side=None
 
 def hq_lobby(w, d, floors, seed, logo=None, monument=None, band_y=None, band_x=None, lit=0.4):
     """A glass office tower whose upper floors overhang a double-height glass lobby. Lit name bands (band_y, band_x:
-    art for the left and right faces) run along the overhang just above the lobby, a lit logo wall stands inside the
-    lobby, and an optional monument sign sits in the recess in front. No brand ever goes on the tower's top."""
+    art for the left and right faces) run along the overhang just above the lobby and again across the top floor just
+    under the parapet, where towers in front never hide them (a wall sign: nothing stands on the roof or crowns the
+    tower); a lit logo wall stands inside the lobby, and an optional monument sign sits in the recess in front."""
     rng = random.Random(seed)
     top = body_top(floors)
     lobby = PLINTH + 2 * FZ
@@ -203,10 +204,11 @@ def hq_lobby(w, d, floors, seed, logo=None, monument=None, band_y=None, band_x=N
     box("plaza", 0, -d, 0, w, 0, px(1), stone)
     soffit = M.flat("soffit", (0.82, 0.8, 0.76, 1), rough=0.7, glow=(1.0, 0.9, 0.75, 1), strength=0.6)
     box("soffit", 0, -d, lobby - px(1.5), w, 0, lobby, soffit)
-    if band_y:
-        signs.name_band(band_y, "-Y", w, d, lobby + px(1))
-    if band_x:
-        signs.name_band(band_x, "+X", w, d, lobby + px(1))
+    high = top - px(signs.BAND_PX + 3)  # the top floor's band, clear of the parapet
+    for art, face in ((band_y, "-Y"), (band_x, "+X")):
+        if art:
+            signs.name_band(art, face, w, d, lobby + px(1))
+            signs.name_band(art, face, w, d, high)
     recess = 0.22
     glass = M.clear_glass("lobby-glass", see_through=True)
     box("lobby-y", 0.06, -d + recess - 0.012, px(1), w - 0.06, -d + recess, lobby - px(1.5), glass)

@@ -73,6 +73,7 @@ The earlier rule (SF bans rooftop signs downtown, so towers carry no brand names
 Downtown brands live at street level and at the second floor (name bands, lobbies, storefronts, monuments), and on wall boards on low buildings; big boards stay in SoMa and on the freeway.
 The skyline still reads as branded because the name bands are big and lit, and downtown's low buildings carry wall boards.
 Decided 2026-09-13: the rule stays; no crown letters, not even for sponsors.
+Revised 2026-09-13 after the browser check: street-level name bands were hidden behind the towers in front at the default zoom, so each HQ tower also carries its lit name band across its top floor, just under the parapet, as a wall sign (still nothing on the roof and no crown).
 
 ## Palette (flag)
 

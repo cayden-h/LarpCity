@@ -22,6 +22,8 @@ PERF_TABLE
 
 ## Deviations from the spec
 
+- HQ towers carry their name band twice: over the lobby (close up) and across the top floor under the parapet, because at the default zoom the towers in front hid every street-level band downtown (decided with Cayden after the first browser check); still no rooftop signs or crowns.
+
 - Goldman Sachs and Meta moved from 2x1 to 2x2 HQs, because downtown has only two 2x1 lots and the Capital One Café needs one; their sprite ids changed with the footprint.
 - The brand-colored entrance canopy was left out: the lit name band spans the facade right over the lobby entrance in the brand's color, which is the job the canopy was meant to do.
 - Freeway placement uses the highway tiles themselves rather than a named `freeway` area. San Francisco's world has no highway (its outskirts set `beltway: false`), so a city without one gets its V boards beside its four-lane arterials nearest downtown (the Embarcadero and the main avenue), which are SF's stand-in for the freeway.

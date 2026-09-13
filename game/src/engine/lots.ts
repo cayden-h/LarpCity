@@ -141,13 +141,19 @@ export function planLots(grid: CityGrid, city: CityDef, seed: number, manifest: 
   return out;
 }
 
+/** Floors from which a branded building counts as a tower: it stands at the back, where its top-floor band shows. */
+const BRAND_TOWER_FLOORS = 8;
+
 /**
  * Every branded building first, the hardest to fit first (biggest footprint,
- * then tallest, then catalog order), each on the best free lot
- * of its footprint in one of its zones under the sightline cap: inside its
- * area (CityDef.areas), else in its zone's core, else anywhere in the zone,
- * ties broken by the seeded RNG. So every brand appears whenever its
- * footprint fits somewhere in its zones, however the generic lots are cut.
+ * then tallest, then catalog order), each on the best free lot of its footprint
+ * in one of its zones under the sightline cap: inside its area
+ * (CityDef.areas) first; then, so every brand is seen from the default camera,
+ * towers toward the back of the zone (their top-floor bands show over what
+ * stands in front) and low buildings toward the front (their street-level
+ * signs face open streets); ties broken by the seeded RNG. So every brand
+ * appears whenever its footprint fits somewhere in its zones, however the
+ * generic lots are cut.
  */
 function brandLots(grid: CityGrid, city: CityDef, seed: number, manifest: SpriteManifest, taken: Set<string>, used: Set<string>): LotPlan[] {
   const rng = rngFor(seed, city.id, "brands");
@@ -168,8 +174,12 @@ function brandLots(grid: CityGrid, city: CityDef, seed: number, manifest: Sprite
       const zone = zoneAt(city, x, y);
       if (!e.zones.includes(zone) || e.floors > sightlineCap(city, grid, x, y, e.w, e.d)) continue;
       const cx = x + e.w / 2, cy = y + e.d / 2;
-      const tier = area && Math.hypot(cx - area.x, cy - area.y) <= area.r ? 0 : nearZoneCore(city, zone, cx, cy) ? 1 : 2;
-      const key = tier + rng() * 0.999;
+      const inArea = area && Math.hypot(cx - area.x, cy - area.y) <= area.r;
+      // How near the camera the lot is within its zone: 0 at the zone's back (up the screen), 1 at its front.
+      const z = nearestZone(city, zone, cx, cy);
+      const front = z ? Math.min(1, Math.max(0, (cx + cy - (z.x + z.y)) / (4 * z.r) + 0.5)) : 0.5;
+      const depth = e.floors >= BRAND_TOWER_FLOORS ? front : 1 - front;
+      const key = (inArea ? 0 : 1) + depth * 0.9 + rng() * 0.1;
       if (key < bestKey) [bestKey, best] = [key, { x, y, zone }];
     }
     if (!best) continue;
@@ -181,6 +191,13 @@ function brandLots(grid: CityGrid, city: CityDef, seed: number, manifest: Sprite
     out.push({ x, y, w: e.w, d: e.d, spec, entry: e, tint: pick(rngFor(seed, city.id, `walls:${x},${y}`), city.palette.walls) });
   }
   return out;
+}
+
+/** The zone circle of this kind whose center is nearest (x, y). */
+function nearestZone(city: CityDef, kind: ZoneKind, x: number, y: number) {
+  let best: CityDef["zones"][number] | null = null;
+  for (const z of city.zones) if (z.kind === kind && (!best || Math.hypot(x - z.x, y - z.y) < Math.hypot(x - best.x, y - best.y))) best = z;
+  return best;
 }
 
 /** In the inner part of a zone of this kind: where a branded building is seen from the default camera. */
