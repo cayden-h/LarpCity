@@ -37,6 +37,14 @@ export function hasAllRequiredGoals(goals: Goal[] | undefined): goals is Goal[] 
   return REQUIRED_GOAL_KINDS.every((k) => goals?.some((g) => g.kind === k));
 }
 
+/** Goals for a life that never went through the onboarding goal screen (a skipped intake, or a profile resume with no local save — a server Profile never stores goals). */
+export const DEFAULT_GOALS: Goal[] = [
+  { kind: "retirement_age", targetAge: 65 },
+  { kind: "marriage" },
+  { kind: "debt_free_by_age", targetAge: 45 },
+  { kind: "house", downPct: 0.1 },
+];
+
 /** Caps that keep a typo or a joke answer from breaking the sim. */
 export const INTAKE_LIMITS = { salary: 5_000_000, rent: 50_000, debt: 5_000_000, savings: 10_000_000 } as const;
 const JOB_MAX_LENGTH = 60;
@@ -136,8 +144,14 @@ export function profileFromIntake(a: IntakeAnswers | null, source: ProfileSource
   return { job: a.job, salary: a.salary, rent: a.rent, debt: a.debt, savings: a.savings, state, source };
 }
 
-/** The intake answers a stored profile holds, or null for a skipped intake (the sample household). */
+/**
+ * The intake answers a stored profile holds, or null for a skipped intake (the sample household).
+ * A profile never stores goals/name/avatar (local save state only, sim/skip's Goal union), so a
+ * resumed profile gets `DEFAULT_GOALS` and the same name/avatar defaults a skipped intake gets —
+ * not routed through `completeAnswers`, which would reject it for lacking a "chosen" goal set.
+ */
 export function answersFromProfile(p: Profile): IntakeAnswers | null {
   if (p.source === "skipped") return null;
-  return completeAnswers({ job: p.job ?? "", salary: p.salary ?? undefined, rent: p.rent ?? undefined, debt: p.debt ?? undefined, savings: p.savings ?? undefined });
+  if (p.salary === null || p.rent === null || p.debt === null || p.savings === null) return null;
+  return { job: p.job ?? "", salary: p.salary, rent: p.rent, debt: p.debt, savings: p.savings, name: "You", avatar: "male", goals: DEFAULT_GOALS };
 }

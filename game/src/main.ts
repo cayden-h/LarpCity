@@ -14,7 +14,7 @@ import { prerenderCityThumbnails } from "./engine/thumbnails";
 import type { StateInfo } from "./engine/types";
 import { cueForEvents, welcomeBackLine } from "./narration/lines";
 import { PlayerLife, STARTER_PORTFOLIO } from "./sim/life";
-import { answersFromProfile, lifeFromIntake, profileFromIntake } from "./sim/life/intake";
+import { answersFromProfile, DEFAULT_GOALS, lifeFromIntake, profileFromIntake } from "./sim/life/intake";
 import { Inbox, type DebtLookup } from "./sim/mail/inbox";
 import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
@@ -23,7 +23,6 @@ import { describeHabit } from "./sim/npcs/habits";
 import { RunRecorder } from "./sim/record";
 import { LifeTimeline } from "./sim/rewind";
 import { bootPath, fetchMe, offlineNotice, resumePlace } from "./sim/save/boot";
-import type { Goal } from "./sim/skip/types";
 import { saveApi } from "./sim/save/client";
 import { encodeGame, parseSave, restoreGame, SaveFormatError, type RestoredGame } from "./sim/save/codec";
 import { trimDesk } from "./sim/save/desk";
@@ -62,14 +61,6 @@ const params = new URLSearchParams(location.search);
 const stateFor = (h: string) => STATES.find((s) => s.abbr === h.toUpperCase()) ?? stateForPin(h.toLowerCase(), STATES);
 const fromHash = () => stateFor(location.hash.slice(1));
 const TX = STATES.find((s) => s.abbr === "TX")!;
-// A skipped intake (the sample household), or a "fromProfile" resume without a local save
-// (the server profile carries no goals of its own), still needs a full set for the Goals app.
-const SAMPLE_HOUSEHOLD_GOALS: Goal[] = [
-  { kind: "retirement_age", targetAge: 65 },
-  { kind: "marriage" },
-  { kind: "debt_free_by_age", targetAge: 45 },
-  { kind: "house", downPct: 0.1 },
-];
 
 // Who this is and where they left off (server/src/routes/save.ts), retried through a blip. A /me
 // that still fails is never taken as "no save" (sim/save/boot.ts): the player picks between trying
@@ -156,7 +147,7 @@ if (saved && restored) {
   const answers = answersFromProfile(profile);
   player = answers
     ? lifeFromIntake(answers, { place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO })
-    : new PlayerLife({ place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO, goals: SAMPLE_HOUSEHOLD_GOALS });
+    : new PlayerLife({ place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO, goals: DEFAULT_GOALS });
 }
 
 // The owl narrates the big moments from here on (narration/lines.ts).

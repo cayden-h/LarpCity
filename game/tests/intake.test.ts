@@ -152,17 +152,25 @@ test("rent is paid from savings while checking is still empty", () => {
   assert.equal(rent.paid, 1_200);
 });
 
-import { answersFromProfile, profileFromIntake } from "../src/sim/life/intake.ts";
+import { answersFromProfile, DEFAULT_GOALS, profileFromIntake } from "../src/sim/life/intake.ts";
 
-test("intake answers become a profile, which never carries goals/name/avatar back", () => {
+test("intake answers become a profile, and a resumed profile reconstructs the real money fields with default goals", () => {
   const a: IntakeAnswers = { job: "Nurse", salary: 72_000, rent: 1_400, debt: 9_000, savings: 3_000, name: "Alex", avatar: "female", goals: GOALS };
   const p = profileFromIntake(a, "voice", "TX");
   assert.deepEqual(p, { job: a.job, salary: a.salary, rent: a.rent, debt: a.debt, savings: a.savings, state: "TX", source: "voice" });
   // The server profile is local money-only state (job/salary/rent/debt/savings); goals/name/avatar
-  // never leave the browser, so a profile alone can no longer rebuild a complete IntakeAnswers.
-  // Resuming "fromProfile" without a local save falls back to the sample household instead
-  // (main.ts's SAMPLE_HOUSEHOLD_GOALS).
-  assert.equal(answersFromProfile({ ...p, displayName: null }), null);
+  // never leave the browser. A "fromProfile" resume with no local save still needs its real stated
+  // finances back, not the sample household, so it gets name "You", avatar "male", and DEFAULT_GOALS.
+  assert.deepEqual(answersFromProfile({ ...p, displayName: null }), {
+    job: a.job,
+    salary: a.salary,
+    rent: a.rent,
+    debt: a.debt,
+    savings: a.savings,
+    name: "You",
+    avatar: "male",
+    goals: DEFAULT_GOALS,
+  });
 });
 
 test("a skipped intake is a profile with no numbers, and no answers", () => {
