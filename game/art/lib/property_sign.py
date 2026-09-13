@@ -6,33 +6,38 @@ from .geo import box, quad
 from .iso import px
 
 
-# Five-column capitals, with one empty column between letters. Unlike font
+# Three-column capitals, with one empty column between letters. Unlike font
 # outlines these have no thin curves or subpixel counters to lose in the pixel pass.
 _GLYPHS = {
-    "S": ("11111", "10000", "10000", "11111", "00001", "00001", "11111"),
-    "A": ("01110", "11011", "10001", "11111", "10001", "10001", "10001"),
-    "L": ("10000", "10000", "10000", "10000", "10000", "10000", "11111"),
-    "E": ("11111", "10000", "10000", "11110", "10000", "10000", "11111"),
-    "R": ("11110", "10001", "10001", "11110", "10100", "10010", "10001"),
-    "N": ("10001", "11001", "11001", "10101", "10011", "10011", "10001"),
-    "T": ("11111", "00100", "00100", "00100", "00100", "00100", "00100"),
+    "S": ("111", "100", "111", "001", "111"),
+    "A": ("010", "101", "111", "101", "101"),
+    "L": ("100", "100", "100", "100", "111"),
+    "E": ("111", "100", "110", "100", "111"),
+    "R": ("110", "101", "110", "101", "101"),
+    "N": ("101", "111", "111", "111", "101"),
+    "T": ("111", "010", "010", "010", "010"),
 }
+
+# The board stands in the lot's front-left corner over about half its width,
+# a yard sign rather than a billboard, so the house behind it stays visible.
+_X0, _X1 = .04, .56
+_Z0, _Z1 = 6, 20
 
 
 def _label_pixels(label, color):
-    """Bottom-up RGBA bitmap: 23 columns of text, 3-column/2-row margins.
+    """Bottom-up RGBA bitmap: 15 columns of text, 1-column/1-row margins.
 
-    On the existing board each texel projects to about one screen pixel wide
-    and two high. The 7-row capitals thus occupy 14 of the board's 22 pixels.
+    On the board each texel projects to about one screen pixel wide and two
+    high, so the 5-row capitals take 10 of the board's 14 pixels.
     """
-    width, height = 29, 11
+    width, height = 17, 7
     paper = (0.96, 0.92, 0.77, 1)
     pixels = list(color) * (width * height)
     for letter, char in enumerate(label):
         for row, bits in enumerate(_GLYPHS[char]):
             for col, bit in enumerate(bits):
                 if bit == "1":
-                    i = ((height - 3 - row) * width + 3 + letter * 6 + col) * 4
+                    i = ((height - 2 - row) * width + 1 + letter * 4 + col) * 4
                     pixels[i:i + 4] = paper
     return width, height, pixels
 
@@ -60,16 +65,16 @@ def property_sign(w, d, floors, seed, label="SALE"):
     bsdf = next(node for node in nodes if node.type == "BSDF_PRINCIPLED")
     bsdf.inputs["Specular IOR Level"].default_value = 0
     lettering.node_tree.links.new(texture.outputs["Color"], bsdf.inputs["Base Color"])
-    box("post", .14, -.94, 0, .18, -.90, px(26), ink)
-    box("board", .03, -.96, px(6), .95, -.90, px(28), paint)
+    box("post", .08, -.94, 0, .11, -.91, px(_Z1), ink)
+    box("board", _X0, -.96, px(_Z0), _X1, -.91, px(_Z1), paint)
     # Each whole face has one sign ID, preserving cream strokes against their
     # colored field. Reverse the back's X direction so its text is not mirrored.
-    for side, y, left, right in (("front", -.967, .03, .95), ("back", -.893, .95, .03)):
+    for side, y, left, right in (("front", -.967, _X0, _X1), ("back", -.903, _X1, _X0)):
         quad(f"{side}-{label}", [
-            (left, y, px(6)), (right, y, px(6)),
-            (right, y, px(28)), (left, y, px(28)),
+            (left, y, px(_Z0)), (right, y, px(_Z0)),
+            (right, y, px(_Z1)), (left, y, px(_Z1)),
         ], lettering)
-    return px(28)
+    return px(_Z1)
 
 
 PROPERTY_BUILDERS = {"property_sign": property_sign}
