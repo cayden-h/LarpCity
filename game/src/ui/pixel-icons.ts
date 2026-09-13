@@ -61,19 +61,6 @@ const art: Record<string, string> = {
     <path fill="#cfe9e4" d="M10 3l4 4h-4z"/>
     <path fill="#4d7082" d="M7 9h6v1H7zM7 11h6v1H7zM7 13h4v1H7z"/>
     <path fill="#e54c50" d="M7 15h5v2H7z"/>`,
-  "face-happy": `
-    <path fill="#101a23" d="M6 2h8v2h2v2h2v8h-2v2h-2v2H6v-2H4v-2H2V6h2V4h2z"/>
-    <path fill="#ffd83d" d="M6 4h8v2h2v8h-2v2H6v-2H4V6h2z"/>
-    <path fill="#101a23" d="M6 8h2v3H6zM12 8h2v3h-2zM6 13h8v1H6zM6 14h1v1H6zM13 14h1v1h-1z"/>
-    <path fill="#101a23" d="M7 15h6v1H7z"/>`,
-  "face-neutral": `
-    <path fill="#101a23" d="M6 2h8v2h2v2h2v8h-2v2h-2v2H6v-2H4v-2H2V6h2V4h2z"/>
-    <path fill="#ffd83d" d="M6 4h8v2h2v8h-2v2H6v-2H4V6h2z"/>
-    <path fill="#101a23" d="M6 8h2v3H6zM12 8h2v3h-2zM6 14h8v1H6z"/>`,
-  "face-sad": `
-    <path fill="#101a23" d="M6 2h8v2h2v2h2v8h-2v2h-2v2H6v-2H4v-2H2V6h2V4h2z"/>
-    <path fill="#7fb5d6" d="M6 4h8v2h2v8h-2v2H6v-2H4V6h2z"/>
-    <path fill="#101a23" d="M6 8h2v3H6zM12 8h2v3h-2zM6 15h1v1H6zM13 15h1v1h-1zM7 14h6v1H7z"/>`,
 };
 
 export function pixelIcon(name: string, className = ""): string {

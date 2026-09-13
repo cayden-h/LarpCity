@@ -39,7 +39,6 @@ import { homeMortgage, homeSaleProceeds, housingBills, medianRent, quoteHome, re
 import { Twins, type TwinsSave } from "./twins.ts";
 import { rngFor } from "../../engine/rng.ts";
 import { BEGINNER_CARD_SLUGS } from "../../data/cards-beginner.ts";
-import { PULSE_TABLE } from "../wellbeing/pulses.ts";
 import { triggerPulse, wellbeing } from "../wellbeing/index.ts";
 import { INSURANCE_PLANS } from "./insurance.ts";
 import type { Pulse } from "../wellbeing/types.ts";
@@ -1271,14 +1270,15 @@ export class PlayerLife {
     if (employed) {
       this.reemployedDay = day;
       this.ev.rehireDay = null;
-    } else this.addPulse(PULSE_TABLE.layoff.p0, PULSE_TABLE.layoff.halfLifeDays, day);
+    } else triggerPulse(this, "layoff", day);
     this.employed = employed;
     this.book.monthlyTakeHome = this.monthlyTakeHome * (employed ? 1 : UNEMPLOYMENT_SHARE);
     return { type: "job", day, employed };
   }
 
-  addPulse(p0: number, halfLifeDays: number, day: number): void {
-    this.pulses.push({ p0, halfLifeDays, startDay: day });
+  /** `name` is the `PULSE_TABLE` entry, so the happiness breakdown can say what the pulse was. */
+  addPulse(p0: number, halfLifeDays: number, day: number, name?: string): void {
+    this.pulses.push(name === undefined ? { p0, halfLifeDays, startDay: day } : { p0, halfLifeDays, startDay: day, name });
   }
 
   /** Marries now (the yearly roll calls wed; demos call this), with a prenup to decide. */
@@ -1499,7 +1499,7 @@ export class PlayerLife {
     this.housing.bankruptcyDay = day;
     if (!this.bankruptcyPulseDays.has(day)) {
       this.bankruptcyPulseDays.add(day);
-      this.addPulse(PULSE_TABLE.bankruptcy.p0, PULSE_TABLE.bankruptcy.halfLifeDays, day);
+      triggerPulse(this, "bankruptcy", day);
     }
     const event: LifeEvent = { type: "bankruptcy_filed", day, chapter };
     this.record(day);

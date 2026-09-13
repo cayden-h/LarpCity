@@ -1,24 +1,107 @@
 /* Bottom-left happiness meter: stacked directly above the home card so the two
-   never overlap (the home card sits at left: 22px; bottom: 18px; see .home in
-   pixel-theme.css). Task 5 (HUD ID card) should coordinate final placement. */
+   never overlap (hud.ts sets --hud-stack-bottom from the home card's height), with the
+   Player card (.id-card) to its right at the same height. */
 .happiness {
   left: 22px;
-  bottom: 150px;
+  bottom: var(--hud-stack-bottom, 150px);
   min-width: 0;
   width: 84px;
-  padding: 8px;
-  display: grid;
-  place-items: center;
+  height: 76px;
+  padding: 7px 0 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  font: inherit;
+  color: var(--white);
+  cursor: pointer;
 }
+.happiness:hover { filter: brightness(1.12); }
+.happiness:active { transform: translateY(2px); }
+.happiness:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+.happiness[aria-expanded="true"] { filter: brightness(1.12); }
 
-.happiness-face {
-  width: 56px;
-  height: 56px;
-  display: grid;
-  place-items: center;
-}
+/* 15 × 13 pixel grid at 3px a pixel. */
+.happiness-heart .pixel-art { display: block; width: 45px; height: 39px; }
+.happiness-score { font-size: 18px; line-height: 1; text-shadow: 2px 2px #101a23; }
 
-.happiness-face .pixel-icon {
-  width: 56px;
-  height: 56px;
+/* The breakdown opens above the meter, in the home picker's paper-and-blue skin. */
+.happiness-panel {
+  position: absolute;
+  z-index: 20;
+  left: 22px;
+  bottom: calc(var(--hud-stack-bottom, 150px) + 90px);
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - 44px));
+  max-height: calc(100dvh - var(--hud-stack-bottom, 150px) - 110px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #0869b8 #efe4c4;
+  color: #16334b;
+  background: #fff7dd;
+  border: 4px solid #101a23;
+  box-shadow: 6px 6px 0 #101a23, inset 0 0 0 3px #fff;
+  font-family: "Pixelify Sans", monospace;
+  font-size: 15px;
+  line-height: 1.3;
 }
+.happiness-panel *, .happiness-panel *::before, .happiness-panel *::after { box-sizing: border-box; }
+
+.hpn-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  color: #fff8df;
+  background: linear-gradient(#229cf1, #0869b8);
+  border-bottom: 4px solid #101a23;
+  box-shadow: inset 0 3px #a4eaff;
+}
+.hpn-heart .pixel-art { display: block; width: 30px; height: 26px; }
+.hpn-heading { flex: 1; min-width: 0; }
+.hpn-eyebrow { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; }
+.hpn-title { margin: 2px 0 0; font-size: 20px; line-height: 1.1; font-weight: 600; }
+.hpn-title b { font-size: 26px; }
+.hpn-title span { font-size: 15px; opacity: .8; margin-right: 6px; }
+.hpn-close {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: #16334b;
+  background: #ffdb39;
+  border: 3px solid #101a23;
+  box-shadow: 3px 3px #101a23;
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.hpn-close:focus-visible { outline: 3px solid #ffdb39; outline-offset: 3px; }
+
+.hpn-body { padding: 4px 14px 14px; }
+.hpn-section h3 {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #4f6876;
+}
+.hpn-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.hpn-row { padding: 7px 9px; background: #fffdf2; border: 3px solid #b3a57d; box-shadow: 3px 3px #d3c49c; }
+.hpn-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.hpn-name { font-size: 16px; font-weight: 600; }
+.hpn-pts { flex: none; font-size: 16px; font-weight: 700; }
+.hpn-pts.down { color: #c8323a; }
+.hpn-pts.up { color: #148a3c; }
+.hpn-note { margin-top: 3px; font-size: 13px; color: #4f6876; }
+
+.hpn-blocks { display: flex; gap: 2px; margin-top: 5px; }
+.hpn-blocks i { flex: 1; height: 8px; background: #e4d9b8; box-shadow: inset 0 -2px #cfc19a; }
+.hpn-blocks i.on { background: #24b94d; box-shadow: inset 0 -2px #11873b, inset 0 2px #a6f2a4; }
+
+.hpn-good { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.hpn-good li { padding: 3px 8px; font-size: 14px; color: #174c2c; background: #d4edd0; border: 2px solid #11873b; }

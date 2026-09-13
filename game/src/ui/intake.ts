@@ -26,6 +26,7 @@ import type { ProfileSource } from "../sim/save/client";
 import { buildGoals } from "./goal-picker";
 import { NARRATOR_NAME } from "../narration/lines";
 import { Owl, preloadOwl } from "./owl";
+import { playerBust } from "./pixel-art";
 import "./intake.css";
 
 /** How long to wait for the post-call webhook's notes after a call ends without the tool. */
@@ -160,11 +161,11 @@ class Intake {
       <p class="in-lead">One more thing before we start: who's moving into Larp City?</p>
       <div class="in-actions in-avatar-picker">
         <button type="button" class="btn in-big in-avatar-card" data-act="avatar-male">
-          <span class="in-avatar-icon" aria-hidden="true">🧑</span>
+          <span class="in-avatar-icon">${playerBust("male")}</span>
           <span>Male</span>
         </button>
         <button type="button" class="btn in-big in-avatar-card" data-act="avatar-female">
-          <span class="in-avatar-icon" aria-hidden="true">👩</span>
+          <span class="in-avatar-icon">${playerBust("female")}</span>
           <span>Female</span>
         </button>
       </div>`);

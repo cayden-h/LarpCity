@@ -42,7 +42,23 @@ test("triggerPulse pushes the named pulse onto the life's pulse list via addPuls
   assert.equal(life.pulses.length, 0);
   triggerPulse(life, "vacation", 5);
   assert.equal(life.pulses.length, 1);
-  assert.deepEqual(life.pulses[0], { p0: PULSE_TABLE.vacation.p0, halfLifeDays: PULSE_TABLE.vacation.halfLifeDays, startDay: 5 });
+  assert.deepEqual(life.pulses[0], { p0: PULSE_TABLE.vacation.p0, halfLifeDays: PULSE_TABLE.vacation.halfLifeDays, startDay: 5, name: "vacation" });
+});
+
+test("wellbeing lists each live pulse by name, naming older nameless pulses by their shape when only one entry fits", () => {
+  const life = fullLife({
+    pulses: [
+      { ...PULSE_TABLE.vacation, startDay: 0, name: "vacation" },
+      { p0: -5, halfLifeDays: 365, startDay: 0 }, // only the layoff has this shape
+      { p0: -6, halfLifeDays: 730, startDay: 0 }, // bankruptcy and forced retirement share this one
+      { ...PULSE_TABLE.injury, startDay: 10, name: "injury" }, // starts after today, so it isn't moving the score
+    ],
+  });
+  const { pulses, W } = wellbeing(life, 0);
+  assert.deepEqual(pulses.map((pulse) => pulse.name), ["vacation", "layoff", null]);
+  // Six months of cash soften negative pulses to 80%.
+  assert.ok(Math.abs(pulses[1].points + 4) < 1e-9);
+  assert.ok(Math.abs(W - (wellbeing(fullLife(), 0).W + 3 - 4 - 4.8)) <= 0.05);
 });
 
 test("a vacation pulse blocks another one for 90 days, so triggering it twice within the window only adds one pulse", async () => {

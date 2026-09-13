@@ -102,9 +102,10 @@
   gap: 6px;
   min-width: 110px;
 }
-.in-avatar-icon {
-  font-size: 40px;
-  line-height: 1;
+.in-avatar-icon .pixel-art {
+  display: block;
+  width: 48px;
+  height: 48px;
 }
 
 /* Insurance-plan picker */

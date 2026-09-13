@@ -27,7 +27,7 @@ test("employment transitions add one layoff pulse, track re-employment, and refr
   life.setEmployed(false, 10);
   life.setEmployed(false, 10);
   assert.equal(life.insured, false);
-  assert.deepEqual(life.pulses, [{ ...PULSE_TABLE.layoff, startDay: 10 }]);
+  assert.deepEqual(life.pulses, [{ ...PULSE_TABLE.layoff, startDay: 10, name: "layoff" }]);
   assert.equal(life.history.at(-1)?.day, 10);
   assert.equal(life.history.at(-1)?.wellbeing, life.snapshot(10).wellbeing);
 
@@ -79,14 +79,14 @@ test("marriage waits for January 1, rolls once there, and replays identically", 
   assert.deepEqual(a.events, b.events);
   assert.equal(a.events.filter((event) => event.type === "marriage").length, 1);
   assert.equal(a.life.relationship, "partnered");
-  assert.deepEqual(a.life.pulses, [{ ...PULSE_TABLE.marriage, startDay: 667 }]);
+  assert.deepEqual(a.life.pulses, [{ ...PULSE_TABLE.marriage, startDay: 667, name: "marriage" }]);
 });
 
 test("bankruptcy eligibility has no pulse; filing has one pulse and immediately refreshes history", () => {
   const life = new PlayerLife({ place: TX, day: 0 });
   assert.equal(life.pulses.length, 0);
   life.fileBankruptcy(7, 20);
-  assert.deepEqual(life.pulses, [{ ...PULSE_TABLE.bankruptcy, startDay: 20 }]);
+  assert.deepEqual(life.pulses, [{ ...PULSE_TABLE.bankruptcy, startDay: 20, name: "bankruptcy" }]);
   assert.equal(life.history.at(-1)?.day, 20);
   assert.equal(life.history.at(-1)?.wellbeing, life.snapshot(20).wellbeing);
 });
