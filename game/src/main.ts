@@ -23,11 +23,14 @@ import { NpcTown } from "./sim/npcs";
 import { describeHabit } from "./sim/npcs/habits";
 import { RunRecorder } from "./sim/record";
 import { LifeTimeline } from "./sim/rewind";
+import { ReviewGate } from "./sim/rewind/gate";
 import { bootPath, fetchMe, offlineNotice, resumePlace } from "./sim/save/boot";
 import { saveApi } from "./sim/save/client";
 import { encodeGame, parseSave, restoreGame, SaveFormatError, type RestoredGame } from "./sim/save/codec";
 import { trimDesk } from "./sim/save/desk";
 import { SaveManager } from "./sim/save/manager";
+import { activeSlot, rememberSlot } from "./sim/save/slot";
+import { openSlots } from "./ui/slots";
 import type { DeskState, GameSave } from "./sim/save/types";
 import { Hud } from "./ui/hud";
 import { mountHappinessMeter } from "./ui/happiness";
@@ -70,11 +73,27 @@ const TX = STATES.find((s) => s.abbr === "TX")!;
 // Who this is and where they left off (server/src/routes/save.ts), retried through a blip. A /me
 // that still fails is never taken as "no save" (sim/save/boot.ts): the player picks between trying
 // again and a fresh life that is never saved, so their real profile and save are left alone.
-const saves = saveApi();
+// The player has three save slots (sim/save/slot.ts); ?slot= picks one, and this browser remembers it.
+const slot = activeSlot(params);
+rememberSlot(slot);
+const saves = saveApi(undefined, slot);
 const meResult = await fetchMe(() => saves.me(), { tries: 3, delayMs: 800 });
 // ?intake=1 starts a new life over the save (the save manager then overwrites it).
 let path = bootPath(meResult, { intake: params.get("intake") === "1" });
 const me = meResult.ok ? meResult.me : null;
+// ?demo=<id> (the slot picker's demo lives): a pre-built life from public/demo/ plays in this slot as a
+// new run, so whatever the slot held goes first, or the new life's first save would conflict with it.
+const demo = params.get("demo");
+let demoState: unknown = null;
+if (demo && path !== "offline") {
+  const res = await fetch(`${import.meta.env.BASE_URL}demo/${encodeURIComponent(demo)}.json`).catch(() => null);
+  demoState = res?.ok ? await res.json().catch(() => null) : null;
+  if (demoState && me?.save && !(await saves.deleteSave().then(() => true, () => false))) demoState = null;
+  if (demoState && me) {
+    me.save = null;
+    path = "resume";
+  }
+}
 /** Whether this life may be written to the server (its profile and its save). */
 let saving = path !== "offline";
 if (path === "offline") {
@@ -90,9 +109,9 @@ let saved: GameSave | null = null;
 let restored: RestoredGame | null = null;
 /** A resumed game's state (its rent depends on it) and the city it was showing inside that state. */
 let resumed: { home: StateInfo; city: StateInfo } | null = null;
-if (path === "resume" && me?.save) {
+if (path === "resume" && (demoState || me?.save)) {
   try {
-    saved = parseSave(me.save.state);
+    saved = parseSave(demoState ?? me?.save?.state);
     resumed = resumePlace(saved.life.place?.abbr, saved.hash, STATES, stateFor);
     if (!resumed) throw new SaveFormatError(`the saved state ${saved.life.place?.abbr} doesn't exist`);
     // Decoded whole before anything live is built, so a bad save can't half-load (sim/save/codec.ts).
@@ -108,8 +127,11 @@ if (path === "resume" && me?.save) {
     // If the old save can't be deleted, every write of the new life would 409 against it: play unsaved instead.
     if (!(await saves.deleteSave().then(() => true, () => false))) saving = false;
     saved = restored = resumed = null;
-    me.save = null;
-    me.profile = null;
+    demoState = null;
+    if (me) {
+      me.save = null;
+      me.profile = null;
+    }
     path = "intake";
   }
 }
@@ -123,9 +145,11 @@ const seed = saved?.seed ?? (Number(params.get("seed")) || 20260912);
 const market = restored?.life.market ?? new MarketPath(seed, clock.start);
 // Read once: a reload (another tab's conflict, the back/forward cache) must not start the intake over
 // the save again, and a resumed game's seed is its own.
-if (params.has("intake") || (saved && params.has("seed"))) {
+if (params.has("intake") || params.has("demo") || (saved && params.has("seed"))) {
   const url = new URL(location.href);
   url.searchParams.delete("intake");
+  // A demo loads once; a reload resumes it from the slot's save.
+  url.searchParams.delete("demo");
   if (saved) url.searchParams.delete("seed");
   history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }
@@ -192,6 +216,9 @@ const recorder = new RunRecorder({ life: player, seed, base: api, runId: saved ?
 // A checkpoint every game day, so the Calendar can go back to any past day (sim/rewind). A resumed
 // game's first checkpoint is the day it was loaded on, so the Calendar goes back no further than that.
 const timeline = new LifeTimeline(player, { start: clock.start });
+// Going back opens only in the end-of-game review (sim/rewind/gate.ts).
+// P2 placeholder: P2's endgame (ui/endgame.ts) unlocks it when the player retires; until then, larp.review() does.
+const review = new ReviewGate();
 
 // The phone's Mail inbox (sim/mail) and what the Money desk last reported; both ride in the save.
 const mail = restored?.mail ?? new Inbox();
@@ -300,7 +327,7 @@ function skipTo(target: number): void {
 
 /** Goes back to the morning of a past day (the Calendar's "Go back"): everything after it is undone, and time pauses. */
 function rewindTo(day: number): void {
-  if (day >= clock.day || day < timeline.firstDay) return;
+  if (!review.unlocked || day >= clock.day || day < timeline.firstDay) return;
   stopSkip();
   clock.speed = 0;
   timeline.rewindTo(day);
@@ -416,6 +443,8 @@ const phone = new Phone({
   openMap: () => map.open(state, captureCityPreview()),
   skipTo,
   rewindTo,
+  canGoBack: () => review.unlocked,
+  openSlots: () => void openSlots({ current: slot, start: clock.start }),
   firstDay: () => timeline.firstDay,
   getWorld: () => ({ state, city: scene?.city ?? cityFor(state), status: scene?.status() ?? null }),
   changed: (d, o) => {
@@ -508,6 +537,10 @@ window.addEventListener("hashchange", () => {
 await open(state);
 // Show the player's real home from the first frame, not the hero's default tier.
 syncHomeTier();
+// A choice a life event left unanswered (saved mid-decision, or a demo slot) opens the Money desk on it.
+if (player.pendingChoices().length) phone.showDecision([]);
+// ?slots=1 opens the save slot picker, for a judge's first visit.
+if (params.get("slots") === "1") void openSlots({ current: slot, start: clock.start });
 
 // The owl opens the story once per browser tab, or welcomes a returning player back.
 if (saved) narrator.speak(welcomeBackLine(player.job || null, clock.date), "arrival");
@@ -540,4 +573,4 @@ async function visit(abbrOrCity: string, seconds = 3) {
 }
 
 // Handy for testing from the console.
-Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, town, bank, recorder, phone, fastForward, narrator, saver, mail } });
+Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, town, bank, recorder, phone, fastForward, narrator, saver, mail, review: () => review.unlock(), slots: () => openSlots({ current: slot, start: clock.start }) } });

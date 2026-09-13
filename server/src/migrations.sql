@@ -137,6 +137,11 @@ CREATE TABLE IF NOT EXISTS saves (
   PRIMARY KEY (player_id, slot)
 );
 
+-- Three save slots per player (meeting 2026-09-13). Slot 0 keeps the name 'main' every save had
+-- before, so no row moves; the check keeps anything but the game's three slots out.
+ALTER TABLE saves DROP CONSTRAINT IF EXISTS saves_slot_check;
+ALTER TABLE saves ADD CONSTRAINT saves_slot_check CHECK (slot IN ('main', 'slot1', 'slot2'));
+
 -- Background NPCs (game/src/data/background-npcs.ts, GameEnginePlan.md Part 2): customers that must
 -- never be promoted to live Nessie, because the shared sandbox's 12-customer allowance is already
 -- fully spent on the primary roster. listUnsyncedCustomers() excludes these permanently.

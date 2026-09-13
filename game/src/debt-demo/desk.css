@@ -1068,6 +1068,29 @@ button:disabled {
   font-weight: 700;
 }
 
+/* The year-1 tax tutorial on the Taxes tab (main.ts, taxTutorialHtml). */
+.card.tutorial {
+  display: block;
+  padding: 16px 18px;
+}
+.card.tutorial .tag {
+  color: var(--sub);
+  font-weight: 700;
+  font-size: 12px;
+}
+.card.tutorial ol {
+  margin: 10px 0;
+  padding-left: 22px;
+  line-height: 1.45;
+}
+.card.tutorial li + li { margin-top: 4px; }
+.card.tutorial p { margin: 8px 0 0; }
+.card.tutorial .hint {
+  color: var(--sub);
+  font-size: 13px;
+}
+.tutorial-opts .opt { margin-top: 8px; }
+
 /* Standalone /debt.html with nothing to open (main.ts, Start): no saved life yet, or a save only the city can sort out. */
 .d-nolife {
   max-width: 420px;

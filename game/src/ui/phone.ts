@@ -126,6 +126,10 @@ export interface PhoneDeps {
   skipTo?: (day: number) => void;
   /** Goes back to the morning of a past day (the Calendar's "Go back"). */
   rewindTo?: (day: number) => void;
+  /** Whether going back is open (only in the end-of-game review); open when not given. */
+  canGoBack?: () => boolean;
+  /** Opens the save slot picker (the Calendar year view's "Save slots"). */
+  openSlots?: () => void;
   /** The earliest day the player can go back to. */
   firstDay?: () => number;
   /** Where the player is, for the Map app. */
@@ -231,6 +235,8 @@ export class Phone {
       life: deps.player,
       firstDay: () => deps.firstDay?.() ?? 0,
       rewindTo: (day) => deps.rewindTo?.(day),
+      canGoBack: () => deps.canGoBack?.() ?? true,
+      openSlots: deps.openSlots,
       skipTo: (day) => deps.skipTo?.(day),
       onHome: () => this.show("home"),
       newLife: () => deps.newLife(),

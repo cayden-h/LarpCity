@@ -21,11 +21,15 @@ import { fetchRecoveryLesson } from "../net/recap.ts";
 import { RunRecorder } from "../sim/record/index.ts";
 import { bootPath, fetchMe, resumePlace } from "../sim/save/boot.ts";
 import { saveApi } from "../sim/save/client.ts";
+import { activeSlot } from "../sim/save/slot.ts";
 import { encodeGame, parseSave, restoreGame, SaveFormatError, type RestoredGame } from "../sim/save/codec.ts";
 import { SaveManager } from "../sim/save/manager.ts";
 import type { DeskBankTxn, DeskFeedItem, DeskState, DeskTone, GameSave } from "../sim/save/types.ts";
 import { showNotice } from "../ui/notice.ts";
 import { finalScore, wellbeing } from "../sim/wellbeing/index.ts";
+import { NEW_CAR, TRADE_IN, choiceLabel } from "../sim/life/events.ts";
+import { bottomLine, isCorrect, tutorialOptions } from "../sim/tax/tutorial.ts";
+import type { TaxReturn } from "../sim/tax/types.ts";
 import {
   compareStrategies,
   effectiveApr,
@@ -118,7 +122,8 @@ const cashRate = (d: Date) => seriesOn("DFF", d) / 100 + rateShock;
 // Standalone, the desk opens the player's saved city life, decided the way the city boots
 // (sim/save/boot.ts). With the server down it runs the sample household as an unsaved demo; with
 // the server up and no life to open, it sends the player to the city, where lives begin.
-const saves = saveApi();
+// The same slot the city plays (sim/save/slot.ts): the URL's, or the one this browser remembers.
+const saves = saveApi(undefined, activeSlot(new URLSearchParams(location.search)));
 const booted = host ? null : await fetchMe(() => saves.me(), { tries: 3, delayMs: 800 });
 const me = booted?.ok ? booted.me : null;
 let saved: GameSave | null = null;
@@ -372,6 +377,42 @@ function onLifeEvents(events: LifeEvent[]) {
         recap = null;
         void askRecap(e.day);
         break;
+      // Life events (sim/life/events.ts). Inside the city, the city opens this window on their choices.
+      case "marriage":
+        log(e.day, "Got married", "up");
+        if (!host && !decision) askNextChoice();
+        break;
+      case "car_breakdown":
+        log(e.day, `Your car broke down: the shop quotes ${usd(e.repairCost, 0)}`, "down");
+        if (!host && !decision) askNextChoice();
+        break;
+      case "injury":
+        log(e.day, `${e.cause === "car_crash" ? "Car crash" : "Injured"}: ${usd(e.outOfPocket, 0)} of a ${usd(e.bill, 0)} hospital bill is yours`, "down");
+        if (!host && !decision) askNextChoice();
+        break;
+      case "penny_stock_tip":
+        log(e.day, `A hot tip on ${e.ticker}, a penny stock`, "flat");
+        if (!host && !decision) askNextChoice();
+        break;
+      case "penny_stock_result":
+        log(e.day, `${e.ticker} paid back ${usd(e.payout)} of your ${usd(e.stake, 0)}`, e.payout >= e.stake ? "up" : "down", e.payout);
+        bankLog({ day: e.day, name: `Sold ${e.ticker}`, category: "Investing", icon: "🎲", amount: e.payout, kind: "in" });
+        break;
+      case "divorce":
+        log(e.day, e.prenup ? "Divorced; the prenup kept your money yours" : `Divorced without a prenup: your ex took ${usd(e.lost, 0)}`, "down", e.prenup ? undefined : -e.lost);
+        break;
+      case "recession":
+        log(e.day, "The economy is in a recession: layoffs are more likely", "down");
+        break;
+      case "recession_over":
+        log(e.day, "The recession is over", "up");
+        break;
+      case "choice":
+        log(e.day, `${choiceLabel(e.kind, e.option, e.amount)}${e.auto ? " (no answer in a week, so the default)" : ""}`, "flat");
+        break;
+      case "tax_filed":
+        log(e.day, `Filed your ${e.year} taxes${e.auto ? " automatically" : ""}: ${e.refundOrOwed >= 0 ? `${usd(e.refundOrOwed)} refund` : `${usd(-e.refundOrOwed)} owed`}`, e.refundOrOwed >= 0 ? "up" : "down", e.refundOrOwed);
+        break;
       default:
         break;
     }
@@ -423,6 +464,8 @@ function closeDecision() {
   const keepPaused = decision?.keepPaused;
   decision = null;
   showNextHomeLoss();
+  // Another choice a life event left waiting asks right away, once nothing else is open.
+  if (!decision) askNextChoice();
   // Inside the city, time stays paused until the player presses play, as the Money window says.
   if (!host && !keepPaused && !decision) clock.speed = resumeSpeed;
   render();
@@ -514,8 +557,66 @@ function showParkedDecisions() {
     if (e.type === "bankruptcy_eligible") log(e.day, "Bankruptcy became an option", "down");
     else if (e.type === "cannot_cover") log(e.day, `You couldn't cover the ${d?.name ?? ""} payment`, "down");
   }
+  // A life event's choice (a breakdown, an injury, a tip, a prenup) lives on the life itself, so a
+  // reload or a demo slot still asks it; its parked event only opened this window.
+  if (!decision) askNextChoice();
   if (deferred.length) host.parkDecisions(deferred);
   render();
+}
+
+/** Asks the oldest choice a life event left waiting (sim/life/events.ts), if there is one. */
+function askNextChoice() {
+  const c = life.pendingChoices()[0];
+  if (!c) return;
+  const answer = (option: string) => () => void life.choose(c.kind, option, clock.day);
+  switch (c.kind) {
+    case "prenup":
+      openDecision({
+        title: "You're getting married",
+        body: "Do you sign a prenup? It decides who keeps what if the marriage ever ends.",
+        options: [
+          { label: "Sign a prenup", lesson: "What you built stays yours if it ends. It costs a lawyer and an awkward talk, not the marriage.", good: true, act: answer("sign") },
+          { label: "Skip it", lesson: "Without one, a divorce splits everything you both saved down the middle.", act: answer("skip") },
+        ],
+      });
+      break;
+    case "car_breakdown":
+      openDecision({
+        title: "Your car broke down",
+        body: `The shop quotes ${usd(c.amount, 0)} to fix it. A new car is ${usd(NEW_CAR.monthly, 0)} a month for ${NEW_CAR.months / 12} years, and the old one trades in for ${usd(TRADE_IN, 0)}.`,
+        options: [
+          { label: `Repair it for ${usd(c.amount, 0)}`, lesson: "Fixing is almost always cheaper than a new payment, until repairs cost more than the car is worth.", good: true, act: answer("repair") },
+          { label: `Buy a new car at ${usd(NEW_CAR.monthly, 0)} a month`, lesson: `${NEW_CAR.months} payments add up to ${usd(NEW_CAR.monthly * NEW_CAR.months, 0)}, and a new car loses value the day you drive it home.`, act: answer("replace") },
+        ],
+      });
+      break;
+    case "injury": {
+      const hurt = life.log.find((e): e is Extract<LifeEvent, { type: "injury" }> => e.type === "injury" && e.day === c.day);
+      const crash = hurt?.cause === "car_crash";
+      const share = hurt && !hurt.insured
+        ? `With no health insurance, all ${usd(c.amount, 0)} of it is yours.`
+        : `Insurance pays after your deductible; your share is ${usd(c.amount, 0)}.`;
+      openDecision({
+        title: crash ? "You were in a car crash" : "You got hurt",
+        body: `The hospital bill is ${usd(hurt?.bill ?? c.amount, 0)}. ${share}${crash ? " Your car insurance goes up for 3 years." : ""}`,
+        options: [
+          { label: "Ask for a payment plan", lesson: "Most hospitals offer 0% plans. Never put a hospital bill on a credit card.", good: true, act: answer("payment_plan") },
+          { label: `Pay ${usd(c.amount, 0)} now`, lesson: "Cash costs no interest, but keep at least a month of expenses in the bank.", act: answer("pay_now") },
+        ],
+      });
+      break;
+    }
+    case "penny_stock":
+      openDecision({
+        title: `A friend swears ${c.ticker ?? "this stock"} will 10x`,
+        body: `It's a penny stock that trades for cents a share. Put ${usd(c.amount, 0)} in?`,
+        options: [
+          { label: "Pass", lesson: "Most penny stocks lose most of their value. Hot tips are how pump-and-dumps find buyers.", good: true, act: answer("pass") },
+          { label: `Buy ${usd(c.amount, 0)}`, lesson: "A few do multiply. The odds are far worse than the story you're told.", act: answer("buy") },
+        ],
+      });
+      break;
+  }
 }
 
 function askCannotCover(d: Debt, due: number, available: number) {
@@ -1324,15 +1425,20 @@ function taxesPage(): Page {
   if (!ret) {
     return {
       side: false,
-      main: `${nextCard("Nothing due yet", "Your return for the year becomes ready to file around April 15 of the following year.")}
+      main: `${nextCard(
+        "Nothing due yet",
+        `Your return for the year becomes ready to file around April 15 of the following year.${life.taxTutorial.passed ? " You passed the tax tutorial, so it files itself on tax day." : ""}`,
+      )}
         <div class="section"><h2>This year so far</h2><span>Not filed yet</span></div>
         <div class="stats">${stat("Wages this year", usd(life.wagesYtd()))}</div>`,
     };
   }
   const totalOwed = ret.federalRefundOrOwed + ret.stateRefundOrOwed;
+  // Until the player passes the tutorial, the bottom line is the question, so the page doesn't give it away.
+  const tutorial = !life.taxTutorial.passed;
   return {
     side: false,
-    tone: totalOwed >= 0 ? "up" : "down",
+    tone: tutorial ? "flat" : totalOwed >= 0 ? "up" : "down",
     main: `<div class="section"><h2>Your ${ret.year} tax return</h2><span>Single filer · ${esc(ret.state)}</span></div>
       <div class="stats">${[
         stat("Wages", usd(ret.wages)),
@@ -1341,17 +1447,40 @@ function taxesPage(): Page {
         stat("Federal tax", usd(ret.federalTax)),
         stat("Earned Income Tax Credit", ret.eic > 0 ? `−${usd(ret.eic)}` : usd(0)),
         stat("Federal withheld", usd(ret.federalWithheld)),
-        stat("Federal refund/owed", usd(ret.federalRefundOrOwed)),
+        ...(tutorial ? [] : [stat("Federal refund/owed", usd(ret.federalRefundOrOwed))]),
         stat("State tax", usd(ret.stateTax)),
         stat("State withheld", usd(ret.stateWithheld)),
-        stat("State refund/owed", usd(ret.stateRefundOrOwed)),
+        ...(tutorial ? [] : [stat("State refund/owed", usd(ret.stateRefundOrOwed))]),
       ].join("")}</div>
-      ${nextCard(
-        totalOwed >= 0 ? `Refund: ${usd(totalOwed)}` : `You owe ${usd(-totalOwed)}`,
-        totalOwed >= 0 ? "File to get your refund deposited to checking." : "File to pay what you owe from checking, or leave a balance if it can't cover it.",
-        { label: "File now", act: "file-taxes" },
-      )}`,
+      ${
+        tutorial
+          ? taxTutorialHtml(ret)
+          : nextCard(
+              totalOwed >= 0 ? `Refund: ${usd(totalOwed)}` : `You owe ${usd(-totalOwed)}`,
+              totalOwed >= 0 ? "File to get your refund deposited to checking." : "File to pay what you owe from checking, or leave a balance if it can't cover it.",
+              { label: "File now", act: "file-taxes" },
+            )
+      }`,
   };
+}
+
+/** The year-1 tax tutorial (sim/tax/tutorial.ts): four steps, then the bottom line as a question. */
+function taxTutorialHtml(ret: TaxReturn): string {
+  const steps = [
+    `<b>What you earned.</b> Your W-2 says ${usd(ret.wages)} in wages.`,
+    `<b>The standard deduction.</b> The first ${usd(ret.federalStandardDeduction)} isn't taxed, so ${usd(ret.federalTaxableIncome)} is taxable.`,
+    `<b>The tax.</b> The brackets make that ${usd(ret.federalTax)} of federal tax${ret.stateTax > 0 ? ` and ${usd(ret.stateTax)} for ${esc(ret.state)}` : ""}${ret.eic > 0 ? `, less a ${usd(ret.eic)} Earned Income Tax Credit` : ""}.`,
+    `<b>What you already paid.</b> Every paycheck withheld some: ${usd(ret.federalWithheld + ret.stateWithheld)} this year.`,
+  ];
+  return `<div class="card tutorial">
+      <div class="tag">Tax tutorial · your first return</div>
+      <ol>${steps.map((s) => `<li>${s}</li>`).join("")}</ol>
+      <p><b>Your bottom line is what you already paid, plus credits, minus the tax.</b> Which is it?</p>
+      <div class="tutorial-opts">${tutorialOptions(ret)
+        .map((o) => `<button class="opt" data-act="tax-answer" data-amount="${o.amount}"><b>${esc(o.label)}</b></button>`)
+        .join("")}</div>
+      <p class="hint">${life.taxTutorial.done ? "Last year's answer missed, so this return walks through it again. " : ""}Get it right and every return after this one files itself on tax day.</p>
+    </div>`;
 }
 
 // ---- Side panel ------------------------------------------------------------------------
@@ -1741,6 +1870,23 @@ app.addEventListener("click", (ev) => {
     case "file-taxes":
       if (life.pendingTaxReturn()) life.fileTaxes(clock.day);
       break;
+    case "tax-answer": {
+      const ret = life.pendingTaxReturn();
+      if (!ret) break;
+      const answer = Number(el.dataset.amount);
+      const line = bottomLine(ret);
+      const right = isCorrect(ret, answer);
+      life.fileTaxes(clock.day, false, answer);
+      log(
+        clock.day,
+        right
+          ? "Tax tutorial passed: from now on, your return files itself on tax day"
+          : `Tax tutorial: the bottom line was ${line >= 0 ? `a ${usd(line)} refund` : `${usd(-line)} owed`}. Next year's return walks through it again`,
+        right ? "up" : "flat",
+      );
+      changed = true;
+      break;
+    }
     case "recurring":
       if (life.recurring.length) {
         life.recurring = [];
