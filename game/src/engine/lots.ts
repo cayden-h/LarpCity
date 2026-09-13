@@ -71,7 +71,7 @@ function legacyLots(grid: CityGrid, city: CityDef, seed: number, manifest: Sprit
     const [w, d] = sizes.find(([w, d]) => free(w, d) && (w * d === 1 || rng() < 0.7)) ?? [1, 1];
     for (let j = y; j < y + d; j++) for (let i = x; i < x + w; i++) taken.add(`${i},${j}`);
     const spec = styleFor(zone, city, rng, x, y, w, d, seed);
-    const cap = sightlineCap(city, x, y, w, d);
+    const cap = sightlineCap(city, grid, x, y, w, d);
     spec.floors = Math.max(1, Math.min(spec.floors, cap));
     const heroSpot = nearZoneCore(city, zone, x + w / 2, y + d / 2);
     const entry = manifest ? pickSprite(manifest, { zone, w, d, maxFloors: spec.floors + 3, cap, heroSpot }, used, rng) : null;
@@ -116,14 +116,14 @@ export function planLots(grid: CityGrid, city: CityDef, seed: number, manifest: 
         for (let j = y; j < y + sd; j++) for (let i = x; i < x + sw; i++)
           if (!residential.has(`${i},${j}`) || taken.has(`${i},${j}`) || !inCore(city, i, j)) free = false;
         const facing = facingOf((i, j) => grid.isRoad(i, j), x, y, sw, sd);
-        const cap = sightlineCap(city, x, y, sw, sd);
+        const cap = sightlineCap(city, grid, x, y, sw, sd);
         const fits = manifest.sprites.some((e) => (!e.kind || e.kind === "building") && !e.unique &&
           e.style === "walkup" && e.facing === facing && e.w === sw && e.d === sd &&
           e.zones.includes("residential") && e.floors <= Math.min(cap, TALLEST_HOUSE));
         if (free && fits && rng() < 0.7) { w = sw; d = sd; break; }
       }
     }
-    const cap = sightlineCap(city, x, y, w, d);
+    const cap = sightlineCap(city, grid, x, y, w, d);
     const facing = facingOf((i, j) => grid.isRoad(i, j), x, y, w, d);
     const street = streetSide(grid, x, y, w, d, facing);
     const allowed = houseStyles(city, x, y);
@@ -146,12 +146,15 @@ function nearZoneCore(city: CityDef, kind: ZoneKind, x: number, y: number): bool
   return city.zones.some((z) => z.kind === kind && Math.hypot(x - z.x, y - z.y) <= z.r * 0.6);
 }
 
+const homeTiles = new WeakMap<CityGrid, { x: number; y: number }[]>();
+
 /**
- * Landmarks must stay visible from the default camera. A building standing in
- * front of a landmark (closer to the viewer, on roughly the same screen column)
- * is capped in height, and the cap loosens with distance.
+ * Landmarks and home lots must stay visible from the default camera. A building
+ * standing in front of one (closer to the viewer, on roughly the same screen
+ * column) is capped in height, and the cap loosens with distance. Homes are
+ * short, so their cap is lower and reaches less far.
  */
-function sightlineCap(city: CityDef, x: number, y: number, w: number, d: number): number {
+function sightlineCap(city: CityDef, grid: CityGrid, x: number, y: number, w: number, d: number): number {
   let cap = Infinity;
   const column = x + w / 2 - (y + d / 2);
   const depth = x + y + (w + d) / 2;
@@ -159,6 +162,13 @@ function sightlineCap(city: CityDef, x: number, y: number, w: number, d: number)
     const ahead = depth - (lm.x + lm.y + (lm.w + lm.d) / 2);
     const offset = Math.abs(column - (lm.x + lm.w / 2 - (lm.y + lm.d / 2)));
     if (ahead > 0 && ahead < 10 && offset <= (lm.w + lm.d) / 2 + 0.5) cap = Math.min(cap, 2 + Math.floor(ahead / 3));
+  }
+  let homes = homeTiles.get(grid);
+  if (!homes) homeTiles.set(grid, homes = [...grid.cells()].filter((c) => c.c === "h"));
+  for (const h of homes) {
+    const ahead = depth - (h.x + h.y + 1);
+    const offset = Math.abs(column - (h.x - h.y));
+    if (ahead > 0 && ahead < 8 && offset <= (w + d) / 2 + 0.5) cap = Math.min(cap, 2 + Math.floor(ahead / 3));
   }
   return cap;
 }

@@ -92,7 +92,7 @@ export const sanFrancisco: CityDef = {
     { tier: 0, x: 18, y: 18, where: "Golden Gate Park" },
     { tier: 1, x: 20, y: 13, where: "Midtown walk-up" },
     { tier: 2, x: 11, y: 25, where: "The Sunset" },
-    { tier: 3, x: 29, y: 26, where: "Alamo Square" },
+    { tier: 3, x: 29, y: 24, where: "Alamo Square" },
     { tier: 5, x: 2, y: 15, where: "Marin headlands" },
   ],
   zones: [

@@ -57,7 +57,13 @@ export function planHomeLots(grid: CityGrid, city: CityDef): HomeLot[] {
     const offset = Math.abs(p.x-p.y - (lm.x+lm.w/2-lm.y-lm.d/2));
     return !(ahead > 0 && ahead < 10 && offset <= (lm.w+lm.d)/2+.5 && FLOORS[tier] > 2+Math.floor(ahead/3));
   });
-  const geographic = (p: Candidate, tier: number): boolean => {
+  // The reverse check: a landmark standing between the home and the camera would hide it.
+  const unobstructed = (p: Candidate) => city.landmarks.every(lm => {
+    const ahead = lm.x+lm.y+(lm.w+lm.d)/2 - (p.x+p.y+1);
+    const offset = Math.abs(p.x-p.y - (lm.x+lm.w/2-lm.y-lm.d/2));
+    return !(ahead > 0 && ahead < 6 && offset <= (lm.w+lm.d)/2+.5);
+  });
+  const geographic =(p: Candidate, tier: number): boolean => {
     const d = distanceFromCore(p.x,p.y);
     switch (tier) {
       case 0: return p.c === 'p' || beside(p.x,p.y,(x,y) => grid.at(x,y) === 'p');
@@ -73,7 +79,7 @@ export function planHomeLots(grid: CityGrid, city: CityDef): HomeLot[] {
   const results = new Map<number, HomeLot>();
   const reasons = new Map<number, string>();
   const existingHome = candidates.find(p => p.c === 'h');
-  const available = (p: Candidate, tier: number) => !used.has(key(p.x,p.y)) && (tier === 2 || p !== existingHome) && safeSightline(p,tier);
+  const available = (p: Candidate, tier: number) => !used.has(key(p.x,p.y)) && (tier === 2 || p !== existingHome) && safeSightline(p,tier) && unobstructed(p);
 
   // Reserve explicit lots before rule picks. Tier 2 has first claim to h;
   // duplicate explicit coordinates otherwise resolve by ascending tier.
