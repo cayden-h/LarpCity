@@ -9,7 +9,7 @@ import type { VehicleKind, ZoneKind } from "../types";
 import type { Lane, RoadNet } from "./graph.ts";
 import type { Pose } from "./geometry.ts";
 import { route } from "./router.ts";
-import { DT, type Car, type Sim, type Step } from "./sim.ts";
+import { DT, sameTarget, type Car, type Sim, type Step } from "./sim.ts";
 
 export type PlaceKind = "home" | "work" | "shop";
 type Purpose = "commute-in" | "commute-out" | "errand" | "any";
@@ -343,6 +343,11 @@ export class Trips {
     if (car.track.kind !== "lane") return;
     const steps = this.plan(car.track, car.s, d.destLane, d.destS, d.edge, d.role === "bus" ? busLane : d.role === "cable" ? tramLane : undefined);
     if (!steps) return;
+    // If the replan's first step points at the same target the car was
+    // already stuck on, leave the existing steps in place: replacing them
+    // with an equivalent-but-fresh object would look like progress to a
+    // caller comparing by identity, without actually unblocking anything.
+    if (sameTarget(car.steps[car.step], steps[0])) return;
     car.steps = steps;
     car.step = 0;
     car.halts = [];

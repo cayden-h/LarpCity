@@ -95,6 +95,32 @@ test("a car changes lanes before a right turn", () => {
   assert.ok(done, "the car made its turn");
 });
 
+test("a stuck lane change that keeps replanning to the same target still gets unstuck", () => {
+  // Two cars want each other's lane, so neither ever finds room, and the
+  // reroute callback keeps rebuilding a fresh Step object pointing at the
+  // same blocked target - the exact shape of the bug where onStuck's
+  // replan was indistinguishable from doing nothing by identity alone.
+  const net = buildGraph([road("x", "arterial", [[0.5, 10], [30.5, 10]]), road("y", "collector", [[15.5, 0.5], [15.5, 30.5]])]);
+  const sim = new Sim(net);
+  const inLeft = net.lanes.find((l) => l.seg.road.id === "x" && l.forward && l.index === 0 && l.to.kind === "cross")!;
+  const inRight = inLeft.right!;
+  assert.ok(inRight, "there is a right-hand lane to swap with");
+  sim.onStuck = (car) => {
+    const to = (car.data as { to: Lane }).to;
+    car.steps = [{ kind: "change", to }];
+    car.step = 0;
+  };
+  const done = new Set<Car>();
+  sim.onDone = (c) => {
+    done.add(c);
+    sim.remove(c);
+  };
+  const a = sim.spawn({ kind: "sedan", lane: inLeft, s: 5, steps: [{ kind: "change", to: inRight }], goal: 25, data: { to: inRight } })!;
+  const b = sim.spawn({ kind: "sedan", lane: inRight, s: 5.3, steps: [{ kind: "change", to: inLeft }], goal: 25, data: { to: inLeft } })!;
+  run(sim, 40, noErrors(sim));
+  assert.ok(done.has(a) || done.has(b) || a.v > 0.1 || b.v > 0.1, `both cars still stuck: a.v=${a.v} b.v=${b.v}`);
+});
+
 /** Random-walk trips on a 3 x 3 arterial grid with local streets between. */
 function stress(seed: number, seconds: number): { sim: Sim; trips: number; dropped: number } {
   const roads: RoadDef[] = [];

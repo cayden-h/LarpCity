@@ -59,6 +59,16 @@ const nextMove = (car: Car): Movement | null => {
 };
 const armOf = (m: Movement): Arm => m.node.arms.find((a) => a.seg === m.from.seg)!;
 
+/** True when two steps point at the same target (same lane to change into, or
+ * the same movement), even if they are distinct Step objects. A replan that
+ * reroutes but produces the identical next move is not progress. */
+export const sameTarget = (a: Step | undefined, b: Step | undefined): boolean => {
+  if (!a || !b) return false;
+  if (a.kind === "change" && b.kind === "change") return a.to.id === b.to.id;
+  if (a.kind === "move" && b.kind === "move") return a.m.id === b.m.id;
+  return false;
+};
+
 export interface SpawnOptions {
   kind: VehicleKind;
   lane: Lane;
@@ -373,9 +383,10 @@ export class Sim {
     return room >= Math.min(car.len + 0.15, m.to.path.length - 0.01);
   }
 
-  private tryChange(car: Car, to: Lane): void {
-    const from = car.track as Lane;
-    // Never cut in front of a car still working its way out of the intersection.
+  /** Whether `car` (on `from`, implicitly its current track) has room to
+   * change into `to` right now: never cutting in front of a car still
+   * working its way out of the intersection, and clear ahead and behind. */
+  private hasRoomToChange(car: Car, to: Lane): boolean {
     let ok = car.s >= car.len + 0.25 && car.s <= to.path.length - 0.1;
     if (ok) {
       let ahead = Infinity, behind = Infinity, vb = 0;
@@ -397,7 +408,12 @@ export class Sim {
         }
       ok = ahead >= 0.25 + car.v * 0.4 && behind >= 0.25 + vb * 0.7;
     }
-    if (!ok) {
+    return ok;
+  }
+
+  private tryChange(car: Car, to: Lane): void {
+    const from = car.track as Lane;
+    if (!this.hasRoomToChange(car, to)) {
       car.stuck += DT;
       if (car.stuck > 8) {
         car.stuck = 0;
@@ -420,13 +436,30 @@ export class Sim {
   private unstick(car: Car, from: Lane): void {
     const before = car.steps[car.step];
     this.onStuck(car);
-    if (car.steps[car.step] !== before) return;
+    const after = car.steps[car.step];
+    // Progress only if the replan actually points somewhere new; a replan
+    // that rebuilds the identical blocked step (fresh object, same target)
+    // is not progress, so fall through to the live-movement fallback below.
+    if (after !== before && !sameTarget(before, after)) return;
     const outs = from.out.filter((m) => m.live);
-    if (!outs.length) return;
-    const m = outs.find((o) => o.turn === "straight") ?? outs[0];
-    car.steps = [{ kind: "move", m }];
-    car.step = 0;
-    car.goal = null;
+    if (outs.length) {
+      const m = outs.find((o) => o.turn === "straight") ?? outs[0];
+      car.steps = [{ kind: "move", m }];
+      car.step = 0;
+      car.goal = null;
+      return;
+    }
+    // No live movement off this lane either: try forcing a change into a
+    // live adjacent lane that has room, rather than blocking the lane
+    // forever. If neither side works out, leave it to the watchdog.
+    for (const to of [from.left, from.right]) {
+      if (to && to.live && this.hasRoomToChange(car, to)) {
+        car.steps = [{ kind: "change", to }];
+        car.step = 0;
+        car.stuck = 0;
+        return;
+      }
+    }
   }
 
   private move(car: Car): void {
