@@ -37,10 +37,11 @@ The answers are remembered in the browser: add `?intake=1` to do the intake agai
   **Stocks** lists the HackRice sponsor stocks at today's game prices (tap one to open its page in the Money desk) and a market watchlist, and opens the Money desk over the city (city time pauses while it is open).
   **Goals** opens the fast-forward.
   **Map** shows the city you are in, its cost-of-living tier, and a button to the U.S. map.
-  **Weather** shows the city's weather, any event under way, and the season.
+  **Weather** shows the city's weather, any event under way, and the season (dropped from the phone per the 2026-09-13 meeting, in P2).
   **Calendar** shows the player's days as a month grid in the pixel theme: red chips for money days and events, blue for their own choices, only scheduled money on future days, and a yellow "?" on the next decision day, which never says what it is.
   Tapping a past day goes back to that morning (a real rewind, `src/sim/rewind/`) once the end-of-game review opens it; during play the day's sheet says so instead, tapping the "?" plays the days up to it as a time-lapse, the back arrow zooms out to the year, and the speed strip is pause, 1x, and 2x.
   "Start a new life," in the year view, erases the save and starts over.
+  **Save slots**, also in the year view (or open the game at `/?slots=1`), lists your three lives and loads a judges' demo life into any slot: year one in San Francisco before the first tax day, married into the AI bubble, or almost retired.
   Your life is saved on the server as you play and resumes where you left off on reload.
   **Mail** shows your life's letters (a bank statement, a missed payment, a goal reached).
   **News** is the Larp City Ledger, a monthly newspaper the server writes from your run's stored data.
@@ -52,8 +53,12 @@ The answers are remembered in the browser: add `?intake=1` to do the intake agai
 - **Goals (fast-forward to a goal):** pick an emergency fund, debt-free, life savings, a home, marriage, or a career-income target. Set the plan, preview its finances across 100 other possible markets, then fast-forward until the goal is met, bankruptcy, or an age cap. Marriage timing is not forecast by the financial preview; income targets use current pay until salary progression exists.
 - **Life score:** the Money desk's Score tab shows retirement readiness, lifetime wellbeing and nine wellbeing factors. Completed marriage, income and life-savings goals show the same combined score. [Engine contracts and assumptions](../docs/life-goals-wellbeing.md) cover frontend integration and the research behind the model.
 - **Money:** every game day the player is paid on the 1st and 15th, pays rent and living costs for the current state, and pays their debts; with a plan in force, paychecks also fund the 401(k) (with the employer match), the emergency fund, and recurring investments. Housing follows the player's choice rather than net worth, and bankruptcy stops a skip or fast-forward.
+- **Life events:** car breakdowns, injuries, divorce, penny-stock tips, and recessions roll from the run's seed.
+  The ones with a choice (repair or replace the car, pay the hospital or take its 0% plan, buy the tip or pass, sign a prenup at the wedding) pause the city and open in the Money desk; one left unanswered for a week takes its default.
+- **Taxes:** the Money desk's Taxes tab walks the first return through a tutorial that ends by asking for the bottom line; get it right and every later return files itself on tax day.
 
 From the browser console, `larp.visit("CO")` opens a state and `larp.step(5)` simulates 5 seconds (useful in background tabs, which throttle animation).
+`larp.slots()` opens the save slots, and `larp.review()` opens going back to past days (until P2's Retire button opens it at the end of the game).
 
 ## How it is built
 

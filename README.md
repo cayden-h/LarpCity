@@ -25,7 +25,7 @@ The player lives their own financial life, from today to retirement.
   "Skip to next event" stays available the whole game.
 - **Detailed news:** Each story says what happened, where (state, city, or sector), and what it affects for the player; after a skip, a full-screen newspaper digests what was skipped and is kept in the phone's News app.
 - **Score:** retirement readiness (net worth, credit score, debt) plus a wellbeing meter (marital status, financial stability, job and salary, closeness to retirement).
-  It always reflects the current branch, and rewinds are never penalized: it's a learning game, so players should get better.
+  It always reflects the current branch, and going back in the review is never penalized: it's a learning game, so players should get better.
 - **Fast-forward to goals:** Set the recurring investment deposit and related inputs (pre-filled with your current habits), then fast-forward until a goal is met.
   A bankruptcy along the way stops it and shows why.
   The age teleport was removed on 2026-09-12.
@@ -54,7 +54,8 @@ How to set up Persona and every other API (keys, env vars, the backend we need, 
 
 The player's phone (the hub for the game's apps: Stocks, Goals, Map, Calendar, News for market stories, Mail for bills, Bank, and Taxes; Weather was dropped on 2026-09-13) pulls up from the bottom-right corner of the city, in Eric's pixel theme; see `game/src/ui/phone.ts`.
 
-Everything above is merged into `main` (2026-09-12) and live at https://144-202-68-33.sslip.io on a Vultr VPS; [server/README.md](server/README.md) has the redeploy steps.
+Everything above through 2026-09-12 is merged into `main` and live at https://144-202-68-33.sslip.io on a Vultr VPS; [server/README.md](server/README.md) has the redeploy steps.
+The 2026-09-13 revamp lands in three pull requests: onboarding (P1), goals, happiness, and the Retire button (P2), and life events, the tax tutorial, save slots, and going back only in the review (P3).
 
 ## Repository layout
 
@@ -111,15 +112,15 @@ What we confirmed by loading it and reading its shipped JS bundles:
 | Coin income from buildings | Paychecks hitting your checking account |
 | Dig for bricks, spend on blueprints | Allocate money into Emergency Fund, Roth IRA, 401k, brokerage, savings |
 | Buildings on the map | Each NPC's home and assets; they visibly upgrade or decay with net worth |
-| Fires and crimes | Financial events: layoff, medical bill, car breakdown, rent hike, market crash |
-| Dispatch police/fire | Player makes a decision at that moment (dip into emergency fund, take a loan, sell stocks) |
+| Fires and crimes | Financial events: market crash, the AI bubble pop, recession, layoff, injury and hospital bill, car breakdown, divorce, penny-stock tip |
+| Dispatch police/fire | Player makes a decision at that moment (hold or sell stocks, repair or replace the car, a hospital payment plan, sign the prenup) |
 | Burnt building loses value | Bankruptcy or homelessness, followed by a "what went wrong" breakdown |
 | Unlock next district at 25 buildings | Reach a goal (buy a house, move states), which becomes a milestone on the way to retirement |
 | Day/night, city growth | A daily calendar, with seasons and map changes as months and years pass |
 
 Events are probabilistic, each with its own likelihood and timing.
 Some are one-offs, like the AI bubble pop, which can only happen once per run; it and the AI Boom before it are preset to fixed dates so they always show up in the demo.
-The calendar lets the player review any past event or decision, change it, and see on the same market path what actually works.
+At the end-of-game review, the calendar lets the player go back to any past decision, change it, and see on the same market path what actually works; during play every choice sticks.
 
 ## Tech plan
 
@@ -149,9 +150,9 @@ All of these stack on one Devpost submission, on top of the track, Capital One, 
 
 | Prize | Reward | How Larp City uses it |
 | --- | --- | --- |
-| Best Use of Gemini API | Google swag kits | Avatar creation from the verified selfie, the aged "future you" avatar, "what went wrong" recaps, and "Your Real Plan" text |
+| Best Use of Gemini API | Google swag kits | The coach's lessons, the newspaper, "what went wrong" recaps, and "Your Real Plan" text (the selfie avatar was dropped for a preset avatar on 2026-09-13) |
 | Best Use of ElevenLabs | Wireless earbuds | The owl narrator: a voice-agent onboarding interview, then expressive voiced lines with live captions for big life moments (a debt paid off, collections, bankruptcy, a move, a crash), plus news-anchor alerts and sound effects |
-| Best Use of Tiger Data | Stream Deck Mini | Time-series database for weekly NPC finances, market, events, and current city data, powering live charts, the leaderboard, and calendar rewind (free tier, 750 MB) |
+| Best Use of Tiger Data | Stream Deck Mini | Time-series database for weekly NPC finances, market, events, and current city data, powering live charts, the leaderboard, and the end-of-game review's rewind (free tier, 750 MB) |
 | Best Use of Vultr | Portable screens | Hosts the game and backend with API keys server-side ($100 MLH credits); stretch: GPU or serverless inference for NPC dialogue |
 | Best Use of Backboard | Tile Essentials Pack | Player memory across sessions, RAG over our research and 2026 rules, and routing between small and large models |
 | Best Domain Name (GoDaddy Registry) | Digital gift card | A domain like larpcity.xyz for the Vultr server |
@@ -165,7 +166,7 @@ NPC deaths should be handled as a respectful lesson about life insurance, emerge
 1. Onboarding where the player enters their real finances (or a made-up scenario).
 2. Isometric map of one district, pan and zoom.
 3. Daily tick engine with paychecks, bills, and the five account types from the notes.
-4. Random event system with per-event probabilities, at least one one-off (AI bubble pop), and life events (layoff, marriage, divorce).
+4. Random event system with per-event probabilities, at least one one-off (AI bubble pop), and life events (layoff, marriage, divorce with a prenup, injuries, car breakdowns).
 5. HUD: net worth, date, pause / 1x / 2x / +1 month and "Skip to next event", event alerts like the LEGO police and fire badges; a Calendar app in the phone with red (event) and blue (decision, milestone) circles.
 6. Decision modal when an event hits the player.
 7. Fast-forward to a goal with bankruptcy stopping it, and the "what went wrong" breakdown.
@@ -182,10 +183,14 @@ Status (2026-09-12): everything is merged into `main` and deployed.
 7 is built (goal fast-forwards), and 8 covers the Gemini coach's recovery lesson, written from the run's Tiger Data.
 Still to come: the Calendar app with "Skip to next event", life events (marriage, divorce, kids), and the rest of the random event table.
 
+Status (2026-09-13): the Calendar with "Skip to next event" is built.
+The revamp's P3 adds seeded life events (car breakdowns, injuries, divorce and the prenup, penny-stock tips, recessions), the year-1 tax tutorial, three save slots with judge demo lives, and going back only in the end-of-game review.
+P1 (Sammy's onboarding) and P2 (goals, happiness, and the Retire button) are in progress.
+
 ## Open questions
 
 Answered in the 2026-09-11 meeting: time runs daily with skips, the goal is retirement, and the player lives their own life.
-Answered on 2026-09-12 (see the meeting file's "Follow-up decisions"): events during skips, scoring, unlimited rewind from the calendar, run speeds, and a preset AI Bubble Pop date instead of curated demo seeds.
+Answered on 2026-09-12 (see the meeting file's "Follow-up decisions"): events during skips, scoring, unlimited rewind from the calendar (narrowed on 2026-09-13 to the end-of-game review), run speeds, and a preset AI Bubble Pop date instead of curated demo seeds.
 Still open:
 
 - The dates of the preset AI Boom and AI Bubble Pop.

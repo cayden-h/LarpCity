@@ -9,7 +9,7 @@ It copies the core loop of LEGO City Adventures: Build and Protect and reskins i
 The player enters their real (or made-up) finances, by voice with the owl narrator or a typed form, and plays their own life on a daily calendar toward retirement.
 
 The full design is in [README.md](README.md); it is the source of truth for vision and mechanics and changes often.
-Re-read it, and [meeting-2026-09-11-game-design.md](meeting-2026-09-11-game-design.md) (which wins over `research/` where they conflict), before assuming a mechanic is still current.
+Re-read it, [meeting-2026-09-13-revamp.md](meeting-2026-09-13-revamp.md) (the latest), and [meeting-2026-09-11-game-design.md](meeting-2026-09-11-game-design.md) before assuming a mechanic is still current; a later meeting wins over an earlier one, and both win over `research/`.
 
 The app is two parts: the browser game in `game/` and the API server in `server/`.
 Everything else (`research/`, `docs/`, `diagrams/`, `reference/`) is design docs, data builders, and assets that feed them.
@@ -83,13 +83,13 @@ Cities with a sprite set draw pre-rendered Blender sprites (`engine/sprite-pick.
 Everything random is seeded, so a city's weather and traffic replay identically.
 
 **UI (`game/src/ui/`)**: DOM over the canvas, in Eric's pixel theme (`pixel-theme.css`, the Pixelify Sans font, `pixel-icons.ts`).
-The HUD (`hud.ts`) is just the "Your home" card; the phone (`phone.ts`, pulled up from the bottom-right) is the hub: Stocks (sponsor stocks and markets, opens the Money desk), Goals (the fast-forward, `skip-setup.ts`), Map (the pixel U.S. map, `usmap.ts`), Weather, Calendar (`calendar.ts`: the month and year views, going back to a past day, skipping to the next decision day, the speed, and "Start a new life" from the year view), and the live Mail, News, and Bank apps (`phone-apps.ts`), reading the life's inbox, the Ledger, and the Nessie statement.
+The HUD (`hud.ts`) is just the "Your home" card; the phone (`phone.ts`, pulled up from the bottom-right) is the hub: Stocks (sponsor stocks and markets, opens the Money desk), Goals (the fast-forward, `skip-setup.ts`), Map (the pixel U.S. map, `usmap.ts`), Weather, Calendar (`calendar.ts`: the month and year views, going back to a past day once the end-of-game review opens it, skipping to the next decision day, the speed, and "Start a new life" and "Save slots" (`slots.ts`) from the year view), and the live Mail, News, and Bank apps (`phone-apps.ts`), reading the life's inbox, the Ledger, and the Nessie statement.
 Add new phone apps to `APPS`.
 `intake.ts` is the onboarding (voice interview through ElevenLabs, or a typed form), and `narrator.ts` with `src/narration/lines.ts` is the owl narrator and its pre-voiced lines.
 Scene events, camera reset, and the pinned sky time have no buttons anymore; use them from the console (`larp.scene().trigger("crash")`).
 
 **Money desk (`game/debt.html` + `src/debt-demo/`)**: a separate page, a Robinhood-style view of the same `PlayerLife`: Home, Cash, Investing, Debt, Credit, and Cards (with the Card Shop, `shop.ts`).
-Inside the city it opens in a window from the phone and reads the city's life and clock through `window.larpMoney`; the city parks decision moments (crash, can't cover, bankruptcy) for it to show, and time stays paused until the player presses play.
+Inside the city it opens in a window from the phone and reads the city's life and clock through `window.larpMoney`; the city parks decision moments (crash, can't cover, bankruptcy, and life events' choices, which live on the life as pending choices) for it to show, and time stays paused until the player presses play.
 Standalone, it runs and records its own life.
 
 **Generated data (never hand-edit; regenerate with the listed script)**:
