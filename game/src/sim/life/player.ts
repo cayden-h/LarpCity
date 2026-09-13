@@ -26,7 +26,7 @@ import { Ledger, type LedgerSave } from "../money/accounts.ts";
 import type { Account, ApplicationRecord, Holding } from "../money/types.ts";
 import { deepCopy } from "../rewind/copy.ts";
 import { CrashWatch, PANIC_DRAWDOWN, type CrashSave } from "../skip/crash.ts";
-import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
+import { LIFESTYLE_FACTOR, type Goal, type StandingOrders } from "../skip/types.ts";
 import { fileReturn } from "../tax/filing.ts";
 import { penaltyFor } from "../tax/penalties.ts";
 import type { TaxReturn } from "../tax/types.ts";
@@ -143,6 +143,11 @@ export interface LifeOptions {
   market?: MarketPath;
   /** Dollars of each fund or stock already held on the first day, bought a year earlier. */
   holdings?: Partial<Record<InstrumentId, number>>;
+  /** Set once at onboarding, permanent (sim/skip's Goal union, one per required category). */
+  goals?: Goal[];
+  /** The player's name for the HUD ID card; defaults to "You". */
+  name?: string;
+  avatar?: "male" | "female";
 }
 
 /** A position valued at a day's price. */
@@ -198,6 +203,9 @@ export interface LifeSave {
    */
   relationship?: "single" | "partnered";
   commuteMinutes?: number;
+  goals?: Goal[];
+  name?: string;
+  avatar?: "male" | "female";
   reemployedDay?: number | null;
   pulses?: Pulse[];
   taxYear?: number;
@@ -277,6 +285,11 @@ export class PlayerLife {
   grossAnnual: number;
   /** Job title from onboarding; empty for the sample household. */
   job: string;
+  /** Set once at onboarding, permanent — no editing after (sim/skip's Goal union, one per required category). */
+  goals: Goal[];
+  /** The player's name for the HUD ID card; "You" for the sample household. */
+  name: string;
+  avatar: "male" | "female";
   /** The plan from the fast-forward setup screen (sim/skip), in force from the day it was set. */
   orders: StandingOrders | null = null;
   /**
@@ -406,6 +419,9 @@ export class PlayerLife {
       // the constructor otherwise sets for a fresh life.
       this.relationship = s.relationship ?? "single";
       this.commuteMinutes = s.commuteMinutes ?? 23;
+      this.goals = s.goals ?? [];
+      this.name = s.name ?? "You";
+      this.avatar = s.avatar ?? "male";
       this.reemployedDay = s.reemployedDay ?? null;
       this.pulses.push(...(s.pulses ?? []));
       this.taxYear = s.taxYear ?? 0;
@@ -434,6 +450,9 @@ export class PlayerLife {
     this.monthlyTakeHome = o.monthlyTakeHome ?? this.book.monthlyTakeHome;
     this.grossAnnual = o.grossAnnual ?? Math.round((this.monthlyTakeHome * 12) / TAKE_HOME_SHARE);
     this.job = o.job ?? "";
+    this.goals = o.goals ?? [];
+    this.name = o.name ?? "You";
+    this.avatar = o.avatar ?? "male";
     this.commuteMinutes = o.commuteMinutes ?? 23;
     this.rentAnchor = o.rent === undefined ? null : { amount: o.rent, housing: o.place.rpp.housing };
     // The engine's bankruptcy test compares minimums with the book's take-home, so keep them in sync.
@@ -485,6 +504,9 @@ export class PlayerLife {
       startSnap: this.startSnap,
       relationship: this.relationship,
       commuteMinutes: this.commuteMinutes,
+      goals: this.goals,
+      name: this.name,
+      avatar: this.avatar,
       reemployedDay: this.reemployedDay,
       pulses: this.pulses,
       taxYear: this.taxYear,

@@ -219,6 +219,37 @@
   font-weight: 500;
   white-space: nowrap;
 }
+/* The goal screen's avatar and marriage pickers: two pressable pixel buttons, one active. */
+.in-toggle {
+  display: flex;
+  gap: 8px;
+}
+.in-toggle-opt {
+  flex: 1;
+  padding: 9px 0;
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: var(--paper, #fff);
+  color: var(--ink, #16233b);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  box-shadow: inset 2px 2px #d7cba8;
+}
+.in-toggle-opt.active {
+  background: var(--yellow, #ffcf33);
+  box-shadow: inset 2px 2px #d7cba8, 0 0 0 3px var(--yellow, #ffcf33);
+}
+.in-toggle-opt:focus-visible {
+  outline: 3px solid var(--yellow, #ffcf33);
+  outline-offset: 2px;
+}
+/* Range sliders on the goal screen; hard edges to match the rest of the form's chrome. */
+.in-field input[type="range"] {
+  width: 100%;
+  height: 22px;
+  accent-color: var(--yellow, #ffcf33);
+}
 .in-derived {
   margin: 2px 0 0;
   font-size: 14px;

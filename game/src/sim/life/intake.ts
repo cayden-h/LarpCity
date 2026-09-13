@@ -6,9 +6,13 @@
 import { creditCard, installment, newBook } from "../debt/factory.ts";
 import type { Debt } from "../debt/types.ts";
 import type { InstrumentId, MarketPath } from "../market/index.ts";
+import type { Goal } from "../skip/types.ts";
 import { withholdingForPaycheck } from "../tax/withholding.ts";
 import { defaultAccounts, PlayerLife, type Place } from "./player.ts";
 import type { Profile, ProfileSource } from "../save/client.ts";
+
+/** The four goal categories the onboarding goal screen fills in, one goal each, permanently. */
+export const REQUIRED_GOAL_KINDS = ["retirement_age", "marriage", "debt_free_by_age", "house"] as const;
 
 export interface IntakeAnswers {
   /** Job title; may be blank. */
@@ -21,6 +25,16 @@ export interface IntakeAnswers {
   debt: number;
   /** Total savings. */
   savings: number;
+  /** The player's name for the HUD ID card; a blank typed name falls back to "You". */
+  name: string;
+  avatar: "male" | "female";
+  /** Set once at onboarding, permanent — no editing after (sim/skip's Goal union, one per required category). */
+  goals: Goal[];
+}
+
+/** True once `goals` holds one goal of every required category (order doesn't matter, extras are fine). */
+export function hasAllRequiredGoals(goals: Goal[] | undefined): goals is Goal[] {
+  return REQUIRED_GOAL_KINDS.every((k) => goals?.some((g) => g.kind === k));
 }
 
 /** Caps that keep a typo or a joke answer from breaking the sim. */
@@ -59,11 +73,16 @@ export function coerceAnswers(raw: unknown): Partial<IntakeAnswers> {
   return out;
 }
 
-/** The full answers, or null while any amount is missing (the job may stay blank). */
+/**
+ * The full answers, or null while any amount or a required goal is missing (the job, name, and
+ * avatar may stay blank/default). `goals` only ever comes from the onboarding goal screen — voice
+ * and typed-form answers never set it on their own.
+ */
 export function completeAnswers(p: Partial<IntakeAnswers>): IntakeAnswers | null {
-  const { salary, rent, debt, savings } = p;
+  const { salary, rent, debt, savings, goals } = p;
   if (salary === undefined || rent === undefined || debt === undefined || savings === undefined) return null;
-  return { job: p.job ?? "", salary, rent, debt, savings };
+  if (!hasAllRequiredGoals(goals)) return null;
+  return { job: p.job ?? "", salary, rent, debt, savings, name: p.name?.trim() || "You", avatar: p.avatar ?? "male", goals };
 }
 
 /** Monthly take-home for a gross yearly salary in the given state (real federal + state withholding, sim/tax). */
@@ -105,6 +124,9 @@ export function lifeFromIntake(a: IntakeAnswers, o: { place: Place; day: number;
     accounts,
     market: o.market,
     holdings: o.holdings,
+    goals: a.goals,
+    name: a.name,
+    avatar: a.avatar,
   });
 }
 

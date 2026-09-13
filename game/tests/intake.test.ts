@@ -25,7 +25,13 @@ const dateOf = (day: number) => {
   d.setDate(d.getDate() + day);
   return d;
 };
-const NURSE: IntakeAnswers = { job: "Nurse", salary: 85_000, rent: 1_500, debt: 20_000, savings: 5_000 };
+const GOALS = [
+  { kind: "retirement_age" as const, targetAge: 65 },
+  { kind: "marriage" as const },
+  { kind: "debt_free_by_age" as const, targetAge: 45 },
+  { kind: "house" as const, downPct: 0.1 },
+];
+const NURSE: IntakeAnswers = { job: "Nurse", salary: 85_000, rent: 1_500, debt: 20_000, savings: 5_000, name: "You", avatar: "male", goals: GOALS };
 const lifeFor = (a: IntakeAnswers = NURSE, place: Place = TX) => lifeFromIntake(a, { place, day: 0, market: new MarketPath() });
 
 test("parseDollars reads numbers, plain and formatted strings, and k/m shorthand", () => {
@@ -57,8 +63,30 @@ test("coerceAnswers keeps valid answers, rounds and caps them, and drops the res
 });
 
 test("completeAnswers needs all four amounts but allows zeros and a blank job", () => {
-  assert.equal(completeAnswers({ job: "Nurse", salary: 85_000, rent: 1_500, debt: 20_000 }), null);
-  assert.deepEqual(completeAnswers({ salary: 0, rent: 0, debt: 0, savings: 0 }), { job: "", salary: 0, rent: 0, debt: 0, savings: 0 });
+  assert.equal(completeAnswers({ job: "Nurse", salary: 85_000, rent: 1_500, debt: 20_000, goals: GOALS }), null);
+  assert.deepEqual(completeAnswers({ salary: 0, rent: 0, debt: 0, savings: 0, goals: GOALS }), {
+    job: "",
+    salary: 0,
+    rent: 0,
+    debt: 0,
+    savings: 0,
+    name: "You",
+    avatar: "male",
+    goals: GOALS,
+  });
+});
+
+test("completeAnswers requires goals: one of each required kind, defaulting name and avatar", () => {
+  const money = { salary: 60_000, rent: 1_000, debt: 0, savings: 1_000 };
+  assert.equal(completeAnswers(money), null, "no goals at all");
+  assert.equal(completeAnswers({ ...money, goals: [] }), null, "empty goals");
+  assert.equal(
+    completeAnswers({ ...money, goals: [{ kind: "retirement_age", targetAge: 65 }, { kind: "marriage" }, { kind: "house", downPct: 0.1 }] }),
+    null,
+    "missing debt_free_by_age",
+  );
+  const full = completeAnswers({ ...money, goals: GOALS, name: "  Alex  ", avatar: "female" });
+  assert.deepEqual(full, { job: "", ...money, name: "Alex", avatar: "female", goals: GOALS });
 });
 
 test("take-home is real per-paycheck withholding, by the month, for the given state", () => {
@@ -126,11 +154,15 @@ test("rent is paid from savings while checking is still empty", () => {
 
 import { answersFromProfile, profileFromIntake } from "../src/sim/life/intake.ts";
 
-test("intake answers become a profile and come back unchanged", () => {
-  const a = { job: "Nurse", salary: 72_000, rent: 1_400, debt: 9_000, savings: 3_000 };
+test("intake answers become a profile, which never carries goals/name/avatar back", () => {
+  const a: IntakeAnswers = { job: "Nurse", salary: 72_000, rent: 1_400, debt: 9_000, savings: 3_000, name: "Alex", avatar: "female", goals: GOALS };
   const p = profileFromIntake(a, "voice", "TX");
-  assert.deepEqual(p, { ...a, state: "TX", source: "voice" });
-  assert.deepEqual(answersFromProfile({ ...p, displayName: null }), a);
+  assert.deepEqual(p, { job: a.job, salary: a.salary, rent: a.rent, debt: a.debt, savings: a.savings, state: "TX", source: "voice" });
+  // The server profile is local money-only state (job/salary/rent/debt/savings); goals/name/avatar
+  // never leave the browser, so a profile alone can no longer rebuild a complete IntakeAnswers.
+  // Resuming "fromProfile" without a local save falls back to the sample household instead
+  // (main.ts's SAMPLE_HOUSEHOLD_GOALS).
+  assert.equal(answersFromProfile({ ...p, displayName: null }), null);
 });
 
 test("a skipped intake is a profile with no numbers, and no answers", () => {

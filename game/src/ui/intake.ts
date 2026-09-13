@@ -12,6 +12,7 @@ import type { VoiceConversation } from "@elevenlabs/client";
 import { apiFetch } from "../net/api";
 import { coerceAnswers, completeAnswers, takeHomeFor, type IntakeAnswers } from "../sim/life/intake";
 import type { ProfileSource } from "../sim/save/client";
+import { buildGoals } from "./goal-picker";
 import { Owl, preloadOwl } from "./owl";
 import "./intake.css";
 
@@ -49,6 +50,10 @@ export function runIntake(o: IntakeOptions): Promise<IntakeResult> {
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const NUMBER_FIELDS = ["salary", "rent", "debt", "savings"] as const;
+/** True once the five money answers (job stays optional) are all present. Goals are a separate, later step. */
+const moneyComplete = (p: Partial<IntakeAnswers>): boolean => NUMBER_FIELDS.every((k) => p[k] !== undefined);
+/** Onboarding goal-screen slider defaults. */
+const GOAL_DEFAULTS = { retireAge: 65, debtFreeAge: 45, downPct: 10 };
 
 class Intake {
   private readonly el: HTMLDivElement;
@@ -58,8 +63,11 @@ class Intake {
   private readonly owl = new Owl(OWL_BIG);
   private conversation: VoiceConversation | null = null;
   private conversationId: string | null = null;
-  /** Answers from the submit_finances tool during the current call. */
-  private answers: IntakeAnswers | null = null;
+  /** Answers from the submit_finances tool during the current call (money fields only; goals are their own screen). */
+  private answers: Partial<IntakeAnswers> | null = null;
+  /** The five money answers, held while the goal screen (name/avatar/goals) is showing. */
+  private moneyAnswers: Partial<IntakeAnswers> = {};
+  private avatarChoice: "male" | "female" = "male";
   /** "voice" once the Narrator's call handed over answers; the form alone is "typed". */
   private source: "voice" | "typed" = "typed";
   private lines: { role: Role; text: string }[] = [];
@@ -88,7 +96,8 @@ class Intake {
     this.el.addEventListener("input", () => this.onInput());
     this.el.addEventListener("submit", (ev) => {
       ev.preventDefault();
-      this.onSubmit();
+      if ((ev.target as HTMLElement).matches(".in-goals-form")) this.onSubmitGoals();
+      else this.onSubmit();
     });
     document.body.appendChild(this.el);
   }
@@ -126,11 +135,35 @@ class Intake {
 
   private onClick(ev: MouseEvent): void {
     if (this.leaving) return;
-    const act = (ev.target as HTMLElement).closest<HTMLElement>("[data-act]")?.dataset.act;
+    const target = ev.target as HTMLElement;
+    const avatarBtn = target.closest<HTMLElement>("[data-avatar]");
+    if (avatarBtn) return this.pickAvatar(avatarBtn);
+    const marriageBtn = target.closest<HTMLElement>("[data-marriage]");
+    if (marriageBtn) return this.pickMarriage(marriageBtn);
+    const act = target.closest<HTMLElement>("[data-act]")?.dataset.act;
     if (act === "talk") void this.talk();
     else if (act === "type") this.typeInstead();
     else if (act === "hangup") void this.hangUp(this.callSeq);
     else if (act === "skip") void this.finish(null);
+  }
+
+  /** Toggles the pixel avatar picker; a placeholder for a future real character. */
+  private pickAvatar(btn: HTMLElement): void {
+    this.avatarChoice = btn.dataset.avatar === "female" ? "female" : "male";
+    this.body.querySelectorAll<HTMLElement>("[data-avatar]").forEach((b) => {
+      const on = b === btn;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-checked", String(on));
+    });
+  }
+
+  /** Flavor only: the marriage goal is always one of the four, whichever button is picked. */
+  private pickMarriage(btn: HTMLElement): void {
+    this.body.querySelectorAll<HTMLElement>("[data-marriage]").forEach((b) => {
+      const on = b === btn;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-checked", String(on));
+    });
   }
 
   // ---- The call ----
@@ -196,8 +229,8 @@ class Intake {
 
   private onSubmitFinances(seq: number, params: unknown): string {
     if (seq !== this.callSeq) return "The player already moved on; say goodbye.";
-    const answers = completeAnswers(coerceAnswers(params));
-    if (!answers) return "Some of the five answers were missing or unclear. Ask for the missing ones, then call submit_finances again.";
+    const answers = coerceAnswers(params);
+    if (!moneyComplete(answers)) return "Some of the five answers were missing or unclear. Ask for the missing ones, then call submit_finances again.";
     this.answers = answers;
     this.source = "voice";
     this.status("Got it! The Narrator is writing it all down…");
@@ -284,7 +317,7 @@ class Intake {
     this.body.querySelector("[data-act=hangup]")?.remove();
     const notes = await this.fetchNotes(seq, id);
     if (seq !== this.callSeq) return;
-    const complete = completeAnswers(notes) !== null;
+    const complete = moneyComplete(notes);
     this.confirm(
       notes,
       complete
@@ -372,6 +405,7 @@ class Intake {
   }
 
   private onInput(): void {
+    if (this.body.querySelector(".in-goals-form")) return this.updateGoalLabels();
     const derived = this.body.querySelector(".in-derived");
     if (!derived) return;
     const a = this.readForm();
@@ -389,11 +423,91 @@ class Intake {
 
   private onSubmit(): void {
     if (this.leaving) return;
-    const answers = completeAnswers(this.readForm());
-    if (!answers) {
+    const partial = this.readForm();
+    if (!moneyComplete(partial)) {
       this.body.querySelector(".in-error")!.textContent = "Fill in salary, rent, debt, and savings. Use 0 for none.";
       return;
     }
+    this.showGoals(partial);
+  }
+
+  // ---- Goals (name, avatar, and the 4 permanent goals) ----
+
+  /** The one-time, permanent goal screen: shown once the money form is complete, right before finish(). */
+  private showGoals(money: Partial<IntakeAnswers>): void {
+    this.moneyAnswers = money;
+    this.avatarChoice = "male";
+    this.show(`
+      <div class="in-owl-slot in-owl-small"></div>
+      <p class="in-note">Last thing — set your four life goals. This is permanent: there's no changing them later.</p>
+      <form class="in-form in-goals-form" novalidate>
+        <label class="in-field in-wide">
+          <span>Name</span>
+          <span class="in-input"><input name="name" type="text" maxlength="40" autocomplete="given-name" placeholder="You"></span>
+        </label>
+        <div class="in-field in-wide">
+          <span>Avatar</span>
+          <div class="in-toggle" role="radiogroup" aria-label="Avatar">
+            <button type="button" class="in-toggle-opt active" data-avatar="male" role="radio" aria-checked="true">🧑</button>
+            <button type="button" class="in-toggle-opt" data-avatar="female" role="radio" aria-checked="false">👩</button>
+          </div>
+        </div>
+        <label class="in-field in-wide">
+          <span>Retire by age <b id="goal-retire-val">${GOAL_DEFAULTS.retireAge}</b></span>
+          <input name="retireAge" type="range" min="50" max="70" step="1" value="${GOAL_DEFAULTS.retireAge}">
+        </label>
+        <div class="in-field in-wide">
+          <span>Marriage is one of your four goals — money doesn't buy it, but the Goals app will track it. Do you want to get married?</span>
+          <div class="in-toggle" role="radiogroup" aria-label="Marriage">
+            <button type="button" class="in-toggle-opt active" data-marriage="yes" role="radio" aria-checked="true">Yes</button>
+            <button type="button" class="in-toggle-opt" data-marriage="no" role="radio" aria-checked="false">No</button>
+          </div>
+        </div>
+        <label class="in-field in-wide">
+          <span>Debt-free by age <b id="goal-debt-val">${GOAL_DEFAULTS.debtFreeAge}</b></span>
+          <input name="debtFreeAge" type="range" min="25" max="70" step="1" value="${GOAL_DEFAULTS.debtFreeAge}">
+        </label>
+        <label class="in-field in-wide">
+          <span>Buy a house with <b id="goal-house-val">${GOAL_DEFAULTS.downPct}</b>% down</span>
+          <input name="downPct" type="range" min="5" max="30" step="1" value="${GOAL_DEFAULTS.downPct}">
+        </label>
+        <div class="in-actions in-wide">
+          <button type="submit" class="btn in-big">Continue</button>
+        </div>
+      </form>`);
+    this.mountOwl(OWL_SMALL);
+    void this.owl.play("read");
+    this.focus(".in-goals-form input[name=name]");
+  }
+
+  /** Keeps the three slider readouts in sync as they move. */
+  private updateGoalLabels(): void {
+    const form = this.body.querySelector<HTMLFormElement>(".in-goals-form");
+    if (!form) return;
+    const value = (name: string) => form.querySelector<HTMLInputElement>(`[name=${name}]`)?.value ?? "";
+    const set = (id: string, text: string) => {
+      const el = this.body.querySelector(`#${id}`);
+      if (el) el.textContent = text;
+    };
+    set("goal-retire-val", value("retireAge"));
+    set("goal-debt-val", value("debtFreeAge"));
+    set("goal-house-val", value("downPct"));
+  }
+
+  private onSubmitGoals(): void {
+    if (this.leaving) return;
+    const form = this.body.querySelector<HTMLFormElement>(".in-goals-form");
+    if (!form) return;
+    const data = new FormData(form);
+    const goals = buildGoals({
+      retireAge: Number(data.get("retireAge")),
+      debtFreeAge: Number(data.get("debtFreeAge")),
+      downPct: Number(data.get("downPct")) / 100,
+    });
+    const answers = completeAnswers({ ...this.moneyAnswers, name: String(data.get("name") ?? ""), avatar: this.avatarChoice, goals });
+    // The money fields were already validated before this screen showed, and goals are always
+    // complete here (buildGoals always covers the 4 required kinds), so this should never be null.
+    if (!answers) return;
     void this.finish(answers);
   }
 
