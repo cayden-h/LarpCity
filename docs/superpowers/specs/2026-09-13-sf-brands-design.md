@@ -78,7 +78,7 @@ Revised 2026-09-13 after the browser check: street-level name bands were hidden 
 ## Palette (flag)
 
 12 reserved sign colors are not enough: the 20 new brands add about 15 colors that no current slot is near (purple, lime, pink, coral, teal, gold, and several distinct blues).
-Proposal: raise the sign slots from 12 to 24 and the SF day palette from 40 to 52 colors, rebuild the palette once with `--new-palette`, and re-render the whole SF set so every sprite uses it.
+Proposal (approved; built with 32 slots and 60 colors after 24 still merged brand colors, see the progress doc): raise the sign slots from 12 to 24 and the SF day palette from 40 to 52 colors, rebuild the palette once with `--new-palette`, and re-render the whole SF set so every sprite uses it.
 Buildings and houses keep their current colors within the quantizer's error (the 28 building slots stay 28); `check_register.py` and the palette warning (`SIGN_MISS_SHARE`) must pass.
 
 ## Roster as data

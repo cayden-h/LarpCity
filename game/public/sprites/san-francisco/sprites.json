@@ -787,20 +787,20 @@
    "signFace": "any"
   },
   {
-   "id": "shop-1x2-f3-gap",
+   "id": "shop-1x2-f5-gap",
    "w": 1,
    "d": 2,
-   "floors": 3,
+   "floors": 5,
    "zones": [
     "downtown"
    ],
    "unique": true,
    "brand": "gap",
    "ax": 72,
-   "ay": 82,
-   "topZ": 74,
-   "day": "shop-1x2-f3-gap.png",
-   "night": "shop-1x2-f3-gap.night.png",
+   "ay": 122,
+   "topZ": 114,
+   "day": "shop-1x2-f5-gap.png",
+   "night": "shop-1x2-f5-gap.night.png",
    "signFace": "any"
   },
   {

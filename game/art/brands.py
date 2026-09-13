@@ -149,7 +149,7 @@ BRANDS = [
           places=[mural(1, 2, 5, 94)]),
     brand("blue-bottle", "Blue Bottle Coffee", "BLUE BOTTLE", "#FFFFFF", "#1F8FD6", ("bottle", "#1F8FD6"),
           short="BLUE\nBOTTLE", places=[shop(1, 2, 3, 95, area="embarcadero")]),
-    brand("gap", "Gap", "GAP", "#002664", "#FFFFFF", places=[shop(1, 2, 3, 96)]),
+    brand("gap", "Gap", "GAP", "#002664", "#FFFFFF", places=[shop(1, 2, 5, 96)]),
 ]
 
 BY_ID = {b["id"]: b for b in BRANDS}

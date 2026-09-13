@@ -196,7 +196,7 @@ npm run art:sf                                     # sign art, render, pixelize,
 - `art/pixelize.py` splits off shadows, flattens each id region to at most three tones, shrinks by majority color with sign-stroke preservation, quantizes without dithering, and draws ink outlines.
   Shadows are restored as one flat translucent tone without an outline.
   The city palette in `art/palettes/<city>.json` is kept across rerenders; `--new-palette` rebuilds it for the whole set and cannot be combined with `--only`.
-  SF uses 52 day colors, including 24 reserved for signs and lit shop glass, and 16 night colors.
+  SF uses 60 day colors, including 32 reserved for signs and lit shop glass, and 16 night colors.
 - To rerender one sprite after a full local render, pass the same id to both commands, for example `blender -b -P art/build.py -- --city san-francisco --only loft-1x1-f3-14`, then `python3 art/pixelize.py san-francisco --only loft-1x1-f3-14`.
   `build.py --missing` resumes missing raw layers; pixelize reports missing or stale outputs.
 - Signage follows how SF actually looks (research in the [spec](../docs/superpowers/specs/2026-09-12-realistic-sprites-design.md)): no rooftop signs or crowns downtown (SF bans rooftop signs there), brands at street level (storefronts with lit bands and blade signs, lobby logo walls, monuments), HQ name bands over the lobby and across the top floor as wall signs, lit wall boards on low downtown offices, rooftop bulletins on old SoMa lofts, V boards beside the freeway nearest downtown (`placeVBoards`), painted murals and ghost signs (Levi's, Ghirardelli), backlit Muni shelters, the Salesforce Tower's LED crown, and the Ferry Building's red "PORT OF SAN FRANCISCO" name on its frieze.
