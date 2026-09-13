@@ -91,7 +91,7 @@ From the browser console, `larp.visit("CO")` opens a state and `larp.step(5)` si
   The inbox is part of the saved game.
 - `src/sim/wellbeing/`: pure wellbeing factors, decaying event pulses, retirement readiness and the combined life score. `PlayerLife` supplies state and stores a daily wellbeing value alongside its separate credit score.
 - `src/ui/title.ts`: the title screen before a new life's intake; Learn borrows the `Narrator` in tour mode (`beginTour`, `tourLine`, `place`, `endTour`), centered, to read `src/narration/learn.ts`.
-  Its lines join `allLines()`; until they're voiced they sit in `AWAITING_VOICE`, which `tests/narration-pack.test.ts` exempts and then flags once the pack has them.
+  Its lines join `allLines()`, so the narration pack voices them like every other line.
 - `src/ui/phone.ts`: the phone hub and its app registry (add new apps to `APPS`), with the Stocks, Map, Weather, and Timeline views, the Calendar (`src/ui/calendar.ts`, data in `src/sim/calendar/`), and the Money window.
   `src/main.ts` gives it the city (`getWorld`), the U.S. map (`openMap`, with a preview from `captureCityPreview`), and the time-lapse skip (`skipDays`).
   `src/ui/skip-setup.ts` is the fast-forward setup screen; `src/ui/hud.ts` (the home card), `usmap.ts`, and `npccard.ts` are the rest of the DOM HUD.
