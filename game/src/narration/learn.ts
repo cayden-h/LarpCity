@@ -25,3 +25,10 @@ export const LEARN: readonly LearnStep[] = [
 ];
 
 export const learnLines = (): string[] => LEARN.map((s) => s.line);
+
+/**
+ * The first and last lines, rewritten for the default life, aren't in the narration pack yet:
+ * ElevenLabs is out of credits until 2026-10-12, so until then they read silently. Rebuild the
+ * pack for just these two and empty this; tests/narration-pack.test.ts fails once one has a clip.
+ */
+export const AWAITING_VOICE: ReadonlySet<string> = new Set([LEARN[0].line, LEARN[LEARN.length - 1].line]);
