@@ -1,11 +1,14 @@
-// The player's home. Its look follows the player's net-worth tier, and when
+// A home lot. Its model follows the chosen housing tier, and when
 // the tier changes the new building drops into place with a toy-like bounce.
 
 import { Container, Graphics } from "pixi.js";
+import { hitsHomeBody } from "./home-picking.ts";
 import { buildBrick, type Built } from "./bricks";
 import { shade } from "./color";
 import { depthOf, iso } from "./iso";
 import { box } from "./shapes";
+import { findHome, type Facing } from "./sprite-pick";
+import { buildSprite, type SpriteSet } from "./sprites";
 
 export const HOME_TIERS = ["Tent (bankrupt)", "Studio apartment", "Small house", "Townhouse", "Large house", "Retirement villa"] as const;
 
@@ -23,8 +26,18 @@ export class HeroHome {
   readonly x: number;
   readonly y: number;
   private readonly seed: number;
+  private readonly homes: SpriteSet | null;
+  private readonly facing: Facing;
+  private occupied = true;
+  private roofHeight = 70;
+  private readonly saleSign: Built | null;
 
-  constructor(x: number, y: number, seed: number) {
+  constructor(x: number, y: number, seed: number, homes: SpriteSet | null = null, facing: Facing = "s", tier = 2, propertySigns: SpriteSet | null = null) {
+    this.homes = homes;
+    this.facing = facing;
+    const sign = propertySigns?.manifest.sprites.find(e => e.id === `${tier === 1 ? "rent" : "sale"}-${facing}`);
+    this.saleSign = tier > 0 && sign && propertySigns ? buildSprite(propertySigns, sign, x, y) : null;
+    this.tier = tier;
     this.x = x;
     this.y = y;
     this.seed = seed;
@@ -39,10 +52,25 @@ export class HeroHome {
     this.pin.position.set(p.x, p.y - 70);
     this.view.addChild(this.ring, this.pin);
     this.build(this.tier, false);
+    if (this.saleSign) this.view.addChild(this.saleSign.view);
+  }
+
+  setOccupied(value: boolean): void {
+    if (value && !this.occupied) { this.anim = 0; if (this.current) this.current.alpha = 0; }
+    this.occupied = value;
+    this.pin.visible = value;
+    this.ring.visible = value;
+    if (this.saleSign) this.saleSign.view.visible = !value;
+  }
+
+  /** Body and explicit occupied pin only; transparent texture padding is not interactive. */
+  containsWorldPoint(wx: number, wy: number): boolean {
+    if (this.occupied && Math.hypot(wx - this.pin.x, wy - (this.pin.y - 25)) <= 17) return true;
+    return hitsHomeBody(wx, wy - (this.current?.y ?? 0), this.x, this.y, this.roofHeight);
   }
 
   get tintables(): Container[] {
-    return this.body;
+    return this.saleSign ? [...this.body, this.saleSign.view.children[0] as Container] : this.body;
   }
 
   setTier(tier: number): void {
@@ -54,7 +82,7 @@ export class HeroHome {
 
   update(dt: number, night: number): void {
     this.time += dt;
-    this.pin.y = iso(this.x + 0.5, this.y + 0.5, 0).y - 78 + Math.sin(this.time * 2.4) * 4;
+    this.pin.y = iso(this.x + 0.5, this.y + 0.5, 0).y - this.roofHeight - 10 + Math.sin(this.time * 2.4) * 4;
     const pulse = (Math.sin(this.time * 2.4) + 1) / 2;
     this.ring.scale.set(0.9 + pulse * 0.25);
     this.ring.alpha = 0.45 + pulse * 0.45;
@@ -85,12 +113,16 @@ export class HeroHome {
     const c = new Container();
     this.body = [];
     this.lights = [];
+    this.roofHeight = tier === 0 ? 24 : 0;
     const add = (b: Built) => {
       c.addChild(b.view);
+      this.roofHeight = Math.max(this.roofHeight, b.topZ);
       this.body.push(b.view.children[0] as Container);
       this.lights.push(b.lights);
     };
-    switch (tier) {
+    const art = this.homes ? findHome(this.homes.manifest, tier, this.facing) : null;
+    if (art && this.homes) add(buildSprite(this.homes, art, x, y));
+    else switch (tier) {
       case 0: {
         const g = new Graphics();
         // A shopping cart of belongings behind the tent, drawn first so the tent overlaps it.

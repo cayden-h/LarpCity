@@ -74,11 +74,11 @@ test("runHeadless stops at bankruptcy (the meeting's rule)", () => {
   assert.ok(r.daysRun < 3_000);
 });
 
-test("home tier follows net worth", () => {
+test("home tier stays chosen when net worth changes", () => {
   const life = new PlayerLife({ place: TX, day: 0 });
   assert.equal(life.homeTier(), 1); // about -$40k net worth: studio
   life.ledger.get("savings").balance = 200_000;
-  assert.equal(life.homeTier(), 3); // about $160k: townhouse
+  assert.equal(life.homeTier(), 1); // wealth does not choose a different home
 });
 
 test("a starter portfolio moves net worth with the market and gives charts a past", () => {

@@ -102,10 +102,11 @@ test("lifeFromIntake passes starting holdings through, leaving the stated saving
   assert.equal(Object.keys(lifeFor().ledger.get("brokerage").holdings ?? {}).length, 0);
 });
 
-test("a stated rent scales with housing costs after a move", () => {
+test("moving replaces the stated rent with the destination studio rent", () => {
   const life = lifeFor();
   life.setPlace(CA, 1);
-  assert.equal(life.rent, Math.round((1_500 * 154.346) / 88.6));
+  assert.equal(life.rent, Math.round((1_487 * 154.346 * 0.6) / 100));
+  assert.equal(life.homeTier(), 1);
 });
 
 test("the sample household still pays its state's median rent and has no job", () => {

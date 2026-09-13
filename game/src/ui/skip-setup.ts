@@ -362,7 +362,7 @@ export class FastForward {
       card.setAttribute("aria-checked", String(on));
     });
 
-    const planMonth = b.rent + b.living + b.minimums;
+    const planMonth = b.rent + b.housingBills + b.living + b.minimums;
     this.out("depositMonthly", o.depositMonthly > 0 ? `${dollars(o.depositMonthly)}/mo` : "Nothing");
     this.out("k401Pct", `${Math.round(o.k401Pct * 100)}% of pay`);
     this.out("stockPct", `${Math.round(o.stockPct * 100)}% stocks · ${100 - Math.round(o.stockPct * 100)}% bonds`);
@@ -389,7 +389,7 @@ export class FastForward {
       );
     }
     this.hint("emergencyMonths", `Your emergency fund has ${dollars(player.ledger.accounts.get("emergency")?.balance ?? 0)} in it. Recommended: 3 months.`);
-    this.hint("lifestyle", `Living costs besides rent: ${dollars(b.living)} a month.`);
+    this.hint("lifestyle", `Living costs besides housing: ${dollars(b.living)} a month.`);
     this.hint(
       "crashRule",
       o.crashRule === "hold"
@@ -400,8 +400,11 @@ export class FastForward {
     const short = b.surplus < 0;
     const budgetEl = this.q("[data-budget]");
     budgetEl.className = `ff-budget ${short ? "bad" : "ok"}`;
-    const parts = [`rent ${dollars(b.rent)}`, `living ${dollars(b.living)}`];
-    if (b.minimums + b.extra > 0) parts.push(`debt ${dollars(b.minimums + b.extra)}`);
+    const parts: string[] = [];
+    if (b.rent > 0) parts.push(`rent ${dollars(b.rent)}`);
+    if (b.housingBills > 0) parts.push(`property tax, home insurance + PMI ${dollars(b.housingBills)}`);
+    parts.push(`living ${dollars(b.living)}`);
+    if (b.minimums + b.extra > 0) parts.push(`${player.home.tenure === "own" ? "debt (including mortgage)" : "debt"} ${dollars(b.minimums + b.extra)}`);
     if (b.k401Cost > 0) parts.push(`401(k) ${dollars(b.k401Cost)}`);
     if (b.deposit > 0) parts.push(`investing ${dollars(b.deposit)}`);
     budgetEl.innerHTML = short

@@ -46,6 +46,8 @@ export interface FeedbackFacts {
     sales: number;
     paidOff: string[];
     bankruptcyReason?: string;
+    /** Recorded home choices and housing losses, when present. */
+    housing?: string[];
   };
   /** Recovery only: the last crash and how each investing line came through. */
   recovery?: RecoveryFacts;
@@ -139,6 +141,7 @@ export function feedbackFacts(
   const back = then && then.day <= day - 60 ? then : null; // only compare when the window is really there
   const bankruptcy = [...events].reverse().find((e) => e.kind === "bankruptcy_eligible");
   const recovery = trigger === "recovery" ? recoveryFacts(day, recoveryEvents) : null;
+  const housing = events.filter(e => e.kind === "home" && e.day <= day).map(describe).filter((text): text is string => text !== null);
   return {
     trigger,
     date: gameDate(day),
@@ -156,6 +159,7 @@ export function feedbackFacts(
       sales: events.filter((e) => e.kind === "trade" && e.payload.side === "sell").length,
       paidOff: events.filter((e) => e.kind === "paid_off").map((e) => str(e.payload.name)).filter(Boolean),
       ...(bankruptcy ? { bankruptcyReason: str(bankruptcy.payload.reason) } : {}),
+      ...(housing.length ? { housing } : {}),
     },
     ...(recovery ? { recovery } : {}),
   };
@@ -213,6 +217,16 @@ export function describe(e: EventRow): string | null {
       return "The student loans went into default";
     case "bankruptcy_eligible":
       return `Bankruptcy became an option: ${str(p.reason)}`;
+    case "home": {
+      if (p.reason === "eviction") return "Eviction after two short rent payments forced a move to the tent";
+      if (p.reason === "foreclosure") return "Foreclosure after 120 days past due forced a move to the tent";
+      if (p.reason === "bankruptcy") return "Bankruptcy forced a move to the tent";
+      const homes = ["Tent", "Studio apartment", "Small house", "Townhouse", "Large house", "Retirement villa"];
+      const name = homes[num(p.to)] ?? "home";
+      if (p.tenure === "own") return `Bought the ${name} for ${money(num(p.value))}`;
+      if (p.tenure === "rent") return `Started renting the ${name} for ${money(num(p.rent))} a month`;
+      return "Housing changed";
+    }
     case "moved":
       return `Moved from ${str(p.from)} to ${str(p.to)}, where rent is ${money(num(p.rent))} a month`;
     case "job":
@@ -339,6 +353,8 @@ export function impactOf(kind: string): string {
       return "This hurts the credit score for years; a hardship plan or payment arrangement is still worth asking for.";
     case "bankruptcy_eligible":
       return "Bankruptcy stops the debt but stays on the credit report for up to ten years.";
+    case "home":
+      return "The home choice changes monthly housing costs, available cash, and home equity.";
     case "moved":
       return "Rent and living costs now follow the new state's prices.";
     case "job":

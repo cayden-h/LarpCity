@@ -17,7 +17,12 @@ export function scheduleFor(life: PlayerLife, day: number, date: Date): Mark[] {
   const dom = date.getDate();
   const out: Mark[] = [];
   if (dom === 1 || dom === 15) out.push({ tone: "red", chip: "Pay", text: life.employed ? "Paycheck" : "Unemployment check", amount: expectedPay(life) });
-  if (dom === 1) out.push({ tone: "red", chip: "Rent", text: "Rent", amount: -life.rent });
+  if (dom === 1) {
+    if (life.rent > 0) out.push({ tone: "red", chip: "Rent", text: "Rent", amount: -life.rent });
+    const bills = life.housingBills();
+    if (bills.taxAndInsurance > 0) out.push({ tone: "red", chip: "Tax", text: "Property tax and insurance", amount: -bills.taxAndInsurance });
+    if (bills.pmi > 0) out.push({ tone: "red", chip: "PMI", text: "Mortgage insurance (PMI)", amount: -bills.pmi });
+  }
   if (dom === 15) out.push({ tone: "red", chip: "Bills", text: "Living costs", amount: -life.living });
   for (const d of life.book.debts) {
     if (!isOpen(d) || !dueOn(d, day, date)) continue;
