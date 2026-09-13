@@ -31,9 +31,21 @@ def mural(image, aspect=1.0):
     return {"mural": {"image": f"mu-{image}.png", "aspect": aspect}}
 
 
-def shop(fascia, blade, facade="brick", atm=False):
-    return {"facade": facade, "fascia": f"fa-{fascia}.png", "fascia_side": f"fs-{fascia}.png", "blade": f"bl-{blade}.png",
+def sign_brand(name):
+    """The brand a sign file is for: its name without the kind prefix and extension ("fa-jenis.png" is "jenis")."""
+    return name.split("-", 1)[1].removesuffix(".png")
+
+
+def shop(brand, facade="brick", atm=False):
+    """A storefront's options. Its front band (fa-), side band (fs-), and blade (bl-) are all named from the one brand,
+    so no storefront can mix two brands' signs."""
+    return {"facade": facade, "fascia": f"fa-{brand}.png", "fascia_side": f"fs-{brand}.png", "blade": f"bl-{brand}.png",
             "atm": atm}
+
+
+def storefront(w, d, floors, seed, zones, brand, **opts):
+    """A branded storefront: the entry's brand and its signs come from the same name."""
+    return _e("storefront", w, d, floors, seed, zones, brand=brand, opts=shop(brand, **opts))
 
 
 def hq(logo=None, monument=None):
@@ -46,16 +58,16 @@ CATALOG = {
         _e("salesforce_tower", 2, 2, 22, 21, DOWNTOWN, sid="salesforce-tower", entry_kind="landmark", landmark="sf-glass-tower", fill=False, crown=True),
         _e("ferry_building", 4, 1, 3, 22, DOWNTOWN, sid="ferry-building", entry_kind="landmark", landmark="sf-ferry-building"),
         # Street-level brands downtown: the Capital One Cafe (101 Post St), a Wells Fargo branch, quiet tech lobbies.
-        _e("storefront", 2, 1, 3, 31, DOWNTOWN, brand="capital-one-cafe", opts=shop("capital-one-cafe", "capital-one", facade="stone")),
+        storefront(2, 1, 3, 31, DOWNTOWN, "capital-one-cafe", facade="stone"),
         # Bank branches line neighborhood streets too, and downtown's 2x1 lots run out.
-        _e("storefront", 2, 1, 4, 33, MIXED, brand="wells-fargo", opts=shop("wells-fargo", "wells-fargo", facade="stone", atm=True)),
+        storefront(2, 1, 4, 33, MIXED, "wells-fargo", facade="stone", atm=True),
         _e("hq_lobby", 2, 2, 12, 41, DOWNTOWN, brand="uber", opts=hq("uber")),
         _e("hq_lobby", 2, 2, 10, 42, DOWNTOWN, brand="google", opts=hq("google", "google")),
         _e("hq_lobby", 2, 2, 11, 43, DOWNTOWN, brand="openai", opts=hq("openai")),
         _e("hq_lobby", 2, 1, 9, 44, DOWNTOWN, brand="meta", opts=hq("meta", "meta")),
         _e("hq_lobby", 2, 1, 8, 45, DOWNTOWN, brand="goldman-sachs", opts=hq(None, "goldman")),
         # A neighborhood scoop shop.
-        _e("storefront", 2, 1, 2, 32, MIDTOWN, brand="jenis", opts=shop("jenis", "jenis")),
+        storefront(2, 1, 2, 32, MIDTOWN, "jenis"),
         # SoMa: rooftop bulletins on old brick lofts, and two freeway V boards.
         _e("brick_loft", 2, 1, 4, 51, MIDTOWN, board("elevenlabs"), brand="elevenlabs"),
         _e("brick_loft", 2, 1, 3, 52, MIDTOWN, board("capital-one"), brand="capital-one"),

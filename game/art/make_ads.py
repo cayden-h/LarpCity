@@ -594,7 +594,7 @@ def fe_port_of_sf():
 
 
 def bl_capital_one():
-    s = Sign("bl-capital-one", 300, 450, "#004879")
+    s = Sign("bl-capital-one-cafe", 300, 450, "#004879")
     x0, y0, x1, y1 = s.safe
     swoosh(s, (x0 + 6, 120, x1 - 6, 232))
     s.text("Café", GEORGIA_BOLD, (x0, 262, x1, 330), "white", align="center")
