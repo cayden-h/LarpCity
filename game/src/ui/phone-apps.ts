@@ -17,6 +17,23 @@ export interface Story {
 
 export type NewsView = { status: "loading" } | { status: "off" } | { status: "ready"; label: string; stories: Story[] };
 
+/** Sponsor tickers and issuer names the game's own market simulates (sim/market/path.ts's InstrumentId). */
+const MARKET_KEYWORDS = [
+  "stock", "share", "market", "bear market", "bull market", "larp markets",
+  "ltm", "bond", "nnst", "cof", "goog", "gddy", "elvn", "tgdt", "vltr", "bkbd", "prsn",
+];
+
+/** True if any of a story's text fields mention the market or one of the game's tradeable instruments — the closest client-side proxy available, since the client Story type carries no category field. */
+export function isStockMarketStory(s: Story): boolean {
+  const text = `${s.title} ${s.where} ${s.blurb} ${s.impact}`.toLowerCase();
+  return MARKET_KEYWORDS.some((k) => text.includes(k));
+}
+
+/** A "ready" view with only stock-market stories; other statuses pass through unchanged. */
+function marketOnly(v: NewsView): NewsView {
+  return v.status === "ready" ? { ...v, stories: v.stories.filter(isStockMarketStory) } : v;
+}
+
 /** The player's mirrored bank statement (server/src/mirror.ts Statement). */
 export interface BankStatement {
   entity: string;
@@ -32,6 +49,25 @@ export interface BankStatement {
     /** Signed: positive adds to the balance (on the credit card, a charge that adds to what's owed). */
     transactions: { date: string; amount: number; memo: string; key: string }[];
   }[];
+}
+
+/** The event kinds Mail shows: bills, debt trouble, and their resolutions. Mail from before `kind`
+ *  existed (`kind === undefined`, from an old save) is treated as billing too, so old read mail isn't hidden. */
+const BILLING_MAIL_KINDS: ReadonlySet<NonNullable<MailItem["kind"]>> = new Set([
+  "bill",
+  "missed",
+  "late_mark",
+  "penalty_apr",
+  "collections",
+  "repossessed",
+  "default",
+  "paid_off",
+  "cannot_cover",
+  "bankruptcy_eligible",
+]);
+
+export function isBillingMail(item: MailItem): boolean {
+  return item.kind === undefined || BILLING_MAIL_KINDS.has(item.kind);
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -159,7 +195,7 @@ export class NewsApp {
     const { from, to, label } = ledgerRange(this.d.day(), this.d.date());
     const runId = this.d.recorder?.runId;
     const cached = runId ? this.cache.get(`${runId}|${from}-${to}`) : undefined;
-    if (cached) return void (this.d.target.innerHTML = newsHtml(cached));
+    if (cached) return void (this.d.target.innerHTML = newsHtml(marketOnly(cached)));
     this.d.target.innerHTML = newsHtml({ status: "loading" });
     const key = `${this.epoch}|${from}-${to}`;
     let p = this.inflight.get(key);
@@ -168,7 +204,7 @@ export class NewsApp {
       this.inflight.set(key, p);
     }
     const view = await p;
-    if (gen === this.gen) this.d.target.innerHTML = newsHtml(view);
+    if (gen === this.gen) this.d.target.innerHTML = newsHtml(marketOnly(view));
   }
 
   /** The player left News: an answer still on its way isn't drawn. */

@@ -4,21 +4,20 @@
 // rates the game doesn't simulate (labeled as real), and opens the
 // Money desk (/debt.html) in a window over the city, sharing the city's player
 // and clock through window.larpMoney. Goals opens the fast-forward setup screen
-// (ui/skip-setup.ts). Map and Weather show where the player is and the city's
-// weather and season. Calendar (ui/calendar.ts) shows the player's days, goes
+// (ui/skip-setup.ts). Map shows where the player is. Calendar (ui/calendar.ts) shows the player's days, goes
 // back to a past one, skips to the next decision, sets the clock's speed, and
 // (in its year view) starts a new life. Mail, News, and Bank are the life's
 // letters, the Larp City Ledger, and the Nessie bank statement (ui/phone-apps.ts).
 
 import "./phone.css";
 import { CalendarApp } from "./calendar";
-import { BankApp, mailHtml, NewsApp, type BankStatement, type Story } from "./phone-apps";
+import { BankApp, isBillingMail, mailHtml, NewsApp, type BankStatement, type Story } from "./phone-apps";
 import { pixelIcon } from "./pixel-icons";
 import type { Clock } from "../engine/clock";
 import { apiFetch } from "../net/api";
 import { MARKET, type SeriesId } from "../data/market";
 import type { SceneStatus } from "../engine/scene";
-import type { CityDef, StateInfo, WeatherKind } from "../engine/types";
+import type { CityDef, StateInfo } from "../engine/types";
 import { latest, type LifeEvent, type PlayerLife } from "../sim/life";
 import type { Inbox } from "../sim/mail/inbox";
 import { INSTRUMENTS, type Instrument, type InstrumentId } from "../sim/market";
@@ -29,7 +28,7 @@ import type { Goal, GoalView } from "../sim/skip/types";
 import { goOnVacation } from "./vacation";
 
 interface AppDef {
-  id: "stocks" | "goals" | "taxes" | "map" | "weather" | "calendar" | "news" | "mail" | "bank";
+  id: "stocks" | "goals" | "taxes" | "map" | "calendar" | "news" | "mail" | "bank";
   name: string;
   icon: string;
   ready: boolean;
@@ -40,7 +39,6 @@ const APPS: AppDef[] = [
   { id: "goals", name: "Goals", icon: pixelIcon("goals"), ready: true },
   { id: "taxes", name: "Taxes", icon: pixelIcon("taxes"), ready: true },
   { id: "map", name: "Map", icon: pixelIcon("map"), ready: true },
-  { id: "weather", name: "Weather", icon: pixelIcon("weather"), ready: true },
   { id: "calendar", name: "Calendar", icon: pixelIcon("calendar"), ready: true },
   { id: "news", name: "News", icon: pixelIcon("news"), ready: true },
   { id: "mail", name: "Mail", icon: pixelIcon("mail"), ready: true },
@@ -71,35 +69,6 @@ interface WorldSnapshot {
   city: CityDef;
   status: SceneStatus | null;
 }
-
-const WEATHER_NAME: Record<WeatherKind, string> = {
-  clear: "Clear skies",
-  cloudy: "Cloudy",
-  rain: "Rain",
-  storm: "Storm",
-  snow: "Snow",
-  fog: "Fog",
-  heat: "Heat wave",
-  smoke: "Smoky",
-};
-
-const WEATHER_SYMBOL: Record<WeatherKind, string> = {
-  clear: "☀",
-  cloudy: "☁",
-  rain: "☂",
-  storm: "ϟ",
-  snow: "❄",
-  fog: "≋",
-  heat: "☀",
-  smoke: "≋",
-};
-
-const SEASON_NOTE = {
-  spring: "New growth and milder days",
-  summer: "Long days and warm weather",
-  fall: "Cooler air and changing leaves",
-  winter: "Short days and colder weather",
-} as const;
 
 const OPEN_KEY = "larp.phone.open";
 
@@ -156,7 +125,7 @@ export interface PhoneDeps {
   rewindTo?: (day: number) => void;
   /** The earliest day the player can go back to. */
   firstDay?: () => number;
-  /** Where the player is and the city's weather, for the Map and Weather apps. */
+  /** Where the player is, for the Map app. */
   getWorld: () => WorldSnapshot;
   /** The Money desk changed something the save must keep (a payment, a trade, its feed); quiet only updates the copy. */
   changed: (desk: DeskState, o?: { quiet?: boolean }) => void;
@@ -340,24 +309,6 @@ export class Phone {
               <span>Cost of living</span><strong data-map-cost></strong>
             </div>
             <button class="map-open-button" data-open-map>${pixelIcon("map")} Open U.S. map</button>
-          </section>
-
-          <section class="view view-weather" data-view="weather" hidden>
-            <header class="phone-app-head">
-              <button class="st-back" data-home aria-label="Back to home">‹</button>
-              <div><div class="st-title">Weather</div><div class="st-sub" data-weather-place></div></div>
-            </header>
-            <div class="weather-now">
-              <span class="weather-symbol" data-weather-symbol></span>
-              <strong data-weather-name></strong>
-              <span data-weather-event></span>
-            </div>
-            <div class="season-card">
-              <span class="season-kicker">Current season</span>
-              <strong data-season-name></strong>
-              <span data-season-note></span>
-            </div>
-            <div class="weather-date" data-weather-date></div>
           </section>
 
           <section class="view view-calendar" data-view="calendar" hidden></section>
@@ -544,12 +495,14 @@ export class Phone {
   renderMail() {
     const { mail } = this.deps;
     if (this.openMail && !mail.items.some((m) => m.id === this.openMail)) this.openMail = null;
+    const billing = mail.items.filter(isBillingMail);
     const list = this.q("[data-mail-list]");
     const scroll = list.scrollTop;
-    list.innerHTML = mailHtml(mail.items, this.openMail, (d) => this.dateOf(d));
+    list.innerHTML = mailHtml(billing, this.openMail, (d) => this.dateOf(d));
     list.scrollTop = scroll;
     const badge = this.q("[data-badge=mail]");
-    const n = mail.unread();
+    // Counts only the billing mail actually shown, so the badge and the visible list agree.
+    const n = billing.filter((m) => !m.read).length;
     badge.textContent = n > 99 ? "99+" : String(n);
     badge.hidden = n === 0;
     this.q("[data-app=mail]").ariaLabel = n ? `Mail, ${n} unread` : "Mail";
@@ -579,9 +532,7 @@ export class Phone {
     const d = clock.date;
     this.q("[data-dow]").textContent = d.toLocaleDateString("en-US", { weekday: "long" });
     this.q("[data-date]").textContent = d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
-    const { state, city, status } = this.deps.getWorld();
-    const weather = status?.weather ?? "clear";
-    const season = status?.season ?? clock.season;
+    const { state, city } = this.deps.getWorld();
     this.q("[data-map-city]").textContent = `${city.name}, ${state.abbr}`;
     const tier = this.q("[data-map-tier]");
     tier.textContent = state.tier;
@@ -589,13 +540,6 @@ export class Phone {
     this.q("[data-map-tagline]").textContent = city.tagline;
     this.q("[data-map-state]").textContent = state.name;
     this.q("[data-map-cost]").textContent = `${state.rpp.all.toFixed(1)} · ${state.tier}`;
-    this.q("[data-weather-place]").textContent = `${city.name}, ${state.abbr}`;
-    this.q("[data-weather-symbol]").textContent = WEATHER_SYMBOL[weather];
-    this.q("[data-weather-name]").textContent = WEATHER_NAME[weather];
-    this.q("[data-weather-event]").textContent = status?.event ?? "Current conditions";
-    this.q("[data-season-name]").textContent = season[0].toUpperCase() + season.slice(1);
-    this.q("[data-season-note]").textContent = SEASON_NOTE[season];
-    this.q("[data-weather-date]").textContent = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
     this.calendar.refresh();
     // Sponsor prices move with the city clock, so redraw once per game day.
     if (clock.day !== this.stockDay) this.renderStocks();

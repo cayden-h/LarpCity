@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BankApp, bankHtml, ledgerRange, mailHtml, NewsApp, newsHtml, type BankStatement, type Story } from "../src/ui/phone-apps.ts";
+import { BankApp, bankHtml, isBillingMail, isStockMarketStory, ledgerRange, mailHtml, NewsApp, newsHtml, type BankStatement, type Story } from "../src/ui/phone-apps.ts";
 import type { MailItem } from "../src/sim/mail/inbox.ts";
 
 const letter = (o: Partial<MailItem> = {}): MailItem => ({ id: "m1", day: 3, from: "Credit bureau", subject: "Score up to 720", body: "Moved <b>up</b>.", tone: "good", decision: false, read: false, ...o });
@@ -99,7 +99,9 @@ test("the Ledger in January covers December of the year before", () => {
   assert.deepEqual(ledgerRange(116, new Date(2027, 0, 5)), { from: 81, to: 111, label: "December 2026" });
 });
 
-const story = (title: string): Story => ({ title, where: "Downtown", blurb: "b", impact: "i" });
+// "Larp Markets" (a MARKET_KEYWORDS term) so these fixtures survive isStockMarketStory filtering:
+// these tests exercise caching/rewind timing, not the filter itself.
+const story = (title: string): Story => ({ title, where: "Larp Markets", blurb: "b", impact: "i" });
 const tick = () => new Promise<void>((r) => setImmediate(r));
 
 function newsRig() {
@@ -164,6 +166,30 @@ test("a Ledger answer that arrives after the player left News isn't drawn, but i
   await news.load();
   assert.equal(calls.length, 1);
   assert.match(target.innerHTML, /Late edition/);
+});
+
+test("isStockMarketStory keeps only market-related stories", () => {
+  assert.equal(isStockMarketStory({ title: "Stocks slide", where: "Larp Markets", blurb: "...", impact: "..." }), true);
+  assert.equal(isStockMarketStory({ title: "New park opens", where: "City Hall", blurb: "...", impact: "..." }), false);
+});
+
+test("isBillingMail keeps only bill/debt-related mail kinds, and treats old mail without a kind as billing", () => {
+  const base: MailItem = { id: "m1", day: 1, from: "x", subject: "s", body: "b", tone: "info", decision: false, read: false };
+  assert.equal(isBillingMail({ ...base, kind: "bill" }), true);
+  assert.equal(isBillingMail({ ...base, kind: "collections" }), true);
+  assert.equal(isBillingMail({ ...base, kind: "moved" }), false);
+  assert.equal(isBillingMail({ ...base, kind: "paycheck" }), false);
+  assert.equal(isBillingMail(base), true, "mail from before `kind` existed isn't hidden");
+});
+
+test("the Ledger only prints stock-market stories, falling back to the quiet-month message otherwise", async () => {
+  const { target, answers, news } = newsRig();
+  const p = news.load();
+  await tick();
+  answers[0]({ stories: [{ title: "New park opens", where: "City Hall", blurb: "b", impact: "i" }, { title: "Stocks slide", where: "Larp Markets", blurb: "b", impact: "i" }] });
+  await p;
+  assert.doesNotMatch(target.innerHTML, /New park opens/);
+  assert.match(target.innerHTML, /Stocks slide/);
 });
 
 test("a bank statement that arrives after the player left Bank isn't drawn", async () => {

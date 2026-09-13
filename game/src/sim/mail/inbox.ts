@@ -23,6 +23,9 @@ export interface MailItem {
   /** Opening it opens the Money desk. */
   decision: boolean;
   read: boolean;
+  /** The event type the letter came from, so the phone can filter mail by topic (e.g. billing only).
+   *  Optional because saves from before this field existed carry letters without it. */
+  kind?: LifeEvent["type"];
 }
 
 /** What the last pay stub said, to tell whether the next paycheck changed. */
@@ -63,7 +66,7 @@ type Letter = Omit<MailItem, "id" | "read" | "day" | "decision"> & { decision?: 
  */
 export function mailFor(e: LifeEvent, debt: DebtLookup): (Letter & { decision: boolean }) | null {
   const l = letter(e, debt);
-  return l ? { ...l, decision: l.decision ?? false } : null;
+  return l ? { ...l, decision: l.decision ?? false, kind: e.type } : null;
 }
 
 function letter(e: LifeEvent, debt: DebtLookup): Letter | null {
