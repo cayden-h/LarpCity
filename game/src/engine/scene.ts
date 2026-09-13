@@ -48,7 +48,7 @@ const EVENT_WEATHER: Partial<Record<CityEvent, { kind: WeatherKind; days: number
 
 // Start a little zoomed out so the city's surroundings show, not just downtown.
 const DEFAULT_ZOOM = 0.72;
-const MAX_ZOOM = 3;
+const MAX_ZOOM = 4;
 
 export class CityScene {
   readonly root = new Container();
