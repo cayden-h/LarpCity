@@ -121,7 +121,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .app-badge { font-size: 8px; border-radius: 0; padding: 1px 3px; top: -7px; right: 0; background: #fff7dd; border: 1px solid #16354b; box-shadow: none; }
 .home-bar { background: #103c57; border-radius: 0; width: 70px; }
 .toast { border-radius: 0; border: 2px solid #101f2c; background: #0c5486; color: #fff7dd; backdrop-filter: none; }
-.view-stocks { inset: 0; background: #fff7dd; padding-top: 42px; }
+.view-stocks { background: #fff7dd; }
 .st-row { border-color: #c4d3c9; }
 .st-sub, .st-name span { color: #4f6876; }
 .st-pill, .st-open, .st-back { border-radius: 0; }
@@ -809,7 +809,27 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   background: #65bdd2;
   image-rendering: pixelated;
   user-select: none;
+  touch-action: none;
+  cursor: grab;
 }
+.map-viewport.panning .map-svg { cursor: grabbing; }
+.map-zoom-controls {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+}
+.map-zoom-btn {
+  width: 34px;
+  height: 34px;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+}
+.map-zoom-btn.map-zoom-reset { font-size: 15px; }
 .map-ocean { fill: #6dc2d7; }
 .map-water-grid { fill: url(#map-water-grid); pointer-events: none; }
 .water-grid-line { fill: none; stroke: #46a7be; stroke-width: 1; opacity: .45; }

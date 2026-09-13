@@ -180,11 +180,139 @@ button:disabled {
   margin: 5px 0;
 }
 
+/* Search: the field in the top bar, and the grouped results under it. */
+.search {
+  position: relative;
+  flex: 0 1 380px;
+  min-width: 160px;
+}
+.search > svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  transform: translateY(-50%);
+  color: var(--sub);
+  pointer-events: none;
+}
+.search input {
+  width: 100%;
+  height: 34px;
+  padding: 0 36px 0 32px;
+  border: 2px solid var(--edge);
+  background: var(--soft);
+  font-size: 13px;
+  outline: none;
+}
+.search input::-webkit-search-cancel-button {
+  display: none;
+}
+.search input:focus {
+  background: var(--bg);
+  box-shadow: 2px 2px var(--edge);
+}
+.search kbd {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  transform: translateY(-50%);
+  border: 2px solid var(--edge);
+  background: var(--bg);
+  color: var(--sub);
+  font: 700 11px/1 inherit;
+  pointer-events: none;
+}
+.search input:focus ~ kbd {
+  display: none;
+}
+.search-pop {
+  position: absolute;
+  z-index: 10;
+  top: 40px;
+  left: 0;
+  right: 0;
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--bg);
+  border: 2px solid var(--edge);
+  box-shadow: 3px 3px var(--edge);
+}
+.sr-h {
+  padding: 9px 9px 4px;
+  color: var(--sub);
+  font-size: 11px;
+  font-weight: 700;
+}
+.sr {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 9px;
+  text-align: left;
+}
+.sr b {
+  font-weight: 700;
+}
+.sr small {
+  overflow: hidden;
+  color: var(--sub);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sr-r {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.sr.on,
+.sr:hover {
+  background: var(--soft);
+}
+.sr-empty {
+  padding: 13px 9px;
+  color: var(--sub);
+}
+
+/* Time dock: the game's clock, floating at the bottom so the top bar stays clean. */
+.dock {
+  position: fixed;
+  z-index: 7;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  padding: 5px 5px 5px 14px;
+  background: var(--bg);
+  border: 3px solid var(--edge);
+  box-shadow: 3px 3px var(--edge);
+}
+.dock-sep {
+  width: 2px;
+  height: 16px;
+  margin: 0 5px;
+  background: var(--line);
+}
+.dock .menu {
+  top: auto;
+  bottom: 42px;
+}
+
 /* Layout ------------------------------------------------------------------- */
 .page {
   max-width: 980px;
   margin: 0 auto;
-  padding: 18px 16px 48px;
+  /* Room at the bottom for the fixed time dock. */
+  padding: 18px 16px 96px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 268px;
   gap: 24px;
@@ -261,6 +389,31 @@ button:disabled {
   stroke: #c7c9cf;
   stroke-width: 2;
   stroke-dasharray: 6 6;
+}
+.bc-held {
+  fill: none;
+  stroke: #8a8f98;
+  stroke-width: 2;
+  stroke-dasharray: 7 5;
+}
+.bc-auto {
+  fill: none;
+  stroke: #8a8f98;
+  stroke-width: 2.5;
+  stroke-dasharray: 0.5 6;
+  stroke-linecap: round;
+}
+.bc-tag {
+  position: absolute;
+  right: 0;
+  transform: translateY(calc(-100% - 4px));
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sub);
+  background: none;
+  text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 0 0 4px var(--bg);
+  pointer-events: none;
+  white-space: nowrap;
 }
 .bc-cursor {
   stroke: #c7c9cf;
@@ -650,6 +803,204 @@ button:disabled {
   background: var(--up);
   margin-right: 6px;
   vertical-align: 1px;
+}
+
+/* Typed amounts instead of sliders: the number is the control. */
+.field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.amt-edit {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 7px;
+  border: 2px solid transparent;
+  font-weight: 700;
+  cursor: text;
+}
+.amt-edit:hover {
+  background: var(--soft);
+  border-color: var(--line);
+}
+.amt-edit:focus-within {
+  background: var(--bg);
+  border-color: var(--edge);
+  box-shadow: 2px 2px var(--edge);
+}
+.amt-edit input {
+  width: 7ch;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+/* Preset amounts; the chosen one fills black. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.chips button {
+  padding: 6px 12px;
+  border: 2px solid var(--edge);
+  font-size: 12px;
+  font-weight: 700;
+}
+.chips button:hover {
+  box-shadow: 2px 2px var(--edge);
+}
+.chips button.on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.txt-up {
+  color: #0a7a12;
+}
+.txt-down {
+  color: #b33a00;
+}
+.txt-flat {
+  color: var(--sub);
+}
+
+/* Stock page: position and key statistics as a label-over-value grid. */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 20px;
+}
+.stats > div {
+  padding: 10px 0;
+  border-bottom: 2px dashed var(--line);
+}
+.stats > div > span {
+  display: block;
+  color: var(--sub);
+  font-size: 12px;
+}
+.stats b {
+  font-size: 15px;
+  font-weight: 800;
+}
+@media (max-width: 640px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.about {
+  margin: 8px 0 0;
+  line-height: 1.55;
+}
+.amt-in {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 12px;
+  border: 2px solid var(--edge);
+  font-weight: 700;
+}
+.amt-in:focus-within {
+  box-shadow: 2px 2px var(--edge);
+}
+.amt-in input {
+  width: 72px;
+  padding: 8px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-weight: 700;
+}
+
+/* Cash tab: quick actions, accounts, the statement ------------------------------ */
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.acct .amt {
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.acct b .chip {
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+.xfer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.xfer-row label:not(.amt-in) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--sub);
+  font-size: 13px;
+}
+.xfer-row select {
+  padding: 7px 10px;
+  border: 2px solid var(--edge);
+  background: var(--bg);
+  color: var(--ink);
+  font-weight: 700;
+}
+.t-day {
+  margin-top: 14px;
+  padding: 8px 0 6px;
+  border-bottom: 2px solid var(--edge);
+  color: var(--sub);
+  font-size: 12px;
+  font-weight: 700;
+}
+.txn {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 2px dashed var(--line);
+}
+.txn .av {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--edge);
+  background: var(--soft);
+  font-size: 16px;
+}
+.txn b {
+  display: block;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.txn small {
+  color: var(--sub);
+  font-size: 12px;
+}
+.t-amt {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.t-amt.in {
+  color: #0a7a12;
+}
+.t-amt.move {
+  color: var(--sub);
 }
 
 /* Card Shop panel, styled by shop.css to match the rest of this window ---------- */
