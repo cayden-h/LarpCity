@@ -45,6 +45,8 @@ extensions.add(CullerPlugin);
 const app = new Application();
 await app.init({
   resizeTo: window,
+  // Culled sprites do not refresh cached transforms; camera moves must update them before culling.
+  culler: { updateTransform: true },
   antialias: true,
   background: "#5d9e46",
   resolution: Math.min(2, window.devicePixelRatio || 1),
