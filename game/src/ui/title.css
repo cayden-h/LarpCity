@@ -1,0 +1,118 @@
+/* The title screen (ui/title.ts): the name, Sammy, and Learn over a blurred
+   plate of San Francisco, in the HUD's pixel theme (ui/pixel-theme.css). */
+
+.tt-overlay {
+  position: fixed;
+  inset: 0;
+  /* Above the city, under Sammy's tour-mode box (28) and the intake (30). */
+  z-index: 27;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #24497f;
+  color: #fff9e8;
+  font-family: "Pixelify Sans", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  transition: opacity 0.3s ease;
+}
+/* Past the edges, so the blur doesn't fade to the background color at the sides. */
+.tt-overlay::before {
+  content: "";
+  position: absolute;
+  inset: -30px;
+  background: var(--backdrop, none) center / cover no-repeat;
+  filter: blur(10px);
+}
+/* A light tint, darker toward the bottom, so the bay's colors still read behind the name. */
+.tt-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 16, 34, 0.12), rgba(8, 16, 34, 0.45));
+}
+.tt-overlay.leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+.tt-overlay :focus-visible {
+  outline: 3px solid rgba(255, 224, 102, 0.9);
+  outline-offset: 3px;
+}
+
+.tt-home {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  text-align: center;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+.tt-overlay.learning .tt-home {
+  opacity: 0;
+  transform: translateY(-16px);
+  pointer-events: none;
+}
+
+/* The name: yellow with a hard, one-color pixel outline and a stepped drop under it. */
+.tt-logo {
+  margin: 0;
+  color: var(--yellow, #ffdb39);
+  font-size: clamp(52px, 12vw, 104px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-shadow:
+    4px 0 #101a23,
+    -4px 0 #101a23,
+    0 4px #101a23,
+    0 -4px #101a23,
+    4px 4px #101a23,
+    -4px 4px #101a23,
+    4px -4px #101a23,
+    -4px -4px #101a23,
+    0 10px #101a23,
+    4px 10px #101a23,
+    -4px 10px #101a23;
+}
+.tt-sub {
+  margin: 18px 0 0;
+  font-size: clamp(16px, 2.4vw, 20px);
+  text-shadow: 2px 2px #101a23;
+}
+.tt-owl {
+  display: flex;
+  justify-content: center;
+  margin: 18px 0 14px;
+}
+.tt-learn {
+  min-width: 210px;
+  padding: 12px 36px 14px;
+  font-size: 28px;
+}
+.tt-link {
+  margin-top: 16px;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: #fff9e8;
+  font: inherit;
+  font-size: 16px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-shadow: 2px 2px #101a23;
+  cursor: pointer;
+}
+.tt-link:hover {
+  color: var(--yellow, #ffdb39);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-overlay,
+  .tt-home {
+    transition: none;
+  }
+}

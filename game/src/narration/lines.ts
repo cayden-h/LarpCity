@@ -10,6 +10,7 @@
 
 import type { LifeEvent } from "../sim/life/player.ts";
 import type { OwlAnim } from "../ui/owl.ts";
+import { learnLines } from "./learn.ts";
 import type { Mood } from "./poses.ts";
 import { tourLines } from "./tour.ts";
 import { TOURS } from "./tours.ts";
@@ -243,7 +244,7 @@ export function cueForEvents(events: readonly LifeEvent[]): Cue | null {
 
 /** Every fixed line, cues and tours, for pre-generating the voice. */
 export function allLines(): string[] {
-  return [...Object.values(CUES).flatMap((c) => c.lines), ...TOURS.flatMap((t) => tourLines(t))];
+  return [...Object.values(CUES).flatMap((c) => c.lines), ...TOURS.flatMap((t) => tourLines(t)), ...learnLines()];
 }
 
 /** A line for `cue`, never the same as `last`. `random` is for tests. */
