@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { facingOf, findHome, findLandmark, pickSprite, placeShelters, placeVBoards, spriteOrigin, type SpriteEntry, type SpriteManifest } from "../src/engine/sprite-pick.ts";
+import { facingOf, findHome, findLandmark, pickSprite, placeShelters, placeVBoards, roadTiles, spriteOrigin, type SpriteEntry, type SpriteManifest } from "../src/engine/sprite-pick.ts";
 
 const entry = (id: string, w: number, d: number, floors: number, zones: string[], unique = false): SpriteEntry => ({
   id, w, d, floors, zones, unique, brand: unique ? id : null, ax: 72, ay: 400, topZ: 330, day: `${id}.png`, night: `${id}.night.png`,
@@ -90,6 +90,12 @@ test("no shelter sprites, no shelters; none outside city streets", () => {
   let a = 1;
   const rng = () => ((a = (a * 16807) % 2147483647) / 2147483647);
   assert.deepEqual(placeShelters(manifest, { w: 20, h: 12, at: street, zone: () => "industrial", blocked: () => false }, rng), []);
+});
+
+test("road tiles come from fractional centerlines and paths past the grid, and only where the grid has road", () => {
+  const isRoad = (x: number, y: number) => x >= 0 && x < 10 && (y === 4 || y === 5);
+  const tiles = roadTiles([{ path: [[-3, 5], [12.5, 5]] }, { path: [[2, 4.5], [6, 4.5]] }], isRoad);
+  assert.deepEqual(new Set(tiles.map((t) => `${t.x},${t.y}`)), new Set(Array.from({ length: 10 }, (_, x) => [`${x},4`, `${x},5`]).flat()));
 });
 
 test("V boards stand once each beside the highway, nearest the target first, spread apart", () => {

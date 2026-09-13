@@ -158,6 +158,25 @@ export interface FreewaySite {
 const VBOARD_GAP = 6;
 
 /**
+ * The paved tiles of some roads: every whole tile within a tile of each path's centerline that the grid says is
+ * road. Centerlines may lie on tile edges or through tile centers (fractional coordinates), and paths run on past
+ * the grid's edge, so tiles come from floor and ceiling and are kept only when isRoad holds.
+ */
+export function roadTiles(roads: { path: [number, number][] }[], isRoad: (x: number, y: number) => boolean): { x: number; y: number }[] {
+  const out = new Map<string, { x: number; y: number }>();
+  const add = (x: number, y: number) => { if (isRoad(x, y)) out.set(`${x},${y}`, { x, y }); };
+  for (const r of roads)
+    for (let k = 1; k < r.path.length; k++) {
+      const [[ax, ay], [bx, by]] = [r.path[k - 1], r.path[k]];
+      const along = ay === by;
+      const [c, lo, hi] = along ? [ay, Math.min(ax, bx), Math.max(ax, bx)] : [ax, Math.min(ay, by), Math.max(ay, by)];
+      const across = new Set([Math.floor(c) - 1, Math.floor(c), Math.ceil(c) - 1, Math.ceil(c)]);
+      for (let t = Math.floor(lo); t < Math.ceil(hi); t++) for (const u of across) along ? add(t, u) : add(u, t);
+    }
+  return [...out.values()];
+}
+
+/**
  * Freeway V boards: each V-board sprite once, on open ground right beside the
  * highway, the stretch nearest downtown first, at least VBOARD_GAP tiles apart.
  */

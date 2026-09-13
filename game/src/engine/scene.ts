@@ -18,7 +18,7 @@ import { rngFor } from "./rng";
 import { buildRoadProps, type RoadProps } from "./roads/draw";
 import { buildGraph, type RoadNet } from "./roads/graph";
 import { buildPlaces, demand } from "./roads/trips";
-import { facingOf, placeShelters, placeVBoards } from "./sprite-pick";
+import { facingOf, placeShelters, placeVBoards, roadTiles } from "./sprite-pick";
 import { buildSprite, type SpriteSet } from "./sprites";
 import { Traffic } from "./traffic";
 import type { CityDef, EconomyMood, LandmarkFactory, LandmarkInstance, WeatherKind } from "./types";
@@ -209,24 +209,14 @@ export class CityScene {
     }));
   }
 
-  /** Freeway V boards on open ground beside the highway stretch nearest downtown; drawn and lit like buildings. */
+  /**
+   * Freeway V boards on open ground beside the highway stretch nearest downtown; drawn and lit like buildings.
+   * A city with no highway (San Francisco's world has no beltway) gets them beside its four-lane arterials.
+   */
   private freewayBoards(sprites: SpriteSet | null): Placed[] {
     if (!sprites) return [];
-    // A highway's centerline runs on tile edges with two lanes (one tile) each side of it.
-    const highway: { x: number; y: number }[] = [];
-    for (const r of this.city.roads) {
-      if (r.cls !== "highway") continue;
-      for (let k = 1; k < r.path.length; k++) {
-        const [[ax, ay], [bx, by]] = [r.path[k - 1], r.path[k]];
-        const along = ay === by;
-        const [lo, hi] = along ? [Math.min(ax, bx), Math.max(ax, bx)] : [Math.min(ay, by), Math.max(ay, by)];
-        for (let t = lo; t < hi; t++)
-          for (const side of [-1, 0]) {
-            const [x, y] = along ? [t, ay + side] : [ax + side, t];
-            if (this.grid.isRoad(x, y)) highway.push({ x, y });
-          }
-      }
-    }
+    const cls = this.city.roads.some((r) => r.cls === "highway") ? "highway" : "arterial";
+    const highway = roadTiles(this.city.roads.filter((r) => r.cls === cls), (x, y) => this.grid.isRoad(x, y));
     const downtown = this.city.zones.find((z) => z.kind === "downtown") ?? { x: this.grid.w / 2, y: this.grid.h / 2 };
     const inLandmark = (x: number, y: number) => this.city.landmarks.some((l) => x >= l.x && x < l.x + l.w && y >= l.y && y < l.y + l.d);
     const site = {
