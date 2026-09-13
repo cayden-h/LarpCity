@@ -9,6 +9,7 @@
 
 import {
   compareStrategies,
+  fileBankruptcy,
   garnishmentRate,
   isOpen,
   owed,
@@ -17,6 +18,7 @@ import {
   tickDay,
   type DebtBook,
   type DebtEvent,
+  type BankruptcyResult,
   type Projection,
 } from "../debt/index.ts";
 import { instrument, MarketPath, type InstrumentId } from "../market/index.ts";
@@ -31,6 +33,10 @@ import { withholdingForPaycheck } from "../tax/withholding.ts";
 import { installment } from "../debt/factory.ts";
 import { cashRateOn } from "./rates.ts";
 import { Twins } from "./twins.ts";
+import { rngFor } from "../../engine/rng.ts";
+import { PULSE_TABLE } from "../wellbeing/pulses.ts";
+import { wellbeing } from "../wellbeing/index.ts";
+import type { Pulse } from "../wellbeing/types.ts";
 
 /** What the life needs to know about where the player lives (a StateInfo satisfies it). */
 export interface Place {
@@ -74,6 +80,8 @@ export type LifeEvent =
   | { type: "savings_interest"; day: number; amount: number }
   | { type: "moved"; day: number; from: string; to: string; rent: number; living: number }
   | { type: "job"; day: number; employed: boolean }
+  | { type: "marriage"; day: number }
+  | { type: "bankruptcy_filed"; day: number; chapter: 7 | 13 }
   | { type: "trade"; day: number; id: InstrumentId; side: "buy" | "sell"; amount: number; units: number; price: number; recurring: boolean }
   | { type: "trade_skipped"; day: number; id: InstrumentId; amount: number; reason: string }
   | { type: "bear_market"; day: number; drop: number; stocks: number }
@@ -89,6 +97,7 @@ export interface LifeSnapshot {
   debt: number;
   netWorth: number;
   score: number;
+  wellbeing: number;
   /** Brokerage holdings at the day's prices. */
   brokerage: number;
   /** The player's investing line: brokerage plus the cash sells took out (sim/life/twins.ts). */
@@ -110,6 +119,8 @@ export interface LifeOptions {
   grossAnnual?: number;
   /** Job title from onboarding. */
   job?: string;
+  /** One-way commute in minutes; defaults to the SOEP-inspired design approximation. */
+  commuteMinutes?: number;
   /** Monthly rent the player stated in onboarding; after a move it scales with the new state's housing costs. */
   rent?: number;
   book?: DebtBook;
@@ -176,6 +187,11 @@ export class PlayerLife {
   book: DebtBook;
   place: Place;
   employed = true;
+  relationship: "single" | "partnered" = "single";
+  /** Static until the game has job and home locations; 23 is a SOEP-inspired design default, not a US average. */
+  commuteMinutes: number;
+  reemployedDay: number | null = null;
+  readonly pulses: Pulse[] = [];
   /** Age in years, advancing with the calendar. */
   age: number;
   monthlyTakeHome: number;
@@ -242,6 +258,13 @@ export class PlayerLife {
 
   /** dueDay values whose unpaid tax has already converted to a Debt, so a later year's distinct balance is never blocked by an older year's still-open "IRS balance" Debt. */
   private convertedTaxDueDays = new Set<number>();
+  /** Calendar years already checked for marriage, preventing rerolls on duplicate ticks. */
+  private readonly marriageRollYears = new Set<number>();
+  private readonly bankruptcyPulseDays = new Set<number>();
+  /** Coverage is an employment-derived approximation until insurance shopping exists. */
+  get insured(): boolean {
+    return this.employed;
+  }
 
   /** Gross wages earned so far in the current calendar year (resets each January 1 payday); shown on the Taxes tab. */
   wagesYtd(): number {
@@ -266,6 +289,7 @@ export class PlayerLife {
     this.monthlyTakeHome = o.monthlyTakeHome ?? this.book.monthlyTakeHome;
     this.grossAnnual = o.grossAnnual ?? Math.round((this.monthlyTakeHome * 12) / TAKE_HOME_SHARE);
     this.job = o.job ?? "";
+    this.commuteMinutes = o.commuteMinutes ?? 23;
     this.rentAnchor = o.rent === undefined ? null : { amount: o.rent, housing: o.place.rpp.housing };
     // The engine's bankruptcy test compares minimums with the book's take-home, so keep them in sync.
     this.book.monthlyTakeHome = this.monthlyTakeHome;
@@ -304,6 +328,7 @@ export class PlayerLife {
         debt: first.debt,
         netWorth: round2(first.cash + investments - first.debt),
         score: first.score,
+        wellbeing: first.wellbeing,
         brokerage,
         you,
         held: you,
@@ -459,6 +484,7 @@ export class PlayerLife {
   spend(day: number, category: string, amount: number): LifeEvent {
     const paid = this.ledger.wallet().withdraw(amount, category);
     const event: LifeEvent = { type: "spend", day, category, amount: paid };
+    this.record(day);
     this.emit([event]);
     return event;
   }
@@ -473,8 +499,19 @@ export class PlayerLife {
     const dom = date.getDate();
     const payday = dom === 1 || dom === 15;
 
+    const year = date.getFullYear();
+    if (this.relationship === "single" && dom === 1 && date.getMonth() === 0 && !this.marriageRollYears.has(year)) {
+      this.marriageRollYears.add(year);
+      // Gameplay placeholder pending age-banded marriage-rate calibration.
+      const ANNUAL_MARRIAGE_CHANCE = 0.08;
+      if (rngFor("marriage", this.market.seed, year)() < ANNUAL_MARRIAGE_CHANCE) {
+        this.relationship = "partnered";
+        this.addPulse(PULSE_TABLE.marriage.p0, PULSE_TABLE.marriage.halfLifeDays, day);
+        events.push({ type: "marriage", day });
+      }
+    }
+
     if (payday) {
-      const year = date.getFullYear();
       if (year !== this.taxYear) {
         if (this.taxYear !== 0) {
           this.priorYearWages = this.wagesYtdAmount;
@@ -591,16 +628,61 @@ export class PlayerLife {
     const from = this.place.abbr;
     this.place = place;
     const e: LifeEvent = { type: "moved", day, from, to: place.abbr, rent: this.rent, living: this.living };
+    this.record(day);
     this.emit([e]);
     return e;
   }
 
   setEmployed(employed: boolean, day: number): LifeEvent {
+    if (employed === this.employed) {
+      const unchanged: LifeEvent = { type: "job", day, employed };
+      this.emit([unchanged]);
+      return unchanged;
+    }
+    if (employed) this.reemployedDay = day;
+    else this.addPulse(PULSE_TABLE.layoff.p0, PULSE_TABLE.layoff.halfLifeDays, day);
     this.employed = employed;
     this.book.monthlyTakeHome = this.monthlyTakeHome * (employed ? 1 : UNEMPLOYMENT_SHARE);
     const e: LifeEvent = { type: "job", day, employed };
+    this.record(day);
     this.emit([e]);
     return e;
+  }
+
+  addPulse(p0: number, halfLifeDays: number, day: number): void {
+    this.pulses.push({ p0, halfLifeDays, startDay: day });
+  }
+
+  /** Files through the debt engine and records the researched wellbeing shock exactly once. */
+  fileBankruptcy(chapter: 7 | 13, day: number): BankruptcyResult {
+    const result = fileBankruptcy(this.book, chapter, day);
+    if (!this.bankruptcyPulseDays.has(day)) {
+      this.bankruptcyPulseDays.add(day);
+      this.addPulse(PULSE_TABLE.bankruptcy.p0, PULSE_TABLE.bankruptcy.halfLifeDays, day);
+    }
+    const event: LifeEvent = { type: "bankruptcy_filed", day, chapter };
+    this.record(day);
+    this.emit([event]);
+    return result;
+  }
+
+  /** 401(k) and Roth IRA balances used by retirement scoring. */
+  retirementSavings(): number {
+    let total = 0;
+    for (const account of this.ledger.accounts.values()) {
+      if (account.kind === "k401" || account.kind === "roth_ira") total += account.balance;
+    }
+    return round2(total);
+  }
+
+  hasPastDue(): boolean {
+    return this.book.debts.some((debt) => isOpen(debt) && (debt.pastDue > 0 || debt.status === "late" || debt.status === "delinquent" || debt.status === "serious" || debt.status === "default"));
+  }
+
+  inCollectionsOrRecentBankruptcy(today = this.today): boolean {
+    const bankruptcy = this.book.profile.bankruptcy;
+    const elapsed = bankruptcy === undefined ? Number.POSITIVE_INFINITY : today - bankruptcy.day;
+    return this.book.debts.some((debt) => debt.status === "collections") || (elapsed >= 0 && elapsed < 730);
   }
 
   /** The prior year's tax return, once ready (around April 15), until the player files it. */
@@ -668,6 +750,7 @@ export class PlayerLife {
     ret.filedDay = day;
     this.pendingReturn = null;
     const e: LifeEvent = { type: "tax_filed", day, year: ret.year, refundOrOwed, auto };
+    this.record(day);
     this.emit([e]);
     return e;
   }
@@ -902,6 +985,7 @@ export class PlayerLife {
       debt,
       netWorth: round2(cash + investments - debt),
       score: this.book.profile.score,
+      wellbeing: wellbeing(this, day).W,
       brokerage,
       you: this.twins.you(brokerage),
       held: this.twins.held(day),
