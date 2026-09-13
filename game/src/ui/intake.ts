@@ -173,8 +173,8 @@ class Intake {
   private plaidScreen(): void {
     this.show(`
       <div class="in-owl-slot"></div>
-      <div class="in-name">Connecting…</div>
-      <p class="in-lead">Secure connection via Plaid</p>
+      <div class="in-name">The Narrator</div>
+      <p class="in-lead">All connected. Nice and secure.</p>
       <div class="in-plaid-card">
         <div class="in-plaid-status">
           <span class="in-plaid-icon" aria-hidden="true">⏳</span>
