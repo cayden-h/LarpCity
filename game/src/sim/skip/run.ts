@@ -29,7 +29,7 @@ export function runSkip(life: PlayerLife, o: SkipOptions): SkipResult {
   let stoppedBy: StopReason = "cap";
   let days = 0;
 
-  if (isMet(o.goal, viewOf(life))) stoppedBy = "goal";
+  if (isMet(o.goal, viewOf(life), life.age)) stoppedBy = "goal";
   else {
     while (days < maxDays) {
       days++;
@@ -48,7 +48,7 @@ export function runSkip(life: PlayerLife, o: SkipOptions): SkipResult {
         stoppedBy = "bankruptcy";
         break;
       }
-      if (isMet(o.goal, viewOf(life))) {
+      if (isMet(o.goal, viewOf(life), life.age)) {
         stoppedBy = "goal";
         break;
       }

@@ -41,6 +41,7 @@ function setup() {
     cityFor: (state: typeof TX) => ({ ...state, id: state.cityId }), buildResidents: () => [],
     loadSpriteSet: (id: string) => new Promise<null>(resolve => pending.push({ id, resolve })),
     narrator: { cue() {} }, saver: { request() {} }, npcCard: { hide() {}, show() {} },
+    hud: { setPlayer() {} }, happiness: { update() {} },
     app: { stage: { addChild: (scene: FakeScene) => mounted.push(scene) }, screen: { width: 800, height: 600 } },
     history: { replaceState: (_a: unknown, _b: unknown, hash: string) => { context.location.hash = hash; } },
     location: { hash: '#TX' }, stopSkip() {}, showHomePicker() {},

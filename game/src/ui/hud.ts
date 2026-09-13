@@ -25,6 +25,16 @@ export class Hud {
           <button class="round find" data-home-focus type="button" title="Find my home" aria-label="Find my home">${pixelIcon("pin")}</button>
         </div>
         <div class="hud-chip" data-save-chip hidden></div>
+      </section>
+      <section class="card id-card">
+        <div class="label">Player</div>
+        <div class="id-card-row">
+          <div class="id-card-avatar" data-player-avatar></div>
+          <div class="id-card-info">
+            <div class="id-card-name" data-player-name></div>
+            <div class="id-card-age" data-player-age></div>
+          </div>
+        </div>
       </section>`;
     this.q<HTMLButtonElement>("[data-home]").addEventListener("click", () => actions.chooseHome());
     this.q<HTMLButtonElement>("[data-home-focus]").addEventListener("click", () => actions.focusHome());
@@ -39,6 +49,13 @@ export class Hud {
     this.q("[data-who]").textContent = text ? `· ${text}` : "";
   }
 
+  /** Fills the ID card; name/avatar are fixed at intake, but age advances daily, so this is called again from `clock.onDay`. */
+  setPlayer(name: string, age: number, avatar: "male" | "female"): void {
+    this.q("[data-player-name]").textContent = name;
+    this.q("[data-player-age]").textContent = `Age ${Math.floor(age)}`;
+    this.q("[data-player-avatar]").textContent = AVATAR_EMOJI[avatar];
+  }
+
   /** Shows a chip only when saving has stopped; a working save stays quiet. */
   setSave(status: SaveStatus): void {
     const chip = this.q("[data-save-chip]");
@@ -46,6 +63,9 @@ export class Hud {
     chip.hidden = !chip.textContent;
   }
 }
+
+/** Matches the avatar picker in intake.ts so the same pixel character shows here. */
+const AVATAR_EMOJI: Record<"male" | "female", string> = { male: "🧑", female: "👩" };
 
 /** What the HUD says for each save status where saving has stopped. */
 const SAVE_CHIPS: Partial<Record<SaveStatus, string>> = {

@@ -30,6 +30,13 @@ test("routine days send no mail, money trouble and wins do", () => {
   assert.ok(mailFor({ type: "score_change", day: 9, from: 700, to: 720 }, names));
 });
 
+test("mailFor stamps the letter with the event kind it came from", () => {
+  const l = mailFor({ type: "bill", day: 1, name: "Rent", amount: 1200, paid: 900 }, names);
+  assert.equal(l?.kind, "bill");
+  const job = mailFor({ type: "job", day: 2, employed: false }, names);
+  assert.equal(job?.kind, "job");
+});
+
 test("the inbox counts unread mail, marks it read, and keeps the newest", () => {
   const inbox = new Inbox();
   const events: LifeEvent[] = [

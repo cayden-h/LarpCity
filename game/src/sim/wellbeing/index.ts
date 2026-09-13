@@ -1,5 +1,5 @@
 import { cashCushion, commute, debtLoad, healthCoverage, homeStability, realIncome, relationships, retirementOnTrack, work } from "./factors.ts";
-import { cushionSoftening, decay } from "./pulses.ts";
+import { cushionSoftening, decay, PULSE_TABLE } from "./pulses.ts";
 import { retirementReadiness, type RetirementLife } from "./retirement.ts";
 import type { Pulse, WellbeingSnapshot } from "./types.ts";
 
@@ -50,6 +50,21 @@ export function finalScore(life: WellbeingLife, today: number): { RR: number; Wl
     : current;
   const Wlife = round1(0.5 * lifetimeAverage + 0.5 * current);
   return { RR, Wlife, final: round1(0.6 * RR + 0.4 * Wlife) };
+}
+
+/**
+ * Fires a named happiness pulse (e.g. "vacation") from `PULSE_TABLE` onto a life's
+ * pulse list, via the existing `addPulse` mechanism (already used for marriage,
+ * layoff, and bankruptcy). Kept name-and-signature-stable: P3 reuses this for the
+ * injury/car-breakdown/divorce negative pulses.
+ */
+export function triggerPulse(
+  life: { addPulse(p0: number, halfLifeDays: number, day: number): void },
+  name: keyof typeof PULSE_TABLE,
+  today: number,
+): void {
+  const { p0, halfLifeDays } = PULSE_TABLE[name];
+  life.addPulse(p0, halfLifeDays, today);
 }
 
 export type { FactorBreakdown, FactorName, Pulse, WellbeingSnapshot } from "./types.ts";

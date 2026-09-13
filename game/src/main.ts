@@ -15,7 +15,7 @@ import { prerenderCityThumbnails } from "./engine/thumbnails";
 import type { StateInfo } from "./engine/types";
 import { cueForEvents, welcomeBackLine } from "./narration/lines";
 import { PlayerLife, STARTER_PORTFOLIO } from "./sim/life";
-import { answersFromProfile, lifeFromIntake, profileFromIntake } from "./sim/life/intake";
+import { answersFromProfile, DEFAULT_GOALS, lifeFromIntake, profileFromIntake } from "./sim/life/intake";
 import { Inbox, type DebtLookup } from "./sim/mail/inbox";
 import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
@@ -30,6 +30,7 @@ import { trimDesk } from "./sim/save/desk";
 import { SaveManager } from "./sim/save/manager";
 import type { DeskState, GameSave } from "./sim/save/types";
 import { Hud } from "./ui/hud";
+import { mountHappinessMeter } from "./ui/happiness";
 import { runIntake } from "./ui/intake";
 import { Narrator } from "./ui/narrator";
 import { NpcCard } from "./ui/npccard";
@@ -38,6 +39,7 @@ import { Phone } from "./ui/phone";
 import { FastForward } from "./ui/skip-setup";
 import { UsMap } from "./ui/usmap";
 import "./ui/pixel-theme.css";
+import "./ui/happiness.css";
 
 // The world is big: skip drawing whatever is off-screen.
 extensions.add(CullerPlugin);
@@ -150,7 +152,7 @@ if (saved && restored) {
   const answers = answersFromProfile(profile);
   player = answers
     ? lifeFromIntake(answers, { place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO })
-    : new PlayerLife({ place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO });
+    : new PlayerLife({ place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO, goals: DEFAULT_GOALS });
 }
 
 // The owl narrates the big moments from here on (narration/lines.ts).
@@ -224,6 +226,8 @@ clock.onDay((day) => {
   const cue = cueForEvents(events);
   if (cue) narrator.cue(cue);
   syncHomeTier();
+  hud.setPlayer(player.name, player.age, player.avatar);
+  happiness.update(day);
   town.onDay(day);
   void bank.tick(day);
   void recorder.tick();
@@ -318,6 +322,7 @@ function rewindTo(day: number): void {
   // so a save before the desk reports again doesn't bring the discarded days back.
   if (desk) desk = trimDesk(desk, day);
   syncHomeTier();
+  happiness.update(day);
   phone.rewound(day, player.log.filter((e) => e.day === day && player.needsDecision([e])));
 }
 
@@ -341,6 +346,9 @@ const hud = new Hud(document.getElementById("hud")!, {
   chooseHome: () => showHomePicker(),
   focusHome: () => scene?.focusHome(),
 });
+hud.setPlayer(player.name, player.age, player.avatar);
+
+const happiness = mountHappinessMeter(document.getElementById("happiness")!, { life: player });
 
 const map = new UsMap(document.getElementById("map")!, STATES, (s) => void open(s));
 

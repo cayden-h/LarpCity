@@ -6,6 +6,7 @@
 import { creditCard, installment, newBook } from "../debt/factory.ts";
 import type { Debt } from "../debt/types.ts";
 import type { InstrumentId, MarketPath } from "../market/index.ts";
+import type { Goal } from "../skip/types.ts";
 import { withholdingForPaycheck } from "../tax/withholding.ts";
 import {
   DEFAULT_CAR_INSURANCE_MONTHLY,
@@ -39,6 +40,9 @@ export const INSURANCE_PLANS: InsurancePlan[] = [
 /** The tier a skipped or unset intake defaults to. */
 export const DEFAULT_INSURANCE_PLAN_ID = INSURANCE_PLANS[1].id;
 
+/** The four goal categories the onboarding goal screen fills in, one goal each, permanently. */
+export const REQUIRED_GOAL_KINDS = ["retirement_age", "marriage", "debt_free_by_age", "house"] as const;
+
 export interface IntakeAnswers {
   /** Job title; may be blank. */
   job: string;
@@ -50,8 +54,10 @@ export interface IntakeAnswers {
   debt: number;
   /** Total savings. */
   savings: number;
+  /** The player's name for the HUD ID card; a blank typed name falls back to "You". */
+  name: string;
   /** Avatar preset chosen at onboarding; no further customization. Defaults to "male". */
-  avatar?: "male" | "female";
+  avatar: "male" | "female";
   /** Insurance tier chosen at onboarding (frontend-only for now); defaults to the middle tier. */
   insurancePlanId?: string;
   /** Beginner credit card chosen at onboarding (frontend-only for now); defaults to the first beginner card. */
@@ -64,7 +70,24 @@ export interface IntakeAnswers {
   rothPct?: number;
   /** Low/medium/high pick for each expense category, from the intake screen. Unset defaults to all-medium. */
   expenseTiers?: Record<ExpenseCategory, ExpenseTierLevel>;
+  /** Set once at onboarding, permanent — no editing after (sim/skip's Goal union, one per required category). */
+  goals: Goal[];
 }
+
+/** True once `goals` holds one goal of every required category (order doesn't matter, extras are fine). */
+export function hasAllRequiredGoals(goals: Goal[] | undefined): goals is Goal[] {
+  return REQUIRED_GOAL_KINDS.every((k) => goals?.some((g) => g.kind === k));
+}
+
+/** Goals for a life that never went through the onboarding goal screen (a skipped intake, or a profile resume with no local save — a server Profile never stores goals). */
+export const DEFAULT_GOALS: Goal[] = [
+  { kind: "retirement_age", targetAge: 65 },
+  { kind: "marriage" },
+  { kind: "debt_free_by_age", targetAge: 45 },
+  { kind: "house", downPct: 0.1 },
+];
+// Assigned directly into PlayerLife.goals by multiple callers; frozen so none of them can mutate the shared array.
+Object.freeze(DEFAULT_GOALS);
 
 /** Caps that keep a typo or a joke answer from breaking the sim. */
 export const INTAKE_LIMITS = { salary: 5_000_000, rent: 50_000, debt: 5_000_000, savings: 10_000_000 } as const;
@@ -145,17 +168,24 @@ export function coerceAnswers(raw: unknown): Partial<IntakeAnswers> {
   return out;
 }
 
-/** The full answers, or null while any amount is missing (the job may stay blank). */
+/**
+ * The full answers, or null while any amount or a required goal is missing (the job, name, and
+ * avatar may stay blank/default). `goals` only ever comes from the onboarding goal screen — voice
+ * and typed-form answers never set it on their own.
+ */
 export function completeAnswers(p: Partial<IntakeAnswers>): IntakeAnswers | null {
-  const { salary, rent, debt, savings } = p;
+  const { salary, rent, debt, savings, goals } = p;
   if (salary === undefined || rent === undefined || debt === undefined || savings === undefined) return null;
+  if (!hasAllRequiredGoals(goals)) return null;
   return {
     job: p.job ?? "",
     salary,
     rent,
     debt,
     savings,
-    ...(p.avatar ? { avatar: p.avatar } : {}),
+    name: p.name?.trim() || "You",
+    avatar: p.avatar ?? "male",
+    goals,
     ...(p.insurancePlanId ? { insurancePlanId: p.insurancePlanId } : {}),
     ...(p.selectedCardId ? { selectedCardId: p.selectedCardId } : {}),
     ...(p.emergencyMonths !== undefined ? { emergencyMonths: p.emergencyMonths } : {}),
@@ -247,6 +277,8 @@ export function lifeFromIntake(a: IntakeAnswersInput, o: { place: Place; day: nu
     accounts,
     market: o.market,
     holdings: o.holdings,
+    goals: a.goals,
+    name: a.name,
   });
   // The emergency-fund, 401(k), and Roth sliders on the intake screen (all optional; a
   // skipped or voice-only intake leaves the life with no standing orders at all).
@@ -267,8 +299,14 @@ export function profileFromIntake(a: IntakeAnswers | null, source: ProfileSource
   return { job: a.job, salary: a.salary, rent: a.rent, debt: a.debt, savings: a.savings, state, source };
 }
 
-/** The intake answers a stored profile holds, or null for a skipped intake (the sample household). */
+/**
+ * The intake answers a stored profile holds, or null for a skipped intake (the sample household).
+ * A profile never stores goals/name/avatar (local save state only, sim/skip's Goal union), so a
+ * resumed profile gets `DEFAULT_GOALS` and the same name/avatar defaults a skipped intake gets —
+ * not routed through `completeAnswers`, which would reject it for lacking a "chosen" goal set.
+ */
 export function answersFromProfile(p: Profile): IntakeAnswers | null {
   if (p.source === "skipped") return null;
-  return completeAnswers({ job: p.job ?? "", salary: p.salary ?? undefined, rent: p.rent ?? undefined, debt: p.debt ?? undefined, savings: p.savings ?? undefined });
+  if (p.salary === null || p.rent === null || p.debt === null || p.savings === null) return null;
+  return { job: p.job ?? "", salary: p.salary, rent: p.rent, debt: p.debt, savings: p.savings, name: "You", avatar: "male", goals: DEFAULT_GOALS };
 }
