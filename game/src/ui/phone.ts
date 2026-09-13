@@ -82,7 +82,8 @@ function readOpen(): boolean {
   } catch {
     // Storage can be blocked; fall back to the viewport rule below.
   }
-  return window.innerHeight >= 640;
+  // A phone-width screen starts with it pulled down: open, it would cover the whole HUD.
+  return window.innerHeight >= 640 && window.innerWidth > 600;
 }
 
 function saveOpen(open: boolean) {

@@ -1021,7 +1021,9 @@ button:disabled {
   inset: 0;
   z-index: 20;
   display: grid;
-  place-items: center;
+  /* A crash's four choices outgrow the city's desk window: scroll, and keep the top reachable. */
+  place-items: safe center;
+  overflow-y: auto;
   padding: 20px;
   background: rgba(11, 11, 12, 0.45);
 }

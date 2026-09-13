@@ -105,13 +105,18 @@ button.cal-d.future:hover { background: #e4dcc3; }
   color: #fff;
   box-shadow: inset 2px 2px #8cddff, inset -2px -2px #07539e;
 }
+/* Five letters at most (sim/calendar); tight side padding keeps them whole in a 390px phone's cells.
+   Tapping the day opens its sheet with every mark's full text. */
 .cal-chip {
   align-self: stretch;
   overflow: hidden;
-  padding: 1px 2px 0;
+  padding: 1px 1px 0;
   color: #fff;
   font-size: 9px;
   line-height: 10px;
+  letter-spacing: -0.2px;
+  text-align: center;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .cal-chip.red { background: #d6453b; }

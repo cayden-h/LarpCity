@@ -1081,9 +1081,16 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 }
 
 @media (max-width: 600px) {
+  /* Above the pulled-down phone's 42px strip, which spans the bottom of a phone-width screen. */
   .home {
     left: 12px;
+    bottom: 54px;
     width: min(310px, calc(100% - 24px));
+  }
+  /* The Player card and the happiness meter stand on the home card, so they rise with it. */
+  .card.id-card,
+  .card.happiness {
+    bottom: calc(68px + var(--home-h, 114px));
   }
 }
 
