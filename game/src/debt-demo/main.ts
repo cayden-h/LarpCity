@@ -129,8 +129,11 @@ if (booted && bootPath(booted, { intake: false }) === "resume" && me?.save) {
     restored.life.place = place.home;
     clock.jumpTo(saved.day);
   } catch (err) {
-    if (!(err instanceof SaveFormatError)) throw err;
-    console.warn("[save] can't open the saved game here:", err.message);
+    // A save this version can't read sends the player to the city to sort it out; any other
+    // failure (a network hiccup, a bug) must not blank the page either, so it lands on the same
+    // fallback instead of bubbling out of this top-level await.
+    if (err instanceof SaveFormatError) console.warn("[save] can't open the saved game here:", err.message);
+    else console.error("[save] failed to restore the saved game:", err);
     saved = restored = null;
     noLife = "unreadable";
   }
@@ -274,6 +277,10 @@ function saveDesk() {
 
 const debtIcon = (d?: Debt) => (d?.kind === "credit_card" ? "💳" : d?.kind === "student_federal" ? "🎓" : d?.kind === "auto" ? "🚗" : "🧾");
 
+/** Set while a rewind replays a day's events through onLifeEvents, so its own quiet report is
+ *  skipped and the rewind's explicit report (which fires even with no events that day) is the only one. */
+let reportingRewind = false;
+
 function onLifeEvents(events: LifeEvent[]) {
   for (const e of events) {
     const d = "debtId" in e ? life.book.debts.find((x) => x.id === e.debtId) : undefined;
@@ -355,7 +362,7 @@ function onLifeEvents(events: LifeEvent[]) {
     }
   }
   // Inside the city, keep its copy of the feed current; the city's next save (each game month) carries it.
-  if (host && events.length) host.changed(deskState(), { quiet: true });
+  if (host && events.length && !reportingRewind) host.changed(deskState(), { quiet: true });
   scheduleRender();
 }
 
@@ -1395,11 +1402,12 @@ function renderTop() {
   q("[data-menu]").setAttribute("aria-expanded", String(menuOpen));
   panel.hidden = !menuOpen;
   // Moving and the rate shock would split the desk from the city's world (its map, its rates), so
-  // only the standalone desk offers them. Start over is everywhere: in the city it goes through the
-  // Calendar's "Start a new life", standalone it asks first.
+  // only the standalone offline demo offers them - not inside the city, and not standalone with a
+  // real saved life (that life is the city's too, once it's synced back). Start over is everywhere:
+  // in the city it goes through the Calendar's "Start a new life", standalone it asks first.
   if (menuOpen)
     panel.innerHTML = `<button data-act="layoff">${life.employed ? "Get laid off" : "Find a new job"}<span>${life.employed ? "Employed" : "Unemployed"}</span></button>
-      ${host ? "" : `<label>Live in <select data-move data-focus="move">${MOVES.map((s) => `<option value="${s.abbr}" ${s.abbr === life.place.abbr ? "selected" : ""}>${s.name}</option>`).join("")}</select></label>
+      ${host || standaloneSaver ? "" : `<label>Live in <select data-move data-focus="move">${MOVES.map((s) => `<option value="${s.abbr}" ${s.abbr === life.place.abbr ? "selected" : ""}>${s.name}</option>`).join("")}</select></label>
       <button data-act="shock">${rateShock ? "Undo the rate shock" : "Rate shock: Fed +1 point"}</button>`}
       <hr><button data-act="reset">Start over</button>`;
 }
@@ -1414,6 +1422,10 @@ function renderSheet() {
 }
 
 function render() {
+  // The noLife page ("No life here yet" / "This life opens in the city") replaced #app with its
+  // own static markup and never wires up a desk to show; a resize or a stray keypress must not
+  // come back through here and hit the null elements it left behind.
+  if (noLife) return;
   if (pointerDown || scrubbing) {
     deferred = true;
     return;
@@ -1498,7 +1510,13 @@ app.addEventListener("click", (ev) => {
   }
   if (ds.range) range = ds.range as Range;
   if (ds.fund) openFund(ds.fund as InstrumentId);
-  if (ds.extraSet !== undefined) life.book.extraMonthly = Number(ds.extraSet);
+  // Whether this click changes the life or the desk's remembered state, worth a (non-quiet) save;
+  // a tab switch, chart range, or menu toggle isn't.
+  let changed = false;
+  if (ds.extraSet !== undefined) {
+    life.book.extraMonthly = Number(ds.extraSet);
+    changed = true;
+  }
   if (ds.fundBack !== undefined) {
     fund = null;
     tradeMsg = null;
@@ -1507,13 +1525,23 @@ app.addEventListener("click", (ev) => {
     amount = Number(ds.amt);
     tradeMsg = null;
   }
-  if (ds.trade) trade(ds.trade as "buy" | "sell" | "sell-all");
-  if (ds.strategy) life.book.strategy = ds.strategy as Strategy;
+  if (ds.trade) {
+    trade(ds.trade as "buy" | "sell" | "sell-all");
+    changed = true;
+  }
+  if (ds.strategy) {
+    life.book.strategy = ds.strategy as Strategy;
+    changed = true;
+  }
   if (ds.card) cardId = ds.card;
-  if (ds.pay) pay(ds.pay, 100);
+  if (ds.pay) {
+    pay(ds.pay, 100);
+    changed = true;
+  }
   switch (ds.act) {
     case "move":
       moveAct?.();
+      changed = true;
       break;
     case "xfer":
       xferOpen = !xferOpen;
@@ -1521,6 +1549,7 @@ app.addEventListener("click", (ev) => {
       break;
     case "xfer-go":
       moveMoney();
+      changed = true;
       break;
     case "go-debt":
       go("debt");
@@ -1533,13 +1562,16 @@ app.addEventListener("click", (ev) => {
         life.recurring = [{ id: "LTM", amount: 100 }];
         log(clock.day, "Started auto-investing $100 of LTM every payday", "flat");
       }
+      changed = true;
       break;
     case "layoff":
       life.setEmployed(!life.employed, clock.day);
+      changed = true;
       break;
     case "shock":
       rateShock = rateShock ? 0 : 0.01;
       log(clock.day, rateShock ? "Rate shock: the Fed raises rates a full point" : "Rates are back on the FRED path", rateShock ? "down" : "up");
+      changed = true;
       break;
     case "reset":
       menuOpen = false;
@@ -1561,10 +1593,11 @@ app.addEventListener("click", (ev) => {
       recorder = startRecorder();
       crash = recovery = recap = null;
       shopShown = false;
+      changed = true;
       break;
   }
   render();
-  saveDesk();
+  if (changed) saveDesk();
 });
 
 /** Standalone with a saved life: asks, then erases it and sends the player to the city for a new one. */
@@ -1582,9 +1615,23 @@ async function startOver(saver: SaveManager) {
     render();
     return;
   }
-  // The erased life must not be saved again on the way out.
-  saver.stop();
-  await saves.deleteSave().catch(() => undefined);
+  // The erased life must not be saved again while the erase is in flight.
+  await saver.stop();
+  try {
+    await saves.deleteSave();
+  } catch {
+    // The erase didn't happen: keep playing this life rather than sending the player back to a
+    // city that still has it.
+    saver.resume();
+    await showNotice({
+      title: "Couldn't erase your life",
+      body: "Check your connection and try again.",
+      actions: ["OK"],
+    });
+    clock.speed = speed;
+    render();
+    return;
+  }
   location.href = import.meta.env.BASE_URL;
 }
 
@@ -1654,6 +1701,9 @@ document.addEventListener("pointercancel", () => {
 });
 
 window.addEventListener("keydown", (ev) => {
+  // No desk is showing on the noLife page: none of its shortcuts (search, space to pause) apply,
+  // and the elements they'd reach for (like the search field) don't exist there.
+  if (noLife) return;
   const target = ev.target as HTMLElement;
   if (target.matches?.("[data-search-q]")) {
     const hits = searchHits(search.q);
@@ -1732,8 +1782,11 @@ if (noLife) {
     if (crash && crash.day >= day) crash = null;
     if (recovery && recovery.day >= day) recovery = recap = null;
     decision = null;
+    reportingRewind = true;
     onLifeEvents(life.log.filter((e) => e.day === day));
-    // The city trims its own copy the same way and saves once the rewound run is ready.
+    reportingRewind = false;
+    // The city trims its own copy the same way and saves once the rewound run is ready. This is the
+    // one report for the rewind, whether or not that day itself had events.
     host.changed(deskState(), { quiet: true });
   });
   showParkedDecisions();
@@ -1752,7 +1805,9 @@ if (noLife) {
     });
     window.addEventListener("pagehide", () => standaloneSaver.flushOnUnload());
   }
-  clock.speed = 1;
+  // A restored save opens paused, so playing /debt.html next to a running city doesn't advance
+  // the same real life twice; the offline demo still autoplays.
+  clock.speed = restored ? 0 : 1;
   let last = performance.now();
   const frame = (now: number) => {
     clock.update(Math.min(0.25, (now - last) / 1000));
