@@ -32,6 +32,7 @@ Each of the others gets its own spec, plan, and build, and each follows the art 
 - Branded storefronts get signs sized to read at 1x (a taller fascia or a blade sign); generic shops keep small bands.
 - Brand wordmarks are lettered in Pixelify Sans rather than the real logotypes; drawn logo shapes (the Capital One swoosh, the Meta infinity, and so on) stay.
 - Second check (after flat materials and the new signs): cast shadows stay capped at about 1.2 tiles past the lot, even for the tallest towers, so shadows never lie across neighbors; the palette is 40 colors with 12 reserved for sign colors; before the city re-render, a polish pass fixes the Wells Fargo band, the shop windows' warm glow, and the dark patches on the Salesforce Tower.
+- Polish pass (before the re-render): sign palette colors snap to the brand color they stand for instead of averaging with its anti-aliased blends (the Wells Fargo gold had averaged to tan); shop glass glows warm by day as well as at night; glass tones follow the glass around them, so a curved tower's reflection gradient no longer breaks into shade patches; every storefront's signs are one brand's.
 
 ## Art direction
 
@@ -49,14 +50,16 @@ The reference is a sheet of cozy pixel houses: chunky readable shapes, a dark ou
 
 - Render at 4x the final size (`SCALE = 4`) into `art/.raw/<city>/` with a `raw.json`; the canvas is sized to fit the cast shadow, and anchors still come from the framing.
 - Lighting: one warm sun lamp as the key light and a faint sky fill with no sky sun of its own, so faces shade consistently with the game's procedural buildings.
-- An id pass (always the last render of a sprite) gives every object face direction one exact flat color under the Raw view transform (a 16-bit object index plus right/left and up flags); image signs, murals where painted, and text share a reserved sign color.
+- An id pass (always the last render of a sprite) gives every object face direction one exact flat color under the Raw view transform (a 16-bit object index plus right/left and up flags); image signs, murals where painted, and text get reserved sign colors (R 255 and G 0, which no other object has, and the sign's ordinal in B), one per sign object.
 
 ### Post (`game/art/lib/pixel.py`, run by `art/pixelize.py` after Blender)
 
-0. Split off the cast shadow (day pixels outside the id render) and flatten every id region to at most three tones of its median color, pushed away from grey for warmth without shifting its hue; on glass, large light patches (reflections) fall back to the base tone, small details keep theirs.
+0. Split off the cast shadow (day pixels outside the id render) and flatten every id region to at most three tones of its median color, pushed away from grey for warmth without shifting its hue.
+   A pixel's tone comes from its brightness against the region's median, except that on glass the median is scaled by how bright the glass around it is (averaged over 16 px, so glass and mullions average out), so a curved or tall face's smooth reflection gradient stays one tone; on glass, large light patches (reflections) fall back to the base tone, small details keep theirs.
 1. Downsample 4x to 1x by majority color per 4 x 4 block (never averaging, so no blurred in-between colors); alpha is kept only where most of the block is opaque.
-   Inside signs, a block splits into a light and a dark group, and the stroke group (the one farther from the sign's field tone) wins once it covers a quarter of the block with strong contrast, so 1 px lettering survives.
-2. Quantize to the city palette (`art/palettes/<city>.json`, 40 colors, 12 of them cut from sign pixels alone so brand colors survive next to the towers' glass), with no dithering.
+   Inside signs, a block splits into a light and a dark group, and the stroke group (the one farther from its own sign's field tone) wins once it covers a quarter of the block with strong contrast, so 1 px lettering survives.
+2. Quantize to the city palette (`art/palettes/<city>.json`, 40 colors, 12 of them cut from sign pixels and shop glass lit by day alone, which the id pass flags, so brand colors and the windows' warm glow survive next to the towers' glass), with no dithering.
+   Each sign color is the most common color among the pixels it stands for, not their average, so a brand color is not averaged with its anti-aliased edges; the palette build warns when more than 5% of sign pixels land far from every color (the signs need more than 12).
 3. Draw the outline: every opaque pixel next to transparency, and every pixel on an object or normal edge from the extra pass, becomes the ink color. Glass edges and emissive signs are exempt, so logos stay readable.
 4. Night pass: the same downsample and quantize, with no outline, so lit windows stay clean single pixels.
 5. Walls pass (houses, Milestone 1): the same downsample and quantize, with outline pixels removed so the outline drawn in the day layer stays on top.
@@ -72,6 +75,8 @@ Output files are now at 1x, so `sprites.json` gets `"scale": 1`.
 
 - Re-render all 43 SF sprites (landmarks, branded buildings, shelters, generic buildings) through the pixel pass.
 - Before that, the archetypes' photo textures become flat pixel materials (the `lined` materials: brick courses, concrete bands, stone, tar), the Ferry Building gets a facade sign instead of rooftop letters, and branded storefronts get signs readable at 1x (see "Look check").
+- The pixel patterns (courses, brick joints) are laid out from each surface point's world-space position, so they stay on the 1x screen grid whatever the object's transform, including Milestone 1's facing turn by a rotated parent.
+- Shop glass glows warm by day, like a lit interior, as well as at night; a storefront's front band, side band, and blade sign are all named from its one brand.
 - Sign and ad art (`art/make_ads.py`) keeps its layout, lettered in the game's own bold Pixelify Sans (`game/public/fonts/pixelify-sans-bold.ttf`), with flat paint wear, so text reads as crisp pixels.
 - After the pass, the cast shadow is one flat color (the ink at alpha 96), the only translucent pixels a sprite may have.
 - `art/check_register.py` keeps its 1 px rule; at scale 1 that means a sprite's body must land exactly on its diamond.
