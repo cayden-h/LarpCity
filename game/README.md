@@ -122,7 +122,8 @@ Each step has Sammy's line (fixed text, or a function of the player's numbers), 
 - `when`: the step shows only when this holds for the player's state; `capture` keeps what the player did for later steps.
 
 To add a step, add it to a tour in `tours.ts` and mark its target with a `data-tour` attribute.
-A fixed line joins the voice pack through `allLines()`, so run `node scripts/build-narration.ts` afterward; lines with numbers are voiced on the fly, and read silently without the server.
+A fixed line joins the voice pack through `allLines()`, so run `node scripts/build-narration.ts` afterward: it sends only lines with no clip yet to ElevenLabs (`scripts/narration-plan.ts`), so a rerun pays for new lines alone.
+Lines with numbers (the welcome back, tour lines with the player's figures) are never in the pack; the game voices them live through the server's ElevenLabs key, which caches each one, and reads them silently without the server or credits.
 To add a tour, add its id to `TourId` and `TOUR_IDS`, its definition to `TOURS`, and its trigger to `TourGuide.trigger`.
 
 While a tour is open the clock is held (`Clock.held`), so it resumes at the same speed after, and the speed buttons, skips, and fast-forward are off.
