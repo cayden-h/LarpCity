@@ -259,6 +259,8 @@ export class Narrator {
     document.documentElement.classList.remove("nr-on");
     this.owl.setSize(innerWidth < 600 ? TOUR_OWL.narrow : TOUR_OWL.wide);
     this.el.classList.add("tour");
+    // The same check the owl's motions use, so a reduced-motion player's Sammy steps rather than glides.
+    this.el.classList.toggle("reduced", matchMedia("(prefers-reduced-motion: reduce)").matches);
     this.bubble.setAttribute("role", "dialog");
     this.bubble.setAttribute("aria-label", `${NARRATOR_NAME}'s tour`);
     this.controls.hidden = false;
@@ -340,7 +342,7 @@ export class Narrator {
     this.bubble.setAttribute("role", "status");
     this.bubble.removeAttribute("aria-label");
     this.hide(() => {
-      this.el.classList.remove("tour", "face-right");
+      this.el.classList.remove("tour", "face-right", "reduced");
       this.el.style.removeProperty("left");
       this.el.style.removeProperty("top");
       delete this.el.dataset.side;

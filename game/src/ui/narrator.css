@@ -328,3 +328,7 @@ body:has(#map:not([hidden]), .desk-overlay:not([hidden]), .ff-overlay:not([hidde
     display: none;
   }
 }
+
+.nr.tour.reduced {
+  transition: none;
+}
