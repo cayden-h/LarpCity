@@ -9,6 +9,25 @@ import type { InstrumentId, MarketPath } from "../market/index.ts";
 import { withholdingForPaycheck } from "../tax/withholding.ts";
 import { defaultAccounts, PlayerLife, type Place } from "./player.ts";
 import type { Profile, ProfileSource } from "../save/client.ts";
+import { BEGINNER_CARD_SLUGS } from "../../data/cards-beginner.ts";
+
+/** A health-insurance tier offered at onboarding; frontend-only for now, stored inert until P3 wires injury/hospital events to it. */
+export interface InsurancePlan {
+  id: string;
+  name: string;
+  monthlyPremium: number;
+  deductible: number;
+}
+
+/** Three static tiers, in the game's dollar scale (rent runs roughly $1,000-2,000/mo). */
+export const INSURANCE_PLANS: InsurancePlan[] = [
+  { id: "bronze", name: "Bronze", monthlyPremium: 180, deductible: 5_000 },
+  { id: "silver", name: "Silver", monthlyPremium: 280, deductible: 2_000 },
+  { id: "gold", name: "Gold", monthlyPremium: 420, deductible: 500 },
+];
+
+/** The tier a skipped or unset intake defaults to. */
+export const DEFAULT_INSURANCE_PLAN_ID = INSURANCE_PLANS[1].id;
 
 export interface IntakeAnswers {
   /** Job title; may be blank. */
@@ -23,6 +42,10 @@ export interface IntakeAnswers {
   savings: number;
   /** Avatar preset chosen at onboarding; no further customization. Defaults to "male". */
   avatar?: "male" | "female";
+  /** Insurance tier chosen at onboarding (frontend-only for now); defaults to the middle tier. */
+  insurancePlanId?: string;
+  /** Beginner credit card chosen at onboarding (frontend-only for now); defaults to the first beginner card. */
+  selectedCardId?: string;
 }
 
 /** Caps that keep a typo or a joke answer from breaking the sim. */
@@ -75,6 +98,8 @@ export function coerceAnswers(raw: unknown): Partial<IntakeAnswers> {
   const r = raw as Record<string, unknown>;
   if (typeof r.job === "string" && r.job.trim()) out.job = r.job.trim().replace(/\s+/g, " ").slice(0, JOB_MAX_LENGTH);
   if (r.avatar === "male" || r.avatar === "female") out.avatar = r.avatar;
+  if (typeof r.insurancePlanId === "string" && INSURANCE_PLANS.some((p) => p.id === r.insurancePlanId)) out.insurancePlanId = r.insurancePlanId;
+  if (typeof r.selectedCardId === "string" && (BEGINNER_CARD_SLUGS as readonly string[]).includes(r.selectedCardId)) out.selectedCardId = r.selectedCardId;
   for (const k of NUMBER_KEYS) {
     const n = parseDollars(r[k]);
     if (n !== undefined) out[k] = Math.min(Math.round(n), INTAKE_LIMITS[k]);
@@ -86,7 +111,16 @@ export function coerceAnswers(raw: unknown): Partial<IntakeAnswers> {
 export function completeAnswers(p: Partial<IntakeAnswers>): IntakeAnswers | null {
   const { salary, rent, debt, savings } = p;
   if (salary === undefined || rent === undefined || debt === undefined || savings === undefined) return null;
-  return { job: p.job ?? "", salary, rent, debt, savings, ...(p.avatar ? { avatar: p.avatar } : {}) };
+  return {
+    job: p.job ?? "",
+    salary,
+    rent,
+    debt,
+    savings,
+    ...(p.avatar ? { avatar: p.avatar } : {}),
+    ...(p.insurancePlanId ? { insurancePlanId: p.insurancePlanId } : {}),
+    ...(p.selectedCardId ? { selectedCardId: p.selectedCardId } : {}),
+  };
 }
 
 /** Monthly take-home for a gross yearly salary in the given state (real federal + state withholding, sim/tax). */
@@ -136,6 +170,8 @@ export function lifeFromIntake(a: IntakeAnswersInput, o: { place: Place; day: nu
     monthlyTakeHome,
     job: a.job,
     avatar: a.avatar,
+    insurancePlanId: a.insurancePlanId,
+    selectedCardId: a.selectedCardId,
     rent: a.rent,
     book,
     accounts,

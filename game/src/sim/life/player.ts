@@ -35,6 +35,7 @@ import { installment } from "../debt/factory.ts";
 import { cashRateOn } from "./rates.ts";
 import { Twins, type TwinsSave } from "./twins.ts";
 import { rngFor } from "../../engine/rng.ts";
+import { BEGINNER_CARD_SLUGS } from "../../data/cards-beginner.ts";
 import { PULSE_TABLE } from "../wellbeing/pulses.ts";
 import { wellbeing } from "../wellbeing/index.ts";
 import type { Pulse } from "../wellbeing/types.ts";
@@ -133,6 +134,10 @@ export interface LifeOptions {
   job?: string;
   /** Avatar preset chosen at onboarding; no further customization. Defaults to "male". */
   avatar?: "male" | "female";
+  /** Insurance tier id chosen at onboarding (frontend-only; sim/life/intake.ts INSURANCE_PLANS). Defaults to the middle tier, "silver". */
+  insurancePlanId?: string;
+  /** Beginner credit card slug chosen at onboarding (frontend-only; src/data/cards-beginner.ts). Defaults to the first beginner card. */
+  selectedCardId?: string;
   /** One-way commute in minutes; defaults to the SOEP-inspired design approximation. */
   commuteMinutes?: number;
   /** Monthly rent the player stated in onboarding; after a move it scales with the new state's housing costs. */
@@ -202,6 +207,10 @@ export interface LifeSave {
   commuteMinutes?: number;
   /** Avatar preset chosen at onboarding; optional so a save from before it existed still loads. */
   avatar?: "male" | "female";
+  /** Insurance tier id chosen at onboarding (frontend-only); optional so a save from before it existed still loads. */
+  insurancePlanId?: string;
+  /** Beginner credit card slug chosen at onboarding (frontend-only); optional so a save from before it existed still loads. */
+  selectedCardId?: string;
   reemployedDay?: number | null;
   pulses?: Pulse[];
   taxYear?: number;
@@ -283,6 +292,10 @@ export class PlayerLife {
   job: string;
   /** Avatar preset chosen at onboarding ("male" or "female"); no further customization. */
   avatar: "male" | "female" = "male";
+  /** Insurance tier chosen at onboarding (sim/life/intake.ts INSURANCE_PLANS); frontend-only for now, stored inert until P3's injury/hospital events read it. */
+  insurancePlanId = "silver";
+  /** Beginner credit card chosen at onboarding (src/data/cards-beginner.ts); frontend-only for now, no card is opened from this pick. */
+  selectedCardId: string = BEGINNER_CARD_SLUGS[0];
   /** The plan from the fast-forward setup screen (sim/skip), in force from the day it was set. */
   orders: StandingOrders | null = null;
   /**
@@ -392,6 +405,8 @@ export class PlayerLife {
       this.grossAnnual = s.grossAnnual;
       this.job = s.job;
       this.avatar = s.avatar ?? "male";
+      this.insurancePlanId = s.insurancePlanId ?? "silver";
+      this.selectedCardId = s.selectedCardId ?? BEGINNER_CARD_SLUGS[0];
       this.employed = s.employed;
       this.rentAnchor = s.rentAnchor;
       this.orders = s.orders;
@@ -442,6 +457,8 @@ export class PlayerLife {
     this.grossAnnual = o.grossAnnual ?? Math.round((this.monthlyTakeHome * 12) / TAKE_HOME_SHARE);
     this.job = o.job ?? "";
     this.avatar = o.avatar ?? "male";
+    this.insurancePlanId = o.insurancePlanId ?? "silver";
+    this.selectedCardId = o.selectedCardId ?? BEGINNER_CARD_SLUGS[0];
     this.commuteMinutes = o.commuteMinutes ?? 23;
     this.rentAnchor = o.rent === undefined ? null : { amount: o.rent, housing: o.place.rpp.housing };
     // The engine's bankruptcy test compares minimums with the book's take-home, so keep them in sync.
@@ -471,6 +488,8 @@ export class PlayerLife {
       grossAnnual: this.grossAnnual,
       job: this.job,
       avatar: this.avatar,
+      insurancePlanId: this.insurancePlanId,
+      selectedCardId: this.selectedCardId,
       orders: this.orders,
       recurring: this.recurring,
       today: this.today,

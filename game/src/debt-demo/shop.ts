@@ -97,7 +97,7 @@ const FALLBACK: Record<string, [string, string]> = {
   DISCOVER: ["#e56b16", "#f39a3d"],
 };
 
-function cardArt(card: CuratedCard, size: "tile" | "hero" | "mini"): string {
+export function cardArt(card: CuratedCard, size: "tile" | "hero" | "mini"): string {
   const inner = card.art
     ? `<img src="${card.art.src}" alt="${esc(card.name)} card" width="${card.art.width}" height="${card.art.height}" decoding="async" draggable="false" />`
     : fallbackFace(card.name, card.issuer, card.network, card.terms.issuerKey);
@@ -105,7 +105,7 @@ function cardArt(card: CuratedCard, size: "tile" | "hero" | "mini"): string {
 }
 
 /** A drawn card face for cards without official art (the player's starting card, survey plans). */
-function fallbackFace(name: string, issuer: string, network: string, issuerKey: string | null): string {
+export function fallbackFace(name: string, issuer: string, network: string, issuerKey: string | null): string {
   const [a, b] = FALLBACK[issuerKey ?? ""] ?? ["#1b2533", "#34465c"];
   return `<div class="cc-drawn" style="--a:${a};--b:${b}">
     <span class="cc-issuer">${esc(issuer)}</span>

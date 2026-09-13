@@ -106,6 +106,107 @@
   font-size: 40px;
   line-height: 1;
 }
+
+/* Insurance-plan picker */
+.in-plan-picker {
+  align-items: stretch;
+}
+.in-plan-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 130px;
+}
+.in-plan-name {
+  font-size: 17px;
+  font-weight: 700;
+}
+.in-plan-detail {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.in-plan-card.sel {
+  box-shadow: 0 0 0 3px var(--yellow, #ffcf33);
+}
+
+/* Beginner credit-card picker: reuses the Card Shop's card-art markup
+   (cardArt/fallbackFace, src/debt-demo/shop.ts), whose own rules are scoped
+   under ".shop" and don't apply here, so the structural bits are repeated
+   under ".in-card-picker" instead. */
+.in-card-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 150px;
+}
+.in-card-tile.sel {
+  box-shadow: 0 0 0 3px var(--yellow, #ffcf33);
+}
+.in-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.in-card-picker .cc {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 30%;
+  width: 130px;
+}
+.in-card-picker .cc-body {
+  position: relative;
+  aspect-ratio: 1.586;
+  overflow: hidden;
+  border-radius: 4.6% / 7.3%;
+  background: #0f2a57;
+  box-shadow:
+    0 0 0 1px rgba(11, 11, 12, 0.35),
+    0 12px 22px -10px rgba(5, 20, 50, 0.5),
+    0 3px 6px rgba(5, 20, 50, 0.2);
+}
+.in-card-picker .cc-body img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+}
+.in-card-picker .cc-drawn {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 8% 7%;
+  container-type: inline-size;
+  background:
+    radial-gradient(120% 90% at 85% 0%, rgba(255, 255, 255, 0.16), transparent 50%),
+    linear-gradient(135deg, var(--a), var(--b));
+  color: #fff;
+  font-family: -apple-system, "Inter", system-ui, sans-serif;
+  font-size: clamp(6px, 7cqw, 16px);
+}
+.in-card-picker .cc-issuer {
+  font-weight: 700;
+}
+.in-card-picker .cc-chip {
+  width: 17%;
+  align-self: center;
+}
+.in-card-picker .cc-name {
+  font-size: 0.85em;
+  font-weight: 600;
+  opacity: 0.9;
+}
+.in-card-picker .cc-net {
+  position: absolute;
+  right: 7%;
+  bottom: 8%;
+  font-weight: 800;
+}
+
 .in-link {
   display: block;
   margin: 14px auto 0;

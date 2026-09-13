@@ -10,7 +10,9 @@
 
 import type { VoiceConversation } from "@elevenlabs/client";
 import { apiFetch } from "../net/api";
-import { coerceAnswers, completeAnswers, takeHomeFor, type IntakeAnswers } from "../sim/life/intake";
+import { coerceAnswers, completeAnswers, DEFAULT_INSURANCE_PLAN_ID, INSURANCE_PLANS, takeHomeFor, type IntakeAnswers } from "../sim/life/intake";
+import { BEGINNER_CARDS } from "../data/cards-beginner";
+import { cardArt } from "../debt-demo/shop.ts";
 import type { ProfileSource } from "../sim/save/client";
 import { Owl, preloadOwl } from "./owl";
 import "./intake.css";
@@ -66,6 +68,10 @@ class Intake {
   private avatar: "male" | "female" = "male";
   /** Which screen the avatar screen leads to once a preset is picked. */
   private nextAfterAvatar: "talk" | "type" = "talk";
+  /** Insurance tier chosen on the insurance screen; defaults to the middle tier if the player never lands on it. */
+  private insurancePlanId: string = DEFAULT_INSURANCE_PLAN_ID;
+  /** Beginner card chosen on the card screen; defaults to the first beginner card if the player never lands on it. */
+  private selectedCardId: string = BEGINNER_CARDS[0].slug;
   private lines: { role: Role; text: string }[] = [];
   /** Set once the narrator starts the goodbye after the answers arrive. */
   private goodbye = false;
@@ -170,6 +176,59 @@ class Intake {
     }, 1000);
   }
 
+  /** Health-insurance tier picker; frontend-only, stored inert on the answers until P3 wires injury/hospital events to it. */
+  private insuranceScreen(): void {
+    this.show(`
+      <div class="in-owl-slot"></div>
+      <div class="in-name">The Narrator</div>
+      <p class="in-lead">One more thing while you're settling in: pick a health plan.</p>
+      <div class="in-actions in-plan-picker">
+        ${INSURANCE_PLANS.map(
+          (p) => `
+          <button type="button" class="btn in-big in-plan-card ${p.id === this.insurancePlanId ? "sel" : ""}" data-act="insurance-${p.id}">
+            <span class="in-plan-name">${p.name}</span>
+            <span class="in-plan-detail">${money(p.monthlyPremium)}/mo</span>
+            <span class="in-plan-detail">${money(p.deductible)} deductible</span>
+          </button>`,
+        ).join("")}
+      </div>
+      <button type="button" class="in-link" data-act="insurance-continue">Continue</button>`);
+    this.mountOwl(OWL_BIG);
+    void this.owl.play("idle");
+    this.focus(`[data-act=insurance-${this.insurancePlanId}]`);
+  }
+
+  private chooseInsurance(id: string): void {
+    this.insurancePlanId = id;
+    this.insuranceScreen();
+  }
+
+  /** Beginner credit-card picker; frontend-only, stored inert on the answers until a later milestone wires up applications. */
+  private cardScreen(): void {
+    this.show(`
+      <div class="in-owl-slot"></div>
+      <div class="in-name">The Narrator</div>
+      <p class="in-lead">And pick a starter credit card, to build your credit history.</p>
+      <div class="in-actions in-card-picker">
+        ${BEGINNER_CARDS.map(
+          (c) => `
+          <button type="button" class="btn in-big in-card-tile ${c.slug === this.selectedCardId ? "sel" : ""}" data-act="card-${c.slug}">
+            ${cardArt(c, "tile")}
+            <span class="in-card-name">${c.name}</span>
+          </button>`,
+        ).join("")}
+      </div>
+      <button type="button" class="in-link" data-act="card-continue">Continue</button>`);
+    this.mountOwl(OWL_BIG);
+    void this.owl.play("idle");
+    this.focus(`[data-act=card-${this.selectedCardId}]`);
+  }
+
+  private chooseCard(slug: string): void {
+    this.selectedCardId = slug;
+    this.cardScreen();
+  }
+
   private show(html: string): void {
     this.body.innerHTML = html;
   }
@@ -191,10 +250,14 @@ class Intake {
     else if (act === "type") this.avatarScreen("type");
     else if (act === "avatar-male") this.chooseAvatar("male");
     else if (act === "avatar-female") this.chooseAvatar("female");
-    else if (act === "plaid-continue") {
+    else if (act === "plaid-continue") this.insuranceScreen();
+    else if (act === "insurance-continue") this.cardScreen();
+    else if (act === "card-continue") {
       if (this.nextAfterAvatar === "talk") void this.talk();
       else this.typeInstead();
-    } else if (act === "hangup") void this.hangUp(this.callSeq);
+    } else if (act?.startsWith("insurance-")) this.chooseInsurance(act.slice("insurance-".length));
+    else if (act?.startsWith("card-")) this.chooseCard(act.slice("card-".length));
+    else if (act === "hangup") void this.hangUp(this.callSeq);
     else if (act === "skip") void this.finish(null);
   }
 
@@ -473,6 +536,10 @@ class Intake {
     }
     this.owl.stop();
     this.el.remove();
-    this.resolve(answers ? { answers: { ...answers, avatar: this.avatar }, source: this.source } : { answers: null, source: "skipped" });
+    this.resolve(
+      answers
+        ? { answers: { ...answers, avatar: this.avatar, insurancePlanId: this.insurancePlanId, selectedCardId: this.selectedCardId }, source: this.source }
+        : { answers: null, source: "skipped" },
+    );
   }
 }

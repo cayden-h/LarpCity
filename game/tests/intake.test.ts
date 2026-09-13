@@ -10,7 +10,9 @@ import {
   CREDIT_SCORE_START,
   DEBT_RANGE,
   debtsFor,
+  DEFAULT_INSURANCE_PLAN_ID,
   HIGH_COST_SALARY_MULTIPLIER,
+  INSURANCE_PLANS,
   INTAKE_LIMITS,
   lifeFromIntake,
   parseDollars,
@@ -21,6 +23,7 @@ import {
 } from "../src/sim/life/intake.ts";
 import { PlayerLife, STARTER_PORTFOLIO, type Place } from "../src/sim/life/index.ts";
 import { MarketPath } from "../src/sim/market/index.ts";
+import { BEGINNER_CARD_SLUGS, BEGINNER_CARDS } from "../src/data/cards-beginner.ts";
 
 const TX: Place = { abbr: "TX", name: "Texas", rpp: { all: 97.4, goods: 97.0, housing: 88.6 } };
 const CA: Place = { abbr: "CA", name: "California", rpp: { all: 110.72, goods: 106.098, housing: 154.346 } };
@@ -203,4 +206,31 @@ test("a freshly-built life defaults to the male avatar preset when the intake st
 test("an explicit female avatar choice round-trips through lifeFromIntake onto the life", () => {
   const life = lifeFromIntake({ ...NURSE, avatar: "female" }, { place: TX, day: 0, market: new MarketPath() });
   assert.equal(life.avatar, "female");
+});
+
+test("exactly 3 curated cards are flagged as beginner cards via the overlay slug list", () => {
+  assert.equal(BEGINNER_CARD_SLUGS.length, 3);
+  assert.equal(BEGINNER_CARDS.length, 3);
+  assert.deepEqual(
+    BEGINNER_CARDS.map((c) => c.slug).sort(),
+    [...BEGINNER_CARD_SLUGS].sort(),
+  );
+});
+
+test("INSURANCE_PLANS has 3 tiers and DEFAULT_INSURANCE_PLAN_ID names the middle one", () => {
+  assert.equal(INSURANCE_PLANS.length, 3);
+  assert.ok(INSURANCE_PLANS.some((p) => p.id === DEFAULT_INSURANCE_PLAN_ID));
+  assert.equal(DEFAULT_INSURANCE_PLAN_ID, INSURANCE_PLANS[1].id);
+});
+
+test("a freshly-built life defaults to the middle insurance tier and the first beginner card when the intake states neither", () => {
+  const life = lifeFor();
+  assert.equal(life.insurancePlanId, DEFAULT_INSURANCE_PLAN_ID);
+  assert.equal(life.selectedCardId, BEGINNER_CARD_SLUGS[0]);
+});
+
+test("an explicit insurancePlanId and selectedCardId round-trip through lifeFromIntake onto the life", () => {
+  const life = lifeFromIntake({ ...NURSE, insurancePlanId: "gold", selectedCardId: BEGINNER_CARD_SLUGS[2] }, { place: TX, day: 0, market: new MarketPath() });
+  assert.equal(life.insurancePlanId, "gold");
+  assert.equal(life.selectedCardId, BEGINNER_CARD_SLUGS[2]);
 });
