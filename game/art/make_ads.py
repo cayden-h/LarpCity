@@ -546,25 +546,51 @@ def bb_anthropic():
     s.finish()
 
 
-def fascia(name, bg, draw):
-    s = Sign(name, 1600, 200, bg)
+# Storefront sign bands are sized so their lettering reads at 1x (docs/superpowers/specs/2026-09-12-blender-houses-
+# design.md, "Look check"): the band is about 9 game px tall, so the lettering fills the whole safe height (6 to 7
+# px of capitals) instead of sharing it with a second line. The front band (fa-) spans a 2-tile facade at 8:1; the
+# side band (fs-) spans a 1-tile facade at 4:1 and carries the brand's mark, which reads where a name would not.
+def fascia(name, bg, draw, aspect=8):
+    s = Sign(name, 200 * aspect, 200, bg)
     draw(s, s.safe)
     s.finish()
 
 
 def fa_capital_one(s, safe):
     x0, y0, x1, y1 = safe
-    capital_one_lockup(s, (x0, y0 + 6, x1, y1 - 6), word="Capital One Café", align="center")
+    lockup(s, safe, lambda s_, b: swoosh(s_, b), 2.0, "Capital One", GEORGIA_BOLD, "white",
+           mark_h=0.5, text_h=1.0, gap=0.25, align="center")
 
 
 def fa_jenis(s, safe):
-    x0, y0, x1, y1 = safe
-    s.text("jeni's", SCRIPT, (x0, y0, x1, y1), "#FA4616", align="center")
+    s.text("jeni's", SCRIPT, safe, "#FA4616", align="center")
 
 
 def fa_wells(s, safe):
-    x0, y0, x1, y1 = safe
-    s.text("WELLS FARGO", GEORGIA_BOLD, (x0, y0 + 26, x1, y1 - 26), "#FFCD41", align="center")
+    s.text("WELLS FARGO", GEORGIA_BOLD, safe, "#FFCD41", align="center")
+
+
+def fs_capital_one(s, safe):
+    swoosh(s, inner(safe, 0.3, 0.12))
+
+
+def fs_jenis(s, safe):
+    s.text("jeni's", SCRIPT, safe, "#FA4616", align="center")
+
+
+def fs_wells(s, safe):
+    wells_stagecoach(s, inner(safe, 0.12, 0.0), "#FFCD41", "#D71E28")
+
+
+# The Ferry Building's name on its frieze: 10 game px tall with capitals about 7 px, across most of the 4-tile
+# front (about 3.7 tiles, so 14.5:1 in Blender units, which signs.panel keeps). Red on the building's cream trim.
+FERRY_SIGN_ASPECT = 14.5
+
+
+def fe_port_of_sf():
+    s = Sign("fe-port-of-sf", round(100 * FERRY_SIGN_ASPECT), 100, "#F3EEE2")
+    s.text("PORT OF SAN FRANCISCO", GEORGIA_BOLD, s.safe, "#C4251C", align="center", spacing=0.0)
+    s.finish()
 
 
 def bl_capital_one():
@@ -736,9 +762,15 @@ def main():
     fascia("fa-capital-one-cafe", "#004879", fa_capital_one)
     fascia("fa-jenis", "#2F2F30", fa_jenis)
     fascia("fa-wells-fargo", "#D71E28", fa_wells)
+    fascia("fs-capital-one-cafe", "#004879", fs_capital_one, aspect=4)
+    fascia("fs-jenis", "#2F2F30", fs_jenis, aspect=4)
+    fascia("fs-wells-fargo", "#D71E28", fs_wells, aspect=4)
     bl_capital_one()
     bl_jenis()
     bl_wells()
+
+    # landmark signs
+    fe_port_of_sf()
 
     # lobby logo walls
     centered("lw-uber", 800, 400, "white",
