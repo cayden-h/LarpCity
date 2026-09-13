@@ -99,8 +99,9 @@
   min-width: 110px;
 }
 .in-avatar-icon {
-  font-size: 40px;
-  line-height: 1;
+  width: 56px;
+  height: 56px;
+  image-rendering: pixelated;
 }
 
 /* Insurance-plan picker */

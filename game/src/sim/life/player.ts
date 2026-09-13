@@ -332,6 +332,8 @@ export interface LifeSave {
   commuteMinutes?: number;
   /** Avatar preset chosen at onboarding; optional so a save from before it existed still loads. */
   avatar?: "male" | "female";
+  /** Which of the 30 pixel-face sprites for `avatar` this life shows; optional so a save from before it existed still loads (re-rolled from the market seed). */
+  avatarFace?: number;
   /** Insurance tier id chosen at onboarding (frontend-only); optional so a save from before it existed still loads. */
   insurancePlanId?: string;
   /** Beginner credit card slug chosen at onboarding (frontend-only); optional so a save from before it existed still loads. */
@@ -426,6 +428,8 @@ export class PlayerLife {
   job: string;
   /** Avatar preset chosen at onboarding ("male" or "female"); no further customization. */
   avatar: "male" | "female" = "male";
+  /** Which of the 30 pixel-face sprites for `avatar` this life shows; picked once from the market seed. */
+  avatarFace = 1;
   /** Insurance tier chosen at onboarding (sim/life/intake.ts INSURANCE_PLANS); frontend-only for now, stored inert until P3's injury/hospital events read it. */
   insurancePlanId = "silver";
   /** Beginner credit card chosen at onboarding (src/data/cards-beginner.ts); frontend-only for now, no card is opened from this pick. */
@@ -564,6 +568,7 @@ export class PlayerLife {
       this.grossAnnual = s.grossAnnual;
       this.job = s.job;
       this.avatar = s.avatar ?? "male";
+      this.avatarFace = s.avatarFace ?? Math.floor(rngFor("avatar-face", this.market.seed)() * 30) + 1;
       this.insurancePlanId = s.insurancePlanId ?? "silver";
       this.selectedCardId = s.selectedCardId ?? BEGINNER_CARD_SLUGS[0];
       // Left as-is (undefined for an old save that predates this field), not
@@ -635,6 +640,7 @@ export class PlayerLife {
     this.grossAnnual = o.grossAnnual ?? Math.round((this.monthlyTakeHome * 12) / TAKE_HOME_SHARE);
     this.job = o.job ?? "";
     this.avatar = o.avatar ?? "male";
+    this.avatarFace = Math.floor(rngFor("avatar-face", this.market.seed)() * 30) + 1;
     this.insurancePlanId = o.insurancePlanId ?? "silver";
     this.selectedCardId = o.selectedCardId ?? BEGINNER_CARD_SLUGS[0];
     // A fresh life always gets a tier set (defaulting to all-medium), so it
@@ -683,6 +689,7 @@ export class PlayerLife {
       grossAnnual: this.grossAnnual,
       job: this.job,
       avatar: this.avatar,
+      avatarFace: this.avatarFace,
       insurancePlanId: this.insurancePlanId,
       selectedCardId: this.selectedCardId,
       expenseTiers: this.expenseTiers,

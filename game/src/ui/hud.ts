@@ -29,7 +29,7 @@ export class Hud {
       <section class="card id-card">
         <div class="label">Player</div>
         <div class="id-card-row">
-          <div class="id-card-avatar" data-player-avatar></div>
+          <img class="id-card-avatar" data-player-avatar alt="" />
           <div class="id-card-info">
             <div class="id-card-name" data-player-name></div>
             <div class="id-card-age" data-player-age></div>
@@ -55,10 +55,10 @@ export class Hud {
   }
 
   /** Fills the ID card; name/avatar are fixed at intake, but age advances daily, so this is called again from `clock.onDay`. */
-  setPlayer(name: string, age: number, avatar: "male" | "female"): void {
+  setPlayer(name: string, age: number, avatar: "male" | "female", avatarFace: number): void {
     this.q("[data-player-name]").textContent = name;
     this.q("[data-player-age]").textContent = `Age ${Math.floor(age)}`;
-    this.q("[data-player-avatar]").textContent = AVATAR_EMOJI[avatar];
+    this.q<HTMLImageElement>("[data-player-avatar]").src = avatarSpriteUrl(avatar, avatarFace);
   }
 
   /** Shows a chip only when saving has stopped; a working save stays quiet. */
@@ -69,8 +69,11 @@ export class Hud {
   }
 }
 
-/** The two characters a new life picks between on the title screen (ui/title.ts); the ID card shows the same one. */
-export const AVATAR_EMOJI: Record<"male" | "female", string> = { male: "🧑", female: "👩" };
+/** Pixel-art face sprites (30 per gender, `public/avatars/{male,female}/face-01..30.png`) picked at onboarding (ui/intake.ts) and shown by index on the ID card. */
+export function avatarSpriteUrl(avatar: "male" | "female", face: number): string {
+  const n = String(((face - 1 + 30) % 30) + 1).padStart(2, "0");
+  return `${import.meta.env.BASE_URL}avatars/${avatar}/face-${n}.png`;
+}
 
 /** What the HUD says for each save status where saving has stopped. */
 const SAVE_CHIPS: Partial<Record<SaveStatus, string>> = {
