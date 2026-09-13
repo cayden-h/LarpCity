@@ -122,12 +122,18 @@
   font-size: 13px;
   opacity: 0.85;
 }
-/* The picked option: a dark ring and a lighter face, since the options are yellow buttons already. */
+/* The options are yellow buttons: the unpicked ones step back to a pale face, so the picked one
+   stays yellow and gets a dark ring. (A pale picked face read as the one not chosen.) */
+.in-plan-card:not(.sel),
+.in-card-tile:not(.sel),
+.in-avatar-card:not(.sel),
+.in-toggle-opt:not(.sel) {
+  background: #fff6c8;
+}
 .in-plan-card.sel,
 .in-card-tile.sel,
 .in-avatar-card.sel,
 .in-toggle-opt.sel {
-  background: #fff6c8;
   box-shadow: 0 0 0 4px var(--edge, #101a23), 0 0 0 7px #fff;
 }
 .in-plan-card.sel::after,
