@@ -4,7 +4,7 @@
 // sets the life's recurring buys (sim/market's LTM and BOND funds, split by the
 // stock/bond mix), so the Money desk and the fast-forward share one setting.
 
-import { K401_LIMIT, K401_TAX_SAVING, MATCH_RATE, MATCH_UP_TO, MIN_TRADE, type PlayerLife, type RecurringBuy } from "../life/player.ts";
+import { K401_LIMIT, K401_TAX_SAVING, MATCH_RATE, MATCH_UP_TO, MIN_TRADE, ROTH_LIMIT, type PlayerLife, type RecurringBuy } from "../life/player.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "./types.ts";
 
 /** Stock share when the player hasn't chosen one (research/10: 90/10). */
@@ -34,6 +34,7 @@ export function currentOrders(life: PlayerLife): StandingOrders {
   const habits: StandingOrders = {
     depositMonthly: 0,
     k401Pct: 0,
+    rothPct: 0,
     stockPct: DEFAULT_STOCK_PCT,
     debtStrategy: life.book.strategy,
     extraMonthly: life.book.extraMonthly,
@@ -118,11 +119,22 @@ export function missedMatch(life: PlayerLife, o: StandingOrders): number {
   return Math.round(Math.max(0, MATCH_UP_TO - o.k401Pct) * MATCH_RATE * life.grossAnnual);
 }
 
-export function clampOrders(o: StandingOrders): StandingOrders {
+/**
+ * Clamps a plan's numbers. `rothPct` is clamped so the yearly Roth
+ * contribution (rothPct * grossAnnual) never exceeds `ROTH_LIMIT`; without a
+ * `grossAnnual` (a caller that has no income handy) it falls back to a plain
+ * [0, 1] share clamp.
+ */
+export function clampOrders(o: StandingOrders, grossAnnual?: number): StandingOrders {
+  // Defensive against a caller (or JSON restored from before rothPct existed) that
+  // leaves it out: treat a missing/non-finite value as 0 rather than propagating NaN.
+  const rothPctIn = Number.isFinite(o.rothPct) ? o.rothPct : 0;
+  const rothPct = grossAnnual !== undefined && grossAnnual > 0 ? clamp(rothPctIn, 0, ROTH_LIMIT / grossAnnual) : clamp(rothPctIn, 0, 1);
   return {
     ...o,
     depositMonthly: Math.max(0, Math.round(o.depositMonthly)),
     k401Pct: clamp(o.k401Pct, 0, 0.75),
+    rothPct,
     stockPct: clamp(o.stockPct, 0, 1),
     extraMonthly: Math.max(0, Math.round(o.extraMonthly)),
     emergencyMonths: clamp(o.emergencyMonths, 0, 12),
@@ -141,7 +153,7 @@ export function recurringFor(o: StandingOrders): RecurringBuy[] {
 
 /** Puts the plan in force from today, for live play and fast-forwards alike. */
 export function applyOrders(life: PlayerLife, o: StandingOrders): void {
-  const orders = clampOrders(o);
+  const orders = clampOrders(o, life.grossAnnual);
   life.orders = orders;
   life.recurring = recurringFor(orders);
   life.book.strategy = orders.debtStrategy;

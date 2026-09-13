@@ -71,12 +71,14 @@ export const K401_TAX_SAVING = 0.22;
 /** The most common employer match: 50 cents per dollar on the first 6% of pay. */
 export const MATCH_RATE = 0.5;
 export const MATCH_UP_TO = 0.06;
+/** 2026 Roth IRA yearly contribution limit (research/03); no employer match applies to Roth. */
+export const ROTH_LIMIT = 7_500;
 
-const ACCOUNT_NAMES = { emergency: "Emergency fund", k401: "401(k)" } as const;
+const ACCOUNT_NAMES = { emergency: "Emergency fund", k401: "401(k)", roth: "Roth IRA" } as const;
 
 export type LifeEvent =
   | DebtEvent
-  | { type: "paycheck"; day: number; takeHome: number; garnished: number; unemployed: boolean; retirement?: number; federalWithheld: number; stateWithheld: number }
+  | { type: "paycheck"; day: number; takeHome: number; garnished: number; unemployed: boolean; retirement?: number; roth?: number; federalWithheld: number; stateWithheld: number }
   | { type: "bill"; day: number; name: string; amount: number; paid: number }
   | { type: "spend"; day: number; category: string; amount: number }
   | { type: "savings_interest"; day: number; amount: number }
@@ -194,6 +196,9 @@ export interface LifeSave {
   lastFirst: { stock: number; bond: number } | null;
   k401Year: number;
   k401Ytd: number;
+  /** Optional so a save from before the Roth IRA existed still loads, restored into the same defaults a fresh life starts with. */
+  rothYear?: number;
+  rothYtd?: number;
   ltmPeak: number;
   inBear: boolean;
   startUnits: [InstrumentId, number][];
@@ -246,6 +251,7 @@ export function defaultAccounts(day: number): Account[] {
     { id: "emergency", kind: "emergency", name: "Emergency fund", balance: 0, apy: 0.04, openedDay: day },
     { id: "brokerage", kind: "brokerage", name: "Brokerage", balance: 0, apy: 0, openedDay: day, holdings: {} },
     { id: "k401", kind: "k401", name: "401(k)", balance: 0, apy: 0, openedDay: day },
+    { id: "roth", kind: "roth_ira", name: "Roth IRA", balance: 0, apy: 0, openedDay: day },
   ];
 }
 
@@ -334,6 +340,8 @@ export class PlayerLife {
   private lastFirst: { stock: number; bond: number } | null = null;
   private k401Year = -1;
   private k401Ytd = 0;
+  private rothYear = -1;
+  private rothYtd = 0;
   private taxYear = 0; // 0 is a sentinel meaning "not initialized yet"; set on first payday
   private wagesYtdAmount = 0;
   private federalWithheldYtd = 0;
@@ -418,6 +426,8 @@ export class PlayerLife {
       this.lastFirst = s.lastFirst;
       this.k401Year = s.k401Year;
       this.k401Ytd = s.k401Ytd;
+      this.rothYear = s.rothYear ?? -1;
+      this.rothYtd = s.rothYtd ?? 0;
       this.ltmPeak = s.ltmPeak;
       this.inBear = s.inBear;
       this.startUnits.push(...s.startUnits);
@@ -507,6 +517,8 @@ export class PlayerLife {
       lastFirst: this.lastFirst,
       k401Year: this.k401Year,
       k401Ytd: this.k401Ytd,
+      rothYear: this.rothYear,
+      rothYtd: this.rothYtd,
       ltmPeak: this.ltmPeak,
       inBear: this.inBear,
       startUnits: this.startUnits,
@@ -803,11 +815,12 @@ export class PlayerLife {
       const pay = round2(grossThisPeriod - withheld.federalIncomeTax - withheld.fica - withheld.stateIncomeTax);
       const garnished = round2(pay * garnishmentRate(this.book));
       const retirement = this.contribute401k(date);
-      const takeHome = round2(pay - retirement.cost - garnished);
+      const roth = this.contributeRoth(date);
+      const takeHome = round2(pay - retirement.cost - roth.cost - garnished);
       const checking = this.ledger.get("checking");
       checking.balance = round2(checking.balance + takeHome);
       events.push({
-        type: "paycheck", day, takeHome, garnished, unemployed: !this.employed, retirement: retirement.added,
+        type: "paycheck", day, takeHome, garnished, unemployed: !this.employed, retirement: retirement.added, roth: roth.added,
         federalWithheld: withheld.federalIncomeTax, stateWithheld: withheld.stateIncomeTax,
       });
     }
@@ -1107,6 +1120,26 @@ export class PlayerLife {
     return { cost: round2(put * (1 - K401_TAX_SAVING)), added: round2(put + match) };
   }
 
+  /**
+   * The paycheck's Roth IRA contribution, within the yearly IRS limit. Roth
+   * money is already-taxed, so it costs exactly what's put in (no tax
+   * saving), and there's no employer match (only the 401(k) gets one).
+   */
+  private contributeRoth(date: Date): { cost: number; added: number } {
+    const pct = this.orders?.rothPct ?? 0;
+    if (!this.employed || pct <= 0) return { cost: 0, added: 0 };
+    if (date.getFullYear() !== this.rothYear) {
+      this.rothYear = date.getFullYear();
+      this.rothYtd = 0;
+    }
+    const want = (pct * this.grossAnnual) / 24;
+    const put = Math.min(want, Math.max(0, ROTH_LIMIT - this.rothYtd));
+    this.rothYtd += put;
+    const roth = this.account("roth");
+    roth.balance = round2(roth.balance + put);
+    return { cost: round2(put), added: round2(put) };
+  }
+
   /** Moves spare checking cash (beyond a month of bills) into the emergency fund, up to the plan's target. */
   private topUpEmergency(): void {
     const checking = this.ledger.get("checking");
@@ -1180,7 +1213,8 @@ export class PlayerLife {
   private account(id: keyof typeof ACCOUNT_NAMES): Account {
     let a = this.ledger.accounts.get(id);
     if (!a) {
-      a = { id, kind: id, name: ACCOUNT_NAMES[id], balance: 0, apy: id === "emergency" ? 0.04 : 0, openedDay: this.startDay };
+      const kind = id === "roth" ? "roth_ira" : id;
+      a = { id, kind, name: ACCOUNT_NAMES[id], balance: 0, apy: id === "emergency" ? 0.04 : 0, openedDay: this.startDay };
       this.ledger.accounts.set(id, a);
     }
     return a;

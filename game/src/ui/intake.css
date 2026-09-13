@@ -401,3 +401,31 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Emergency fund / 401(k) / Roth sliders */
+.in-sliders {
+  display: grid;
+  gap: 16px;
+  max-width: 380px;
+  margin: 0 auto 16px;
+  text-align: left;
+}
+.in-slider-row {
+  display: grid;
+  gap: 4px;
+}
+.in-slider-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.in-slider-value {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.in-slider-row input[type="range"] {
+  width: 100%;
+  height: 18px;
+  margin: 2px 0;
+  accent-color: var(--yellow, #ffcf33);
+  background: transparent;
+}

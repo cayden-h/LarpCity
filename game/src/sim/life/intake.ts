@@ -8,6 +8,7 @@ import type { Debt } from "../debt/types.ts";
 import type { InstrumentId, MarketPath } from "../market/index.ts";
 import { withholdingForPaycheck } from "../tax/withholding.ts";
 import { defaultAccounts, PlayerLife, type Place } from "./player.ts";
+import { applyOrders, currentOrders } from "../skip/orders.ts";
 import type { Profile, ProfileSource } from "../save/client.ts";
 import { BEGINNER_CARD_SLUGS } from "../../data/cards-beginner.ts";
 
@@ -46,6 +47,12 @@ export interface IntakeAnswers {
   insurancePlanId?: string;
   /** Beginner credit card chosen at onboarding (frontend-only for now); defaults to the first beginner card. */
   selectedCardId?: string;
+  /** Emergency fund target chosen at onboarding, in months of rent, living costs, and minimum payments. Unset means no standing orders are set from intake. */
+  emergencyMonths?: number;
+  /** 401(k) contribution chosen at onboarding, as a share of gross pay (0.06 = 6%). */
+  k401Pct?: number;
+  /** Roth IRA contribution chosen at onboarding, as a share of gross pay; clamped so the yearly total never exceeds the IRS Roth limit. */
+  rothPct?: number;
 }
 
 /** Caps that keep a typo or a joke answer from breaking the sim. */
@@ -100,6 +107,9 @@ export function coerceAnswers(raw: unknown): Partial<IntakeAnswers> {
   if (r.avatar === "male" || r.avatar === "female") out.avatar = r.avatar;
   if (typeof r.insurancePlanId === "string" && INSURANCE_PLANS.some((p) => p.id === r.insurancePlanId)) out.insurancePlanId = r.insurancePlanId;
   if (typeof r.selectedCardId === "string" && (BEGINNER_CARD_SLUGS as readonly string[]).includes(r.selectedCardId)) out.selectedCardId = r.selectedCardId;
+  if (typeof r.emergencyMonths === "number" && Number.isFinite(r.emergencyMonths) && r.emergencyMonths >= 0) out.emergencyMonths = r.emergencyMonths;
+  if (typeof r.k401Pct === "number" && Number.isFinite(r.k401Pct) && r.k401Pct >= 0) out.k401Pct = r.k401Pct;
+  if (typeof r.rothPct === "number" && Number.isFinite(r.rothPct) && r.rothPct >= 0) out.rothPct = r.rothPct;
   for (const k of NUMBER_KEYS) {
     const n = parseDollars(r[k]);
     if (n !== undefined) out[k] = Math.min(Math.round(n), INTAKE_LIMITS[k]);
@@ -120,6 +130,9 @@ export function completeAnswers(p: Partial<IntakeAnswers>): IntakeAnswers | null
     ...(p.avatar ? { avatar: p.avatar } : {}),
     ...(p.insurancePlanId ? { insurancePlanId: p.insurancePlanId } : {}),
     ...(p.selectedCardId ? { selectedCardId: p.selectedCardId } : {}),
+    ...(p.emergencyMonths !== undefined ? { emergencyMonths: p.emergencyMonths } : {}),
+    ...(p.k401Pct !== undefined ? { k401Pct: p.k401Pct } : {}),
+    ...(p.rothPct !== undefined ? { rothPct: p.rothPct } : {}),
   };
 }
 
@@ -163,7 +176,7 @@ export function lifeFromIntake(a: IntakeAnswersInput, o: { place: Place; day: nu
   // Savings sit in the high-yield account. Checking fills with the first
   // paycheck, and bills draw on savings when it runs short (Ledger.wallet).
   const accounts = defaultAccounts(o.day).map((acct) => ({ ...acct, balance: acct.id === "savings" ? a.savings : 0 }));
-  return new PlayerLife({
+  const life = new PlayerLife({
     place: o.place,
     day: o.day,
     grossAnnual: salary,
@@ -178,6 +191,17 @@ export function lifeFromIntake(a: IntakeAnswersInput, o: { place: Place; day: nu
     market: o.market,
     holdings: o.holdings,
   });
+  // The emergency-fund, 401(k), and Roth sliders on the intake screen (all optional; a
+  // skipped or voice-only intake leaves the life with no standing orders at all).
+  if (a.emergencyMonths !== undefined || a.k401Pct !== undefined || a.rothPct !== undefined) {
+    applyOrders(life, {
+      ...currentOrders(life),
+      ...(a.emergencyMonths !== undefined ? { emergencyMonths: a.emergencyMonths } : {}),
+      ...(a.k401Pct !== undefined ? { k401Pct: a.k401Pct } : {}),
+      ...(a.rothPct !== undefined ? { rothPct: a.rothPct } : {}),
+    });
+  }
+  return life;
 }
 
 /** The intake as the server's profile (server/src/routes/save.ts); a skip stores no numbers. */

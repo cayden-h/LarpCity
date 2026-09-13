@@ -25,6 +25,8 @@ export interface StandingOrders {
   depositMonthly: number;
   /** 401(k) contribution as a share of gross pay (0.06 = 6%). */
   k401Pct: number;
+  /** Roth IRA contribution as a share of gross pay; clamped so the yearly total never exceeds the IRS Roth limit (no employer match). */
+  rothPct: number;
   /** Share of investments in stocks; the rest is bonds. */
   stockPct: number;
   debtStrategy: Strategy;

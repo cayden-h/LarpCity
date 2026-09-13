@@ -11,6 +11,7 @@
 import type { VoiceConversation } from "@elevenlabs/client";
 import { apiFetch } from "../net/api";
 import { coerceAnswers, completeAnswers, DEFAULT_INSURANCE_PLAN_ID, INSURANCE_PLANS, takeHomeFor, type IntakeAnswers } from "../sim/life/intake";
+import { MATCH_UP_TO, ROTH_LIMIT } from "../sim/life/player";
 import { BEGINNER_CARDS } from "../data/cards-beginner";
 import { cardArt } from "../debt-demo/shop.ts";
 import type { ProfileSource } from "../sim/save/client";
@@ -72,6 +73,14 @@ class Intake {
   private insurancePlanId: string = DEFAULT_INSURANCE_PLAN_ID;
   /** Beginner card chosen on the card screen; defaults to the first beginner card if the player never lands on it. */
   private selectedCardId: string = BEGINNER_CARDS[0].slug;
+  /** Emergency fund target chosen on the sliders screen, in months of expenses; defaults to 6. */
+  private emergencyMonths = 6;
+  /** 401(k) contribution chosen on the sliders screen, as a share of gross pay; defaults to the full employer match. */
+  private k401Pct = MATCH_UP_TO;
+  /** Roth IRA contribution chosen on the sliders screen, in dollars a year (0-ROTH_LIMIT); defaults to 0. */
+  private rothDollars = 0;
+  /** The amounts form's answers, held while the sliders screen runs between it and finish(). */
+  private pendingAnswers: IntakeAnswers | null = null;
   private lines: { role: Role; text: string }[] = [];
   /** Set once the narrator starts the goodbye after the answers arrive. */
   private goodbye = false;
@@ -95,7 +104,10 @@ class Intake {
       </section>`;
     this.body = this.el.querySelector<HTMLDivElement>(".in-body")!;
     this.el.addEventListener("click", (ev) => this.onClick(ev));
-    this.el.addEventListener("input", () => this.onInput());
+    this.el.addEventListener("input", () => {
+      this.onInput();
+      this.onSlidersInput();
+    });
     this.el.addEventListener("submit", (ev) => {
       ev.preventDefault();
       this.onSubmit();
@@ -229,6 +241,66 @@ class Intake {
     this.cardScreen();
   }
 
+  /**
+   * Emergency fund, 401(k), and Roth IRA sliders, shown once the player's
+   * amounts are in hand. The Roth slider is a flat $0-$7,500/year (the IRS
+   * limit); `applyOrders` (via `lifeFromIntake`, sim/life/intake.ts) converts
+   * it to a share of gross pay and clamps it again against the player's own
+   * salary, so a low earner's rothPct can't imply more than the limit.
+   */
+  private slidersScreen(answers: IntakeAnswers): void {
+    this.pendingAnswers = answers;
+    const rothCap = ROTH_LIMIT;
+    this.show(`
+      <div class="in-owl-slot"></div>
+      <div class="in-name">The Narrator</div>
+      <p class="in-lead">A few standing orders before you move in. You can always change these later.</p>
+      <div class="in-sliders">
+        <label class="in-slider-row">
+          <span class="in-slider-label">Emergency fund target</span>
+          <input type="range" name="emergencyMonths" min="0" max="12" step="1" value="${this.emergencyMonths}">
+          <span class="in-slider-value" data-out="emergencyMonths">${this.emergencyMonths} months</span>
+        </label>
+        <label class="in-slider-row">
+          <span class="in-slider-label">401(k) contribution</span>
+          <input type="range" name="k401Pct" min="0" max="75" step="1" value="${Math.round(this.k401Pct * 100)}">
+          <span class="in-slider-value" data-out="k401Pct">${Math.round(this.k401Pct * 100)}% of pay</span>
+        </label>
+        <label class="in-slider-row">
+          <span class="in-slider-label">Roth IRA contribution</span>
+          <input type="range" name="rothDollars" min="0" max="${rothCap}" step="100" value="${this.rothDollars}">
+          <span class="in-slider-value" data-out="rothDollars">${money(this.rothDollars)}/year</span>
+        </label>
+      </div>
+      <div class="in-actions">
+        <button type="button" class="btn in-big" data-act="sliders-continue">Move in 🏠</button>
+      </div>`);
+    this.mountOwl(OWL_BIG);
+    void this.owl.play("idle");
+    this.focus("input[name=emergencyMonths]");
+  }
+
+  /** Reads the sliders screen's three inputs into the instance fields and refreshes their labels. */
+  private onSlidersInput(): void {
+    const sliders = this.body.querySelector(".in-sliders");
+    if (!sliders) return;
+    const emergency = sliders.querySelector<HTMLInputElement>("[name=emergencyMonths]");
+    const k401 = sliders.querySelector<HTMLInputElement>("[name=k401Pct]");
+    const roth = sliders.querySelector<HTMLInputElement>("[name=rothDollars]");
+    if (emergency) {
+      this.emergencyMonths = Number(emergency.value);
+      sliders.querySelector("[data-out=emergencyMonths]")!.textContent = `${this.emergencyMonths} months`;
+    }
+    if (k401) {
+      this.k401Pct = Number(k401.value) / 100;
+      sliders.querySelector("[data-out=k401Pct]")!.textContent = `${Number(k401.value)}% of pay`;
+    }
+    if (roth) {
+      this.rothDollars = Number(roth.value);
+      sliders.querySelector("[data-out=rothDollars]")!.textContent = `${money(this.rothDollars)}/year`;
+    }
+  }
+
   private show(html: string): void {
     this.body.innerHTML = html;
   }
@@ -257,6 +329,7 @@ class Intake {
       else this.typeInstead();
     } else if (act?.startsWith("insurance-")) this.chooseInsurance(act.slice("insurance-".length));
     else if (act?.startsWith("card-")) this.chooseCard(act.slice("card-".length));
+    else if (act === "sliders-continue") void this.finish(this.pendingAnswers);
     else if (act === "hangup") void this.hangUp(this.callSeq);
     else if (act === "skip") void this.finish(null);
   }
@@ -522,7 +595,7 @@ class Intake {
       this.body.querySelector(".in-error")!.textContent = "Fill in salary, rent, debt, and savings. Use 0 for none.";
       return;
     }
-    void this.finish(answers);
+    this.slidersScreen(answers);
   }
 
   private async finish(answers: IntakeAnswers | null): Promise<void> {
@@ -536,9 +609,21 @@ class Intake {
     }
     this.owl.stop();
     this.el.remove();
+    const rothPct = answers && answers.salary > 0 ? this.rothDollars / answers.salary : 0;
     this.resolve(
       answers
-        ? { answers: { ...answers, avatar: this.avatar, insurancePlanId: this.insurancePlanId, selectedCardId: this.selectedCardId }, source: this.source }
+        ? {
+            answers: {
+              ...answers,
+              avatar: this.avatar,
+              insurancePlanId: this.insurancePlanId,
+              selectedCardId: this.selectedCardId,
+              emergencyMonths: this.emergencyMonths,
+              k401Pct: this.k401Pct,
+              rothPct,
+            },
+            source: this.source,
+          }
         : { answers: null, source: "skipped" },
     );
   }

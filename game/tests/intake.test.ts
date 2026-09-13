@@ -21,7 +21,7 @@ import {
   takeHomeFor,
   type IntakeAnswers,
 } from "../src/sim/life/intake.ts";
-import { PlayerLife, STARTER_PORTFOLIO, type Place } from "../src/sim/life/index.ts";
+import { MATCH_UP_TO, PlayerLife, ROTH_LIMIT, STARTER_PORTFOLIO, type Place } from "../src/sim/life/index.ts";
 import { MarketPath } from "../src/sim/market/index.ts";
 import { BEGINNER_CARD_SLUGS, BEGINNER_CARDS } from "../src/data/cards-beginner.ts";
 
@@ -233,4 +233,22 @@ test("an explicit insurancePlanId and selectedCardId round-trip through lifeFrom
   const life = lifeFromIntake({ ...NURSE, insurancePlanId: "gold", selectedCardId: BEGINNER_CARD_SLUGS[2] }, { place: TX, day: 0, market: new MarketPath() });
   assert.equal(life.insurancePlanId, "gold");
   assert.equal(life.selectedCardId, BEGINNER_CARD_SLUGS[2]);
+});
+
+test("a freshly-built life has no standing orders when the intake states no emergencyMonths, k401Pct, or rothPct", () => {
+  assert.equal(lifeFor().orders, null);
+});
+
+test("stated emergencyMonths, k401Pct, and rothPct round-trip through lifeFromIntake into the life's standing orders", () => {
+  const life = lifeFromIntake({ ...NURSE, emergencyMonths: 6, k401Pct: MATCH_UP_TO, rothPct: 0.02 }, { place: TX, day: 0, market: new MarketPath() });
+  assert.ok(life.orders);
+  assert.equal(life.orders?.emergencyMonths, 6);
+  assert.equal(life.orders?.k401Pct, MATCH_UP_TO);
+  assert.equal(life.orders?.rothPct, 0.02);
+});
+
+test("lifeFromIntake clamps a stated rothPct so the yearly Roth contribution never exceeds the IRS limit", () => {
+  const life = lifeFromIntake({ ...NURSE, rothPct: 0.5 }, { place: TX, day: 0, market: new MarketPath() });
+  assert.ok(life.orders);
+  assert.ok((life.orders?.rothPct ?? 0) * life.grossAnnual <= ROTH_LIMIT + 1e-9);
 });
