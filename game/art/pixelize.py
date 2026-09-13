@@ -21,7 +21,10 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from lib import pixel as P  # noqa: E402
 
-DAY_COLORS, NIGHT_COLORS = 32, 16
+DAY_COLORS, NIGHT_COLORS = 40, 16
+# Of the day colors, this many are cut from sign pixels alone (P.build_day_palette), so brand reds, golds, and
+# oranges survive next to the glass towers' many blues.
+SIGN_COLORS = 12
 PUBLIC = HERE.parent / "public" / "sprites"
 OUTPUTS = ("day", "night", "crown", "walls")  # manifest keys that name a file in public/sprites/<city>/
 
@@ -53,11 +56,21 @@ class RawSprite:
 
     @cached_property
     def day1(self) -> np.ndarray:
-        return P.downsample(P.flatten(self.split4[0], self.ids4))
+        return P.downsample(P.flatten(self.split4[0], self.ids4), sign=self.sign4)
+
+    @cached_property
+    def sign4(self) -> np.ndarray:
+        """Where the 4x ids render is a sign, so its strokes survive the downsample."""
+        return P.is_sign(self.ids4)
 
     @cached_property
     def ids1(self) -> np.ndarray:
         return P.downsample(self.ids4)
+
+    @cached_property
+    def sign1(self) -> np.ndarray:
+        """Where the 1x ids are a sign."""
+        return P.is_sign(self.ids1)
 
     @cached_property
     def shadow1(self) -> np.ndarray:
@@ -68,7 +81,7 @@ class RawSprite:
 
     @cached_property
     def night1(self) -> np.ndarray:
-        return P.downsample(self.layer4("night"))
+        return P.downsample(self.layer4("night"), sign=self.sign4)
 
     def shrink(self) -> "RawSprite":
         """Derive every 1x layer, then drop the 4x ones, so a whole-city palette build never holds every raw
@@ -76,6 +89,7 @@ class RawSprite:
         # reading a cached property computes and keeps it
         self.day1
         self.ids1
+        self.sign1
         self.shadow1
         self.night1
         self.release()
@@ -85,6 +99,7 @@ class RawSprite:
         """Drop the 4x layers; the 1x ones stay."""
         self._layers.clear()
         self.__dict__.pop("split4", None)
+        self.__dict__.pop("sign4", None)
 
     def outlined(self, day_pal) -> np.ndarray:
         """The day quantized and outlined; its line mask is kept as lines1."""
@@ -151,7 +166,7 @@ def main(argv, art_dir: Path = HERE, public_dir: Path = PUBLIC):
     if args.new_palette or not ppath.exists():
         print(f"[pixel] building palette from {len(sources)} sprites", flush=True)
         shrunk = [s.shrink() for s in sources.values()]
-        pal = {"day": P.build_palette([s.day1 for s in shrunk], DAY_COLORS),
+        pal = {"day": P.build_day_palette([s.day1 for s in shrunk], [s.sign1 for s in shrunk], DAY_COLORS, SIGN_COLORS),
                "night": P.build_palette([s.night1 for s in shrunk], NIGHT_COLORS, ink=False)}
         ppath.parent.mkdir(parents=True, exist_ok=True)
         ppath.write_text(json.dumps(pal, indent=1))

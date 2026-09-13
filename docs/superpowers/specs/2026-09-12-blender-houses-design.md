@@ -52,9 +52,10 @@ The reference is a sheet of cozy pixel houses: chunky readable shapes, a dark ou
 
 ### Post (`game/art/lib/pixel.py`, run by `art/pixelize.py` after Blender)
 
-0. Split off the cast shadow (day pixels outside the id render) and flatten every id region to at most three tones of its median color, pushed away from grey for warmth; large light patches (reflections) fall back to the base tone, small details keep theirs.
+0. Split off the cast shadow (day pixels outside the id render) and flatten every id region to at most three tones of its median color, pushed away from grey for warmth without shifting its hue; on glass, large light patches (reflections) fall back to the base tone, small details keep theirs.
 1. Downsample 4x to 1x by majority color per 4 x 4 block (never averaging, so no blurred in-between colors); alpha is kept only where most of the block is opaque.
-2. Quantize to the city palette (`art/palettes/<city>.json`, about 32 colors), with no dithering.
+   Inside signs, a block splits into a light and a dark group, and the stroke group (the one farther from the sign's field tone) wins once it covers a quarter of the block with strong contrast, so 1 px lettering survives.
+2. Quantize to the city palette (`art/palettes/<city>.json`, 40 colors, 12 of them cut from sign pixels alone so brand colors survive next to the towers' glass), with no dithering.
 3. Draw the outline: every opaque pixel next to transparency, and every pixel on an object or normal edge from the extra pass, becomes the ink color. Glass edges and emissive signs are exempt, so logos stay readable.
 4. Night pass: the same downsample and quantize, with no outline, so lit windows stay clean single pixels.
 5. Walls pass (houses, Milestone 1): the same downsample and quantize, with outline pixels removed so the outline drawn in the day layer stays on top.

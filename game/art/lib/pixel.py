@@ -2,9 +2,10 @@
 RAW_SCALE x the final size into 1x pixel art. Pure numpy and Pillow, so it runs and tests outside Blender.
 
 A sprite arrives as a day render plus an id render in which every object face direction is one flat
-color (signs share SIGN_ID). flatten() gives each id region at most three tones of its median color,
-downsample() shrinks by majority color (never averaging), quantize() snaps to the city palette, and
-outline() draws the ink silhouette and darker lines where the id changes.
+color (signs share SIGN_ID; glass faces carry GLASS_BLUE in the id's blue channel). flatten() gives each id
+region at most three tones of its median color, downsample() shrinks by majority color (never averaging, with
+a stroke rule inside signs), quantize() snaps to the city palette, and outline() draws the ink silhouette and
+darker lines where the id changes.
 """
 import numpy as np
 from PIL import Image
@@ -18,10 +19,20 @@ EDGE_DARKEN = 0.55             # an inner line is the face's color at this brigh
 # A region's median color has its spread from grey (at the same luminance) multiplied by this: a physically lit
 # render comes out dusty next to the reference's small saturated palette, while greys stay grey.
 SATURATION = 1.8
-# Light-tone pixels that fill a square this many raw pixels wide, inside one region, are sheen (a glass
-# reflection, a glossy highlight) rather than detail, and fall back to the base tone; thinner light marks
-# (mullions, sills, window rows, brick) keep it. Dark patches stay: a cast shadow is shape.
+# Light-tone pixels that fill a square this many raw pixels wide, inside one glass region, are sheen (a sky
+# reflection) rather than detail, and fall back to the base tone; thinner light marks (mullions, window rows)
+# keep it. Only glass: a wide light band elsewhere (a cornice, a trim band, a lit sign) is meant. Dark patches
+# stay: a cast shadow is shape.
 SHEEN_PATCH = 3 * RAW_SCALE
+# The id pass (scene.py) sets B = 64 + 127 * up + 32 * glass, so a glass face's blue is one of these.
+GLASS_BLUE = (64 + 32, 64 + 127 + 32)
+# Inside a sign a 1 px stroke at 1x is RAW_SCALE raw px wide, and often straddles two blocks, so neither block's
+# majority is the stroke and it vanishes. There, a block splits its pixels into a light and a dark group; the
+# group farther from the sign's field tone (the stroke) wins once it covers this share of the block and its
+# luminance differs from the other group's by at least SIGN_CONTRAST (out of 255; lettering on the signs is
+# 70 to 200 apart, paint wear and render noise under 30).
+SIGN_STROKE_SHARE = 0.25
+SIGN_CONTRAST = 48
 # A cast shadow is one flat, unoutlined shape: the ink at a fixed alpha, so it darkens whatever ground
 # it lands on the same way everywhere, instead of the render's soft gradient.
 SHADOW = (*INK, 96)
@@ -56,11 +67,26 @@ def _key(rgb):
 SIGN_KEY = int(_key(np.array(SIGN_ID)))
 
 
+def is_sign(ids: np.ndarray) -> np.ndarray:
+    """Where the ids render is an opaque sign."""
+    return (_key(ids[..., :3]) == SIGN_KEY) & opaque(ids)
+
+
+def is_glass(ids: np.ndarray) -> np.ndarray:
+    """Where the ids render is a glass face (never a sign: SIGN_ID's blue is 255)."""
+    return np.isin(ids[..., 2], GLASS_BLUE)
+
+
 def _saturate(rgb, k: float) -> np.ndarray:
-    """rgb with its distance from the grey of the same luminance scaled by k, clipped to 0..255."""
+    """rgb with its distance from the grey of the same luminance scaled by k, or, where that would leave
+    0..255, by the largest factor that stays inside it, so luminance and hue never shift."""
     rgb = np.asarray(rgb, dtype=np.float32)
     grey = _lum(rgb)[..., None]
-    return np.clip(grey + (rgb - grey) * k, 0, 255)
+    delta = rgb - grey
+    with np.errstate(divide="ignore", invalid="ignore"):
+        room = np.where(delta > 0, (255 - grey) / delta, np.where(delta < 0, -grey / delta, np.inf))
+    push = np.minimum(k, room.min(axis=-1, keepdims=True))
+    return np.clip(grey + delta * push, 0, 255)  # the clip only trims float error
 
 
 def _box_sum(mask: np.ndarray, k: int) -> np.ndarray:
@@ -80,8 +106,8 @@ def _patches(mask: np.ndarray, k: int) -> np.ndarray:
 
 
 def flatten(day: np.ndarray, ids: np.ndarray) -> np.ndarray:
-    """Every id region becomes at most three flat tones of its median color, saturated by SATURATION; light
-    patches at least SHEEN_PATCH wide take the base tone. Sign regions, and any pixel transparent in the day or
+    """Every id region becomes at most three flat tones of its median color, saturated by SATURATION; on glass,
+    light patches at least SHEEN_PATCH wide take the base tone. Sign regions, and any pixel transparent in the day or
     the ids render, are left alone. Safe on an empty (0-size) image."""
     out = day.copy()
     keys = _key(ids[..., :3])
@@ -112,7 +138,7 @@ def flatten(day: np.ndarray, ids: np.ndarray) -> np.ndarray:
     inside[1:] &= keys[1:] == keys[:-1]
     inside[:, :-1] &= keys[:, :-1] == keys[:, 1:]
     inside[:, 1:] &= keys[:, 1:] == keys[:, :-1]
-    light = tone == 2
+    light = (tone == 2) & is_glass(ids)
     tone[light & _patches(light & inside, SHEEN_PATCH)] = 1
     tone = tone.ravel()
     done = tone >= 0
@@ -123,9 +149,10 @@ def flatten(day: np.ndarray, ids: np.ndarray) -> np.ndarray:
     return out
 
 
-def downsample(img: np.ndarray, s: int = RAW_SCALE) -> np.ndarray:
+def downsample(img: np.ndarray, s: int = RAW_SCALE, sign: np.ndarray | None = None) -> np.ndarray:
     """Shrink by s with no blending: a block is opaque when at least half of it is, and takes the color shared
     by the most of its opaque pixels; a tie goes to the lowest packed RGB key, so it stays deterministic.
+    sign (a bool mask at img's size): blocks mostly inside it follow _sign_blocks instead, so strokes survive.
     Fully vectorized: no per-block Python loop."""
     h, w = img.shape[0] // s, img.shape[1] // s
     m = s * s
@@ -147,7 +174,43 @@ def downsample(img: np.ndarray, s: int = RAW_SCALE) -> np.ndarray:
     out[..., 1] = (best >> 8) & 255
     out[..., 2] = best & 255
     out[..., 3] = np.where(keep, 255, 0)
+    if sign is not None:
+        sb = sign[: h * s, : w * s].reshape(h, s, w, s).transpose(0, 2, 1, 3).reshape(h, w, m) & solid
+        sel = keep & (sb.sum(axis=2) * 2 > solid.sum(axis=2))
+        if sel.any():
+            field = _lum(np.median(img[sign & opaque(img)][:, :3].astype(np.float32), axis=0))
+            out[sel, :3] = _sign_blocks(blocks[sel], solid[sel], float(field))
     return out
+
+
+def _nearest_member(rgb, member) -> np.ndarray:
+    """Per block (rgb (N, m, 3), member (N, m)), the member pixel nearest the members' per-channel median: a
+    color the render really has, never a blend."""
+    med = np.nanmedian(np.where(member[..., None], rgb, np.nan), axis=1)
+    d = np.where(member, ((rgb - med[:, None]) ** 2).sum(-1), np.inf)
+    return np.take_along_axis(rgb, d.argmin(axis=1)[:, None, None], axis=1)[:, 0]
+
+
+def _sign_blocks(px: np.ndarray, valid: np.ndarray, field: float) -> np.ndarray:
+    """The color of each sign block (px (N, m, 4), valid (N, m)): its pixels split at the middle of the block's
+    luminance range into a light and a dark group. The group farther in luminance from the sign's field tone is
+    the stroke; it wins when it covers SIGN_STROKE_SHARE of the block and stands SIGN_CONTRAST apart from the
+    other group, and otherwise the larger group wins. Each group is shown by its _nearest_member."""
+    rgb = px[..., :3].astype(np.float32)
+    lum = _lum(rgb)
+    lo = np.where(valid, lum, np.inf).min(axis=1, keepdims=True)
+    hi = np.where(valid, lum, -np.inf).max(axis=1, keepdims=True)
+    light = valid & (lum > (lo + hi) / 2)
+    dark = valid & ~light
+    # a flat block puts every pixel in one group; the empty group then stands for the same color
+    light_c = _nearest_member(rgb, np.where(light.any(axis=1)[:, None], light, dark))
+    dark_c = _nearest_member(rgb, np.where(dark.any(axis=1)[:, None], dark, light))
+    ll, dl = _lum(light_c), _lum(dark_c)
+    stroke_light = np.abs(ll - field) >= np.abs(dl - field)
+    stroke_n = np.where(stroke_light, light.sum(axis=1), dark.sum(axis=1))
+    stroke_wins = (stroke_n >= SIGN_STROKE_SHARE * px.shape[1]) & (np.abs(ll - dl) >= SIGN_CONTRAST)
+    light_wins = np.where(stroke_wins, stroke_light, light.sum(axis=1) > dark.sum(axis=1))
+    return np.rint(np.where(light_wins[:, None], light_c, dark_c)).astype(np.uint8)
 
 
 def split_shadow(day: np.ndarray, ids: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -203,6 +266,21 @@ def build_palette(images, n: int, ink: bool = True) -> list:
     if ink:
         seen.append(INK)
     return seen[:n]
+
+
+def build_day_palette(images, signs, n: int, n_sign: int) -> list:
+    """The day palette: n_sign of its n colors are cut from the sign pixels alone (signs: one bool mask per
+    image), the rest from everything else, with INK last. Brand colors cover little area next to walls and
+    glass, so a shared median cut spends every color on the buildings and remaps a sign's red to brown. Sign
+    slots the signs do not need (fewer distinct colors than n_sign) go back to the buildings. With no sign
+    pixels at all it is build_palette(images, n)."""
+    if not any(m.any() for m in signs):
+        return build_palette(images, n)
+    rest = [np.where(m[..., None], 0, im) for im, m in zip(images, signs)]
+    only = [np.where(m[..., None], im, 0) for im, m in zip(images, signs)]
+    sign = build_palette(only, n_sign, ink=False)
+    base = build_palette(rest, n - len(sign))
+    return base[:-1] + [c for c in sign if c not in base] + [INK]
 
 
 def _nearest(rgb, palette) -> np.ndarray:

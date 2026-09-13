@@ -161,11 +161,12 @@ def render(path) -> None:
 SIGN_ID = (1.0, 0.0, 1.0, 1.0)  # lib/pixel.py SIGN_ID (255, 0, 255); no object id can equal it, since its G is never 0
 
 
-def _id_material(name: str, index: int, sign: bool, alpha_image: str | None = None):
+def _id_material(name: str, index: int, sign: bool, alpha_image: str | None = None, glass: bool = False):
     """Flat emission for the id pass, in exact bytes under the Raw view transform. Signs get SIGN_ID (where an
-    alpha image is painted, if alpha_image; clear elsewhere). Anything else encodes the object's index and the
-    face direction: R = index % 256, G = 1 + index // 256, plus 128 if the face points right (+X) rather than
-    left (-Y), B = 191 if the face points up, else 64."""
+    alpha image is painted, if alpha_image; clear elsewhere). Anything else encodes the object's index, the
+    face direction, and glass: R = index % 256, G = 1 + index // 256, plus 128 if the face points right (+X)
+    rather than left (-Y), B = 64 + 127 if the face points up + 32 if the object is glass (64, 96, 191, or 223;
+    lib/pixel.py GLASS_BLUE). G is never 0, so no object id equals SIGN_ID."""
     m = bpy.data.materials.new(f"id-{name}")
     m.use_nodes = True
     nt = m.node_tree
@@ -212,7 +213,7 @@ def _id_material(name: str, index: int, sign: bool, alpha_image: str | None = No
     color = nt.nodes.new("ShaderNodeCombineColor")
     color.inputs[0].default_value = (index % 256) / 255
     nt.links.new(node("ADD", node("MULTIPLY", right, 128 / 255), (1 + index // 256) / 255), color.inputs[1])
-    nt.links.new(node("ADD", node("MULTIPLY", up, 127 / 255), 64 / 255), color.inputs[2])
+    nt.links.new(node("ADD", node("MULTIPLY", up, 127 / 255), (64 + 32 * glass) / 255), color.inputs[2])
     nt.links.new(color.outputs[0], em.inputs["Color"])
     return m
 
@@ -220,7 +221,8 @@ def _id_material(name: str, index: int, sign: bool, alpha_image: str | None = No
 def set_ids() -> None:
     """Id pass, always the last render of a sprite (it replaces every material): each object's faces glow one
     flat color per face direction, with no lights, sky, shadow catcher, noise, or anti-aliasing.
-    "Sign" is decided per object: any sign material slot (and any text) marks the whole object."""
+    "Sign" is decided per object: any sign material slot (and any text) marks the whole object; so is "glass"
+    (a glass material slot, materials.windows or clear_glass), which scopes the pixel pass's sheen rule."""
     set_night(True)
     sc = bpy.context.scene
     sc.view_settings.view_transform = "Raw"  # emission v / 255 renders to exactly byte v
@@ -235,7 +237,7 @@ def set_ids() -> None:
         mats = [s.material for s in o.material_slots if s.material]
         sign = o.type == "FONT" or any(m.get("sign") for m in mats)
         alpha = next((m["sign_alpha"] for m in mats if m.get("sign_alpha")), None)
-        mat = _id_material(o.name, i, sign, alpha)
+        mat = _id_material(o.name, i, sign, alpha, glass=any(m.get("glass") for m in mats))
         o.data.materials.clear()
         o.data.materials.append(mat)
     print(f"[art] id pass: {len(objs)} objects", flush=True)

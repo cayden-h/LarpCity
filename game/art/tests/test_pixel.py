@@ -1,4 +1,5 @@
 """Pixel pass tests. Run from game/:  python3 -m unittest discover -s art/tests -v"""
+import colorsys
 import sys
 import unittest
 from pathlib import Path
@@ -13,6 +14,14 @@ def img(h, w, rgba=(0, 0, 0, 0)):
     a = np.zeros((h, w, 4), np.uint8)
     a[:] = rgba
     return a
+
+
+GLASS = (5, 5, 96, 255)  # an id of a glass face pointing sideways (scene.py: B = 64 + 32 for glass)
+
+
+def hue(rgb):
+    r, g, b = (float(v) / 255 for v in rgb)
+    return colorsys.rgb_to_hsv(r, g, b)[0] * 360
 
 
 class Downsample(unittest.TestCase):
@@ -56,6 +65,69 @@ class Downsample(unittest.TestCase):
         self.assertEqual(tuple(out[0, 0, :3]), (0, 0, 10))
 
 
+class SignStrokes(unittest.TestCase):
+    """A thin stroke on a sign, split across two 4 x 4 blocks, must survive the majority downsample."""
+    BG, STROKE = (200, 40, 30), (250, 240, 220)
+
+    def sign(self, stroke_cols, stroke=None, jitter=True, width=12):
+        a = img(4, width, (*self.BG, 255))
+        a[:, stroke_cols, :3] = stroke or self.STROKE
+        if jitter:  # a rendered sign is continuous tone: no two pixels share an exact color
+            rng = np.random.default_rng(3)
+            a[..., :3] = np.clip(a[..., :3].astype(int) + rng.integers(-3, 4, a[..., :3].shape), 0, 255)
+        return a
+
+    def near(self, px, rgb, tol=6):
+        return int(np.abs(px[:3].astype(int) - np.array(rgb)).max()) <= tol
+
+    def test_a_quarter_block_stroke_wins_inside_a_sign(self):
+        a = self.sign(slice(3, 6))  # 1 column in block 0 (a quarter), 2 in block 1 (half)
+        out = P.downsample(a, sign=np.ones(a.shape[:2], bool))
+        self.assertTrue(self.near(out[0, 0], self.STROKE))
+        self.assertTrue(self.near(out[0, 1], self.STROKE))
+        self.assertTrue(self.near(out[0, 2], self.BG))
+
+    def test_the_winner_is_a_rendered_color_not_a_blend(self):
+        a = self.sign(slice(3, 6))
+        out = P.downsample(a, sign=np.ones(a.shape[:2], bool))
+        colors = {tuple(c) for c in a[..., :3].reshape(-1, 3).tolist()}
+        for x in range(3):
+            self.assertIn(tuple(out[0, x, :3].tolist()), colors)
+
+    def test_less_than_a_quarter_loses(self):
+        a = self.sign([3], jitter=False, width=8)
+        a[0, 3, :3] = self.BG  # 3 of 16 pixels
+        out = P.downsample(a, sign=np.ones(a.shape[:2], bool))
+        self.assertTrue(self.near(out[0, 0], self.BG))
+
+    def test_a_low_contrast_minority_loses(self):
+        close = (215, 55, 45)
+        a = self.sign(slice(3, 6), stroke=close)
+        out = P.downsample(a, sign=np.ones(a.shape[:2], bool))
+        self.assertTrue(self.near(out[0, 0], self.BG))
+
+    def test_outside_a_sign_the_majority_rule_holds(self):
+        a = self.sign(slice(3, 6), jitter=False)
+        out = P.downsample(a)
+        self.assertEqual(tuple(out[0, 0, :3]), self.BG)
+
+    def test_dark_strokes_on_a_light_sign_survive_too(self):
+        a = img(4, 12, (240, 230, 210, 255))
+        a[:, 3:6, :3] = (180, 30, 25)
+        out = P.downsample(a, sign=np.ones(a.shape[:2], bool))
+        self.assertEqual(tuple(out[0, 0, :3]), (180, 30, 25))
+        self.assertEqual(tuple(out[0, 1, :3]), (180, 30, 25))
+
+    def test_a_half_and_half_block_goes_to_the_stroke_not_the_field(self):
+        # the field is the sign's most common tone overall; in an even split the other tone is the stroke
+        for field, stroke in (((200, 40, 30), (250, 240, 220)), ((240, 230, 210), (180, 30, 25))):
+            a = img(4, 12, (*field, 255))
+            a[:, 2:4, :3] = stroke
+            a[:, 4:6, :3] = stroke
+            out = P.downsample(a, sign=np.ones(a.shape[:2], bool))
+            self.assertEqual(tuple(out[0, 0, :3]), stroke)
+
+
 class Flatten(unittest.TestCase):
     def test_region_gets_at_most_three_tones(self):
         rng = np.random.default_rng(1)
@@ -92,9 +164,21 @@ class Flatten(unittest.TestCase):
     def test_saturating_never_leaves_the_rgb_range(self):
         day = img(2, 2, (250, 20, 10, 255))
         ids = img(2, 2, (5, 5, 5, 255))
-        out = P.flatten(day, ids)[0, 0, :3]
-        self.assertEqual(out[0], 255)
-        self.assertEqual(out[2], 0)
+        out = P.flatten(day, ids)[0, 0, :3].astype(int)
+        self.assertEqual(out[0], 255)  # pushed as far as the range allows, and no further
+        self.assertGreater(out[2], 0)
+
+    def test_saturating_keeps_the_hue_when_the_push_would_clip(self):
+        for rgb in ((240, 60, 30), (250, 20, 10), (30, 200, 240)):
+            out = P._saturate(np.array(rgb, np.float32), P.SATURATION)
+            self.assertTrue(((out >= 0) & (out <= 255)).all())
+            self.assertAlmostEqual(hue(out), hue(rgb), delta=0.5)
+            self.assertAlmostEqual(float(P._lum(out)), float(P._lum(rgb)), delta=0.5)
+
+    def test_saturating_is_the_full_push_when_nothing_clips(self):
+        out = P._saturate(np.array((120, 100, 80), np.float32), 1.5)
+        grey = float(P._lum((120, 100, 80)))
+        np.testing.assert_allclose(out, grey + (np.array((120, 100, 80)) - grey) * 1.5, atol=1e-3)
 
     def sheen(self, side):
         """A 4-patch-wide grey region with a light square of the given side in one corner and a light line
@@ -103,7 +187,7 @@ class Flatten(unittest.TestCase):
         day = img(n, n, (100, 100, 100, 255))
         day[:side, :side] = (150, 150, 150, 255)
         day[-2:, :] = (150, 150, 150, 255)
-        return P.flatten(day, img(n, n, (5, 5, 5, 255)))
+        return P.flatten(day, img(n, n, GLASS))
 
     def test_a_large_light_patch_falls_back_to_the_base_tone(self):
         out = self.sheen(P.SHEEN_PATCH)
@@ -122,18 +206,32 @@ class Flatten(unittest.TestCase):
         h = P.SHEEN_PATCH // 2 + 1
         day = img(n, n, (100, 100, 100, 255))
         day[:P.SHEEN_PATCH, n // 2 - h: n // 2 + h] = (150, 150, 150, 255)
-        ids = img(n, n, (5, 5, 5, 255))
-        ids[:, n // 2:] = (6, 6, 6, 255)
+        ids = img(n, n, GLASS)
+        ids[:, n // 2:] = (6, 6, GLASS[2], 255)
         out = P.flatten(day, ids)
         self.assertEqual(tuple(out[0, n // 2 - 1, :3]), (118, 118, 118))
         self.assertEqual(tuple(out[0, n // 2, :3]), (118, 118, 118))
+
+    def test_a_large_light_patch_off_glass_stays_light(self):
+        # a wide lit cornice or trim band is shape, not a reflection
+        n = 4 * P.SHEEN_PATCH
+        day = img(n, n, (100, 100, 100, 255))
+        day[:P.SHEEN_PATCH, :P.SHEEN_PATCH] = (150, 150, 150, 255)
+        out = P.flatten(day, img(n, n, (5, 5, 64, 255)))
+        self.assertEqual(tuple(out[0, 0, :3]), (118, 118, 118))
+
+    def test_glass_is_read_from_the_id_blue_channel(self):
+        blues = np.array([[64, 96, 191, 223, 255]], np.uint8)
+        ids = img(1, 5, (5, 5, 0, 255))
+        ids[..., 2] = blues
+        self.assertEqual(P.is_glass(ids).tolist(), [[False, True, False, True, False]])
 
     def test_a_dark_patch_keeps_the_shade_tone(self):
         # a large dark patch is a cast shadow, which is shape, not sheen
         n = 4 * P.SHEEN_PATCH
         day = img(n, n, (100, 100, 100, 255))
         day[:P.SHEEN_PATCH, :P.SHEEN_PATCH] = (50, 50, 50, 255)
-        out = P.flatten(day, img(n, n, (5, 5, 5, 255)))
+        out = P.flatten(day, img(n, n, GLASS))
         self.assertEqual(tuple(out[0, 0, :3]), (72, 72, 72))
 
     def test_sign_region_keeps_its_detail(self):
@@ -231,6 +329,32 @@ class Palette(unittest.TestCase):
         a = img(4, 4, (0, 0, 0, 255))
         with self.assertRaises(ValueError):
             P.build_palette([a], 1)
+
+    def test_day_palette_reserves_colors_for_signs(self):
+        # a large building in many blues and a small red sign: a shared median cut spends every color on the
+        # blues, the day palette keeps the sign's red
+        rng = np.random.default_rng(4)
+        a = img(64, 64, (0, 0, 0, 255))
+        a[..., 0] = rng.integers(10, 40, (64, 64))
+        a[..., 1] = rng.integers(40, 90, (64, 64))
+        a[..., 2] = rng.integers(90, 200, (64, 64))
+        sign = np.zeros((64, 64), bool)
+        sign[:2, :2] = True
+        a[sign, :3] = (215, 30, 40)
+        shared = P.build_palette([a], 8)
+        self.assertNotIn((215, 30, 40), shared)
+        pal = P.build_day_palette([a], [sign], 8, 3)
+        self.assertEqual(len(pal), 8)
+        self.assertIn((215, 30, 40), pal)
+        self.assertEqual(pal[-1], P.INK)
+        self.assertEqual(pal.count(P.INK), 1)
+
+    def test_day_palette_without_signs_is_the_shared_palette(self):
+        a = img(4, 4, (0, 0, 0, 255))
+        a[:2] = (10, 20, 30, 255)
+        a[2:] = (200, 210, 220, 255)
+        none = np.zeros((4, 4), bool)
+        self.assertEqual(P.build_day_palette([a], [none], 8, 3), P.build_palette([a], 8))
 
     def test_n_must_be_at_least_one_without_ink(self):
         a = img(4, 4, (0, 0, 0, 255))
