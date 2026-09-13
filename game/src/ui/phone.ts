@@ -142,8 +142,8 @@ export interface PhoneDeps {
   firstDay?: () => number;
   /** Where the player is and the city's weather, for the Map and Weather apps. */
   getWorld: () => WorldSnapshot;
-  /** The Money desk changed something the save must keep (a payment, a trade, its feed). */
-  changed: (desk: DeskState) => void;
+  /** The Money desk changed something the save must keep (a payment, a trade, its feed); quiet only updates the copy. */
+  changed: (desk: DeskState, o?: { quiet?: boolean }) => void;
   /** What the Money desk last reported, so it comes back when the desk opens. */
   deskState: () => DeskState | null;
   /** The Mail inbox (sim/mail). */
@@ -174,8 +174,9 @@ export interface MoneyHost {
   recorder: () => RunRecorder | null;
   /** Calls `fn` with the day the city went back to, after each rewind. */
   onRewind: (fn: (day: number) => void) => void;
-  /** The desk calls this after anything the player does, with its feed and statement, so the city saves. */
-  changed: (desk: DeskState) => void;
+  /** The desk calls this after anything the player does, with its feed and statement, so the city saves.
+   *  quiet: only keep the city's copy current (a day's paychecks and bills); the city's next save carries it. */
+  changed: (desk: DeskState, o?: { quiet?: boolean }) => void;
   /** The desk's feed and statement from the save, to restore on load. */
   deskState: () => DeskState | null;
   /** The desk's "Start over": closes the desk and opens the Calendar's year view with "Start a new life" armed. */
@@ -223,7 +224,7 @@ export class Phone {
       onShow: (fn) => this.showListeners.push(fn),
       recorder: () => this.deps.recorder ?? null,
       onRewind: (fn) => this.rewindListeners.push(fn),
-      changed: (desk) => this.deps.changed(desk),
+      changed: (desk, o) => this.deps.changed(desk, o),
       deskState: () => this.deps.deskState(),
       newLife: () => {
         this.closeDesk();

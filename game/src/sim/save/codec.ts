@@ -110,9 +110,12 @@ export interface RestoredGame {
  * so the boot flow gets a complete game or a clean refusal before it touches
  * live state.
  */
-export function restoreGame(save: GameSave, o: { market: MarketPath; place: Place; start: Date }): RestoredGame {
+export function restoreGame(
+  save: GameSave,
+  o: { market: MarketPath; place: Place; start: Date; cashRate?: (date: Date) => number },
+): RestoredGame {
   try {
-    const life = PlayerLife.fromSave(save.life, { market: o.market });
+    const life = PlayerLife.fromSave(save.life, { market: o.market, cashRate: o.cashRate });
     // A cheap sanity pass over what the game reads first: balances, prices, and today's snapshot.
     if (!Number.isFinite(life.netWorth())) throw new Error("net worth is not a number");
     life.snapshot(life.today);

@@ -336,9 +336,9 @@ const phone = new Phone({
   rewindTo,
   firstDay: () => timeline.firstDay,
   getWorld: () => ({ state, city: scene?.city ?? cityFor(state), status: scene?.status() ?? null }),
-  changed: (d) => {
+  changed: (d, o) => {
     desk = d;
-    saver.request();
+    if (!o?.quiet) saver.request();
   },
   deskState: () => desk,
   mail,

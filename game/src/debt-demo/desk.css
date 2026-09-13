@@ -1093,3 +1093,83 @@ button:disabled {
   font-size: 12px;
   font-weight: 600;
 }
+
+/* Standalone /debt.html with nothing to open (main.ts, Start): no saved life yet, or a save only the city can sort out. */
+.d-nolife {
+  max-width: 420px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.d-nolife .logo {
+  margin-bottom: 20px;
+}
+.d-nolife .logo i {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 22px;
+}
+.d-nolife h1 {
+  margin: 0 0 10px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.d-nolife p {
+  margin: 0 0 24px;
+  color: var(--sub);
+  line-height: 1.5;
+}
+.d-nolife .cta {
+  text-decoration: none;
+}
+
+/* A blocking notice (ui/notice.ts) in the desk's look: another tab took over, or Start over asks first. */
+.notice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(11 11 12 / 0.4);
+}
+.notice-card {
+  max-width: 420px;
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--bg);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.18);
+}
+.notice-card h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+}
+.notice-card p {
+  margin: 0 0 20px;
+  color: var(--sub);
+  line-height: 1.5;
+}
+.notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.notice-actions .btn {
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: 999px;
+}
+.notice-actions .btn.ghost {
+  background: var(--soft);
+  color: var(--ink);
+}

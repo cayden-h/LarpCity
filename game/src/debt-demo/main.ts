@@ -18,6 +18,12 @@ import { PlayerLife, STARTER_PORTFOLIO, seriesOn, type LifeEvent, type LifeSnaps
 import { INSTRUMENTS, MarketPath, instrument, type InstrumentId } from "../sim/market/index.ts";
 import { fetchRecoveryLesson } from "../net/recap.ts";
 import { RunRecorder } from "../sim/record/index.ts";
+import { bootPath, fetchMe, resumePlace } from "../sim/save/boot.ts";
+import { saveApi } from "../sim/save/client.ts";
+import { encodeGame, parseSave, restoreGame, SaveFormatError, type RestoredGame } from "../sim/save/codec.ts";
+import { SaveManager } from "../sim/save/manager.ts";
+import type { DeskBankTxn, DeskFeedItem, DeskState, DeskTone, GameSave } from "../sim/save/types.ts";
+import { showNotice } from "../ui/notice.ts";
 import {
   compareStrategies,
   effectiveApr,
@@ -35,22 +41,11 @@ import {
 
 type Tab = "home" | "cash" | "investing" | "debt" | "credit" | "cards";
 type Range = "1W" | "1M" | "3M" | "1Y" | "ALL";
-type Tone = "up" | "down" | "flat";
-interface FeedItem {
-  day: number;
-  text: string;
-  amount?: number;
-  tone: Tone;
-}
+// The feed and statement ride in the saved game, so their shapes live in sim/save/types.ts.
+type Tone = DeskTone;
+type FeedItem = DeskFeedItem;
 /** One line on the Cash tab's bank statement: money into or out of cash, or a move between cash accounts. */
-interface BankTxn {
-  day: number;
-  name: string;
-  category: string;
-  icon: string;
-  amount: number;
-  kind: "in" | "out" | "move";
-}
+type BankTxn = DeskBankTxn;
 interface Decision {
   title: string;
   body: string;
@@ -112,18 +107,70 @@ const host: MoneyHost | undefined = (() => {
   }
 })();
 const clock = host?.clock ?? new Clock();
-const market = host?.life().market ?? new MarketPath();
 let rateShock = 0;
-let life = host ? host.life() : makeLife();
-if (host) life.onEvents(onLifeEvents);
-// Standalone, the desk records its own run in Tiger Data; inside the city, the city's recorder already records this life.
-const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api`;
-let recorder = host ? null : startRecorder();
+const cashRate = (d: Date) => seriesOn("DFF", d) / 100 + rateShock;
 
-function startRecorder(): RunRecorder {
-  const r = new RunRecorder({ life, seed: market.seed, base: API_BASE });
+// Standalone, the desk opens the player's saved city life, decided the way the city boots
+// (sim/save/boot.ts). With the server down it runs the sample household as an unsaved demo; with
+// the server up and no life to open, it sends the player to the city, where lives begin.
+const saves = saveApi();
+const booted = host ? null : await fetchMe(() => saves.me(), { tries: 3, delayMs: 800 });
+const me = booted?.ok ? booted.me : null;
+let saved: GameSave | null = null;
+let restored: RestoredGame | null = null;
+/** Why there's nothing to open: no life yet, or a save this version can't read (the city deals with it). */
+let noLife: "none" | "unreadable" | null = null;
+if (booted && bootPath(booted, { intake: false }) === "resume" && me?.save) {
+  try {
+    saved = parseSave(me.save.state);
+    const place = resumePlace(saved.life.place?.abbr, "", STATES, () => undefined);
+    if (!place) throw new SaveFormatError(`the saved state ${saved.life.place?.abbr} doesn't exist`);
+    restored = restoreGame(saved, { market: new MarketPath(saved.seed, clock.start), place: place.home, start: clock.start, cashRate });
+    restored.life.place = place.home;
+    clock.jumpTo(saved.day);
+  } catch (err) {
+    if (!(err instanceof SaveFormatError)) throw err;
+    console.warn("[save] can't open the saved game here:", err.message);
+    saved = restored = null;
+    noLife = "unreadable";
+  }
+} else if (booted?.ok) {
+  noLife = "none";
+}
+const market = host?.life().market ?? restored?.life.market ?? new MarketPath();
+let life = host ? host.life() : (restored?.life ?? makeLife());
+if (host || restored) life.onEvents(onLifeEvents);
+// Standalone, the desk records into the saved run (or, as the demo, its own); inside the city, the city's recorder already records this life.
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api`;
+let recorder = host || noLife ? null : startRecorder(restored ? me?.save?.runId : undefined);
+
+function startRecorder(runId?: string): RunRecorder {
+  const r = new RunRecorder({ life, seed: market.seed, base: API_BASE, runId });
   void r.begin();
   return r;
+}
+
+// Standalone with a saved life, the desk saves it too: the life, the day, and the desk's memory.
+// The NPCs and mail ride along as they were loaded (the city catches the NPCs up on its next load).
+// Inside the city, the city saves.
+const standaloneSaver = saved && restored && me?.save ? makeSaver(saved, restored, me.save.rev) : null;
+
+function makeSaver(g: GameSave, r: RestoredGame, baseRev: number): SaveManager {
+  return new SaveManager({
+    api: saves,
+    build: () => encodeGame({ seed: g.seed, day: clock.day, hash: g.hash, bankRun: g.bankRun, life, town: r.town, mail: r.mail, desk: deskState() }),
+    runId: () => recorder?.runId ?? null,
+    baseRev,
+    onStatus: (s) => {
+      if (s !== "conflict") return;
+      clock.speed = 0;
+      void showNotice({
+        title: "Playing somewhere else",
+        body: "This life is open in another tab, so this one stopped saving. Reload to carry on from there.",
+        actions: ["Reload"],
+      }).then(() => location.reload());
+    },
+  });
 }
 
 /** The recorder that owns this life's run: the desk's own, or the city's inside the city. */
@@ -146,6 +193,16 @@ let recovery: { day: number; you: number; held: number; autopilot: number } | nu
 /** Gemini's lesson for the last recovery, when the server has one. */
 let recap: { headline: string; lesson: string } | null = null;
 const bank: BankTxn[] = [];
+// What the desk remembered last time: from the city (inside it) or the save (standalone). Copied,
+// so the desk never edits the city's saved copy in place.
+const remembered = host ? host.deskState() : (saved?.desk ?? null);
+if (remembered) {
+  feed.push(...remembered.feed.map((f) => ({ ...f })));
+  bank.push(...remembered.bank.map((t) => ({ ...t })));
+  crash = remembered.crash && { ...remembered.crash };
+  recovery = remembered.recovery && { ...remembered.recovery };
+  recap = remembered.recap && { ...remembered.recap };
+}
 let xferOpen = false;
 const xfer = { from: "checking", to: "savings", amount: 100 };
 let xferMsg: { text: string; bad: boolean } | null = null;
@@ -162,7 +219,7 @@ const PAGE_SUB: Record<Tab, string> = {
 const EXTRA_PRESETS = [0, 100, 300, 500, 1_000];
 
 function makeLife(): PlayerLife {
-  const l = new PlayerLife({ place: HOME, day: clock.day, market, cashRate: (d) => seriesOn("DFF", d) / 100 + rateShock, holdings: STARTER_PORTFOLIO });
+  const l = new PlayerLife({ place: HOME, day: clock.day, market, cashRate, holdings: STARTER_PORTFOLIO });
   l.onEvents(onLifeEvents);
   return l;
 }
@@ -203,6 +260,16 @@ function bankLog(t: BankTxn) {
   if (Math.abs(t.amount) < 0.005) return;
   bank.unshift(t);
   if (bank.length > 300) bank.length = 300;
+}
+
+function deskState(): DeskState {
+  return { feed: feed.slice(), bank: bank.slice(), crash, recovery, recap };
+}
+
+/** After anything the player does: the city (or the standalone saver) saves the life and this desk's memory. */
+function saveDesk() {
+  if (host) host.changed(deskState());
+  else standaloneSaver?.request();
 }
 
 const debtIcon = (d?: Debt) => (d?.kind === "credit_card" ? "💳" : d?.kind === "student_federal" ? "🎓" : d?.kind === "auto" ? "🚗" : "🧾");
@@ -287,6 +354,8 @@ function onLifeEvents(events: LifeEvent[]) {
         break;
     }
   }
+  // Inside the city, keep its copy of the feed current; the city's next save (each game month) carries it.
+  if (host && events.length) host.changed(deskState(), { quiet: true });
   scheduleRender();
 }
 
@@ -486,6 +555,7 @@ async function askRecap(day: number) {
   // A newer recovery (or a reset) may have replaced this one while the request was out.
   if (got && recovery?.day === day && runRecorder() === r) {
     recap = { headline: got.headline, lesson: got.tip };
+    saveDesk();
     scheduleRender();
   }
 }
@@ -1256,7 +1326,16 @@ app.addEventListener("focusout", (ev) => {
 });
 
 const shopEl = q("[data-shop]");
-const shop = mountShop({ root: shopEl, life: () => life, clock, log: (day, _tag, text, tone) => log(day, text, tone === "info" ? "flat" : tone), onChange: () => render() });
+const shop = mountShop({
+  root: shopEl,
+  life: () => life,
+  clock,
+  log: (day, _tag, text, tone) => log(day, text, tone === "info" ? "flat" : tone),
+  onChange: () => {
+    render();
+    saveDesk();
+  },
+});
 
 function setTone(t: Tone) {
   document.documentElement.dataset.tone = t === "down" ? "down" : "up";
@@ -1315,13 +1394,14 @@ function renderTop() {
   const panel = q("[data-menu-panel]");
   q("[data-menu]").setAttribute("aria-expanded", String(menuOpen));
   panel.hidden = !menuOpen;
-  // In the city, moving, the rate shock, and resetting would split the desk from the city, so
-  // only the standalone desk offers them.
+  // Moving and the rate shock would split the desk from the city's world (its map, its rates), so
+  // only the standalone desk offers them. Start over is everywhere: in the city it goes through the
+  // Calendar's "Start a new life", standalone it asks first.
   if (menuOpen)
     panel.innerHTML = `<button data-act="layoff">${life.employed ? "Get laid off" : "Find a new job"}<span>${life.employed ? "Employed" : "Unemployed"}</span></button>
       ${host ? "" : `<label>Live in <select data-move data-focus="move">${MOVES.map((s) => `<option value="${s.abbr}" ${s.abbr === life.place.abbr ? "selected" : ""}>${s.name}</option>`).join("")}</select></label>
-      <button data-act="shock">${rateShock ? "Undo the rate shock" : "Rate shock: Fed +1 point"}</button>
-      <hr><button data-act="reset">Reset the run</button>`}`;
+      <button data-act="shock">${rateShock ? "Undo the rate shock" : "Rate shock: Fed +1 point"}</button>`}
+      <hr><button data-act="reset">Start over</button>`;
 }
 
 function renderSheet() {
@@ -1402,6 +1482,7 @@ app.addEventListener("click", (ev) => {
   if (ds.option !== undefined && decision) {
     decision.options[Number(ds.option)].act();
     closeDecision();
+    saveDesk();
     return;
   }
   if (decision) return;
@@ -1410,7 +1491,11 @@ app.addEventListener("click", (ev) => {
   if (ds.tab) go(ds.tab as Tab);
   if (ds.go) go(ds.go as Tab);
   if (ds.speed !== undefined) clock.speed = Number(ds.speed);
-  if (ds.skip) return skip(Number(ds.skip));
+  if (ds.skip) {
+    skip(Number(ds.skip));
+    saveDesk();
+    return;
+  }
   if (ds.range) range = ds.range as Range;
   if (ds.fund) openFund(ds.fund as InstrumentId);
   if (ds.extraSet !== undefined) life.book.extraMonthly = Number(ds.extraSet);
@@ -1457,6 +1542,17 @@ app.addEventListener("click", (ev) => {
       log(clock.day, rateShock ? "Rate shock: the Fed raises rates a full point" : "Rates are back on the FRED path", rateShock ? "down" : "up");
       break;
     case "reset":
+      menuOpen = false;
+      if (host) {
+        // Inside the city, the Calendar asks for confirmation, then erases the life.
+        host.newLife();
+        return;
+      }
+      if (standaloneSaver) {
+        void startOver(standaloneSaver);
+        break;
+      }
+      // The offline demo: a fresh sample household.
       feed.length = 0;
       bank.length = 0;
       xferMsg = null;
@@ -1464,12 +1560,33 @@ app.addEventListener("click", (ev) => {
       life = makeLife();
       recorder = startRecorder();
       crash = recovery = recap = null;
-      menuOpen = false;
       shopShown = false;
       break;
   }
   render();
+  saveDesk();
 });
+
+/** Standalone with a saved life: asks, then erases it and sends the player to the city for a new one. */
+async function startOver(saver: SaveManager) {
+  const speed = clock.speed;
+  clock.speed = 0;
+  render();
+  const choice = await showNotice({
+    title: "Start a new life?",
+    body: "This erases your saved life for good: your money, your city, and your calendar. Larp City then starts you over with the Narrator.",
+    actions: ["Keep this life", "Erase and start over"],
+  });
+  if (choice === 0) {
+    clock.speed = speed;
+    render();
+    return;
+  }
+  // The erased life must not be saved again on the way out.
+  saver.stop();
+  await saves.deleteSave().catch(() => undefined);
+  location.href = import.meta.env.BASE_URL;
+}
 
 app.addEventListener("input", (ev) => {
   const el = ev.target as HTMLInputElement;
@@ -1521,6 +1638,7 @@ app.addEventListener("change", (ev) => {
     log(clock.day, el.checked ? `Auto-investing ${usd(amount, 0)} of ${id} every payday` : `Stopped auto-investing in ${id}`, "flat");
     render();
   }
+  if (el.dataset.extraIn !== undefined || el.dataset.move !== undefined || el.dataset.recur !== undefined) saveDesk();
 });
 
 document.addEventListener("pointerdown", () => {
@@ -1583,11 +1701,24 @@ function openFromHash(): boolean {
   return true;
 }
 window.addEventListener("hashchange", () => {
-  if (openFromHash()) render();
+  if (!noLife && openFromHash()) render();
 });
-openFromHash();
 
-if (host) {
+if (noLife) {
+  // Nothing to open here: lives start (and unreadable saves get sorted out) in the city.
+  const [title, body] =
+    noLife === "none"
+      ? ["No life here yet", "Your money lives in Larp City. Move in with the Narrator first, then come back to see it here."]
+      : ["This life opens in the city", "Your saved life was made by a different version of Larp City. Open the city to sort it out."];
+  document.documentElement.dataset.tone = "up";
+  app.innerHTML = `<main class="d-nolife">
+      <span class="logo" aria-hidden="true"><i>L</i></span>
+      <h1>${title}</h1>
+      <p>${body}</p>
+      <a class="cta" href="${esc(import.meta.env.BASE_URL)}">Go to Larp City</a>
+    </main>`;
+} else if (host) {
+  openFromHash();
   // The city's ticker drives the clock and the city calls life.onDay; every day's events
   // reach onLifeEvents, which re-renders. Decision moments come through the phone.
   host.onShow(showParkedDecisions);
@@ -1602,13 +1733,25 @@ if (host) {
     if (recovery && recovery.day >= day) recovery = recap = null;
     decision = null;
     onLifeEvents(life.log.filter((e) => e.day === day));
+    // The city trims its own copy the same way and saves once the rewound run is ready.
+    host.changed(deskState(), { quiet: true });
   });
   showParkedDecisions();
 } else {
+  openFromHash();
+  // Standalone there is no Calendar, so no rewind: the desk only moves forward.
   clock.onDay((day) => {
     life.onDay(day, clock.date);
     void recorder?.tick();
+    // Save each new game month, so long idle play is kept too.
+    if (clock.date.getDate() === 1) standaloneSaver?.request();
   });
+  if (standaloneSaver) {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") void standaloneSaver.flush();
+    });
+    window.addEventListener("pagehide", () => standaloneSaver.flushOnUnload());
+  }
   clock.speed = 1;
   let last = performance.now();
   const frame = (now: number) => {
