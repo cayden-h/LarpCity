@@ -10,12 +10,13 @@ import { generalLimiter, strictLimiter } from "./middleware/rateLimit.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { healthRouter } from "./routes/health.js";
 import { personaRouter, personaWebhookRouter } from "./routes/persona.js";
-import { nessieRouter } from "./routes/nessie.js";
+import { backgroundBankRouter, nessieRouter } from "./routes/nessie.js";
 import { voiceRouter, voiceWebhookRouter } from "./routes/voice.js";
 import { aiRouter } from "./routes/ai.js";
 import { coachRouter } from "./routes/coach.js";
 import { snapshotRouter } from "./routes/snapshot.js";
 import { saveRouter } from "./routes/save.js";
+import { newsRouter } from "./routes/news.js";
 import { sessionMiddleware } from "./session.js";
 
 export function createApp(): Express {
@@ -39,11 +40,13 @@ export function createApp(): Express {
 
   app.use("/api/persona", strictLimiter, personaRouter);
   app.use("/api/bank", nessieRouter);
+  app.use("/api/bank-bg", backgroundBankRouter);
   app.use("/api/voice", strictLimiter, voiceRouter);
   app.use("/api", aiRouter);
   app.use("/api/coach", coachRouter);
   app.use("/api", snapshotRouter);
   app.use("/api", saveRouter);
+  app.use("/api/news", newsRouter);
 
   app.use(errorHandler);
   return app;

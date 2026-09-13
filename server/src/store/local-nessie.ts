@@ -23,7 +23,7 @@ export interface LocalTx extends MoneyTx {
 export interface LocalNessieLike {
   listCustomers(): Promise<LocalCustomer[]>;
   getCustomer(id: string): Promise<LocalCustomer | null>;
-  insertCustomer(c: Omit<Customer, "_id">): Promise<LocalCustomer>;
+  insertCustomer(c: Omit<Customer, "_id">, opts?: { localOnly?: boolean }): Promise<LocalCustomer>;
   markCustomerSynced(id: string, nessieId: string): Promise<void>;
 
   listAccounts(customerId: string): Promise<LocalAccount[]>;
@@ -62,10 +62,10 @@ export class LocalNessie implements LocalNessieLike {
     return rows[0] ?? null;
   }
 
-  async insertCustomer(c: Omit<Customer, "_id">): Promise<LocalCustomer> {
+  async insertCustomer(c: Omit<Customer, "_id">, opts: { localOnly?: boolean } = {}): Promise<LocalCustomer> {
     const { rows } = await this.db.query<LocalCustomer>(
-      `INSERT INTO nessie_customers (id, first_name, last_name, address) VALUES ($1, $2, $3, $4) RETURNING ${CUSTOMER_COLS}`,
-      [localId(), c.first_name, c.last_name, JSON.stringify(c.address)],
+      `INSERT INTO nessie_customers (id, first_name, last_name, address, local_only) VALUES ($1, $2, $3, $4, $5) RETURNING ${CUSTOMER_COLS}`,
+      [localId(), c.first_name, c.last_name, JSON.stringify(c.address), opts.localOnly ?? false],
     );
     return rows[0];
   }
@@ -136,7 +136,9 @@ export class LocalNessie implements LocalNessieLike {
   }
 
   async listUnsyncedCustomers(): Promise<LocalCustomer[]> {
-    const { rows } = await this.db.query<LocalCustomer>(`SELECT ${CUSTOMER_COLS} FROM nessie_customers WHERE nessie_id IS NULL ORDER BY created_at`);
+    const { rows } = await this.db.query<LocalCustomer>(
+      `SELECT ${CUSTOMER_COLS} FROM nessie_customers WHERE nessie_id IS NULL AND NOT local_only ORDER BY created_at`,
+    );
     return rows;
   }
 

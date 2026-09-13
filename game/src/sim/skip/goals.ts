@@ -88,6 +88,10 @@ export function isMet(goal: Goal, v: GoalView): boolean {
       const h = houseMath(v, goal.downPct);
       return h.affordable && h.available >= h.cashNeeded;
     }
+    case "marriage":
+      return v.relationship === "partnered";
+    case "status":
+      return v.grossAnnual >= goal.annualIncome;
   }
 }
 
@@ -102,6 +106,8 @@ export function viewOf(life: PlayerLife): GoalView {
     monthlyExpenses: life.monthlyExpenses(),
     monthlyGross: life.grossAnnual / 12,
     homePrice: homePrice(life.place),
+    relationship: life.relationship,
+    grossAnnual: life.grossAnnual,
   };
   for (const a of life.ledger.accounts.values()) {
     if (a.kind === "checking" || a.kind === "savings") v.cash += a.balance;
@@ -109,6 +115,8 @@ export function viewOf(life: PlayerLife): GoalView {
     else if (a.kind === "brokerage") v.brokerage += a.balance;
     else v.retirement += a.balance;
   }
+  // Brokerage account cash and invested positions are separate in PlayerLife.
+  for (const position of life.positions()) v.brokerage += position.value;
   return v;
 }
 
@@ -149,5 +157,14 @@ export function priceTag(goal: Goal, v: GoalView, placeName: string): PriceTag {
         progress: Math.min(1, h.available / h.cashNeeded),
       };
     }
+    case "marriage":
+      return v.relationship === "partnered"
+        ? { text: "You're married.", progress: 1 }
+        : { text: "This isn't something money buys — it happens by chance over time, like it does in real life.", progress: null };
+    case "status":
+      return {
+        text: `You're earning ${dollars(v.grossAnnual)} a year before taxes. Reach ${dollars(goal.annualIncome)}. This plan assumes your current pay; a career change or raise is needed to increase it.`,
+        progress: goal.annualIncome > 0 ? Math.max(0, Math.min(1, v.grossAnnual / goal.annualIncome)) : 1,
+      };
   }
 }

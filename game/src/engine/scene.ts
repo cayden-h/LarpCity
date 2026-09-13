@@ -11,7 +11,7 @@ import { CityGrid } from "./grid";
 import { Ground } from "./ground";
 import { HeroHome } from "./hero";
 import { depthOf, footprintRect, HALF_H, HALF_W, iso } from "./iso";
-import { People, type Mood, type NpcInfo } from "./people";
+import { People, type Mood, type NpcInfo, type ResidentSeed } from "./people";
 import { plant, populate, zoneAt, type Placed, type Plant } from "./populate";
 import { rngFor } from "./rng";
 import { placeShelters } from "./sprite-pick";
@@ -86,7 +86,15 @@ export class CityScene {
   private readonly clock: Clock;
   private readonly seed: number;
 
-  constructor(app: Application, city: CityDef, clock: Clock, factories: Record<string, LandmarkFactory>, sprites: SpriteSet | null = null, seed = 7) {
+  constructor(
+    app: Application,
+    city: CityDef,
+    clock: Clock,
+    factories: Record<string, LandmarkFactory>,
+    sprites: SpriteSet | null = null,
+    seed = 7,
+    residents: ResidentSeed[] = [],
+  ) {
     this.app = app;
     this.clock = clock;
     this.seed = seed;
@@ -106,7 +114,7 @@ export class CityScene {
     this.world.addChild(this.ground.waterLayer, this.ground.landLayer, this.objects);
     this.root.addChild(this.world, this.weatherFx.view);
     this.traffic = new Traffic(this.grid, this.objects, this.ground.waterLayer, this.city.vehicles, this.city.boats, seed);
-    this.people = new People(this.grid, this.objects, seed);
+    this.people = new People(this.grid, this.objects, seed, residents);
 
     this.season = clock.season;
     this.snow = this.city.snowInWinter && this.season === "winter" ? 0.6 : 0;

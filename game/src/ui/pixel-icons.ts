@@ -55,6 +55,12 @@ const art: Record<string, string> = {
     <path fill="#fff7dd" d="M4 9h3v7H4zM9 9h3v7H9zM14 9h3v7h-3z"/>
     <path fill="#d8ead6" d="M5 10h1v5H5zM10 10h1v5h-1zM15 10h1v5h-1z"/>
     <path fill="#fff7dd" d="M4 6l6-3 6 3z"/>`,
+  taxes: `
+    <path fill="#101a23" d="M3 1h10l4 4v14H3z"/>
+    <path fill="#fff7dd" d="M5 3h7v4h4v10H5z"/>
+    <path fill="#cfe9e4" d="M10 3l4 4h-4z"/>
+    <path fill="#4d7082" d="M7 9h6v1H7zM7 11h6v1H7zM7 13h4v1H7z"/>
+    <path fill="#e54c50" d="M7 15h5v2H7z"/>`,
 };
 
 export function pixelIcon(name: string, className = ""): string {
