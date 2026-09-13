@@ -1,0 +1,189 @@
+/* The end-of-run screen (ui/endgame.ts), in Eric's pixel theme (pixel-theme.css). */
+
+.endgame-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow: hidden auto;
+  background: rgba(8, 16, 34, 0.6);
+  backdrop-filter: blur(4px);
+  font-family: "Pixelify Sans", monospace;
+  animation: endgame-fade 240ms ease-out;
+}
+.endgame-window {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(440px, 100%);
+  max-height: calc(100dvh - 40px);
+  border: 3px solid var(--edge, #101a23);
+  background: var(--paper, #fff7dd);
+  box-shadow: 0 6px 0 var(--edge, #101a23), 0 30px 80px rgba(10, 30, 70, 0.45);
+  animation: endgame-rise 320ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.endgame-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  height: 42px;
+  padding: 0 8px 0 16px;
+  background: var(--yellow, #ffdb39);
+  border-bottom: 3px solid var(--edge, #101a23);
+  color: var(--ink, #092c49);
+  font-weight: 700;
+  font-size: 16px;
+}
+.endgame-title { margin-right: auto; }
+.endgame-close {
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--edge, #101a23);
+  background: #fff;
+  color: var(--ink, #092c49);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.endgame-close:hover { filter: brightness(1.05); }
+.endgame-body {
+  overflow-y: auto;
+  padding: 18px 18px 20px;
+  color: var(--ink, #092c49);
+  text-align: center;
+}
+.endgame-kicker {
+  margin: 0;
+  color: #4f6876;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.endgame-headline {
+  margin: 4px 0 2px;
+  font-size: 34px;
+  line-height: 1.05;
+}
+.endgame-headline.pass { color: #138a3a; text-shadow: 3px 3px 0 #bfe8c9; }
+.endgame-headline.fail { color: #b1452c; text-shadow: 3px 3px 0 #f4d3c7; }
+.endgame-sub {
+  margin: 0 0 14px;
+  font-size: 17px;
+}
+.endgame-final {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 auto 14px;
+  padding: 8px 12px;
+  border: 3px solid var(--edge, #101a23);
+  background: linear-gradient(#fff1a8, var(--yellow, #ffdb39));
+  box-shadow: inset 3px 3px #fff8d0, inset -3px -3px var(--yellow-2, #edae17);
+}
+.endgame-final span { font-size: 15px; }
+.endgame-final b { font-size: 34px; line-height: 1; }
+.endgame-final small { font-size: 14px; color: #6b5a12; }
+.endgame-scores {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+.endgame-stat {
+  padding: 6px 8px;
+  border: 2px solid #c4d3c9;
+  background: #fffdf2;
+  text-align: left;
+}
+.endgame-stat dt { margin: 0; color: #4f6876; font-size: 12px; }
+.endgame-stat dd { margin: 0; font-size: 18px; font-weight: 700; }
+.endgame-goals {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+.endgame-goals li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 14px;
+}
+.endgame-goals li::before {
+  content: "·";
+  flex: none;
+  width: 16px;
+  color: #8aa0ab;
+  font-weight: 700;
+  text-align: center;
+}
+.endgame-goals li.met::before { content: "✓"; color: #138a3a; }
+.endgame-goals li:not(.met) { color: #6b7f8a; }
+.endgame-actions {
+  display: grid;
+  gap: 8px;
+}
+.endgame-btn {
+  min-height: 40px;
+  border: 3px solid var(--edge, #101a23);
+  background: #fff;
+  color: var(--ink, #092c49);
+  font: inherit;
+  font-size: 16px;
+  box-shadow: inset -3px -3px #cfd8dc, 0 3px #11283a;
+  cursor: pointer;
+}
+.endgame-btn.primary {
+  background: linear-gradient(#7fe0a0, #26a857);
+  color: #07301a;
+  box-shadow: inset 3px 3px #d4f7df, inset -3px -3px #13733a, 0 3px #11283a;
+}
+.endgame-btn.armed {
+  background: #ffe1d6;
+  color: #7a2410;
+}
+.endgame-btn:hover { filter: brightness(1.05); }
+.endgame-btn:active { transform: translateY(2px); box-shadow: none; }
+.endgame-btn:focus-visible { outline: 3px solid var(--blue-2, #158ced); outline-offset: 2px; }
+.endgame-note {
+  margin: 10px 0 0;
+  color: #b1452c;
+  font-size: 13px;
+}
+
+/* Pixel confetti for a pass: square flakes falling behind the window. */
+.endgame-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.endgame-confetti i {
+  position: absolute;
+  top: -16px;
+  width: 10px;
+  height: 10px;
+  animation: endgame-fall linear infinite;
+}
+
+@keyframes endgame-fade { from { opacity: 0; } }
+@keyframes endgame-rise { from { opacity: 0; transform: translateY(24px) scale(0.96); } }
+@keyframes endgame-fall {
+  to { transform: translate(var(--drift, 0), 110vh) rotate(var(--spin, 360deg)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .endgame-overlay, .endgame-window { animation: none; }
+  .endgame-confetti { display: none; }
+}
+
+@media (max-width: 420px) {
+  .endgame-headline { font-size: 28px; }
+  .endgame-final b { font-size: 28px; }
+}

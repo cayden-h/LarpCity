@@ -62,7 +62,29 @@ export const DEMOS: readonly DemoLife[] = [
   },
   {
     id: "almost-retired",
-    title: "Almost retired",
-    pitch: "Forty years of steady saving later, a few months from retiring, with the whole life to look back on.",
+    title: "Ready to retire",
+    pitch: "62, after forty years of steady saving. Open Goals and press Retire to see the final score, then look back on the whole life.",
   },
 ];
+
+const demoKey = (slot: SlotId) => `larp.slot.${slot}.demo`;
+
+/** Notes which demo life `slot` is playing in this browser ("" for a life of its own), so the end screen can play it again. */
+export function rememberDemo(slot: SlotId, id: string | null, storage = browserStorage()): void {
+  try {
+    storage?.setItem(demoKey(slot), id ?? "");
+  } catch {
+    // Not remembered; the end screen just doesn't offer to play the demo again.
+  }
+}
+
+/** The demo life `slot` is playing in this browser, if it is one. */
+export function demoFor(slot: SlotId, storage = browserStorage()): DemoLife | null {
+  let id: string | null = null;
+  try {
+    id = storage?.getItem(demoKey(slot)) ?? null;
+  } catch {
+    // Site data blocked: not a known demo.
+  }
+  return DEMOS.find((d) => d.id === id) ?? null;
+}

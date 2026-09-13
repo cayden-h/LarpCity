@@ -29,7 +29,7 @@ import { saveApi } from "./sim/save/client";
 import { encodeGame, parseSave, restoreGame, SaveFormatError, type RestoredGame } from "./sim/save/codec";
 import { trimDesk } from "./sim/save/desk";
 import { SaveManager } from "./sim/save/manager";
-import { activeSlot, DEMOS, rememberSlot } from "./sim/save/slot";
+import { activeSlot, demoFor, DEMOS, rememberDemo, rememberSlot } from "./sim/save/slot";
 import { openSlots } from "./ui/slots";
 import type { DeskState, GameSave } from "./sim/save/types";
 import { Hud } from "./ui/hud";
@@ -166,9 +166,12 @@ const narrator = new Narrator();
 if (saved && restored) {
   clock.jumpTo(saved.day);
   player = restored.life;
+  // The end screen offers to play a demo life again, for the next judge.
+  if (demoState && demo) rememberDemo(slot, demo);
   // The saved state itself (same abbr, so the rent doesn't change), not the city picked inside it.
   player.place = resumed!.home;
 } else {
+  rememberDemo(slot, null);
   const profile = path === "fromProfile" ? (me?.profile ?? null) : null;
   // A new life: the title screen and Sammy's Learn walkthrough (always over San Francisco), then the
   // one choice, who's moving in. The profile it leaves stores no numbers: every new life is the default start.
@@ -214,9 +217,8 @@ const recorder = new RunRecorder({ life: player, seed, base: api, runId: saved ?
 // A checkpoint every game day, so the Calendar can go back to any past day (sim/rewind). A resumed
 // game's first checkpoint is the day it was loaded on, so the Calendar goes back no further than that.
 const timeline = new LifeTimeline(player, { start: clock.start });
-// Going back opens only in the end-of-game review (sim/rewind/gate.ts).
-// P2's endgame (ui/endgame.ts) has no Retire button mounted yet; whatever mounts it should call review.unlock()
-// when the player retires. Until then, larp.review() in the console opens it.
+// Going back opens only in the end-of-game review (sim/rewind/gate.ts): the Goals app's Retire opens it
+// (phone.onRetired), and larp.review() in the console does too.
 const review = new ReviewGate();
 
 // The phone's Mail inbox (sim/mail) and what the Money desk last reported; both ride in the save.
@@ -449,6 +451,22 @@ const phone = new Phone({
   rewindTo,
   canGoBack: () => review.unlocked,
   openSlots: () => void openSlots({ current: slot, start: clock.start }),
+  onRetired: () => review.unlock(),
+  // A demo life loads fresh from public/demo/ into this slot again, the same for every judge.
+  replayDemo: () => {
+    const d = demoFor(slot);
+    if (!d) return null;
+    return {
+      title: d.title,
+      play: () => {
+        const url = new URL(location.href);
+        url.search = "";
+        url.searchParams.set("slot", String(slot));
+        url.searchParams.set("demo", d.id);
+        location.href = url.toString();
+      },
+    };
+  },
   firstDay: () => timeline.firstDay,
   getWorld: () => ({ state, city: scene?.city ?? cityFor(state), status: scene?.status() ?? null }),
   changed: (d, o) => {
