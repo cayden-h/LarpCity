@@ -56,7 +56,7 @@ function legacyLots(grid: CityGrid, city: CityDef, seed: number, manifest: Sprit
   const rng = rngFor(seed, city.id, "populate");
   const used = new Set<string>();
   const taken = new Set<string>();
-  const plans: LotPlan[] = [];
+  const plans: LotPlan[] = manifest ? brandLots(grid, city, seed, manifest, taken, used) : [];
   for (let y = 0; y < grid.h; y++) for (let x = 0; x < grid.w; x++) {
     if (grid.at(x, y) !== "b" || taken.has(`${x},${y}`)) continue;
     const zone = zoneAt(city, x, y);
@@ -139,6 +139,84 @@ export function planLots(grid: CityGrid, city: CityDef, seed: number, manifest: 
     out.push({ x, y, w, d, spec, entry, tint: original.tint });
   }
   return out;
+}
+
+/** Floors from which a branded building counts as a tower: it stands at the back, where its top-floor band shows. */
+const BRAND_TOWER_FLOORS = 8;
+
+/**
+ * Every branded building first, the hardest to fit first (biggest footprint,
+ * then tallest, then catalog order), each on the best free lot of its footprint
+ * in one of its zones under the sightline cap: inside its area
+ * (CityDef.areas) first; then, so every brand is seen from the default camera,
+ * towers toward the back of the zone (their top-floor bands show over what
+ * stands in front) and low buildings toward the front (their street-level
+ * signs face open streets); ties broken by the seeded RNG. So every brand
+ * appears whenever its footprint fits somewhere in its zones, however the
+ * generic lots are cut.
+ */
+function brandLots(grid: CityGrid, city: CityDef, seed: number, manifest: SpriteManifest, taken: Set<string>, used: Set<string>): LotPlan[] {
+  const rng = rngFor(seed, city.id, "brands");
+  const out: LotPlan[] = [];
+  const inLandmark = (x: number, y: number) => city.landmarks.some((l) => x >= l.x && x < l.x + l.w && y >= l.y && y < l.y + l.d);
+  const free = (x: number, y: number, w: number, d: number) => {
+    for (let j = y; j < y + d; j++) for (let i = x; i < x + w; i++)
+      if (grid.at(i, j) !== "b" || taken.has(`${i},${j}`)) return false;
+    return true;
+  };
+  const brands = manifest.sprites.filter((e) => e.unique && (!e.kind || e.kind === "building"))
+    .map((e, i) => ({ e, i })).sort((a, b) => b.e.w * b.e.d - a.e.w * a.e.d || b.e.floors - a.e.floors || a.i - b.i).map(({ e }) => e);
+  for (const e of brands) {
+    const area = e.area ? city.areas?.find((a) => a.id === e.area) : undefined;
+    let best: { x: number; y: number; zone: ZoneKind } | null = null;
+    let bestKey = Infinity;
+    for (let y = 0; y + e.d <= grid.h; y++) for (let x = 0; x + e.w <= grid.w; x++) {
+      if (!free(x, y, e.w, e.d)) continue;
+      const zone = zoneAt(city, x, y);
+      if (!e.zones.includes(zone) || e.floors > sightlineCap(city, grid, x, y, e.w, e.d)) continue;
+      const cx = x + e.w / 2, cy = y + e.d / 2;
+      const inArea = area && Math.hypot(cx - area.x, cy - area.y) <= area.r;
+      // How near the camera the lot is within its zone: 0 at the zone's back (up the screen), 1 at its front.
+      const z = nearestZone(city, zone, cx, cy);
+      const front = z ? Math.min(1, Math.max(0, (cx + cy - (z.x + z.y)) / (4 * z.r) + 0.5)) : 0.5;
+      const tower = e.floors >= BRAND_TOWER_FLOORS;
+      const depth = tower ? front : 1 - front;
+      // A lot built right against a sign's face hides it, so a clear sign face comes first.
+      const blocked = signBlocked(grid, taken, x, y, e.w, e.d, e.signFace, inLandmark);
+      const key = (blocked ? 2 : 0) + (inArea ? 0 : 1) + depth * 0.9 + rng() * 0.1;
+      if (key < bestKey) [bestKey, best] = [key, { x, y, zone }];
+    }
+    if (!best) continue;
+    const { x, y, zone } = best;
+    for (let j = y; j < y + e.d; j++) for (let i = x; i < x + e.w; i++) taken.add(`${i},${j}`);
+    used.add(e.id);
+    const spec = styleFor(zone, city, rng, x, y, e.w, e.d, seed);
+    spec.floors = e.floors;
+    out.push({ x, y, w: e.w, d: e.d, spec, entry: e, tint: pick(rngFor(seed, city.id, `walls:${x},${y}`), city.palette.walls) });
+  }
+  return out;
+}
+
+/**
+ * Whether a building on this footprint would have its sign hidden by a lot (planned or taken) right against the
+ * face carrying it: the right face looks along column x + w, the left face down row y + d. "right" needs the right
+ * face clear; "any" needs one of the two clear; no sign face (rooftop boards, tower bands) is never hidden.
+ */
+export function signBlocked(grid: CityGrid, taken: Set<string>, x: number, y: number, w: number, d: number, face?: "right" | "any",
+  landmark: (x: number, y: number) => boolean = () => false): boolean {
+  if (!face) return false;
+  const lot = (i: number, j: number) => grid.at(i, j) === "b" || taken.has(`${i},${j}`) || landmark(i, j);
+  let left = false, right = false;
+  for (let i = x; i < x + w; i++) if (lot(i, y + d)) left = true;
+  for (let j = y; j < y + d; j++) if (lot(x + w, j)) right = true;
+  return face === "right" ? right : left && right;
+}
+
+/** The zone circle of this kind whose center is nearest (x, y). */
+function nearestZone(city: CityDef, kind: ZoneKind, x: number, y: number) {
+  let best: CityDef["zones"][number] | null = null;
+  for (const z of city.zones) if (z.kind === kind && (!best || Math.hypot(x - z.x, y - z.y) < Math.hypot(x - best.x, y - best.y))) best = z;
+  return best;
 }
 
 /** In the inner part of a zone of this kind: where a branded building is seen from the default camera. */

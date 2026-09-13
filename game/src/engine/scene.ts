@@ -18,7 +18,7 @@ import { rngFor } from "./rng";
 import { buildRoadProps, type RoadProps } from "./roads/draw";
 import { buildGraph, type RoadNet } from "./roads/graph";
 import { buildPlaces, demand } from "./roads/trips";
-import { facingOf, placeShelters } from "./sprite-pick";
+import { facingOf, placeShelters, placeVBoards, roadTiles } from "./sprite-pick";
 import { buildSprite, type SpriteSet } from "./sprites";
 import { Traffic } from "./traffic";
 import type { CityDef, EconomyMood, LandmarkFactory, LandmarkInstance, WeatherKind } from "./types";
@@ -133,7 +133,7 @@ export class CityScene {
     this.snow = this.city.snowInWinter && this.season === "winter" ? 0.6 : 0;
     this.ground.setLook({ season: this.season, snow: this.snow, drought: 0 });
 
-    this.buildings = [...populate(this.grid, this.city, seed, sprites).buildings, ...this.shelters(sprites)];
+    this.buildings = [...populate(this.grid, this.city, seed, sprites).buildings, ...this.shelters(sprites), ...this.freewayBoards(sprites)];
     for (const b of this.buildings) {
       const v = b.built.view;
       v.zIndex = depthOf(b.x + b.w - 1, b.y + b.d - 1, 60);
@@ -201,6 +201,32 @@ export class CityScene {
       blocked: (x: number, y: number) => inLandmark(x, y) || inHomeYard(x, y),
     };
     return placeShelters(sprites.manifest, site, rngFor(this.seed, this.city.id, "shelters")).map(({ entry, x, y }) => ({
+      built: buildSprite(sprites, entry, x, y),
+      x,
+      y,
+      w: 1,
+      d: 1,
+    }));
+  }
+
+  /**
+   * Freeway V boards on open ground beside the highway stretch nearest downtown; drawn and lit like buildings.
+   * A city with no highway (San Francisco's world has no beltway) gets them beside its four-lane arterials.
+   */
+  private freewayBoards(sprites: SpriteSet | null): Placed[] {
+    if (!sprites) return [];
+    const cls = this.city.roads.some((r) => r.cls === "highway") ? "highway" : "arterial";
+    const highway = roadTiles(this.city.roads.filter((r) => r.cls === cls), (x, y) => this.grid.isRoad(x, y));
+    const downtown = this.city.zones.find((z) => z.kind === "downtown") ?? { x: this.grid.w / 2, y: this.grid.h / 2 };
+    const inLandmark = (x: number, y: number) => this.city.landmarks.some((l) => x >= l.x && x < l.x + l.w && y >= l.y && y < l.y + l.d);
+    const site = {
+      w: this.grid.w,
+      h: this.grid.h,
+      open: (x: number, y: number) => this.grid.at(x, y) === "." && !inLandmark(x, y),
+      highway,
+      target: { x: downtown.x, y: downtown.y },
+    };
+    return placeVBoards(sprites.manifest, site, rngFor(this.seed, this.city.id, "vboards")).map(({ entry, x, y }) => ({
       built: buildSprite(sprites, entry, x, y),
       x,
       y,

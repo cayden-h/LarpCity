@@ -103,6 +103,12 @@ export const sanFrancisco: CityDef = {
     { x: 24, y: 26, r: 5, kind: "residential", houses: ["victorian", "edwardian"] },
     { x: 1.5, y: 12, r: 4, kind: "residential", houses: ["suburban"] },
   ],
+  // Where branded buildings prefer to stand (art/brands.py): SoMa's lofts south of downtown, and the downtown
+  // lots along the Embarcadero by the Ferry Building.
+  areas: [
+    { id: "soma", x: 28, y: 20, r: 4 },
+    { id: "embarcadero", x: 31, y: 7, r: 2.5 },
+  ],
   palette: {
     // Victorian pastels: pink, mint, butter yellow, sky blue, white, peach, lavender.
     walls: [0xf6b8c8, 0xbfe6d0, 0xfbe7a1, 0xaed6f1, 0xfafafa, 0xf8cfa8, 0xd9c8ec],

@@ -185,7 +185,10 @@ python3 -m unittest discover -s art/tests            # pixel pipeline unit and i
 npm run art:sf                                     # sign art, render, pixelize, registration check
 ```
 
-- `art/catalog.py` defines archetypes, footprints, floors, zones, and brand signage; branded entries are placed once per city, first.
+- `art/brands.py` is the brand roster: 37 companies (HackRice sponsors first), each one entry with its wordmark, colors, drawn mark, and placements (rooftop bulletin, wall board, painted wall, storefront, HQ, freeway V board, shelter) ([design](../docs/superpowers/specs/2026-09-13-sf-brands-design.md), [progress](../docs/superpowers/plans/2026-09-13-sf-brands-progress.md)).
+  Adding a company is one entry, plus a mark function in `make_ads.py`'s `MARKS` if it needs a new shape.
+- `art/catalog.py` defines archetypes, footprints, floors, and zones, and builds every branded entry from the roster.
+  The game places branded buildings first, each on the best free lot of its footprint: in its area (`areas` in the city definition, such as SoMa or the Embarcadero), then in its zone's core, then anywhere in the zone (`brandLots` in `src/engine/lots.ts`), so every brand appears whenever its footprint fits.
 - `art/lib/` contains the camera matched to the game's 2:1 projection, the archetypes, signs, and flat pixel materials with a day/night switch.
   Brick joints and stone courses use procedural patterns aligned to the 1x pixel grid; no photo textures or texture-download step are needed.
 - `art/build.py` writes day, night, and exact face-id layers at 4x, plus optional crown masks and `raw.json`, into the gitignored `art/.raw/<city>/` directory.
@@ -193,12 +196,13 @@ npm run art:sf                                     # sign art, render, pixelize,
 - `art/pixelize.py` splits off shadows, flattens each id region to at most three tones, shrinks by majority color with sign-stroke preservation, quantizes without dithering, and draws ink outlines.
   Shadows are restored as one flat translucent tone without an outline.
   The city palette in `art/palettes/<city>.json` is kept across rerenders; `--new-palette` rebuilds it for the whole set and cannot be combined with `--only`.
-  SF uses 40 day colors, including 12 reserved for signs and lit shop glass, and 16 night colors.
+  SF uses 60 day colors, including 32 reserved for signs and lit shop glass, and 16 night colors.
 - To rerender one sprite after a full local render, pass the same id to both commands, for example `blender -b -P art/build.py -- --city san-francisco --only loft-1x1-f3-14`, then `python3 art/pixelize.py san-francisco --only loft-1x1-f3-14`.
   `build.py --missing` resumes missing raw layers; pixelize reports missing or stale outputs.
-- Signage follows how SF actually looks (research in the [spec](../docs/superpowers/specs/2026-09-12-realistic-sprites-design.md)): no brand names on tower tops (SF bans rooftop signs downtown), brands at street level (the Capital One Café, Jeni's, a Wells Fargo branch, lobby logo walls and monuments for Google, Uber, Meta, OpenAI, Goldman Sachs), AI-style billboards on old SoMa lofts and freeway V boards, painted murals and the Levi's ghost sign, backlit Muni shelters, the Salesforce Tower's LED crown, and the Ferry Building's red "PORT OF SAN FRANCISCO" name on its frieze.
+- Signage follows how SF actually looks (research in the [spec](../docs/superpowers/specs/2026-09-12-realistic-sprites-design.md)): no rooftop signs or crowns downtown (SF bans rooftop signs there), brands at street level (storefronts with lit bands and blade signs, lobby logo walls, monuments), HQ name bands over the lobby and across the top floor as wall signs, lit wall boards on low downtown offices, rooftop bulletins on old SoMa lofts, V boards beside the freeway nearest downtown (`placeVBoards`), painted murals and ghost signs (Levi's, Ghirardelli), backlit Muni shelters, the Salesforce Tower's LED crown, and the Ferry Building's red "PORT OF SAN FRANCISCO" name on its frieze.
 - `art/make_ads.py` draws sign and ad art into `art/ads/` using the game's own bold Pixelify Sans (`public/fonts/pixelify-sans-bold.ttf`, with its OFL license alongside it) and flat paint wear.
   Every text element is fitted to its box, and the script fails if anything leaves the sign's safe area.
+  The first brands' signs are drawn by hand (`CUSTOM`); every other file the catalog names is drawn from its roster entry with shared layouts, and `art/tests/test_brands.py` checks that each new sign's capitals are at least 6 or 7 game px at 1x and that its letters stand out from its field.
   Blender maps each image onto a face with its aspect ratio preserved.
   The sponsor pass uses larger readable panels and simpler lettering for small sign surfaces.
 - Output in `public/sprites/<city>/` is a day PNG and an additive night PNG per sprite, optional crown masks, and `sprites.json` with `scale: 1`, footprints, anchors, and heights.

@@ -36,7 +36,13 @@ export interface SpriteEntry {
   landmark?: string;
   /** White where the LED crown is, transparent elsewhere; same size and anchor as `day`. */
   crown?: string;
-  prop?: "shelter";
+  /** Props the game places itself: Muni shelters beside streets, V boards beside the freeway. */
+  prop?: "shelter" | "vboard";
+  /** Branded buildings: the city area (CityDef.areas) whose lots it prefers. */
+  area?: string;
+  /** Branded buildings: which camera face carries the sign at eye level ("right": a painted wall or wall board;
+   * "any": a storefront's bands on both faces), so the planner keeps that face clear of the next lot. */
+  signFace?: "right" | "any";
   /** Which tile edge a shelter stands on: "sy" toward y+1 (lower left), "sx" toward x+1 (lower right). */
   side?: "sy" | "sx";
 }
@@ -137,6 +143,64 @@ export function placeShelters(m: SpriteManifest, site: ShelterSite, rng: () => n
     if (out.some((o) => Math.hypot(o.x - s.x, o.y - s.y) < SHELTER_GAP)) continue;
     const pool = bySide[s.side];
     out.push({ entry: pool[Math.floor(rng() * pool.length)], x: s.x, y: s.y });
+  }
+  return out;
+}
+
+export interface FreewaySite {
+  w: number;
+  h: number;
+  /** Open ground a V board may stand on. */
+  open: (x: number, y: number) => boolean;
+  /** Highway pavement tiles. */
+  highway: { x: number; y: number }[];
+  /** Where the boards should be seen from: downtown's center. */
+  target: { x: number; y: number };
+}
+
+const VBOARD_GAP = 6;
+
+/**
+ * The paved tiles of some roads: every whole tile within a tile of each path's centerline that the grid says is
+ * road. Centerlines may lie on tile edges or through tile centers (fractional coordinates), and paths run on past
+ * the grid's edge, so tiles come from floor and ceiling and are kept only when isRoad holds.
+ */
+export function roadTiles(roads: { path: [number, number][] }[], isRoad: (x: number, y: number) => boolean): { x: number; y: number }[] {
+  const out = new Map<string, { x: number; y: number }>();
+  const add = (x: number, y: number) => { if (isRoad(x, y)) out.set(`${x},${y}`, { x, y }); };
+  for (const r of roads)
+    for (let k = 1; k < r.path.length; k++) {
+      const [[ax, ay], [bx, by]] = [r.path[k - 1], r.path[k]];
+      const along = ay === by;
+      const [c, lo, hi] = along ? [ay, Math.min(ax, bx), Math.max(ax, bx)] : [ax, Math.min(ay, by), Math.max(ay, by)];
+      const across = new Set([Math.floor(c) - 1, Math.floor(c), Math.ceil(c) - 1, Math.ceil(c)]);
+      for (let t = Math.floor(lo); t < Math.ceil(hi); t++) for (const u of across) along ? add(t, u) : add(u, t);
+    }
+  return [...out.values()];
+}
+
+/**
+ * Freeway V boards: each V-board sprite once, on open ground right beside the
+ * highway, the stretch nearest downtown first, at least VBOARD_GAP tiles apart.
+ */
+export function placeVBoards(m: SpriteManifest, site: FreewaySite, rng: () => number): { entry: SpriteEntry; x: number; y: number }[] {
+  const boards = m.sprites.filter((s) => s.kind === "prop" && s.prop === "vboard");
+  if (!boards.length || !site.highway.length) return [];
+  const hwy = new Set(site.highway.map((t) => `${t.x},${t.y}`));
+  const spots: { x: number; y: number; key: number }[] = [];
+  for (let y = 0; y < site.h; y++)
+    for (let x = 0; x < site.w; x++) {
+      if (!site.open(x, y)) continue;
+      let beside = false;
+      for (let j = -1; j <= 1 && !beside; j++) for (let i = -1; i <= 1; i++) if (hwy.has(`${x + i},${y + j}`)) beside = true;
+      if (beside) spots.push({ x, y, key: Math.hypot(x - site.target.x, y - site.target.y) + rng() * 0.5 });
+    }
+  spots.sort((a, b) => a.key - b.key);
+  const out: { entry: SpriteEntry; x: number; y: number }[] = [];
+  for (const s of spots) {
+    if (out.length >= boards.length) break;
+    if (out.some((o) => Math.hypot(o.x - s.x, o.y - s.y) < VBOARD_GAP)) continue;
+    out.push({ entry: boards[out.length], x: s.x, y: s.y });
   }
   return out;
 }

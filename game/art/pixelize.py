@@ -21,13 +21,13 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from lib import pixel as P  # noqa: E402
 
-DAY_COLORS, NIGHT_COLORS = 40, 16
+DAY_COLORS, NIGHT_COLORS = 60, 16
 # Runtime paint multiplies these intensities by the selected wall color.
 # Keep the overlay independent of the city palette and the warm/cool lighting hue.
 WALL_PALETTE = [(v, v, v) for v in (32, 64, 96, 128, 160, 192, 224, 255)]
 # Of the day colors, this many are cut from sign and lit-glass pixels alone (P.build_day_palette), so brand reds,
 # golds, and oranges, and the shop windows' warm glow, survive next to the glass towers' many blues.
-SIGN_COLORS = 12
+SIGN_COLORS = 32
 # Past this share of sign pixels landing on a clearly different palette color (P.SIGN_MISS), the signs need more
 # than SIGN_COLORS colors: the median cut is merging brand colors, so the palette build warns.
 SIGN_MISS_SHARE = 0.05
