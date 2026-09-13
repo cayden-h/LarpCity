@@ -859,3 +859,10 @@
 .st-tour:active {
   transform: translateY(1px);
 }
+
+/* Phone width: the Money window's title bar keeps just its name and close button. */
+@media (max-width: 520px) {
+  .desk-hint {
+    display: none;
+  }
+}

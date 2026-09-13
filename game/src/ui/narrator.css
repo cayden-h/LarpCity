@@ -311,3 +311,20 @@ body:has(#map:not([hidden]), .desk-overlay:not([hidden]), .ff-overlay:not([hidde
     transition: none;
   }
 }
+
+/* A phone-width bubble keeps its buttons on one line. */
+.nr-tb,
+.nr-count {
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .nr-tour {
+    gap: 4px;
+  }
+  .nr-tb {
+    padding: 4px 8px;
+  }
+  .nr-long {
+    display: none;
+  }
+}

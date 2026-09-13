@@ -146,7 +146,21 @@ export class TourGuide {
     } catch {
       return;
     }
-    if (id === "stocks" || id === "taxes" || id === "taxes-refresher") void this.start(id);
+    if (id === "stocks") void this.start(id);
+    // A taxes tour only makes sense while the return it walks through is still waiting.
+    else if (id === "taxes" || id === "taxes-refresher") {
+      const life = this.deps.life();
+      if (life.pendingTaxReturn() && !life.taxTutorial.passed) void this.start(id);
+      else this.forget();
+    }
+  }
+
+  private forget(): void {
+    try {
+      sessionStorage.removeItem(OPEN_KEY);
+    } catch {
+      // Nothing to clear.
+    }
   }
 
   private def(id: TourId): TourDef<any> {
@@ -198,7 +212,10 @@ export class TourGuide {
     if (this.run) return;
     await this.calm();
     const { narrator, clock } = this.deps;
-    this.run = new TourRun(this.def(id), this.context(id));
+    const run = new TourRun(this.def(id), this.context(id));
+    // Nothing in this tour applies to the player right now.
+    if (run.finished) return this.forget();
+    this.run = run;
     clock.held = true;
     this.deps.phone.tourChanged(true);
     try {

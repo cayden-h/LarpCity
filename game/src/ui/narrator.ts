@@ -140,7 +140,7 @@ export class Narrator {
         <div class="nr-tour" hidden>
           <button type="button" class="nr-tb" data-act="tour-back">Back</button>
           <span class="nr-count"></span>
-          <button type="button" class="nr-tb ghost" data-act="tour-skip">Skip tutorial</button>
+          <button type="button" class="nr-tb ghost" data-act="tour-skip"></button>
           <button type="button" class="nr-tb go" data-act="tour-next">Next</button>
         </div>
       </div>`;
@@ -273,7 +273,8 @@ export class Narrator {
     this.backBtn.hidden = !v.back;
     this.count.hidden = !v.counter;
     this.count.textContent = v.counter;
-    this.skipBtn.textContent = v.next === "offer" ? "Later" : "Skip tutorial";
+    // "Skip tutorial", shortened to "Skip" on a narrow screen (narrator.css).
+    this.skipBtn.innerHTML = v.next === "offer" ? "Later" : `Skip<span class="nr-long"> tutorial</span>`;
     this.setNext(v.next);
     this.showUp();
     this.focusControls();
