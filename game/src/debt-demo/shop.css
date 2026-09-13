@@ -1,248 +1,317 @@
-/* Card Shop (shop.ts) in the Money desk's look (desk.css): white ground, hairline
-   borders, the desk's green and orange, and tabular numbers. The card art is
-   the only color on the page, the way an issuer's own card list looks. */
+/* Card Shop (shop.ts): the Money desk's own pixel-art theme (Pixelify Sans,
+   square corners, hard black-edged bevel shadows, white ground, green-up /
+   orange-down accents) so it reads as part of the same window as
+   Home/Investing/Debt/Credit, not a separate blue/yellow skin. Everything is
+   still scoped under .shop and carries its own tokens for convenience. */
 
 [hidden] {
   display: none !important;
 }
 
+/* The Desk / Card Shop switch in the top bar, styled like the game's .seg. */
+.views {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: #f5f6f7;
+  border: 2px solid #0b0b0c;
+  border-radius: 0;
+}
+.views button {
+  border: 0;
+  background: transparent;
+  color: #0b0b0c;
+  padding: 5px 12px;
+  border-radius: 0;
+  font: 700 13px/1.2 "Pixelify Sans", monospace;
+  cursor: pointer;
+}
+.views button.on {
+  background: #0b0b0c;
+  color: #fff;
+}
+
 .shop {
-  --good-ink: #0a7a12;
-  --good-bg: #e7f9e8;
-  --warn-ink: #8a5a00;
-  --warn: #f5a524;
-  --bad-ink: #b33a00;
-  --bad-bg: #fff1e8;
-  max-width: 1120px;
-  margin: 0 auto;
-  /* Room at the bottom for the time dock. */
-  padding: 0 24px 104px;
+  --g-ink: #0b0b0c;
+  --g-sub: #6b7280;
+  --g-white: #ffffff;
+  --g-soft: #f5f6f7;
+  --g-edge: #0b0b0c;
+  --g-up: #00c805;
+  --g-down: #ff5000;
+  --g-warn: #b33a00;
+  --g-warn-bg: #fff1e8;
+  --g-radius: 0;
+  --g-shadow: inset 2px 2px #fff, inset -2px -2px #ececef, 3px 3px var(--g-edge);
+  --g-card: var(--g-white);
+  min-height: calc(100vh - 60px);
+  padding: 22px 24px 8px;
+  font-family: "Pixelify Sans", monospace;
+  color: var(--g-ink);
+  background: var(--g-white);
+  -webkit-font-smoothing: auto;
+}
+.shop > * {
+  max-width: 1560px;
+  margin-left: auto;
+  margin-right: auto;
 }
 .shop h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 16px;
+  font-weight: 700;
 }
+/* The Credit Desk's stylesheet colors these gray and sets a mono font; reset them for the game look. */
 .shop .muted,
+.shop .note,
+.shop .k-label,
+.shop .k-sub,
 .shop .dim {
-  color: var(--sub);
-  font-size: 13px;
+  color: var(--g-sub);
+  font-family: inherit;
 }
-.shop .note {
-  margin: 10px 0 0;
-  color: var(--sub);
-  font-size: 12.5px;
-  line-height: 1.45;
+.shop .muted {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.shop .dim {
+  opacity: 0.8;
 }
 .shop .up {
-  color: var(--good-ink);
+  color: var(--g-up);
 }
 .shop .down {
-  color: var(--bad-ink);
+  color: var(--g-down);
 }
 .shop .flat {
-  color: var(--sub);
+  color: inherit;
+  opacity: 0.8;
 }
 .shop .info {
-  color: var(--warn-ink);
+  color: var(--g-ink);
 }
 .shop .num {
   text-align: right;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.shop .note {
+  margin: 10px 2px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  opacity: 0.85;
+}
 
-/* Bordered boxes: side panels, the profile strip, and tiles. */
+/* Game HUD card: every panel, tile, and KPI box. */
 .shop .panel,
+.shop .sp-k,
 .shop .tile,
-.shop .shop-profile {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+.shop .shop-bar {
+  background: var(--g-card);
+  border: 3px solid var(--g-edge);
+  border-radius: 0;
+  box-shadow: var(--g-shadow);
   min-width: 0;
 }
 .shop .panel {
-  padding: 16px 18px 18px;
+  padding: 14px 16px 16px;
 }
 .shop .panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 6px;
-}
-.shop .panel-head h2 {
-  font-size: 16px;
+  margin-bottom: 8px;
+  min-height: 28px;
 }
 
-/* Buttons ------------------------------------------------------------------------ */
+/* Buttons: the desk's accent CTA, and a plain secondary. */
 .shop .btn {
-  padding: 9px 16px;
-  border-radius: 999px;
-  background: var(--soft);
-  font-weight: 600;
-  font-size: 14px;
-  white-space: nowrap;
+  font: 700 14px/1.2 "Pixelify Sans", monospace;
+  color: var(--g-ink);
+  background: var(--g-soft);
+  border: 2px solid var(--g-edge);
+  border-radius: 0;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease;
 }
 .shop .btn:hover:not(:disabled) {
-  background: #eceef1;
+  background: color-mix(in srgb, var(--g-down) 14%, transparent);
+  color: var(--g-down);
 }
-.shop .btn.primary {
-  background: var(--brand);
+.shop .btn.primary,
+.shop .btn.on {
   color: #fff;
+  background: linear-gradient(180deg, #ff8a5a 0%, var(--g-down) 60%, #d9440a 100%);
+  border: 3px solid var(--g-edge);
+  box-shadow: 3px 3px var(--g-edge);
 }
-.shop .btn.primary:hover:not(:disabled) {
-  background: var(--brand);
-  filter: brightness(0.95);
+.shop .btn.primary:hover:not(:disabled),
+.shop .btn.on:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ffa377 0%, #ff6a2e 60%, #d9440a 100%);
+}
+.shop .btn.primary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 1px 1px var(--g-edge);
+}
+.shop .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 .shop .btn.block {
   display: block;
   width: 100%;
 }
 .shop .btn.tiny {
-  padding: 7px 14px;
-  border: 1px solid var(--line);
-  background: none;
+  padding: 5px 11px;
   font-size: 13px;
 }
-.shop .btn.tiny.on {
-  border-color: var(--accent);
-  color: var(--accent);
+.shop .seg,
+.shop .tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--g-soft);
+  border-radius: 0;
 }
-.shop .btn:disabled {
-  opacity: 0.4;
-  cursor: default;
+.shop .seg button,
+.shop .tabs button {
+  border: 0;
+  background: transparent;
+  color: var(--g-sub);
+  font: 700 13px/1.2 "Pixelify Sans", monospace;
+  padding: 6px 11px;
+  border-radius: 0;
+  cursor: pointer;
+}
+.shop .seg button:hover:not(.on),
+.shop .tabs button:hover:not(.on) {
+  background: #ececef;
+}
+.shop .seg button.on,
+.shop .tabs button.on {
+  background: color-mix(in srgb, var(--g-down) 14%, transparent);
+  color: var(--g-down);
+  box-shadow: inset 0 0 0 2px var(--g-edge);
 }
 
-/* Chips ---------------------------------------------------------------------------- */
-.shop .chip.up {
-  background: var(--good-bg);
-  color: var(--good-ink);
-}
-.shop .chip.info {
-  background: #eef2ff;
-  color: #3346a8;
-}
-
-/* Title, profile, toolbar ------------------------------------------------------------ */
-.shop .shop-title {
-  margin-top: 36px;
-  padding-top: 26px;
-  border-top: 1px solid var(--line);
-}
-.shop .shop-title {
-  flex-wrap: wrap;
-}
-.shop .shop-title h2 {
+/* Pill tags, like the city card's cost-of-living tier. */
+.shop .chip {
+  display: inline-block;
+  flex: none;
+  padding: 2px 9px;
+  border: 2px solid var(--g-edge);
+  border-radius: 0;
+  background: var(--g-white);
+  color: var(--g-ink);
+  font-size: 12px;
+  font-weight: 700;
   white-space: nowrap;
 }
-.shop .shop-title span {
-  text-align: right;
+.shop .chip.up {
+  background: var(--g-up);
+  color: #fff;
 }
-@media (max-width: 640px) {
-  .shop .shop-title span {
-    text-align: left;
-  }
+.shop .chip.info {
+  background: var(--g-soft);
+  color: var(--g-ink);
+}
+
+/* Hero and profile ------------------------------------------------------------ */
+.shop-hero {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(0, 2.3fr);
+  gap: 22px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+.shop-hero h1 {
+  margin: 0;
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--g-ink);
+  letter-spacing: -0.01em;
+}
+.shop-hero p {
+  margin: 6px 0 0;
+  max-width: 440px;
+  color: var(--g-sub);
+  font-size: 15px;
+  line-height: 1.45;
 }
 .shop-profile {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin: 12px 0 18px;
+  gap: 12px;
 }
 .shop .sp-k {
-  padding: 12px 16px;
-  border-left: 1px solid var(--line);
-  min-width: 0;
-}
-.shop .sp-k:first-child {
-  border-left: 0;
+  padding: 10px 14px 12px;
 }
 .shop .k-label {
-  color: var(--sub);
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
 }
 .shop .sp-v {
   margin-top: 2px;
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--g-ink);
+}
+.shop .k-sub.up {
+  color: var(--g-up);
+}
+.shop .k-sub.down {
+  color: var(--g-down);
 }
 .shop .k-sub {
-  margin-top: 1px;
+  margin-top: 2px;
   font-size: 12.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.shop .k-sub.flat {
-  color: var(--sub);
-}
+
+/* Toolbar --------------------------------------------------------------------- */
 .shop .shop-bar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 10px 24px;
-  margin-bottom: 18px;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 8px 10px;
 }
 .shop .shop-bar .tabs {
-  flex: 1 1 100%;
-  gap: 22px;
-  overflow: visible;
-  border-bottom: 1px solid var(--line);
-}
-.shop .shop-bar .tabs button {
-  margin-bottom: -1px;
-}
-.shop .seg {
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-}
-/* Each filter group names itself, so the groups read apart however they wrap. */
-.shop .seg-lbl {
-  margin-right: 2px;
-  color: var(--sub);
-  font-size: 13px;
-}
-.shop .seg button {
-  padding: 7px 13px;
-  font-size: 13px;
-}
-/* All five stats fit one row down to phone widths; below that, two columns with the last spanning both. */
-@media (max-width: 640px) {
-  .shop-profile {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .shop .sp-k {
-    border-left: 0;
-    border-top: 1px solid var(--line);
-  }
-  .shop .sp-k:nth-child(-n + 2) {
-    border-top: 0;
-  }
-  .shop .sp-k:nth-child(even) {
-    border-left: 1px solid var(--line);
-  }
-  .shop .sp-k:last-child {
-    grid-column: 1 / -1;
-  }
+  margin-right: auto;
 }
 
-/* Layout ---------------------------------------------------------------------------- */
+/* Layout ---------------------------------------------------------------------- */
 .shop-grid {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
 }
 .shop-side {
   display: grid;
   gap: 16px;
   position: sticky;
-  top: 84px;
+  top: 74px;
 }
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
+}
+@media (max-width: 1180px) {
+  .shop-hero {
+    grid-template-columns: 1fr;
+  }
 }
 @media (max-width: 860px) {
   .shop-grid {
@@ -251,56 +320,49 @@
   .shop-side {
     position: static;
   }
+  .shop-profile {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-/* Spending: one bar split by category, then rows with click-to-edit amounts (Copilot's budget). */
-.shop .sp-bar {
-  display: flex;
-  gap: 2px;
-  height: 8px;
-  margin: 10px 0 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--soft);
-}
-.shop .sp-bar span {
-  min-width: 0;
-  background: var(--c);
-  transition: width 0.25s ease;
-}
-.shop .sp-row {
+/* Spending sliders ---------------------------------------------------------------- */
+.shop .sl {
   display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 2px 0;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0 8px;
+  margin: 10px 0 0;
   font-size: 14px;
-  cursor: text;
+  font-weight: 500;
 }
-.shop .sp-row i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--c);
+.shop .sl b {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
-.shop .field {
+.shop .sl input {
+  grid-column: span 2;
+  width: 100%;
+  margin: 5px 0 0;
+  accent-color: var(--g-down);
+}
+.shop .sl.carry {
   margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  border-top: 2px dashed #d8dadc;
 }
-.shop .field-head b {
-  font-size: 14px;
-  font-weight: 600;
+.shop .sl.carry input {
+  accent-color: var(--g-down);
 }
 
-/* Wallet ---------------------------------------------------------------------------- */
+/* Wallet ------------------------------------------------------------------------ */
 .shop .w-row {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 70px 1fr;
   gap: 12px;
   align-items: center;
   padding: 8px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 2px dashed #d8dadc;
 }
 .shop .w-row:last-child {
   border-bottom: 0;
@@ -314,11 +376,11 @@
 }
 .shop .pos-sub {
   margin-top: 1px;
-  color: var(--sub);
-  font-size: 12.5px;
+  font-size: 12px;
+  opacity: 0.85;
 }
 
-/* Card art ---------------------------------------------------------------------------- */
+/* Card art ------------------------------------------------------------------------ */
 .shop .cc {
   --rx: 0deg;
   --ry: 0deg;
@@ -334,17 +396,17 @@
   transform: rotateX(var(--rx)) rotateY(var(--ry));
   transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease;
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.06),
-    0 10px 20px -12px rgba(0, 0, 0, 0.45),
-    0 2px 5px rgba(0, 0, 0, 0.12);
-  background: #1b2533;
+    0 0 0 1px rgba(11, 11, 12, 0.35),
+    0 12px 22px -10px rgba(5, 20, 50, 0.5),
+    0 3px 6px rgba(5, 20, 50, 0.2);
+  background: #0f2a57;
 }
 .shop .cc:hover .cc-body {
   transition-duration: 0.08s;
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.06),
-    0 18px 30px -14px rgba(0, 0, 0, 0.5),
-    0 4px 8px rgba(0, 0, 0, 0.14);
+    0 0 0 1px rgba(11, 11, 12, 0.45),
+    0 20px 32px -12px rgba(5, 20, 50, 0.6),
+    0 5px 10px rgba(5, 20, 50, 0.25);
 }
 .shop .cc-body img {
   display: block;
@@ -366,7 +428,7 @@
   opacity: 1;
 }
 .shop .cc-hero {
-  width: min(360px, 100%);
+  width: min(400px, 100%);
   margin: 0 auto;
 }
 .shop .cc-drawn {
@@ -380,14 +442,8 @@
   display: grid;
   grid-template-rows: auto 1fr auto;
   container-type: inline-size;
+  font-family: -apple-system, "Inter", system-ui, sans-serif;
   font-size: clamp(6px, 7cqw, 16px);
-}
-.shop .cc-issuer,
-.shop .cc-name {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 .shop .cc-issuer {
   font-weight: 700;
@@ -400,7 +456,6 @@
   font-weight: 600;
   opacity: 0.9;
   font-size: 0.85em;
-  padding-right: 22%;
 }
 .shop .cc-net {
   position: absolute;
@@ -410,31 +465,20 @@
   font-style: italic;
   font-size: 0.9em;
 }
-/* At wallet size only the network mark is legible; the row next to it names the card. */
-.shop .cc-mini .cc-issuer,
-.shop .cc-mini .cc-name {
-  visibility: hidden;
-}
 
-/* Tiles ------------------------------------------------------------------------------ */
+/* Tiles ------------------------------------------------------------------------- */
 .shop .tile {
   display: grid;
-  /* Capped so a long one-line issuer name ellipsizes instead of widening the tile's contents. */
-  grid-template-columns: minmax(0, 1fr);
-  /* Art, header, numbers, offer, odds, button. Tiles in a row stretch to the tallest; the spare
-     height goes to the offer, so numbers line up across the row and buttons sit on the bottom. */
-  grid-template-rows: auto auto auto 1fr auto auto;
   gap: 12px;
   padding: 14px;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease;
 }
 .shop .tile:hover {
-  border-color: #d9dbe0;
-  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.18);
+  transform: translateY(-2px);
 }
 .shop .tile.sel {
-  border-color: var(--accent);
+  border-color: var(--g-down);
 }
 .shop .t-head {
   display: flex;
@@ -442,20 +486,13 @@
   align-items: flex-start;
   gap: 10px;
 }
-/* Two lines of name and one of issuer, so every tile's numbers start at the same height. */
 .shop .t-head > div {
-  min-width: 0;
-  min-height: 58px;
-}
-.shop .t-head .t-sub {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  min-height: 48px;
 }
 .shop .t-name {
-  font-weight: 600;
-  font-size: 15px;
-  line-height: 1.25;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.2;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -463,35 +500,38 @@
 }
 .shop .t-sub {
   margin-top: 2px;
-  color: var(--sub);
   font-size: 12.5px;
+  color: var(--g-sub);
 }
 .shop .t-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  /* A label that wraps grows upward, so the three numbers stay on one line. */
-  align-items: end;
   gap: 6px;
-  padding: 10px 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  padding: 8px 10px;
+  background: var(--g-soft);
+  border: 2px dashed #d8dadc;
+  border-radius: 0;
 }
 .shop .t-stats span {
   display: block;
-  color: var(--sub);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--g-sub);
 }
 .shop .t-stats b {
   display: block;
   margin-top: 1px;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 .shop .t-offer {
-  color: var(--sub);
   font-size: 13px;
   line-height: 1.4;
   min-height: 36px;
+  color: var(--g-sub);
 }
 .shop .om-top {
   display: flex;
@@ -500,47 +540,50 @@
   font-weight: 600;
 }
 .shop .om-bar {
-  height: 6px;
-  margin-top: 6px;
-  border-radius: 999px;
-  background: var(--soft);
+  height: 8px;
+  margin-top: 5px;
+  border: 2px solid var(--g-edge);
+  border-radius: 0;
+  background: var(--g-soft);
   overflow: hidden;
 }
 .shop .om-bar span {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: 0;
   transition: width 0.3s ease;
 }
 .shop .om-bar .up {
-  background: var(--up);
+  background: var(--g-up);
 }
 .shop .om-bar .info {
-  background: var(--warn);
+  background: var(--g-down);
 }
 .shop .om-bar .down {
-  background: var(--down);
+  background: var(--g-down);
 }
 
-/* Drawer: a white sheet from the right. ------------------------------------------------ */
+/* Drawer: a tall game card sliding in from the right. ---------------------------- */
 .shop .drawer-back {
   position: fixed;
   inset: 0;
   z-index: 8;
-  background: rgba(11, 11, 12, 0.35);
+  background: rgba(11, 11, 12, 0.45);
   animation: shop-fade 0.18s ease;
 }
 .shop .drawer {
   position: fixed;
   z-index: 9;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(480px, 100%);
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: min(520px, calc(100% - 24px));
   overflow-y: auto;
   padding: 24px 24px 0;
-  background: var(--bg);
-  box-shadow: -24px 0 60px rgba(0, 0, 0, 0.14);
+  background: var(--g-card);
+  border: 4px solid var(--g-edge);
+  border-radius: 0;
+  box-shadow: var(--g-shadow);
   animation: shop-slide 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 @keyframes shop-fade {
@@ -556,92 +599,99 @@
 }
 .shop .drawer .x {
   position: absolute;
-  z-index: 1;
-  top: 16px;
-  right: 16px;
+  top: 14px;
+  right: 14px;
   width: 34px;
   height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  background: var(--bg);
-  box-shadow: 0 0 0 1px var(--line);
+  border: 2px solid var(--g-edge);
+  border-radius: 0;
+  background: var(--g-soft);
+  color: var(--g-ink);
   font-size: 20px;
+  font-weight: 700;
   line-height: 1;
+  box-shadow: 2px 2px var(--g-edge);
+  cursor: pointer;
 }
 .shop .drawer .x:hover {
-  background: var(--soft);
+  background: #ececef;
 }
 .shop .d-hero {
-  margin: 8px 0 20px;
-  padding: 28px 24px;
-  border-radius: 14px;
-  background: var(--soft);
+  padding: 12px 8px 20px;
 }
 .shop .d-title h3 {
   margin: 0;
   font-size: 24px;
-  letter-spacing: -0.01em;
-}
-.shop .d-title .t-sub {
-  font-size: 14px;
+  font-weight: 700;
 }
 .shop .d-kpis {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 16px 0;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  gap: 8px;
+  margin: 14px 0;
 }
 .shop .d-kpis > div {
-  padding: 10px 12px;
-  border-left: 1px solid var(--line);
-  min-width: 0;
-}
-.shop .d-kpis > div:first-child {
-  border-left: 0;
+  padding: 9px 11px;
+  background: var(--g-soft);
+  border: 2px solid var(--g-edge);
+  border-radius: 0;
 }
 .shop .d-kpis span {
   display: block;
-  color: var(--sub);
-  font-size: 12.5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--g-sub);
 }
 .shop .d-kpis b {
   display: block;
   margin-top: 2px;
   font-size: 19px;
-  font-weight: 600;
+  font-weight: 700;
 }
 .shop .d-kpis em {
   display: block;
   margin-top: 1px;
-  color: var(--sub);
   font-style: normal;
-  font-size: 12px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--g-sub);
 }
 .shop .d-offer {
   display: grid;
   gap: 3px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--good-bg);
-  color: #0b4f12;
+  padding: 10px 12px;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--g-up) 12%, transparent);
+  border: 2px solid var(--g-edge);
   font-size: 14px;
   line-height: 1.4;
+  color: var(--g-ink);
 }
 .shop .d-offer b {
-  color: var(--good-ink);
-  font-size: 13px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--g-up);
 }
 .shop .d-offer .down {
-  color: var(--bad-ink);
+  color: var(--g-down);
 }
 .shop .drawer h4 {
-  margin: 24px 0 6px;
-  font-size: 16px;
+  margin: 20px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--g-sub);
 }
 .shop .drawer h4 .dim {
   margin-left: 6px;
+  text-transform: none;
+  letter-spacing: 0;
   font-weight: 500;
 }
 .shop .earn,
@@ -652,38 +702,38 @@
 }
 .shop .earn li {
   display: grid;
-  grid-template-columns: 52px 1fr;
+  grid-template-columns: 58px 1fr;
   align-items: baseline;
   gap: 10px;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 7px 0;
+  border-bottom: 2px dashed #d8dadc;
   font-size: 14px;
 }
 .shop .earn b {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
-  color: var(--good-ink);
+  color: var(--g-down);
 }
 .shop .earn em {
   display: block;
-  color: var(--sub);
   font-style: normal;
-  font-size: 12.5px;
+  font-size: 12px;
+  opacity: 0.8;
 }
 .shop .perks li {
   position: relative;
-  padding: 5px 0 5px 18px;
+  padding: 4px 0 4px 20px;
   font-size: 14px;
 }
 .shop .perks li::before {
   content: "";
   position: absolute;
   left: 3px;
-  top: 13px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #c7c9cf;
+  top: 11px;
+  width: 8px;
+  height: 8px;
+  background: var(--g-down);
+  border: 2px solid var(--g-edge);
 }
 .shop table {
   width: 100%;
@@ -691,21 +741,19 @@
 }
 .shop .val td,
 .shop .terms td {
-  padding: 8px 0;
-  font-size: 14px;
-  border-bottom: 1px solid var(--line);
+  padding: 6px 4px;
+  font-size: 13.5px;
+  border-bottom: 2px dashed #d8dadc;
 }
 .shop .val td .dim {
   margin-left: 6px;
-  font-size: 12.5px;
+  font-size: 12px;
 }
 .shop .val tr.tot td {
   border-bottom: 0;
-  font-size: 16px;
+  border-top: 2px solid var(--g-edge);
+  font-size: 17px;
   font-weight: 700;
-}
-.shop .terms td:first-child {
-  color: var(--sub);
 }
 .shop .terms tr:last-child td {
   border-bottom: 0;
@@ -713,17 +761,19 @@
 .shop .d-warn,
 .shop .d-ok {
   margin: 14px 0 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-size: 14px;
+  padding: 9px 12px;
+  border-radius: 0;
+  border: 2px solid var(--g-edge);
+  font-size: 13.5px;
+  font-weight: 500;
 }
 .shop .d-warn {
-  background: var(--bad-bg);
-  color: var(--bad-ink);
+  background: var(--g-warn-bg);
+  color: var(--g-warn);
 }
 .shop .d-ok {
-  background: var(--good-bg);
-  color: var(--good-ink);
+  background: color-mix(in srgb, var(--g-up) 12%, transparent);
+  color: var(--g-ink);
 }
 .shop .d-actions {
   position: sticky;
@@ -731,26 +781,25 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin: 18px -24px 0;
+  margin: 16px -24px 0;
   padding: 14px 24px 16px;
-  background: var(--bg);
-  border-top: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), var(--g-white) 35%);
 }
 .shop .d-actions .btn {
-  padding: 12px;
+  padding: 11px 12px;
   font-size: 15px;
 }
 .shop .src {
-  margin: 12px 0 18px;
-  color: var(--sub);
+  margin: 0 0 18px;
   font-size: 12px;
   line-height: 1.45;
+  color: var(--g-sub);
 }
 .shop .src a {
-  color: inherit;
+  color: var(--g-ink);
 }
 
-/* Result modal, like the desk's decision sheet. ------------------------------------------ */
+/* Result modal: the game's map card. --------------------------------------------- */
 .shop .modal-back {
   position: fixed;
   inset: 0;
@@ -761,46 +810,51 @@
   background: rgba(11, 11, 12, 0.45);
 }
 .shop .modal {
-  width: min(480px, 100%);
-  padding: 22px;
-  background: var(--bg);
-  border-radius: 16px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+  width: min(520px, 100%);
+  padding: 18px 20px 16px;
+  background: var(--g-card);
+  border: 4px solid var(--g-edge);
+  border-radius: 0;
+  box-shadow: var(--g-shadow);
+  color: var(--g-ink);
   animation: shop-pop 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 @keyframes shop-pop {
   from {
-    transform: scale(0.96);
+    transform: scale(0.94);
     opacity: 0;
   }
 }
 .shop .modal-tag {
   display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--soft);
-  color: var(--sub);
+  padding: 2px 10px;
+  border: 2px solid var(--g-edge);
+  border-radius: 0;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--g-ink);
+  background: var(--g-white);
 }
 .shop .modal-tag.up {
-  background: var(--good-bg);
-  color: var(--good-ink);
+  background: var(--g-up);
+  color: #fff;
 }
 .shop .modal-tag.warn {
-  background: #fff6e0;
-  color: var(--warn-ink);
+  background: var(--g-warn-bg);
+  color: var(--g-warn);
 }
 .shop .modal-tag.down {
-  background: var(--bad-bg);
-  color: var(--bad-ink);
+  background: var(--g-down);
+  color: #fff;
 }
 .shop .r-row {
   display: grid;
-  grid-template-columns: 96px 1fr;
+  grid-template-columns: 110px 1fr;
   gap: 16px;
   align-items: center;
-  margin-top: 14px;
+  margin-top: 12px;
 }
 .shop .r-row h3 {
   margin: 0;
@@ -808,46 +862,42 @@
   line-height: 1.2;
 }
 .shop .r-lines {
-  margin: 14px 0 18px;
+  margin: 14px 0 16px;
   padding-left: 18px;
-  color: var(--sub);
   font-size: 14.5px;
   line-height: 1.5;
 }
 .shop .options {
   display: grid;
 }
-.shop .options .btn {
-  padding: 12px;
-}
 
-/* All plans ---------------------------------------------------------------------------- */
-.shop .plans {
-  padding: 18px;
-}
+/* All plans ----------------------------------------------------------------------- */
 .shop .plans .search {
   width: min(320px, 100%);
-  padding: 8px 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  outline: none;
-}
-.shop .plans .search:focus {
-  border-color: var(--accent);
+  padding: 8px 12px;
+  border: 2px solid var(--g-edge);
+  border-radius: 0;
+  background: var(--g-white);
+  color: var(--g-ink);
+  font: 500 14px/1.2 "Pixelify Sans", monospace;
 }
 .shop .table-wrap {
   overflow-x: auto;
-  margin-top: 10px;
+  margin-top: 8px;
+  background: var(--g-white);
+  border: 2px solid var(--g-edge);
+  border-radius: 0;
+  color: var(--g-ink);
 }
 .shop .table-wrap th {
   position: sticky;
   top: 0;
   padding: 10px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--line);
-  color: var(--sub);
-  font-size: 13px;
-  font-weight: 500;
+  background: var(--g-soft);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   text-align: left;
   white-space: nowrap;
 }
@@ -855,12 +905,17 @@
   text-align: right;
 }
 .shop .table-wrap td {
-  padding: 10px;
+  padding: 9px 10px;
   font-size: 14px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 2px dashed #d8dadc;
 }
 .shop .table-wrap tbody tr:hover {
-  background: var(--soft);
+  background: var(--g-soft);
+}
+.shop .table-wrap td.muted {
+  font-size: 13px;
+  color: var(--g-sub);
+  opacity: 1;
 }
 .shop .table-wrap .pos-name {
   font-size: 14px;
@@ -870,13 +925,14 @@
   display: grid;
   place-items: center;
   height: 200px;
-  color: var(--sub);
-  border: 1px dashed #d6d8dd;
-  border-radius: 12px;
+  color: var(--g-sub);
+  font-size: 16px;
+  border: 3px dashed #d8dadc;
+  border-radius: 0;
 }
 .shop .foot {
-  margin-top: 28px;
-  color: var(--sub);
+  padding: 18px 0 26px;
   font-size: 12px;
   line-height: 1.5;
+  color: var(--g-sub);
 }

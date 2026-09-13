@@ -511,7 +511,7 @@
 .desk-window {
   display: flex;
   flex-direction: column;
-  width: min(1480px, 100%);
+  width: min(1040px, 100%);
   height: min(920px, 100%);
   overflow: hidden;
   border: 3px solid #fff;

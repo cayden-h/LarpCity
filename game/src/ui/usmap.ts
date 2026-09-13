@@ -11,6 +11,13 @@ import { isHandmade, PINS, stateForPin } from "../cities";
 import type { StateInfo } from "../engine/types";
 import { pixelIcon } from "./pixel-icons";
 
+/** Per-pin pixel nudges, for pins whose true lon/lat lands a label on top of
+ * something else (Austin's sits right under the Texas state-abbreviation
+ * label). Purely cosmetic — doesn't touch the underlying geography. */
+const PIN_NUDGE: Record<string, [number, number]> = {
+  austin: [0, 16],
+};
+
 const TIER_FILL = { LCOL: "#4fb25c", MCOL: "#f5b027", HCOL: "#e84e47" } as const;
 const TIER_TEXT = { LCOL: "Low cost of living", MCOL: "Medium cost of living", HCOL: "High cost of living" } as const;
 const LABELED_STATES = new Set([
@@ -18,15 +25,6 @@ const LABELED_STATES = new Set([
   "MN", "IA", "MO", "AR", "LA", "WI", "IL", "MI", "IN", "OH", "KY", "TN", "MS", "AL", "GA", "FL", "SC",
   "NC", "VA", "WV", "PA", "NY", "ME", "AK", "HI",
 ]);
-
-/**
- * Which side of its pin a city's label sits on (above by default). Texas has three pins close
- * together: Houston's label goes east over the Gulf and Austin's west, clear of Dallas's above
- * and of the "YOU" tag, which hangs below the player's marker.
- */
-const LABEL_SIDE: Record<string, "left" | "right"> = { houston: "right", austin: "left" };
-/** Gap between a pin and a label beside it, wide enough to clear the player's marker. */
-const LABEL_GAP = 22;
 
 const GRID_STEP = 4;
 
@@ -65,7 +63,12 @@ export class UsMap {
   private readonly onVisit: (s: StateInfo) => void;
   private readonly stateCenters = new Map<string, [number, number]>();
   private readonly cityLocations = new Map<string, [number, number]>();
+  /** Real screenshots of the live PixiJS render, captured while playing in that city. */
   private readonly cityPreviews = new Map<string, string>();
+  /** Off-screen renders of every city (see engine/thumbnails.ts), so a state doesn't need a visit to show a real render. */
+  private readonly cityPrerenders = new Map<string, string>();
+  /** Every state's pixel-stepped outline, keyed by abbr, reused by the outline overlays. */
+  private readonly stateOutlines = new Map<string, string>();
 
   constructor(root: HTMLElement, states: StateInfo[], onVisit: (s: StateInfo) => void) {
     this.el = root;
@@ -158,7 +161,10 @@ export class UsMap {
       }
       const rawGeom = topo.objects.states.geometries.find((g: any) => String(g.id) === String(f.id) || String(g.id).padStart(2, "0") === s.fips);
       const d = rawGeom ? geomToPixelPath(rawGeom) : path(f) || "";
-      if (d) statePathList.push({ state: s, d });
+      if (d) {
+        statePathList.push({ state: s, d });
+        this.stateOutlines.set(s.abbr, d);
+      }
     });
 
     const shadowPaths = statePathList
@@ -180,18 +186,13 @@ export class UsMap {
     const pins = PINS.map((p) => {
       const xy = projection([p.lon, p.lat]);
       if (!xy) return "";
-      const px = snap(xy[0]);
-      const py = snap(xy[1]);
+      const [nx, ny] = PIN_NUDGE[p.id] ?? [0, 0];
+      const px = snap(xy[0]) + nx;
+      const py = snap(xy[1]) + ny;
       this.cityLocations.set(p.id, [px, py]);
       const labelW = p.name.length * 8 + 14;
-      // Above the pin, or beside it at the height of the pin's point (see LABEL_SIDE).
-      const side = LABEL_SIDE[p.id];
-      const badgeAt = side ? `${(side === "right" ? 1 : -1) * (LABEL_GAP + labelW / 2)}, 2` : "0, -22";
-      // The outer group places the pin; the inner one is what grows on hover, since a CSS
-      // transform on the placed group would replace its translate.
       return `
-        <g transform="translate(${px},${py})">
-        <g class="pin ${isHandmade(p.id) ? "handmade" : ""}" data-pin="${p.id}">
+        <g class="pin ${isHandmade(p.id) ? "handmade" : ""}" data-pin="${p.id}" style="--px:${px}px;--py:${py}px">
           <!-- Pixel Pin Graphic -->
           <rect class="pin-shadow" x="-8" y="2" width="16" height="4" />
           <path class="pin-base" d="M-7,-19 h14 v10 h-2 v2 h-2 v4 h-4 v-4 h-2 v-2 h-4 z" />
@@ -199,13 +200,12 @@ export class UsMap {
           <rect class="pin-highlight" x="-4" y="-16" width="3" height="3" />
           <rect class="pin-core" x="-1" y="-12" width="3" height="3" />
           <!-- Pixel Label Badge -->
-          <g class="pin-badge" transform="translate(${badgeAt})">
-            <rect class="pin-bg" x="${-labelW / 2}" y="-13" width="${labelW}" height="14" />
-            <rect class="pin-border" x="${-labelW / 2 + 2}" y="-11" width="${labelW - 4}" height="10" />
-            <text class="pin-text" x="0" y="-3">${p.name}</text>
+          <g class="pin-badge" transform="translate(0, -27)">
+            <rect class="pin-bg" x="${-labelW / 2}" y="-8" width="${labelW}" height="16" />
+            <rect class="pin-border" x="${-labelW / 2 + 2}" y="-6" width="${labelW - 4}" height="12" />
+            <text class="pin-text" x="0" y="1">${p.name}</text>
           </g>
           <title>${p.name}</title>
-        </g>
         </g>`;
     }).join("");
 
@@ -234,7 +234,7 @@ export class UsMap {
               </g>
 
               <!-- Retro Compass Rose -->
-              <g class="pixel-compass" transform="translate(860, 480)">
+              <g class="pixel-compass" transform="translate(${W - 42}, ${H - 42})">
                 <circle cx="0" cy="0" r="30" class="compass-ring" />
                 <rect x="-20" y="-20" width="40" height="40" class="compass-box" transform="rotate(45)" />
                 <polygon points="0,-26 5,-6 -5,-6" class="compass-needle-n" />
@@ -259,6 +259,14 @@ export class UsMap {
               <g class="states-layer">
                 ${paths}
               </g>
+
+              <!-- Highlight outlines: separate top layer so a state's full border always
+                   draws over every neighbor's border, regardless of paint order. -->
+              <g class="outline-layer" pointer-events="none">
+                <path class="state-outline outline-current" data-outline-current fill="none" />
+                <path class="state-outline outline-sel" data-outline-sel fill="none" />
+                <path class="state-outline outline-hover" data-outline-hover fill="none" />
+              </g>
               <g class="labels-layer">
                 ${labels}
               </g>
@@ -266,17 +274,20 @@ export class UsMap {
                 ${pins}
               </g>
 
-              <!-- Current Location Player Beacon -->
+              <!-- Current Location Player Beacon: a planted flag, with the
+                   city name on a plaque underneath. -->
               <g class="current-marker" data-current-marker>
-                <rect class="current-pulse-box" x="-16" y="-16" width="32" height="32" />
-                <rect class="current-diamond" x="-9" y="-9" width="18" height="18" transform="rotate(45)" />
-                <rect class="current-diamond-inner" x="-5" y="-5" width="10" height="10" transform="rotate(45)" />
-                <rect class="current-core-dot" x="-2" y="-2" width="4" height="4" />
-                <!-- Below the marker: every city label is above or beside its pin. -->
-                <g class="current-tag" transform="translate(0, 36)">
-                  <rect x="-16" y="-12" width="32" height="13" class="current-tag-bg" />
-                  <rect x="-14" y="-10" width="28" height="9" class="current-tag-fill" />
-                  <text x="0" y="-3" class="current-tag-text">YOU</text>
+                <ellipse class="flag-shadow" cx="0" cy="1.5" rx="6" ry="2" />
+                <rect class="flag-pole" x="-1.2" y="-24" width="2.4" height="25.5" />
+                <rect class="flag-ball" x="-2.5" y="-27.5" width="5" height="4" />
+                <!-- A wide, short banner (not a tall pennant): 28 wide by 13 tall. -->
+                <polygon class="flag-fabric-outline" points="0,-24 28,-24 28,-20 23,-17.5 28,-15 28,-11 0,-11" />
+                <polygon class="flag-fabric" points="1.3,-22.6 25.7,-22.6 25.7,-19.6 21.2,-17.5 25.7,-15.4 25.7,-12.4 1.3,-12.4" />
+                <polygon class="flag-fabric-hi" points="1.3,-22.6 14.5,-22.6 14.5,-17.5 1.3,-17.5" />
+                <g class="current-location-plaque" transform="translate(0, 12)">
+                  <rect class="current-plaque-bg" data-current-plaque-bg x="-30" y="-8" width="60" height="16" />
+                  <rect class="current-plaque-border" data-current-plaque-border x="-27" y="-6" width="54" height="12" />
+                  <text class="current-location-label" x="0" y="1" data-current-location></text>
                 </g>
                 <title>Your current location</title>
               </g>
@@ -300,25 +311,46 @@ export class UsMap {
     root.querySelector("[data-close]")!.addEventListener("click", () => this.close());
     root.querySelectorAll<SVGPathElement>(".state").forEach((p) => {
       const s = states.find((st) => st.abbr === p.dataset.abbr)!;
-      p.addEventListener("mouseenter", () => this.show(s));
+      p.addEventListener("mouseenter", () => {
+        this.setOutline("hover", s.abbr);
+        this.show(s);
+      });
       p.addEventListener("click", () => {
         this.show(s);
         this.selected = s;
         root.querySelectorAll(".state.sel").forEach((n) => n.classList.remove("sel"));
         p.classList.add("sel");
+        this.setOutline("sel", s.abbr);
       });
     });
     // Pins open the specialized cities (Dallas and Austin share Texas with Houston).
     root.querySelectorAll<SVGGElement>(".pin").forEach((g) => {
       const s = stateForPin(g.dataset.pin!, states);
       if (!s) return;
-      g.addEventListener("mouseenter", () => this.show(s));
+      g.addEventListener("mouseenter", () => {
+        this.setOutline("hover", s.abbr);
+        this.show(s);
+      });
       g.addEventListener("click", () => {
         this.show(s);
         this.selected = s;
+        root.querySelectorAll(".state.sel").forEach((n) => n.classList.remove("sel"));
+        root.querySelector<SVGPathElement>(`.state[data-abbr="${s.abbr}"]`)?.classList.add("sel");
+        this.setOutline("sel", s.abbr);
       });
     });
-    root.querySelector(".map-svg")!.addEventListener("mouseleave", () => this.selected && this.show(this.selected));
+    root.querySelector(".map-svg")!.addEventListener("mouseleave", () => {
+      this.setOutline("hover", null);
+      if (this.selected) this.show(this.selected);
+    });
+  }
+
+  /** Points one of the three overlay outlines (current/sel/hover) at a state's border,
+   * or clears it. A dedicated top layer, so the highlighted border always draws over
+   * every neighboring state's border instead of losing a paint-order race to it. */
+  private setOutline(which: "hover" | "sel" | "current", abbr: string | null): void {
+    const el = this.el.querySelector<SVGPathElement>(`[data-outline-${which}]`);
+    el?.setAttribute("d", abbr ? this.stateOutlines.get(abbr) ?? "" : "");
   }
 
   open(current: StateInfo, preview?: string | null): void {
@@ -328,9 +360,20 @@ export class UsMap {
     this.el.querySelectorAll(".state.current, .pin.current, .state.sel").forEach((node) => node.classList.remove("current", "sel"));
     this.el.querySelector<SVGPathElement>(`.state[data-abbr="${current.abbr}"]`)?.classList.add("current", "sel");
     this.el.querySelector<SVGGElement>(`.pin[data-pin="${current.cityId}"]`)?.classList.add("current");
+    this.setOutline("current", current.abbr);
+    this.setOutline("sel", current.abbr);
+    this.setOutline("hover", null);
     const point = this.cityLocations.get(current.cityId) ?? this.stateCenters.get(current.abbr);
     const marker = this.el.querySelector<SVGGElement>("[data-current-marker]");
     if (point && marker) marker.setAttribute("transform", `translate(${point[0].toFixed(1)},${point[1].toFixed(1)})`);
+    const locationLabel = this.el.querySelector("[data-current-location]");
+    if (locationLabel) locationLabel.textContent = current.city;
+    // Size the plaque to the name, the same way a pin's own label does.
+    const plaqueW = current.city.length * 8 + 14;
+    this.el.querySelector("[data-current-plaque-bg]")?.setAttribute("x", (-plaqueW / 2).toString());
+    this.el.querySelector("[data-current-plaque-bg]")?.setAttribute("width", plaqueW.toString());
+    this.el.querySelector("[data-current-plaque-border]")?.setAttribute("x", (-plaqueW / 2 + 2).toString());
+    this.el.querySelector("[data-current-plaque-border]")?.setAttribute("width", (plaqueW - 4).toString());
     this.show(current);
   }
 
@@ -342,6 +385,18 @@ export class UsMap {
     return !this.el.hidden;
   }
 
+  /** A background-rendered thumbnail for a city that hasn't been visited (a real
+   * capture from `open()` always wins, so this never overwrites one). */
+  setPreview(cityId: string, dataUrl: string): void {
+    if (this.cityPreviews.has(cityId) || this.cityPrerenders.has(cityId)) return;
+    this.cityPrerenders.set(cityId, dataUrl);
+    if (this.selected?.cityId === cityId) this.show(this.selected);
+  }
+
+  hasPreview(cityId: string): boolean {
+    return this.cityPreviews.has(cityId) || this.cityPrerenders.has(cityId);
+  }
+
   private gaugeBar(val: number): string {
     const pct = Math.min(100, Math.max(10, Math.round(((val - 50) / 110) * 100)));
     const colorClass = val < 90 ? "bar-low" : val <= 110 ? "bar-med" : "bar-high";
@@ -350,14 +405,25 @@ export class UsMap {
 
   private show(s: StateInfo): void {
     const panel = this.el.querySelector("[data-panel]") as HTMLElement;
+    // Real screenshots of the live PixiJS render, captured while playing in a
+    // city, always win; every city also gets an off-screen render the moment
+    // the game boots (engine/thumbnails.ts) so a state doesn't need a visit
+    // to show a real render — a static AI-plate photo clashed with the game's
+    // flat pixel-art look, so this never falls back to one of those.
     const live = this.cityPreviews.get(s.cityId);
-    const previewSrc = live || `/cities/${s.cityId}/plates/day.jpg`;
-    const badgeText = live ? "LIVE IN-GAME" : "SKYLINE VIEW";
+    const rendered = live ?? this.cityPrerenders.get(s.cityId);
 
-    const cityPreview = `
+    const cityPreview = rendered
+      ? `
       <div class="city-preview pixel-frame">
-        <img class="thumb" src="${previewSrc}" alt="Skyline view of ${s.city}" />
-        <span class="preview-badge">${badgeText}</span>
+        <img class="thumb" src="${rendered}" alt="${live ? "Live in-game" : "In-game render"} view of ${s.city}" />
+        <span class="preview-badge">${live ? "LIVE IN-GAME" : "IN-GAME RENDER"}</span>
+        <div class="preview-scanlines"></div>
+      </div>`
+      : `
+      <div class="city-preview pixel-frame unvisited">
+        ${pixelIcon("home", "preview-placeholder-icon")}
+        <span class="preview-placeholder-text">Rendering ${s.city}…</span>
         <div class="preview-scanlines"></div>
       </div>`;
 
