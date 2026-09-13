@@ -82,7 +82,8 @@ function readOpen(): boolean {
   } catch {
     // Storage can be blocked; fall back to the viewport rule below.
   }
-  return window.innerHeight >= 640;
+  // A phone-width screen starts with it pulled down: open, it would cover the whole HUD.
+  return window.innerHeight >= 640 && window.innerWidth > 600;
 }
 
 function saveOpen(open: boolean) {
@@ -120,14 +121,14 @@ export interface PhoneDeps {
   openFastForward?: () => void;
   /** The city's run recorder, so the desk can ask the coach about the city's run. */
   recorder?: RunRecorder;
-  /** Opens the U.S. map (the Map app's button). */
-  openMap?: () => void;
   /** Plays the days up to `day` as a time-lapse (the Calendar's "Skip to"). */
   skipTo?: (day: number) => void;
   /** Goes back to the morning of a past day (the Calendar's "Go back"). */
   rewindTo?: (day: number) => void;
   /** Whether going back is open (only in the end-of-game review); open when not given. */
   canGoBack?: () => boolean;
+  /** The player retired from the Goals app: the end-of-game review opens (going back unlocks). */
+  onRetire?: () => void;
   /** Opens the save slot picker (the Calendar year view's "Save slots"). */
   openSlots?: () => void;
   /** The earliest day the player can go back to. */
@@ -316,7 +317,7 @@ export class Phone {
           <section class="view view-map-app" data-view="map" hidden>
             <header class="phone-app-head">
               <button class="st-back" data-home aria-label="Back to home">‹</button>
-              <div><div class="st-title">Map</div><div class="st-sub">Your place in the country</div></div>
+              <div><div class="st-title">Map</div><div class="st-sub">Where you live</div></div>
             </header>
             <div class="map-place-card">
               ${pixelIcon("pin", "map-place-pin")}
@@ -329,7 +330,6 @@ export class Phone {
               <span>State</span><strong data-map-state></strong>
               <span>Cost of living</span><strong data-map-cost></strong>
             </div>
-            <button class="map-open-button" data-open-map>${pixelIcon("map")} Open U.S. map</button>
           </section>
 
           <section class="view view-calendar" data-view="calendar" hidden></section>
@@ -428,7 +428,6 @@ export class Phone {
     if (btn.dataset.desk !== undefined) return this.openDesk();
     if (btn.dataset.stock) return this.openDesk(btn.dataset.stock);
     if (btn.dataset.tourReplay) return this.deps.replayTour?.(btn.dataset.tourReplay as "stocks");
-    if (btn.dataset.openMap !== undefined) return this.deps.openMap?.();
     if (btn.dataset.mailId) return this.toggleMail(btn.dataset.mailId);
     if (btn.dataset.newsRetry !== undefined) return void this.news.load();
     if (btn.dataset.openFf !== undefined) return this.deps.openFastForward?.();
@@ -469,6 +468,7 @@ export class Phone {
   private onRetire(): void {
     this.resumeSpeed = this.deps.clock.speed || this.resumeSpeed;
     this.deps.clock.speed = 0;
+    this.deps.onRetire?.();
     const score = buildEndgameScore(this.deps.player, Math.floor(this.deps.player.age), this.deps.player.today);
     mountEndgame(document.body, { score });
   }

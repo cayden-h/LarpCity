@@ -90,6 +90,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .id-card-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .id-card-name { color: var(--ink); font-size: 17px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .id-card-age { color: var(--ink); font-size: 13px; opacity: 0.85; }
+.id-card-job { color: var(--ink); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.id-card-job:empty { display: none; }
 
 .phone { font-family: "Pixelify Sans", monospace; -webkit-font-smoothing: auto; }
 .phone-body {
@@ -307,7 +309,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 }
 .map-place-pin { width: 44px; height: 44px; }
 .map-place-copy { min-width: 0; }
-/* The city and its state stay on one line; the tier badge wraps under them when there's no room. */
+/* The city and its state wrap rather than cut off; the tier badge wraps under them when there's no room. */
 .map-place-title {
   display: flex;
   flex-wrap: wrap;
@@ -317,11 +319,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .map-place-title strong {
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
   font-size: 19px;
   line-height: 1.1;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .map-place-title .tier {
   flex: none;
@@ -1081,15 +1081,20 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 }
 
 @media (max-width: 600px) {
+  /* Above the pulled-down phone's 42px strip, which spans the bottom of a phone-width screen. */
   .home {
     left: 12px;
+    bottom: 54px;
     width: min(310px, calc(100% - 24px));
+  }
+  /* The Player card and the happiness meter stand on the home card, so they rise with it. */
+  .card.id-card,
+  .card.happiness {
+    bottom: calc(68px + var(--home-h, 114px));
   }
 }
 
-/* HUD: who the player is, and a chip when saving stops (ui/hud.ts). The label is a flex
-   row with a 12px gap; the name pulls back so "·" sits as close to "home" as to the job. */
-.hud-who { font-weight: 400; opacity: 0.75; margin-left: -4px; }
+/* HUD: a chip when saving stops (ui/hud.ts). */
 .hud-chip {
   margin-top: 8px;
   padding: 4px 8px;

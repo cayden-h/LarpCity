@@ -21,7 +21,7 @@ export function bootPath(me: MeOutcome, url: { intake: boolean }): BootPath {
   return "intake";
 }
 
-/** Asks /me, retrying network failures and 5xx answers; any other answer is final. */
+/** Asks /me, retrying network failures, rate limits (429), and 5xx answers; any other answer is final. */
 export async function fetchMe(
   me: () => Promise<Me>,
   o: { tries: number; delayMs: number; sleep?: (ms: number) => Promise<void> },
@@ -33,7 +33,7 @@ export async function fetchMe(
       return { ok: true, me: await me() };
     } catch (err) {
       status = err instanceof ApiError ? err.status : undefined;
-      const transient = !(err instanceof ApiError) || err.status >= 500;
+      const transient = !(err instanceof ApiError) || err.status === 429 || err.status >= 500;
       if (!transient || i === o.tries - 1) break;
       await sleep(o.delayMs);
     }

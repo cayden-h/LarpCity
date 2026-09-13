@@ -1,0 +1,357 @@
+/* Sammy's setup for a new life (ui/intake.ts): his card over a blurred
+   plate of the city, in the HUD's pixel theme (square blue card with
+   dark pixel edges, yellow buttons, Pixelify Sans; ui/pixel-theme.css), after
+   reference/screenshots/02-onboarding-mayor.jpg. */
+
+.in-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: 44px 20px 24px;
+  background: #24497f var(--backdrop, none) center / cover no-repeat;
+  font-family: "Pixelify Sans", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.in-overlay::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 16, 34, 0.52);
+  backdrop-filter: blur(6px);
+}
+.in-overlay :focus-visible {
+  outline: 3px solid rgba(255, 224, 102, 0.9);
+  outline-offset: 2px;
+}
+.in-overlay.in-leaving {
+  pointer-events: none;
+}
+
+.in-card {
+  position: relative;
+  width: min(620px, 100%);
+  padding: 46px 30px 22px;
+  border: 4px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: var(--panel, linear-gradient(180deg, #2d6fd6 0%, #1f4e9c 100%));
+  box-shadow: inset 0 4px #a4eaff, inset 4px 0 #57c1fb, inset -4px 0 #003f7b, inset 0 -4px #004d8a, var(--shadow);
+  color: #fff;
+  text-align: center;
+}
+
+.in-ribbon {
+  position: absolute;
+  top: -26px;
+  left: 50%;
+  margin: 0;
+  padding: 8px 28px 10px;
+  transform: translateX(-50%);
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: linear-gradient(180deg, #f25c63 0%, #d93a44 100%);
+  box-shadow: inset 3px 3px #ff9ca1, inset -3px -3px #a82630, 0 4px var(--edge, #101a23);
+  text-shadow: 1px 2px #8f1f28;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+/* The owl (ui/owl.ts) stands centred at the top of each screen. */
+.in-owl-slot {
+  display: flex;
+  justify-content: center;
+  margin: -4px auto 10px;
+}
+
+/* Welcome */
+.in-name {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.in-lead {
+  max-width: 44ch;
+  margin: 10px auto 22px;
+  font-size: 17px;
+  line-height: 1.45;
+}
+.in-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+/* Both buttons in an action row share one size. */
+.in-big {
+  padding: 10px 22px;
+  font-size: 17px;
+}
+.in-avatar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 110px;
+}
+.in-avatar-icon {
+  font-size: 40px;
+  line-height: 1;
+}
+
+/* Insurance-plan picker */
+.in-plan-picker {
+  align-items: stretch;
+}
+.in-plan-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 130px;
+}
+.in-plan-name {
+  font-size: 17px;
+  font-weight: 700;
+}
+.in-plan-detail {
+  font-size: 13px;
+  opacity: 0.85;
+}
+/* The options are yellow buttons: the unpicked ones step back to a pale face, so the picked one
+   stays yellow and gets a dark ring. (A pale picked face read as the one not chosen.) */
+.in-plan-card:not(.sel),
+.in-card-tile:not(.sel),
+.in-avatar-card:not(.sel),
+.in-toggle-opt:not(.sel) {
+  background: #fff6c8;
+}
+.in-plan-card.sel,
+.in-card-tile.sel,
+.in-avatar-card.sel,
+.in-toggle-opt.sel {
+  box-shadow: 0 0 0 4px var(--edge, #101a23), 0 0 0 7px #fff;
+}
+.in-plan-card.sel::after,
+.in-card-tile.sel::after,
+.in-avatar-card.sel::after {
+  content: "✓ Picked";
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Beginner credit-card picker: reuses the Card Shop's card-art markup
+   (cardArt/fallbackFace, src/debt-demo/shop.ts), whose own rules are scoped
+   under ".shop" and don't apply here, so the structural bits are repeated
+   under ".in-card-picker" instead. */
+.in-card-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 150px;
+}
+.in-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.in-card-picker .cc {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 30%;
+  width: 130px;
+}
+.in-card-picker .cc-body {
+  position: relative;
+  aspect-ratio: 1.586;
+  overflow: hidden;
+  border-radius: 4.6% / 7.3%;
+  background: #0f2a57;
+  box-shadow:
+    0 0 0 1px rgba(11, 11, 12, 0.35),
+    0 12px 22px -10px rgba(5, 20, 50, 0.5),
+    0 3px 6px rgba(5, 20, 50, 0.2);
+}
+.in-card-picker .cc-body img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+}
+.in-card-picker .cc-drawn {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 8% 7%;
+  container-type: inline-size;
+  background:
+    radial-gradient(120% 90% at 85% 0%, rgba(255, 255, 255, 0.16), transparent 50%),
+    linear-gradient(135deg, var(--a), var(--b));
+  color: #fff;
+  font-family: -apple-system, "Inter", system-ui, sans-serif;
+  font-size: clamp(6px, 7cqw, 16px);
+}
+.in-card-picker .cc-issuer {
+  font-weight: 700;
+}
+.in-card-picker .cc-chip {
+  width: 17%;
+  align-self: center;
+}
+.in-card-picker .cc-name {
+  font-size: 0.85em;
+  font-weight: 600;
+  opacity: 0.9;
+}
+.in-card-picker .cc-net {
+  position: absolute;
+  right: 7%;
+  bottom: 8%;
+  font-weight: 800;
+}
+
+/* Fields */
+.in-wide {
+  grid-column: 1 / -1;
+}
+.in-field {
+  display: grid;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.in-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: var(--paper, #fff);
+  box-shadow: inset 2px 2px #d7cba8;
+  color: var(--ink, #16233b);
+}
+.in-input:focus-within {
+  box-shadow: inset 2px 2px #d7cba8, 0 0 0 3px var(--yellow, #ffcf33);
+}
+.in-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  appearance: textfield;
+}
+.in-input input:focus-visible {
+  outline: none;
+}
+/* The marriage step's Yes / Not for me: two pressable pixel buttons, one picked (.sel, above). */
+.in-toggle {
+  display: flex;
+  gap: 8px;
+}
+.in-toggle-opt {
+  flex: 1;
+  padding: 9px 0;
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: var(--paper, #fff);
+  color: var(--ink, #16233b);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  box-shadow: inset 2px 2px #d7cba8;
+}
+.in-toggle-opt:focus-visible {
+  outline: 3px solid var(--yellow, #ffcf33);
+  outline-offset: 2px;
+}
+/* The goal steps' range sliders. */
+.in-field input[type="range"] {
+  width: 100%;
+  height: 22px;
+  accent-color: var(--yellow, #ffcf33);
+}
+
+@media (max-width: 540px) {
+  .in-card {
+    padding: 42px 18px 18px;
+  }
+  .in-ribbon {
+    padding: 7px 18px 8px;
+    font-size: 19px;
+  }
+}
+
+/* Sammy's setup steps (ui/intake.ts): the generated life, the goal sliders, and Back / Next. */
+.in-step {
+  display: grid;
+  gap: 14px;
+  text-align: left;
+}
+.in-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0 auto;
+  padding: 14px 18px;
+  border: 3px solid var(--edge, #101a23);
+  background: rgba(8, 30, 70, 0.35);
+  font-size: 16px;
+}
+.in-facts dt {
+  opacity: 0.85;
+}
+.in-facts dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+}
+.in-age span {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 16px;
+}
+.in-age b {
+  font-size: 26px;
+  color: var(--yellow, #ffcf33);
+}
+.in-age input {
+  width: 100%;
+}
+.in-hint {
+  margin: -6px 0 0;
+  font-size: 13px;
+  opacity: 0.85;
+}
+.in-nav {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.in-nav > :first-child {
+  justify-self: start;
+}
+.in-nav > :last-child {
+  justify-self: end;
+}
+.in-count {
+  font-size: 13px;
+  opacity: 0.85;
+}

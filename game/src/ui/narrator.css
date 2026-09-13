@@ -106,8 +106,9 @@
   font-size: 16px;
   line-height: 1.4;
 }
+/* Words not yet said stay readable on their own, so a silent or failed voice never leaves a faint line. */
 .nr-text span {
-  opacity: 0.35;
+  opacity: 0.7;
   transition: opacity 0.12s;
 }
 .nr-text span.said {

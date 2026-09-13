@@ -43,8 +43,8 @@ export function mountEndgame(host: HTMLElement, deps: { score: EndgameScore; onC
   const overlay = document.createElement("div");
   overlay.className = "endgame-overlay";
   const headline = score.passed
-    ? `You retired at ${score.retiredAge} — nicely done`
-    : `You retired at ${score.retiredAge} — a little late`;
+    ? `You retired at ${score.retiredAge}. Nicely done!`
+    : `You retired at ${score.retiredAge}, a little late.`;
   overlay.innerHTML = `<div class="endgame-window" role="dialog" aria-modal="true" aria-label="Retirement results">
     <div class="endgame-bar">
       <span class="endgame-title">Retirement</span>
@@ -53,10 +53,11 @@ export function mountEndgame(host: HTMLElement, deps: { score: EndgameScore; onC
     <div class="endgame-body">
       <h2 class="endgame-headline ${score.passed ? "pass" : "fail"}">${headline}</h2>
       <dl class="endgame-scores">
-        <div class="endgame-score-row"><dt>Financial (RR)</dt><dd>${score.RR}</dd></div>
-        <div class="endgame-score-row"><dt>Happiness (W<sub>life</sub>)</dt><dd>${score.Wlife}</dd></div>
+        <div class="endgame-score-row"><dt>Money readiness</dt><dd>${score.RR}</dd></div>
+        <div class="endgame-score-row"><dt>Lifetime happiness</dt><dd>${score.Wlife}</dd></div>
         <div class="endgame-score-row endgame-final"><dt>Final score</dt><dd>${score.final}</dd></div>
       </dl>
+      <p class="endgame-review">Your review is open: in the Calendar, tap any past day to go back and try a different choice.</p>
     </div>
   </div>`;
   const close = () => {

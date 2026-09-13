@@ -173,15 +173,19 @@ export function priceTag(goal: Goal, v: GoalView, placeName: string, currentAge 
       const pay = h.affordable
         ? `Your pay covers the ${dollars(h.payment)} monthly payment.`
         : `The ${dollars(h.payment)} monthly payment needs about ${dollars(h.incomeNeeded)} a year of pay to stay under 28%.`;
+      const by = goal.targetAge ? `Own a home by ${goal.targetAge}. ` : "";
       return {
-        text: `A typical ${placeName} home is about ${dollars(h.price)}. You need ${dollars(h.cashNeeded)} in cash (${Math.round(goal.downPct * 100)}% down ${dollars(h.down)}, closing ${dollars(h.closing)}, moving ${dollars(h.moving)}) and your emergency fund kept full. ${pay}`,
+        text: `${by}A typical ${placeName} home is about ${dollars(h.price)}. You need ${dollars(h.cashNeeded)} in cash (${Math.round(goal.downPct * 100)}% down ${dollars(h.down)}, closing ${dollars(h.closing)}, moving ${dollars(h.moving)}) and your emergency fund kept full. ${pay}`,
         progress: Math.min(1, h.available / h.cashNeeded),
       };
     }
     case "marriage":
       return v.relationship === "partnered"
         ? { text: "You're married.", progress: 1 }
-        : { text: "This isn't something money buys — it happens by chance over time, like it does in real life.", progress: null };
+        : {
+            text: `${goal.targetAge ? `Married by ${goal.targetAge}, you hope. ` : ""}This isn't something money buys: it happens by chance over time, like it does in real life.`,
+            progress: null,
+          };
     case "status":
       return {
         text: `You're earning ${dollars(v.grossAnnual)} a year before taxes. Reach ${dollars(goal.annualIncome)}. This plan assumes your current pay; a career change or raise is needed to increase it.`,
