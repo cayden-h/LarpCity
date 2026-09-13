@@ -8,7 +8,7 @@ import { BRIDGE_Z, WATER_Z } from "../engine/ground";
 import { depthOf, iso } from "../engine/iso";
 import { box, cone, cylinder, layer, line3 } from "../engine/shapes";
 import { spriteOrigin, type SpriteEntry } from "../engine/sprite-pick";
-import { buildSpriteView, spriteLandmark, type SpriteSet } from "../engine/sprites";
+import { buildSprite, buildSpriteView, spriteLandmark, type SpriteSet } from "../engine/sprites";
 import type { LandmarkContext, LandmarkFactory, LandmarkInstance, LandmarkPlacement } from "../engine/types";
 
 type P3 = [number, number, number];
@@ -442,8 +442,38 @@ const glassTowerModel: LandmarkFactory = ({ x, y, w, d }, ctx) => {
   };
 };
 
+const LADY_PAINTS = [0xf6b8c8, 0xbfe6d0, 0xfbe7a1, 0xaed6f1, 0xd9c8ec, 0xf8cfa8];
+const LADY_MODELS = ["queen_anne", "stick", "queen_anne", "italianate", "stick", "queen_anne"];
+
+/**
+ * The row drawn with the city's own pixel-art Victorian sprites (the house
+ * catalog), fronts to the south, each house's walls tinted its pastel paint.
+ * Null when the city has no house sprites, so the drawn model stands in.
+ */
+function ladiesFromSprites({ x, y, w, d }: LandmarkPlacement, ctx: LandmarkContext): LandmarkInstance | null {
+  const set = ctx.sprites;
+  if (!set) return null;
+  const entries = LADY_MODELS.map((v) => set.manifest.sprites.find((s) => s.id === `victorian-${v}-1x1-s`));
+  if (entries.some((e) => !e)) return null;
+  const houses = Array.from({ length: w }, (_, i) => {
+    const b = buildSprite(set, entries[i % entries.length]!, x + i, y + d - 1, LADY_PAINTS[i % LADY_PAINTS.length]);
+    b.view.zIndex = depthOf(x + i, y + d - 1, 60);
+    return b;
+  });
+  return {
+    views: houses.map((h) => h.view),
+    tintables: houses.map((h) => h.view.children[0] as Container),
+    update: () => {
+      for (const h of houses) h.lights.alpha = ctx.night();
+    },
+  };
+}
+
 /** A row of pastel Victorian houses with gables, bay windows, and white trim. */
-export const paintedLadies: LandmarkFactory = ({ x, y, w, d }, ctx) => {
+export const paintedLadies: LandmarkFactory = (place, ctx) => {
+  const row = ladiesFromSprites(place, ctx);
+  if (row) return row;
+  const { x, y, w, d } = place;
   const g = new Graphics();
   const lit = new Graphics();
   const colors = [0xf6b8c8, 0xbfe6d0, 0xfbe7a1, 0xaed6f1, 0xd9c8ec, 0xf8cfa8];

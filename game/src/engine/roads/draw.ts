@@ -1,9 +1,12 @@
 // Road furniture drawn as objects so it sorts with cars and buildings:
 // overpass decks, traffic signal heads (lit by the sim's signal plans), and
-// stop and yield signs. Spec C replaces the drawings with pixel sprites.
+// stop and yield signs, as pixel sprites (pixel/props.ts).
 
-import { Container, Graphics } from "pixi.js";
+import { Container, Graphics, Sprite } from "pixi.js";
 import { shade } from "../color";
+import { pixelTexture } from "../pixel/atlas";
+import { groundPattern } from "../pixel/patterns";
+import { signalArt, signalLampArt, stopSignArt, yieldSignArt } from "../pixel/props";
 import type { CityGrid } from "../grid";
 import { depthOf, iso, tileCorners, flat } from "../iso";
 import { minorArms, signalState, type Light, type SignalPlan } from "./control";
@@ -21,12 +24,10 @@ export interface RoadProps {
 }
 
 interface Head {
-  lamps: Graphics;
+  lamps: Sprite;
   plan: SignalPlan;
   thru: Movement;
   left: Movement | null;
-  x: number;
-  y: number;
   state: string;
 }
 
@@ -90,36 +91,30 @@ export function buildRoadProps(net: RoadNet, sim: Sim, grid: CityGrid): RoadProp
       const { x: px, y: py } = spot;
       const base = iso(px, py);
       const pole = new Container();
-      const g = new Graphics();
-      pole.addChild(g);
+      pole.position.set(Math.round(base.x), Math.round(base.y));
       pole.zIndex = (px + py) * 100 + 55;
+      let body: Sprite;
       if (plan) {
         const moves = incoming.flatMap((l) => l.out);
         const thru = moves.find((m) => m.turn === "straight") ?? moves[0];
         const left = moves.find((m) => m.turn === "left" && plan.phases.some((p) => p.green.has(m))) ?? null;
-        g.rect(base.x - 0.75, base.y - 22, 1.5, 22).fill(0x4a4f57);
-        g.rect(base.x - 2.6, base.y - 31, 5.2, 11).fill(0x23262b);
-        if (left) g.rect(base.x + 2.6, base.y - 24, 4, 4).fill(0x23262b);
-        const lamps = new Graphics();
-        pole.addChild(lamps);
-        heads.push({ lamps, plan, thru, left, x: base.x, y: base.y, state: "" });
+        body = new Sprite(pixelTexture(`signal:${left ? 1 : 0}`, () => signalArt(!!left)));
+        // The lit lamps sit on top, untinted, so they glow at night.
+        const lamps = new Sprite();
+        pole.addChild(body, lamps);
+        heads.push({ lamps, plan, thru, left, state: "" });
       } else if (node.control === "allway" || (node.control === "stop" && minor.has(arm))) {
-        g.rect(base.x - 0.6, base.y - 14, 1.2, 14).fill(0x8d949c);
-        const oct = Array.from({ length: 8 }, (_, k) => {
-          const a = (k * Math.PI) / 4 + Math.PI / 8;
-          return [base.x + Math.cos(a) * 3.4, base.y - 17 + Math.sin(a) * 3.4];
-        }).flat();
-        g.poly(oct).fill(0xd32f2f).stroke({ width: 0.8, color: 0xffffff });
+        body = new Sprite(pixelTexture("stop-sign", stopSignArt));
+        pole.addChild(body);
       } else if (node.control === "yield" && minor.has(arm)) {
-        g.rect(base.x - 0.6, base.y - 14, 1.2, 14).fill(0x8d949c);
-        g.poly([base.x - 3.6, base.y - 20, base.x + 3.6, base.y - 20, base.x, base.y - 14]).fill(0xffffff).stroke({ width: 1, color: 0xd32f2f });
+        body = new Sprite(pixelTexture("yield-sign", yieldSignArt));
+        pole.addChild(body);
       } else continue;
       views.push(pole);
-      tintables.push(g);
+      tintables.push(body);
     }
   }
 
-  const color = (on: boolean, c: number) => (on ? c : shade(c, 0.28));
   return {
     views,
     tintables,
@@ -130,12 +125,7 @@ export function buildRoadProps(net: RoadNet, sim: Sim, grid: CityGrid): RoadProp
         const state = l + ll;
         if (state === h.state) continue;
         h.state = state;
-        const g = h.lamps;
-        g.clear();
-        g.circle(h.x, h.y - 28.5, 1.5).fill(color(l === "R", 0xff3b30));
-        g.circle(h.x, h.y - 25.5, 1.5).fill(color(l === "Y", 0xffc107));
-        g.circle(h.x, h.y - 22.5, 1.5).fill(color(l === "G" || l === "P", 0x3ddc84));
-        if (h.left) g.poly([h.x + 5.8, h.y - 22.2, h.x + 3.4, h.y - 22.2, h.x + 4.6, h.y - 23.6]).fill(color(ll === "G", ll === "Y" ? 0xffc107 : 0x3ddc84));
+        h.lamps.texture = pixelTexture(`signal-lamps:${l}:${ll}`, () => signalLampArt(l, ll));
       }
     },
   };
@@ -149,7 +139,7 @@ function deck(grid: CityGrid, x: number, y: number, alongX: boolean, marks: Mark
   g.rect(mid.x - 4, mid.y, 8, DECK_Z + 3).fill(0xb9b3a8);
   g.poly([L.x, L.y, B.x, B.y, B.x, B.y + 6, L.x, L.y + 6]).fill(shade(top, 0.8));
   g.poly([B.x, B.y, R.x, R.y, R.x, R.y + 6, B.x, B.y + 6]).fill(shade(top, 0.62));
-  g.poly(flat([T, R, B, L])).fill(top);
+  g.poly(flat([T, R, B, L])).fill({ texture: groundPattern("asphalt", top), textureSpace: "global" });
   // Railings where the deck ends (no more overpass beside it).
   const edges: [typeof T, typeof T, number, number][] = alongX ? [[T, R, x, y - 1], [L, B, x, y + 1]] : [[T, L, x - 1, y], [R, B, x + 1, y]];
   for (const [p, q, nx, ny] of edges) if (grid.at(nx, ny) !== "O") g.moveTo(p.x, p.y - 4).lineTo(q.x, q.y - 4).stroke({ width: 1.5, color: 0xc9ccd2 });

@@ -178,6 +178,17 @@ npm run art:sf                                     # sign art, render, pixelize,
 - `src/engine/sprite-pick.ts` chooses a sprite per lot (tested in `tests/sprites.test.ts`); `src/engine/sprites.ts` loads the set and returns the brick builder's `Built` shape.
   Nearest magnification keeps enlarged pixels crisp, while linear minification reduces shimmer when zoomed out.
 
+## Pixel world (code-drawn art)
+
+Everything in the world that is not a building sprite is pixel art drawn in code at 1x, to the same rules as the Blender pixel pass: hard edges, a `#2b2233` ink outline, at most three flat tones per surface from one upper-left key light, and flat ink shadows at alpha 96 ([design](../docs/superpowers/specs/2026-09-13-pixel-world-design.md), [progress and deviations](../docs/superpowers/plans/2026-09-13-pixel-world-progress.md)).
+
+- `src/engine/pixel/canvas.ts` is `PixelCanvas`, a small rasterizer with no DOM (polygons, rectangles, ellipses, and lines filled by pixel center, part-aware outlines, flat shadows); `tones.ts` has the three-tone ramp.
+- `atlas.ts` packs each drawing into shared 2048 x 2048 atlas pages the first time its key is used, so trees, cars, boats, people, and props batch; `patterns.ts` makes the repeating ground textures.
+- Families: `plants.ts` (oak, Monterey cypress, pine, palm, and bush in four seeded variants, bare and snowy states, cacti, boulders, reeds), `ground-art.ts` (seamless 16 x 16 terrain patterns and the 3-frame water glints), `vehicles.ts` (every vehicle kind in eight facings, plus the additive lamps), `boats.ts` (seven kinds in four directions with a 2-frame wake), `people-art.ts` (three walk frames per side), and `props.ts` (signals with per-state lamps, stop and yield signs).
+- Water animates in whole steps, never fades: glints at 4 frames a second and a 2-frame foam line where land meets water, drawn on the land's back edges where raised land would hide it; beaches get a wet-sand band.
+- The Painted Ladies are five of the SF Victorian house sprites with pastel wall tints (`ladiesFromSprites` in `src/cities/san-francisco.landmarks.ts`).
+- `src/engine/pixel/catalog.ts` lists every family; `tests/pixel-art.test.ts` checks each one's outline, alpha, and palette, and `npm run art:contact-code` writes `art/_contact-code-1x.png` and `-4x.png` review sheets (not committed; pass a family prefix such as `tree` to filter).
+
 ## Plate images (states-map thumbnails)
 
 The game itself uses no background images: the city fills the screen.

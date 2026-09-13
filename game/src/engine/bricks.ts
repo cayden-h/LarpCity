@@ -9,6 +9,8 @@ import { mix, shade } from "./color";
 import { face, lerp } from "./ground";
 import { iso, flat, footprintCorners } from "./iso";
 import { rngFor } from "./rng";
+import { treeSprite } from "./pixel/plant-views";
+import type { Species } from "./pixel/plants";
 import type { RoofType } from "./types";
 
 export const FLOOR_H = 20;
@@ -239,51 +241,33 @@ function drawRoof(
   }
 }
 
-/** A small round tree on a tile: trunk, two canopy blobs, studs on top. */
+/** Per-tree leaf tones come from three steps, so the atlas holds a bounded set of trees. */
+const TONES = [0.9, 1, 1.1];
+
+/** A street tree on a tile: mostly oaks, some palms and bushes (pixel art, pixel/plants.ts). */
 export function buildTree(tx: number, ty: number, seed: number, leaf: number, bare = false, snow = 0): Container {
   const rng = rngFor(seed, "tree", tx, ty);
-  const g = new Graphics();
-  drawTree(g, iso(tx + 0.3 + rng() * 0.4, ty + 0.3 + rng() * 0.4), 0.8 + rng() * 0.45, rng(), leaf, bare, snow);
+  const p = iso(tx + 0.3 + rng() * 0.4, ty + 0.3 + rng() * 0.4);
+  const pick = rng();
+  const species: Species = pick < 0.72 ? "oak" : pick < 0.86 ? "palm" : "bush";
   const c = new Container();
-  c.addChild(g);
+  c.addChild(treeSprite(species, Math.floor(rng() * 4), { leaf: shade(leaf, TONES[Math.floor(rng() * 3)]), bare, snow: snow > 0.3 }, p.x, p.y));
   return c;
 }
 
 /**
- * Several trees on one tile drawn into a single Graphics (forests have
- * thousands of trees, so one object per tile keeps them cheap).
+ * Several trees on one tile in one container (forests have thousands of
+ * trees; they are atlas sprites, so they batch).
  */
 export function buildGrove(tx: number, ty: number, seed: number, leaf: number, count: number, conifers: number, bare = false, snow = 0): Container {
   const rng = rngFor(seed, "grove", tx, ty);
-  const spots = Array.from({ length: count }, () => ({ ox: 0.18 + rng() * 0.64, oy: 0.18 + rng() * 0.64, s: 0.75 + rng() * 0.5, k: rng() < conifers ? 0.9 : 0.1, tone: 0.88 + rng() * 0.22 }));
+  const spots = Array.from({ length: count }, () => ({ ox: 0.18 + rng() * 0.64, oy: 0.18 + rng() * 0.64, v: Math.floor(rng() * 4), conifer: rng() < conifers, cypress: rng() < 0.35, tone: TONES[Math.floor(rng() * 3)] }));
   spots.sort((a, b) => a.ox + a.oy - (b.ox + b.oy));
-  const g = new Graphics();
-  for (const t of spots) drawTree(g, iso(tx + t.ox, ty + t.oy), t.s, t.k, shade(leaf, t.tone), bare && t.k < 0.5, snow);
   const c = new Container();
-  c.addChild(g);
-  return c;
-}
-
-function drawTree(g: Graphics, p: { x: number; y: number }, s: number, kind: number, leaf: number, bare: boolean, snow: number): void {
-  g.ellipse(p.x, p.y, 10 * s, 4.5 * s).fill({ color: 0x000000, alpha: 0.12 });
-  g.rect(p.x - 2.5, p.y - 14 * s, 5, 14 * s).fill(0x7a5035);
-  g.rect(p.x - 2.5, p.y - 14 * s, 2, 14 * s).fill(0x93633f);
-  if (!bare) {
-    if (kind < 0.5) {
-      // Round canopy made of stacked "bricks".
-      g.roundRect(p.x - 13 * s, p.y - 30 * s, 26 * s, 18 * s, 6 * s).fill(shade(leaf, 0.85));
-      g.roundRect(p.x - 10 * s, p.y - 38 * s, 20 * s, 14 * s, 6 * s).fill(leaf);
-      g.roundRect(p.x - 6 * s, p.y - 37 * s, 8 * s, 5 * s, 2 * s).fill({ color: 0xffffff, alpha: 0.18 });
-    } else {
-      // Cone tree, three tiers.
-      for (let k = 0; k < 3; k++) {
-        const wdt = (14 - k * 3.5) * s, top = p.y - (14 + k * 9) * s;
-        g.poly([p.x - wdt, top, p.x + wdt, top, p.x, top - 14 * s]).fill(shade(leaf, 0.8 + k * 0.1));
-      }
-    }
-    if (snow > 0.3) g.ellipse(p.x, p.y - 36 * s, 9 * s, 3 * s).fill({ color: 0xffffff, alpha: snow });
-  } else {
-    g.moveTo(p.x, p.y - 12 * s).lineTo(p.x - 8 * s, p.y - 24 * s).moveTo(p.x, p.y - 14 * s).lineTo(p.x + 7 * s, p.y - 26 * s);
-    g.stroke({ width: 2, color: 0x7a5035 });
+  for (const t of spots) {
+    const p = iso(tx + t.ox, ty + t.oy);
+    const species: Species = t.conifer ? (t.cypress ? "cypress" : "pine") : "oak";
+    c.addChild(treeSprite(species, t.v, { leaf: shade(leaf, t.tone), bare, snow: snow > 0.3 }, p.x, p.y));
   }
+  return c;
 }
