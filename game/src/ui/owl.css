@@ -8,6 +8,11 @@
   flex: none;
   width: calc(var(--owl-size) * 0.9);
   height: var(--owl-size);
+  transition: opacity 0.2s ease;
+}
+/* Until its first strip has loaded (ui/owl.ts): no empty box, no lone shadow. */
+.owl.waiting {
+  opacity: 0;
 }
 .owl::after {
   content: "";
@@ -30,6 +35,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .owl,
   .owl-sprite {
     transform: none;
     transition: none;
