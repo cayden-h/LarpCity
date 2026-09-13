@@ -88,6 +88,8 @@ export class Sim {
   private readonly flow: number[];
   private readonly queue = new Map<number, Map<Car, number>>();
   private readonly minor = new Map<number, Set<Arm>>();
+  /** Movements that end on each track, by tid. */
+  private readonly into: Movement[][];
   private nextId = 1;
   private sinceWatch = 0;
 
@@ -100,6 +102,8 @@ export class Sim {
     this.clearingCount = net.tracks.map(() => 0);
     this.flow = net.nodes.map(() => 0);
     for (const n of net.nodes) this.minor.set(n.id, minorArms(n));
+    this.into = net.tracks.map(() => []);
+    for (const m of net.movements) this.into[m.to.tid].push(m);
   }
 
   carsOn(t: Track): readonly Car[] {
@@ -109,7 +113,16 @@ export class Sim {
   spawn(o: SpawnOptions): Car | null {
     const len = carLength(o.kind);
     const s = Math.max(Math.min(len, o.lane.path.length), Math.min(o.s, o.lane.path.length));
+    if (s > o.lane.path.length - len) return null;
     for (const c of this.on[o.lane.tid]) if (c.s > s - len - 0.15 && c.s - c.len < s + 0.15) return null;
+    // Nor in front of a car about to come off a movement into the lane.
+    for (const m of this.into[o.lane.tid]) for (const c of this.on[m.tid]) if (c.s - m.path.length > s - len - 0.15 - c.v * 0.7) return null;
+    // Nor onto the tail of a car still leaving down one of the lane's own outgoing movements.
+    for (const m of o.lane.out) {
+      const na = this.on[m.tid];
+      const l = na[na.length - 1];
+      if (l && l.s < l.len && s > o.lane.path.length + l.s - l.len - 0.15) return null;
+    }
     const car: Car = {
       id: this.nextId++, kind: o.kind, len, pace: o.pace ?? 1, accelMax: ACCEL[o.kind] ?? 1.2,
       track: o.lane, s, v: o.v ?? 0, a: 0, lat: 0, steps: o.steps, step: 0, committed: false,
@@ -141,7 +154,9 @@ export class Sim {
 
   step(): void {
     this.time += DT;
-    for (const car of this.cars) car.a = this.accel(car);
+    // onStuck (via tryChange, called from accel's gapAhead) or onDone may
+    // mutate this.cars, so iterate a snapshot in both passes.
+    for (const car of [...this.cars]) car.a = this.accel(car);
     for (const car of [...this.cars]) if (!car.done) this.move(car);
     this.sinceWatch += DT;
     if (this.sinceWatch >= 1) {
@@ -161,6 +176,12 @@ export class Sim {
         const last = this.on[t.to.tid][this.on[t.to.tid].length - 1];
         if (last && arr[0].s - t.path.length > last.s - last.len + 1e-6) errs.push(`overlap leaving movement ${t.id}`);
       }
+      if (t.kind === "lane" && arr.length)
+        for (const m of t.out) {
+          const na = this.on[m.tid];
+          const l = na[na.length - 1];
+          if (l && l.s < l.len && arr[0].s > t.path.length + l.s - l.len + 1e-6) errs.push(`overlap entering movement ${m.id}`);
+        }
     }
     const busy = (m: Movement) => this.on[m.tid].length > 0 || this.clearingCount[m.tid] > 0;
     for (const m of this.net.movements) {
@@ -226,6 +247,15 @@ export class Sim {
     const wall = (d: number) => take(d + S0, 0);
     if (halt && halt.lane === tr && halt.s >= car.s - 0.05) wall(halt.s - car.s);
     let dist = tr.path.length - car.s;
+    if (tr.kind === "lane") {
+      // A car that just entered one of this lane's outgoing movements may
+      // still have its tail overlapping the lane's end.
+      for (const m of tr.out) {
+        const na = this.on[m.tid];
+        const l = na[na.length - 1];
+        if (l && l.s < l.len) take(dist + l.s - l.len, l.v);
+      }
+    }
     let next: Track | null;
     if (tr.kind === "lane") {
       const st = car.steps[car.step];
@@ -320,6 +350,10 @@ export class Sim {
       if (!f || nextMove(f) !== c) continue;
       const mustStop = c.node.control === "allway" || (c.node.control === "stop" && this.minor.get(c.node.id)!.has(armOf(c)));
       if (mustStop && f.v < 0.05) continue;
+      // A higher-priority front car stopped for its own reasons (not this
+      // node) isn't about to take the road either; don't starve the minor
+      // movement waiting on it forever.
+      if (f.stopped > 1) continue;
       if ((c.from.path.length - f.s) / Math.max(f.v, 0.3) < GAP_TIME) return false;
     }
     return true;
@@ -335,7 +369,8 @@ export class Sim {
 
   private tryChange(car: Car, to: Lane): void {
     const from = car.track as Lane;
-    let ok = car.s <= to.path.length - 0.1;
+    // Never cut in front of a car still working its way out of the intersection.
+    let ok = car.s >= car.len + 0.25 && car.s <= to.path.length - 0.1;
     if (ok) {
       let ahead = Infinity, behind = Infinity, vb = 0;
       for (const c of this.on[to.tid]) {
@@ -345,13 +380,22 @@ export class Sim {
           vb = c.v;
         }
       }
+      // Cars still on a movement into the target lane are behind it too.
+      for (const m of this.into[to.tid])
+        for (const c of this.on[m.tid]) {
+          const g = car.s - car.len - (c.s - m.path.length);
+          if (g < behind) {
+            behind = g;
+            vb = c.v;
+          }
+        }
       ok = ahead >= 0.25 + car.v * 0.4 && behind >= 0.25 + vb * 0.7;
     }
     if (!ok) {
       car.stuck += DT;
       if (car.stuck > 8) {
         car.stuck = 0;
-        this.onStuck(car);
+        this.unstick(car, from);
       }
       return;
     }
@@ -361,6 +405,22 @@ export class Sim {
     this.insert(car, to);
     car.step++;
     car.stuck = 0;
+  }
+
+  /** A lane-change wait that has gone on too long: let the owner reroute, and
+   * if it didn't, drop the change and take any live movement off this lane
+   * instead of blocking the lane forever (two side-by-side cars each wanting
+   * the other's lane would otherwise deadlock). */
+  private unstick(car: Car, from: Lane): void {
+    const before = car.steps[car.step];
+    this.onStuck(car);
+    if (car.steps[car.step] !== before) return;
+    const outs = from.out.filter((m) => m.live);
+    if (!outs.length) return;
+    const m = outs.find((o) => o.turn === "straight") ?? outs[0];
+    car.steps = [{ kind: "move", m }];
+    car.step = 0;
+    car.goal = null;
   }
 
   private move(car: Car): void {
@@ -381,6 +441,22 @@ export class Sim {
     if (i > 0 && car.s > arr[i - 1].s - arr[i - 1].len - 0.01) {
       car.s = arr[i - 1].s - arr[i - 1].len - 0.01;
       car.v = Math.min(car.v, arr[i - 1].v);
+    } else if (i === 0) {
+      // No leader on this track: don't run into one just across the boundary
+      // on the next track either. A lane can lead into several movements
+      // (whichever one the leader took), all sharing the same physical spot
+      // at the lane's end, so check every one of them, not just this car's own.
+      const nexts: Track[] = tr.kind === "lane" ? tr.out : [tr.to];
+      for (const next of nexts) {
+        const na = this.on[next.tid];
+        const l = na[na.length - 1];
+        if (!l) continue;
+        const boundary = tr.path.length + l.s - l.len - 0.01;
+        if (car.s > boundary) {
+          car.s = boundary;
+          car.v = Math.min(car.v, l.v);
+        }
+      }
     }
     while (car.s >= car.track.path.length) {
       const t = car.track;
@@ -435,6 +511,12 @@ export class Sim {
   }
 
   private watchdog(): void {
+    // A backstop for a car waiting on a lane change that tryChange's own
+    // 8-second timer somehow never fired for (e.g. it stopped being ticked).
+    for (const car of this.cars) {
+      const st = car.steps[car.step];
+      if (!car.done && st?.kind === "change" && car.track.kind === "lane" && car.stopped > 20) this.unstick(car, car.track);
+    }
     const waiting = new Map<number, Car[]>();
     for (const car of this.cars) {
       const m = nextMove(car);
@@ -446,9 +528,9 @@ export class Sim {
       waiting.set(m.node.id, list);
     }
     for (const [id, list] of waiting) {
-      const idle = this.time - this.flow[id];
-      if (idle < 20) continue;
       const car = list.reduce((a, b) => (b.stopped > a.stopped ? b : a));
+      const idle = Math.min(this.time - this.flow[id], car.stopped);
+      if (idle < 20) continue;
       const m = nextMove(car)!;
       if (idle < 45) {
         if (this.admit(car, m, 0, true)) this.commit(car, m);
