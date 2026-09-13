@@ -63,10 +63,12 @@ from the profile, and running the intake.
 
 | Route | Body | Returns |
 | --- | --- | --- |
-| `GET /api/me` | | `{ player, profile, save }` |
+| `GET /api/me?slot=N` | | `{ player, profile, save, slot, slots }`: slot N's save, and a summary of all three slots (null when empty) |
 | `PUT /api/profile` | the confirmed intake | `204` |
-| `PUT /api/save` | `{ runId, seed, version, gameDay, state, baseRev }` | `{ rev }`, or `409` when `baseRev` is stale, the run has ended, the run isn't this player's, or its seed doesn't match the run's own seed |
-| `DELETE /api/save` | | `204`; "New life": forgets the save and profile and ends the run, all in one transaction |
+| `PUT /api/save?slot=N` | `{ runId, seed, version, gameDay, state, baseRev }` | `{ rev }`, or `409` when `baseRev` is stale, the run has ended, the run isn't this player's, or its seed doesn't match the run's own seed |
+| `DELETE /api/save?slot=N` | | `204`; "New life" in slot N: forgets its save and the profile and ends its run, all in one transaction; other slots keep theirs |
+
+Each player has three save slots: `N` is 0, 1, or 2 (0 when absent; anything else is a 400), and slot 0 keeps the `main` name saves had before slots existed.
 
 The save's `state` is opaque JSON (only the game's own codec, `game/src/sim/save/`, knows its
 shape) capped at 1.5 MB (`MAX_STATE_BYTES` in `src/routes/save.ts`), which a 60-year save stays well

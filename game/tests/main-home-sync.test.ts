@@ -47,6 +47,8 @@ function setup() {
     location: { hash: '#TX' }, stopSkip() {}, showHomePicker() {},
     town: { onDay() {}, rewind() {} }, bank: { tick() {}, rewind() {} }, mail: { rewind() {} },
     recorder: { tick() {}, rewind: async () => {} }, desk: null,
+    // Going back only opens in the retirement review (sim/rewind/gate.ts); these tests are about going back itself.
+    review: { unlocked: true },
     phone: { rewound() {}, showDecision() {} }, cueForEvents: () => null, trimDesk: (desk: unknown) => desk,
   };
   const script = ts.transpileModule(`${orchestration}\n${rewind}\n({ open, rewindTo, syncHomeTier, getScene: () => scene, getState: () => state });`,

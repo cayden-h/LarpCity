@@ -13,7 +13,7 @@ const source = readFileSync(new URL('../src/debt-demo/main.ts', import.meta.url)
 const ast = ts.createSourceFile('desk.ts', source, ts.ScriptTarget.Latest, true);
 const names = new Set(['onLifeEvents', 'nextMove', 'cardsPage', 'upcoming', 'openDecision', 'closeDecision',
   'showParkedDecisions', 'askBankruptcy', 'monthlyHousingBills', 'housingReserve', 'cashAfterHousing',
-  'isHousingLoss', 'homeLossDescription', 'queueHomeLoss', 'showNextHomeLoss', 'askHomeLoss']);
+  'isHousingLoss', 'homeLossDescription', 'queueHomeLoss', 'showNextHomeLoss', 'askHomeLoss', 'askNextChoice']);
 const functions = ast.statements.filter(n => ts.isFunctionDeclaration(n) && names.has(n.name!.text)).map(n => n.getText(ast));
 const click = ast.statements.find(n => ts.isExpressionStatement(n) && ts.isCallExpression(n.expression)
   && n.expression.expression.getText(ast) === 'app.addEventListener' && n.expression.arguments[0]?.getText(ast) === '"click"')!;
