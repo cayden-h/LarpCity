@@ -1,4 +1,4 @@
-// The onboarding interview. The owl, Larp City's narrator (an ElevenLabs
+// The onboarding interview. Sammy the owl, Larp City's narrator (an ElevenLabs
 // voice agent), asks for the player's job, salary, rent, debt, and savings
 // before the city opens, and the answers become the player's starting money
 // life (sim/life/intake.ts). The agent hands the answers over with its
@@ -24,13 +24,14 @@ import { BEGINNER_CARDS } from "../data/cards-beginner";
 import { cardArt } from "../debt-demo/shop.ts";
 import type { ProfileSource } from "../sim/save/client";
 import { buildGoals } from "./goal-picker";
+import { NARRATOR_NAME } from "../narration/lines";
 import { Owl, preloadOwl } from "./owl";
 import "./intake.css";
 
 /** How long to wait for the post-call webhook's notes after a call ends without the tool. */
 const NOTES_WAIT_MS = 20_000;
 const NOTES_POLL_MS = 2_000;
-/** Hang up this long after the answers arrive, in case the narrator keeps talking. */
+/** Hang up this long after the answers arrive, in case Sammy keeps talking. */
 const WRAP_UP_MS = 12_000;
 /** The owl's standing height on the welcome and call screens, and above the form. */
 const OWL_BIG = 150;
@@ -78,7 +79,7 @@ class Intake {
   private answers: Partial<IntakeAnswers> | null = null;
   /** The five money answers, held while the goal screen (name/goals) is showing. */
   private moneyAnswers: Partial<IntakeAnswers> = {};
-  /** "voice" once the Narrator's call handed over answers; the form alone is "typed". */
+  /** "voice" once Sammy's call handed over answers; the form alone is "typed". */
   private source: "voice" | "typed" = "typed";
   /** Avatar preset chosen on the avatar screen; no further customization. */
   private avatar: "male" | "female" = "male";
@@ -99,7 +100,7 @@ class Intake {
   /** Low/medium/high pick for each expense category, from the expenses screen; defaults to all-medium. */
   private expenseTiers: Record<ExpenseCategory, ExpenseTierLevel> = { ...DEFAULT_EXPENSE_TIERS };
   private lines: { role: Role; text: string }[] = [];
-  /** Set once the narrator starts the goodbye after the answers arrive. */
+  /** Set once Sammy starts the goodbye after the answers arrive. */
   private goodbye = false;
   private leaving = false;
   private frame = 0;
@@ -136,11 +137,11 @@ class Intake {
   welcome(): void {
     this.show(`
       <div class="in-owl-slot"></div>
-      <div class="in-name">The Narrator</div>
-      <p class="in-lead">This is the story of a new arrival in Larp City. Before they get the keys, the Narrator needs a few details:
+      <div class="in-name">${NARRATOR_NAME}</div>
+      <p class="in-lead">This is the story of a new arrival in Larp City. Before they get the keys, ${NARRATOR_NAME} needs a few details:
         job, salary, rent, debt, and savings. Real numbers or a made-up life both work.</p>
       <div class="in-actions">
-        <button type="button" class="btn in-big" data-act="talk">🎙️ Talk to the Narrator</button>
+        <button type="button" class="btn in-big" data-act="talk">🎙️ Talk to ${NARRATOR_NAME}</button>
         <button type="button" class="btn ghost in-big" data-act="type">Type it instead</button>
       </div>
       <button type="button" class="in-link" data-act="skip">Skip and use a sample life</button>
@@ -155,7 +156,7 @@ class Intake {
     this.nextAfterAvatar = next;
     this.show(`
       <div class="in-owl-slot"></div>
-      <div class="in-name">The Narrator</div>
+      <div class="in-name">${NARRATOR_NAME}</div>
       <p class="in-lead">One more thing before we start: who's moving into Larp City?</p>
       <div class="in-actions in-avatar-picker">
         <button type="button" class="btn in-big in-avatar-card" data-act="avatar-male">
@@ -181,7 +182,7 @@ class Intake {
   private plaidScreen(): void {
     this.show(`
       <div class="in-owl-slot"></div>
-      <div class="in-name">The Narrator</div>
+      <div class="in-name">${NARRATOR_NAME}</div>
       <p class="in-lead">All connected. Nice and secure.</p>
       <div class="in-plaid-card">
         <div class="in-plaid-status">
@@ -210,7 +211,7 @@ class Intake {
   private insuranceScreen(): void {
     this.show(`
       <div class="in-owl-slot"></div>
-      <div class="in-name">The Narrator</div>
+      <div class="in-name">${NARRATOR_NAME}</div>
       <p class="in-lead">One more thing while you're settling in: pick a health plan.</p>
       <div class="in-actions in-plan-picker">
         ${INSURANCE_PLANS.map(
@@ -237,7 +238,7 @@ class Intake {
   private cardScreen(): void {
     this.show(`
       <div class="in-owl-slot"></div>
-      <div class="in-name">The Narrator</div>
+      <div class="in-name">${NARRATOR_NAME}</div>
       <p class="in-lead">And pick a starter credit card, to build your credit history.</p>
       <div class="in-actions in-card-picker">
         ${BEGINNER_CARDS.map(
@@ -271,7 +272,7 @@ class Intake {
     const rothCap = ROTH_LIMIT;
     this.show(`
       <div class="in-owl-slot"></div>
-      <div class="in-name">The Narrator</div>
+      <div class="in-name">${NARRATOR_NAME}</div>
       <p class="in-lead">A few standing orders before you move in. You can always change these later.</p>
       <div class="in-sliders">
         <label class="in-slider-row">
@@ -338,7 +339,7 @@ class Intake {
     const level = (l: ExpenseTierLevel) => l[0].toUpperCase() + l.slice(1);
     this.show(`
       <div class="in-owl-slot"></div>
-      <div class="in-name">The Narrator</div>
+      <div class="in-name">${NARRATOR_NAME}</div>
       <p class="in-lead">Last thing: how do you spend, day to day?</p>
       <div class="in-expenses">
         ${Intake.EXPENSE_LABELS.map(
@@ -433,7 +434,7 @@ class Intake {
     this.goodbye = false;
     this.show(`
       <div class="in-owl-slot"></div>
-      <p class="in-status" aria-live="polite">Calling the Narrator…</p>
+      <p class="in-status" aria-live="polite">Calling ${NARRATOR_NAME}…</p>
       <ol class="in-transcript" aria-label="Conversation"></ol>
       <div class="in-actions">
         <button type="button" class="btn ghost in-big" data-act="hangup">Hang up</button>
@@ -446,7 +447,7 @@ class Intake {
     try {
       ({ signedUrl } = await apiFetch<{ signedUrl: string }>("/voice/signed-url"));
     } catch {
-      if (seq === this.callSeq) this.confirm({}, "The Narrator can't take calls right now. Fill in your numbers by hand.");
+      if (seq === this.callSeq) this.confirm({}, `${NARRATOR_NAME} can't take calls right now. Fill in your numbers by hand.`);
       return;
     }
     if (seq !== this.callSeq) return;
@@ -470,7 +471,7 @@ class Intake {
         return;
       }
       this.conversation = conversation;
-      this.status("The Narrator is picking up…");
+      this.status(`${NARRATOR_NAME} is picking up…`);
       this.meter(conversation);
     } catch (err) {
       if (seq !== this.callSeq) return;
@@ -479,7 +480,7 @@ class Intake {
         {},
         denied
           ? "No microphone? No problem. Fill in your numbers by hand."
-          : "The call couldn't connect. Fill in your numbers by hand, or try the Narrator again.",
+          : `The call couldn't connect. Fill in your numbers by hand, or try ${NARRATOR_NAME} again.`,
       );
     }
   }
@@ -490,7 +491,7 @@ class Intake {
     if (!moneyComplete(answers)) return "Some of the five answers were missing or unclear. Ask for the missing ones, then call submit_finances again.";
     this.answers = answers;
     this.source = "voice";
-    this.status("Got it! The Narrator is writing it all down…");
+    this.status(`Got it! ${NARRATOR_NAME} is writing it all down…`);
     void this.owl.play("cheer", { then: "idle" });
     this.wrapTimer = window.setTimeout(() => void this.hangUp(seq), WRAP_UP_MS);
     return "Saved. Tell the player their city is ready in one short sentence, then stop.";
@@ -499,7 +500,7 @@ class Intake {
   private onMode(seq: number, mode: "speaking" | "listening"): void {
     if (seq !== this.callSeq) return;
     if (this.answers) {
-      // Hang up once the narrator has said goodbye (a speaking turn that ends).
+      // Hang up once Sammy has said goodbye (a speaking turn that ends).
       if (mode === "speaking") {
         this.goodbye = true;
         this.owl.talk("warm");
@@ -512,7 +513,7 @@ class Intake {
     // Listening rests on the same sheet as talking, so the owl's vest doesn't change between turns.
     if (mode === "speaking") this.owl.talk("plain");
     else this.owl.rest();
-    this.status(mode === "speaking" ? "The Narrator is talking…" : "Your turn. The Narrator is listening.");
+    this.status(mode === "speaking" ? `${NARRATOR_NAME} is talking…` : `Your turn. ${NARRATOR_NAME} is listening.`);
   }
 
   private onLine(seq: number, role: Role, text: string): void {
@@ -522,7 +523,7 @@ class Intake {
     if (!list) return;
     list.innerHTML = this.lines
       .slice(-8)
-      .map((l) => `<li class="${l.role}"><b>${l.role === "agent" ? "Narrator" : "You"}</b>${escapeHtml(l.text)}</li>`)
+      .map((l) => `<li class="${l.role}"><b>${l.role === "agent" ? NARRATOR_NAME : "You"}</b>${escapeHtml(l.text)}</li>`)
       .join("");
     list.scrollTop = list.scrollHeight;
   }
@@ -532,7 +533,7 @@ class Intake {
     if (el) el.textContent = text;
   }
 
-  /** Bobs the owl with the narrator's voice, and gives it a beat to change pose on as each syllable starts. */
+  /** Bobs Sammy with his voice, and gives it a beat to change pose on as each syllable starts. */
   private meter(conversation: VoiceConversation): void {
     let last = 0;
     const tick = () => {
@@ -565,11 +566,11 @@ class Intake {
     if (seq !== this.callSeq || this.endedSeq === seq) return;
     this.endedSeq = seq;
     await this.endCall();
-    if (this.answers) return this.confirm(this.answers, "Here's what the Narrator wrote down. Fix anything that's off, then move in.");
+    if (this.answers) return this.confirm(this.answers, `Here's what ${NARRATOR_NAME} wrote down. Fix anything that's off, then move in.`);
 
     const id = this.conversationId;
-    if (!id) return this.confirm({}, "The call ended before it started. Fill in your numbers by hand, or try the Narrator again.");
-    this.status("Checking the Narrator's notes…");
+    if (!id) return this.confirm({}, `The call ended before it started. Fill in your numbers by hand, or try ${NARRATOR_NAME} again.`);
+    this.status(`Checking ${NARRATOR_NAME}'s notes…`);
     void this.owl.play("type");
     this.body.querySelector("[data-act=hangup]")?.remove();
     const notes = await this.fetchNotes(seq, id);
@@ -578,10 +579,10 @@ class Intake {
     this.confirm(
       notes,
       complete
-        ? "The call ended early, but the Narrator's notes came through. Check them over."
+        ? `The call ended early, but ${NARRATOR_NAME}'s notes came through. Check them over.`
         : Object.keys(notes).length
-          ? "The Narrator caught some of it. Fill in the rest."
-          : "The call ended before the Narrator wrote anything down. Fill in your numbers by hand, or talk again.",
+          ? `${NARRATOR_NAME} caught some of it. Fill in the rest.`
+          : `The call ended before ${NARRATOR_NAME} wrote anything down. Fill in your numbers by hand, or talk again.`,
     );
   }
 
@@ -613,7 +614,7 @@ class Intake {
     void this.endCall();
     this.confirm(
       answers ?? {},
-      answers ? "Here's what the Narrator wrote down. Fix anything that's off, then move in." : "Fill in your numbers. Use 0 for none.",
+      answers ? `Here's what ${NARRATOR_NAME} wrote down. Fix anything that's off, then move in.` : "Fill in your numbers. Use 0 for none.",
     );
   }
 
@@ -643,7 +644,7 @@ class Intake {
         <p class="in-error in-wide" role="alert"></p>
         <div class="in-actions in-wide">
           <button type="submit" class="btn in-big">Move in 🏠</button>
-          <button type="button" class="btn ghost in-big" data-act="talk">🎙️ Talk to the Narrator</button>
+          <button type="button" class="btn ghost in-big" data-act="talk">🎙️ Talk to ${NARRATOR_NAME}</button>
         </div>
       </form>
       <button type="button" class="in-link" data-act="skip">Skip and use a sample life</button>`);

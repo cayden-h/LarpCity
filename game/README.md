@@ -13,17 +13,20 @@ npm run dev
 
 Open the printed URL.
 Add a state to the URL to jump straight there, for example `#CA` or `#NY`; `#TX` (Houston) is the default.
-The first visit opens the owl narrator's intake; the voice call needs the server from `../server` running and a microphone, and typing the numbers or skipping works without either.
+The first visit opens Sammy's intake (Sammy is the owl narrator); the voice call needs the server from `../server` running and a microphone, and typing the numbers or skipping works without either.
 The answers are remembered in the browser: add `?intake=1` to do the intake again, or `?intake=0` to skip it (the sample household).
 
 ## What you can do
 
-- **Intake:** before the city opens, the owl narrator (an ElevenLabs voice agent with a dry, deadpan English voice) asks for your job, salary, rent, debt, and savings, real or made up, and you check the numbers before moving in. You can type them instead, or skip to the sample household. Your life starts from those numbers: take-home is 80% of the salary, the rent is what you said (rescaled if you move states), the debt is a credit card for the first $5,000 plus a personal loan for the rest, and the savings sit in high-yield savings.
+- **Intake:** before the city opens, Sammy the owl (an ElevenLabs voice agent with a dry, deadpan English voice) asks for your job, salary, rent, debt, and savings, real or made up, and you check the numbers before moving in. You can type them instead, or skip to the sample household. Your life starts from those numbers: take-home is 80% of the salary, the rent is what you said (rescaled if you move states), the debt is a credit card for the first $5,000 plus a personal loan for the rest, and the savings sit in high-yield savings.
   Everyone also starts with the starter portfolio (`STARTER_PORTFOLIO`), on top of the stated savings and debt, so net worth moves with the market from day one.
-- **Narrator:** the owl narrates the big moments at the bottom of the screen, read aloud with each word lighting up as it's spoken: arriving, paying off a debt, a missed payment, collections, bankruptcy, a big credit score change, a new home, a move, a market crash (a bear market, as the Money window opens on the crash decision) and the market's return to its high, and the end of a fast-forward.
-  While the owl talks over the U.S. map, the Money window, or the fast-forward, the window leaves a band clear at the bottom for it.
+- **Sammy:** the owl narrator reads out the big moments at the bottom of the screen, read aloud with each word lighting up as it's spoken: arriving, paying off a debt, a missed payment, collections, bankruptcy, a big credit score change, a new home, a move, a market crash (a bear market, as the Money window opens on the crash decision) and the market's return to its high, and the end of a fast-forward.
+  While Sammy talks over the U.S. map, the Money window, or the fast-forward, the window leaves a band clear at the bottom for it.
   The mute button keeps the captions and drops the voice.
-  The lines are in `src/narration/lines.ts`; the owl's animations are cut from the sheets in `art/owl/` by `art/owl/slice.py`.
+  The lines are in `src/narration/lines.ts` (his name is `NARRATOR_NAME` there); the owl's animations are cut from the sheets in `art/owl/` by `art/owl/slice.py`.
+- **Sammy's tours:** the first time you open Stocks, Sammy offers a two-minute tour of investing, and the first time a tax return is ready, opening Taxes walks you through it, ending on the bottom-line question.
+  He stands next to the real UI, spotlights it, and explains it with your own numbers; the city's time stops until the tour ends.
+  The "?" in the Stocks header and on the Taxes tab plays a tour again, as does `larp.tour("stocks")` from the console.
 - Drag to pan anywhere in the world, and scroll to zoom (zoom out to see the suburbs, farms, and the state's terrain).
 - **NPCs:** click a person on the sidewalk to see their name, job, and what they are thinking about money right now.
 - **Your home:** the one card always on screen, at the bottom left.
@@ -98,6 +101,26 @@ From the browser console, `larp.visit("CO")` opens a state and `larp.step(5)` si
 - `src/debt-demo/shop.ts`: the Card Shop on the Money desk's Cards tab (`/debt.html`), in the desk's look and sorted by default by year-one value times your approval odds; `shop-value.ts` holds the year-one value math.
 - `db/`: the Tiger Data schema (`schema.sql`) and loader (`load.py`); see [SETUP.md](../SETUP.md).
 - Everything random is seeded, so a city, its weather, and its traffic replay the same way.
+
+## Sammy's tours
+
+A tour is a list of steps (`src/narration/tour.ts`); the stocks and taxes tours are in `src/narration/tours.ts`, and `src/ui/tour.ts` puts them on screen.
+Each step has Sammy's line (fixed text, or a function of the player's numbers), a reaction (`anim`) and a mood, and optionally:
+
+- `target`: a CSS selector in the city (`doc: "city"`) or in the Money desk's iframe (`doc: "desk"`); every match is spotlit as one box.
+  Point at `data-tour` attributes rather than classes, so a restyle keeps the tour pointing at the right thing.
+- `setup`: what to open first: a phone app, a desk tab, or a fund's page.
+- `advance`: a Next button (the default; `interactive: true` lets clicks reach the target), or `action`, which waits for a life event (a trade) or a click inside the target, and offers Next anyway after `timeoutMs`.
+- `when`: the step shows only when this holds for the player's state; `capture` keeps what the player did for later steps.
+
+To add a step, add it to a tour in `tours.ts` and mark its target with a `data-tour` attribute.
+A fixed line joins the voice pack through `allLines()`, so run `node scripts/build-narration.ts` afterward; lines with numbers are voiced on the fly, and read silently without the server.
+To add a tour, add its id to `TourId` and `TOUR_IDS`, its definition to `TOURS`, and its trigger to `TourGuide.trigger`.
+
+While a tour is open the clock is held (`Clock.held`), so it resumes at the same speed after, and the speed buttons, skips, and fast-forward are off.
+Event cues wait in Sammy's queue until the tour ends.
+Finishing or skipping records the tour in the save (`GameSave.tours`), so it never starts on its own again.
+A reload mid-tour starts that tour over from its first step.
 
 ## Houses and choosing a home
 

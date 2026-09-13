@@ -1,4 +1,4 @@
-// The owl, Larp City's narrator and mascot: animation strips cut from the
+// The owl sprite for Sammy, Larp City's narrator and mascot: animation strips cut from the
 // artist's sheets (game/art/owl/slice.py writes public/owl/*.webp and
 // owl.json), shown in the DOM. One scale fits every strip, and each strip's
 // anchor (the head's centre over the feet) sits at the bottom centre of the
@@ -238,6 +238,16 @@ export class Owl {
     if (this.mode !== "talk" || !this.pose || reducedMotion()) return;
     if (performance.now() - this.poseAt < HOLD.minTalk) return;
     if (Math.random() < BEAT_CHANCE) this.nextPose(this.token);
+  }
+
+  /** Holds one pose still (Sammy pointing at a tour's target between lines). */
+  holdPose(pose: Pose): void {
+    this.cancel();
+    const token = ++this.token;
+    this.mode = "rest";
+    void this.ready().then((m) => {
+      if (m && token === this.token) this.show(pose.anim, pose.frame);
+    });
   }
 
   stop(): void {

@@ -144,6 +144,10 @@ export interface PhoneDeps {
   mailChanged?: () => void;
   /** Erases this life and starts over with the intake; rejects when the server can't be reached. */
   newLife: () => Promise<void>;
+  /** The player opened an app with a tour (Sammy's, ui/tour.ts): its first time starts or offers it. */
+  onAppOpen?: (id: "stocks" | "taxes") => void;
+  /** Plays a tour again (the Stocks header's "?" and the desk's Taxes tab). */
+  replayTour?: (id: "stocks" | "taxes") => void;
 }
 
 /**
@@ -175,6 +179,10 @@ export interface MoneyHost {
   deskState: () => DeskState | null;
   /** The desk's "Start over": closes the desk and opens the Calendar's year view with "Start a new life" armed. */
   newLife: () => void;
+  /** Replays one of Sammy's tours (the Taxes tab's "?"). */
+  tour: (id: "stocks" | "taxes") => void;
+  /** Calls `fn` when a tour opens or closes (the desk turns its speed buttons off meanwhile). */
+  onTour: (fn: () => void) => void;
 }
 
 export class Phone {
@@ -189,6 +197,7 @@ export class Phone {
   private parked: LifeEvent[] = [];
   private readonly showListeners: (() => void)[] = [];
   private readonly rewindListeners: ((day: number) => void)[] = [];
+  private readonly tourListeners: (() => void)[] = [];
   private readonly calendar: CalendarApp;
   /** The letter shown open in Mail. */
   private openMail: string | null = null;
@@ -228,6 +237,8 @@ export class Phone {
         this.show("calendar");
         this.calendar.armNewLife();
       },
+      tour: (id) => this.deps.replayTour?.(id),
+      onTour: (fn) => this.tourListeners.push(fn),
     };
     (window as unknown as { larpMoney?: MoneyHost }).larpMoney = host;
     this.calendar = new CalendarApp(this.q('[data-view="calendar"]'), {
@@ -296,6 +307,7 @@ export class Phone {
             <header class="st-head">
               <button class="st-back" data-home aria-label="Back to home">‹</button>
               <div><div class="st-title">Stocks</div><div class="st-sub" data-st-sub></div></div>
+              <button class="st-tour" data-tour-replay="stocks" aria-label="Replay Sammy's stocks tour">?</button>
             </header>
             <ul class="st-list" data-st-list></ul>
             <button class="st-open" data-desk>Open Money <span aria-hidden="true">↗</span></button>
@@ -415,12 +427,13 @@ export class Phone {
     if (btn.dataset.home !== undefined) return this.show("home");
     if (btn.dataset.desk !== undefined) return this.openDesk();
     if (btn.dataset.stock) return this.openDesk(btn.dataset.stock);
+    if (btn.dataset.tourReplay) return this.deps.replayTour?.(btn.dataset.tourReplay as "stocks");
     if (btn.dataset.openMap !== undefined) return this.deps.openMap?.();
     if (btn.dataset.mailId) return this.toggleMail(btn.dataset.mailId);
     if (btn.dataset.newsRetry !== undefined) return void this.news.load();
     if (btn.dataset.openFf !== undefined) return this.deps.openFastForward?.();
     if (btn.dataset.vacation !== undefined) {
-      if (!goOnVacation(this.deps.player, this.deps.clock.day)) this.toast("Already relaxed — take another vacation later.");
+      if (!goOnVacation(this.deps.player, this.deps.clock.day)) this.toast("Already relaxed. Take another vacation later.");
       return;
     }
     if (btn.dataset.retire !== undefined) return this.onRetire();
@@ -428,8 +441,12 @@ export class Phone {
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;
     if (!app.ready) return this.toast(`${app.name} is coming soon`);
-    if (id === "taxes") return this.openDesk(undefined, "taxes");
+    if (id === "taxes") {
+      this.openDesk(undefined, "taxes");
+      return this.deps.onAppOpen?.("taxes");
+    }
     this.show(id);
+    if (id === "stocks") this.deps.onAppOpen?.("stocks");
     if (id === "mail") this.renderMail();
     if (id === "news") void this.news.load();
     if (id === "bank") void this.bank.load();
@@ -500,6 +517,44 @@ export class Phone {
     if (decisions.length) this.showDecision(decisions);
   }
 
+  // ---- For Sammy's tours (ui/tour.ts) ----
+
+  /** Pulls the phone up on an app (or the home screen). */
+  openApp(view: "home" | AppDef["id"]): void {
+    this.setOpen(true, false);
+    this.show(view);
+  }
+
+  /** Opens the Money window on a tab or a stock's page. */
+  openMoney(o: { tab?: string; stock?: string }): void {
+    this.openDesk(o.stock, o.tab);
+  }
+
+  closeMoney(): void {
+    if (!this.overlay.hidden) this.closeDesk();
+  }
+
+  deskFrame(): HTMLIFrameElement {
+    return this.overlay.querySelector("iframe")!;
+  }
+
+  /** The Money desk's document while the window is open and loaded (same origin), or null. */
+  deskDocument(): Document | null {
+    if (this.overlay.hidden) return null;
+    try {
+      return this.deskFrame().contentDocument;
+    } catch {
+      return null;
+    }
+  }
+
+  /** A tour opened or closed: the calendar and the desk redraw their speed buttons. */
+  tourChanged(active: boolean): void {
+    void active;
+    this.calendar.refresh();
+    for (const fn of this.tourListeners) fn();
+  }
+
   private dateOf(day: number): Date {
     const d = new Date(this.deps.clock.start);
     d.setDate(d.getDate() + day);
@@ -536,8 +591,17 @@ export class Phone {
   private openDesk(stock?: string, tab?: string) {
     const frame = this.overlay.querySelector("iframe")!;
     const hash = stock ? `#stock=${stock}` : tab ? `#tab=${tab}` : "";
-    if (!frame.src) frame.src = `/debt.html${hash}`;
-    else if (hash && frame.contentWindow) frame.contentWindow.location.hash = hash.slice(1);
+    // Until the desk has loaded, its window is the frame's first blank page: setting the hash there
+    // would replace the load of /debt.html with about:blank, so start the load over with the hash instead.
+    const loaded = (() => {
+      try {
+        return frame.contentWindow?.location.pathname.endsWith("/debt.html") ?? false;
+      } catch {
+        return false;
+      }
+    })();
+    if (!frame.src || (!loaded && hash)) frame.src = `/debt.html${hash}`;
+    else if (hash && loaded) frame.contentWindow!.location.hash = hash.slice(1);
     this.resumeSpeed = this.deps.clock.speed || this.resumeSpeed;
     this.deps.clock.speed = 0;
     this.overlay.hidden = false;
@@ -595,8 +659,9 @@ export class Phone {
 
   private renderStocks() {
     this.stockDay = this.deps.clock.day;
-    const item = (row: string) => `<li class="st-item">${row}</li>`;
-    const sec = (title: string, note: string) => `<li class="st-sec"><span>${title}</span><span>${note}</span></li>`;
+    // data-tour groups each section with its rows, so Sammy's tour spotlights them as one.
+    const item = (row: string, tour: string) => `<li class="st-item" data-tour="${tour}">${row}</li>`;
+    const sec = (title: string, note: string, tour: string) => `<li class="st-sec" data-tour="${tour}"><span>${title}</span><span>${note}</span></li>`;
     const rates = RATES.map((r) => {
       const l = latest(r.id);
       const pts = MARKET.series[r.id].points.slice(-60).map((p) => p[1]);
@@ -605,13 +670,13 @@ export class Phone {
     });
     const asOf = new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     this.q("[data-st-list]").innerHTML = [
-      sec("Funds and stocks", "In game"),
-      ...this.instrumentRows(INSTRUMENTS.filter((i) => !i.sponsor)).map(item),
+      sec("Funds and stocks", "In game", "st-market"),
+      ...this.instrumentRows(INSTRUMENTS.filter((i) => !i.sponsor)).map((r) => item(r, "st-market")),
       // "In game" (not "Game prices") so the full title fits on the phone's 192px row.
-      sec("HackRice sponsors", "In game"),
-      ...this.instrumentRows(INSTRUMENTS.filter((i) => i.sponsor)).map(item),
-      sec("Real rates", `FRED, ${asOf}`),
-      ...rates.map(item),
+      sec("HackRice sponsors", "In game", "st-sponsors"),
+      ...this.instrumentRows(INSTRUMENTS.filter((i) => i.sponsor)).map((r) => item(r, "st-sponsors")),
+      sec("Real rates", `FRED, ${asOf}`, "st-rates"),
+      ...rates.map((r) => item(r, "st-rates")),
     ].join("");
     this.q("[data-st-sub]").textContent = `Larp City, ${this.deps.clock.date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
 

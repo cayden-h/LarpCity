@@ -29,6 +29,8 @@ import { showNotice } from "../ui/notice.ts";
 import { finalScore, wellbeing } from "../sim/wellbeing/index.ts";
 import { NEW_CAR, TRADE_IN, choiceLabel } from "../sim/life/events.ts";
 import { bottomLine, isCorrect, tutorialOptions } from "../sim/tax/tutorial.ts";
+import { bracketSlices } from "../sim/tax/federal.ts";
+import { NARRATOR_NAME } from "../narration/lines.ts";
 import type { TaxReturn } from "../sim/tax/types.ts";
 import {
   compareStrategies,
@@ -171,7 +173,7 @@ const standaloneSaver = saved && restored && me?.save ? makeSaver(saved, restore
 function makeSaver(g: GameSave, r: RestoredGame, baseRev: number): SaveManager {
   return new SaveManager({
     api: saves,
-    build: () => encodeGame({ seed: g.seed, day: clock.day, hash: g.hash, bankRun: g.bankRun, life, town: r.town, mail: r.mail, desk: deskState() }),
+    build: () => encodeGame({ seed: g.seed, day: clock.day, hash: g.hash, bankRun: g.bankRun, life, town: r.town, mail: r.mail, desk: deskState(), tours: g.tours }),
     runId: () => recorder?.runId ?? null,
     baseRev,
     onStatus: (s) => {
@@ -831,9 +833,10 @@ function histChart(pts: ChartPt[], fmt: (y: number) => string, o: { goodWhenUp?:
 
 // ---- Shared markup -------------------------------------------------------------------
 
-const heroHtml = (eyebrow: string) => `<div class="eyebrow">${eyebrow}</div><div class="hero" data-hero></div><div class="change" data-change></div><div class="bc" data-chart></div>`;
+// data-tour marks what Sammy's tours point at (narration/tours.ts); every match is spotlit as one box.
+const heroHtml = (eyebrow: string) => `<div class="eyebrow" data-tour="hero">${eyebrow}</div><div class="hero" data-hero data-tour="hero"></div><div class="change" data-change data-tour="hero"></div><div class="bc" data-chart data-tour="hero"></div>`;
 const rangesHtml = (keys: Range[] = ["1W", "1M", "3M", "1Y", "ALL"]) =>
-  `<div class="ranges" role="group" aria-label="Time range">${keys.map((k) => `<button data-range="${k}" class="${k === range ? "on" : ""}">${k}</button>`).join("")}</div>`;
+  `<div class="ranges" role="group" aria-label="Time range" data-tour="hero">${keys.map((k) => `<button data-range="${k}" class="${k === range ? "on" : ""}">${k}</button>`).join("")}</div>`;
 
 /** A Robinhood stock row: ticker over a subtitle, today's sparkline, then price over today's move in the same color. */
 function stockRow(id: InstrumentId | "SP500", sub: string): string {
@@ -850,8 +853,8 @@ function row(o: { title: string; sub: string; spark?: string; pill: string; tone
   return `<${tag} class="row${o.go || o.attrs ? " link" : ""}" ${o.go ? `data-go="${o.go}"` : ""} ${o.attrs ?? ""}><div><b>${o.title}</b><small>${o.sub}</small></div>${o.spark ?? "<span></span>"}<span class="pill ${o.tone}">${o.pill}</span></${tag}>`;
 }
 
-function nextCard(title: string, body: string, cta?: { label: string; act: string; disabled?: boolean; soft?: boolean }): string {
-  return `<div class="card next"><div><b>${title}</b><p>${body}</p></div>${cta ? `<button class="cta${cta.soft ? " soft" : ""}" data-act="${cta.act}" ${cta.disabled ? "disabled" : ""}>${cta.label}</button>` : ""}</div>`;
+function nextCard(title: string, body: string, cta?: { label: string; act: string; disabled?: boolean; soft?: boolean }, tour?: string): string {
+  return `<div class="card next"${tour ? ` data-tour="${tour}"` : ""}><div><b>${title}</b><p>${body}</p></div>${cta ? `<button class="cta${cta.soft ? " soft" : ""}" data-act="${cta.act}" ${cta.disabled ? "disabled" : ""}>${cta.label}</button>` : ""}</div>`;
 }
 
 function feedHtml(n: number): string {
@@ -1053,7 +1056,9 @@ function txnsHtml(): string {
   if (!bank.length && !pending.length) return `<ul class="feed"><li class="empty">No transactions yet. Press play: paychecks land on the 1st and 15th.</li></ul>`;
   const amt = (t: Pick<BankTxn, "amount" | "kind">) =>
     `<span class="t-amt ${t.kind}">${t.kind === "in" ? "+" : t.kind === "out" ? "−" : ""}$${num(t.amount, 2)}</span>`;
-  const line = (t: BankTxn) => `<div class="txn"><span class="av" aria-hidden="true">${t.icon}</span><div><b>${esc(t.name)}</b><small>${esc(t.category)}</small></div>${amt(t)}</div>`;
+  // The newest paycheck is what Sammy's taxes tour points at (withholding comes out before it lands).
+  const paycheck = bank.slice(0, 40).find((t) => t.name === "Payroll direct deposit");
+  const line = (t: BankTxn) => `<div class="txn"${t === paycheck ? ` data-tour="paycheck"` : ""}><span class="av" aria-hidden="true">${t.icon}</span><div><b>${esc(t.name)}</b><small>${esc(t.category)}</small></div>${amt(t)}</div>`;
   const dayLabel = (day: number) => (day === clock.day ? "Today" : day === clock.day - 1 ? "Yesterday" : monthDay(dateOf(day)));
   let html = pending.length
     ? `<div class="t-day">Pending</div>${pending.map((p) => line({ day: p.day, name: `Transfer to ${life.ledger.get(p.to).name}`, category: `Arrives ${monthDay(dateOf(p.settlesDay))}`, icon: "↔", amount: p.received, kind: "move" })).join("")}`
@@ -1085,14 +1090,15 @@ function investingPage(): Page {
         `Buying power ${usd(bp, 2)}`,
         life.recurring.length ? `Auto-invest is on: ${life.recurring.map((r) => `${usd(r.amount, 0)} of ${r.id}`).join(" and ")} every payday (${usd(each, 0)} total).` : "Money in checking you can invest. Auto-invest buys a fund for you every payday, after bills.",
         { label: life.recurring.length ? "Stop auto-invest" : "Auto-invest $100", act: "recurring", soft: true },
+        "buying-power",
       )}
-      ${positions.length ? `<div class="section"><h2>Your holdings</h2><span>Value · gain since you bought</span></div>${positions
-        .map((p) => row({ title: `${p.id} · ${instrument(p.id).name}`, sub: `${num(p.units, 4)} shares · paid ${usd(p.cost, 2)} · ${signedUsd(p.gain)}`, spark: spark(priceSeries(p.id).slice(-30).map((q) => q.y), dirTone(p.gain)), pill: usd(p.value, 2), tone: dirTone(p.gain), attrs: `data-fund="${p.id}"` }))
+      ${positions.length ? `<div class="section" data-tour="holdings"><h2>Your holdings</h2><span>Value · gain since you bought</span></div>${positions
+        .map((p) => row({ title: `${p.id} · ${instrument(p.id).name}`, sub: `${num(p.units, 4)} shares · paid ${usd(p.cost, 2)} · ${signedUsd(p.gain)}`, spark: spark(priceSeries(p.id).slice(-30).map((q) => q.y), dirTone(p.gain)), pill: usd(p.value, 2), tone: dirTone(p.gain), attrs: `data-fund="${p.id}" data-tour="holdings"` }))
         .join("")}` : ""}
       ${group("Funds", "Today's move", INSTRUMENTS.filter((i) => i.kind === "fund"))}
       ${group("Stocks", "Today's move", INSTRUMENTS.filter((i) => i.kind === "stock" && !i.sponsor))}
       ${group("HackRice sponsors", "Prices are simulated", INSTRUMENTS.filter((i) => i.sponsor))}
-      ${top ? nextCard("Pay debt or invest?", aprNow(top) > MARKET_RETURN ? `Your ${top.name} costs ${rate(aprNow(top))} a year. Stocks have averaged about 10%, with big swings. Paying the card is a guaranteed ${rate(aprNow(top))} return, so pay it first. The exception: always take a 401(k) match.` : `Your most expensive debt, the ${top.name}, costs ${rate(aprNow(top))}. That's below the market's long-run ~10%, so investing while you pay it on schedule is reasonable.`) : ""}
+      ${top ? nextCard("Pay debt or invest?", aprNow(top) > MARKET_RETURN ? `Your ${top.name} costs ${rate(aprNow(top))} a year. Stocks have averaged about 10%, with big swings. Paying the card is a guaranteed ${rate(aprNow(top))} return, so pay it first. The exception: always take a 401(k) match.` : `Your most expensive debt, the ${top.name}, costs ${rate(aprNow(top))}. That's below the market's long-run ~10%, so investing while you pay it on schedule is reasonable.`, undefined, "debt-invest") : ""}
       ${footHtml()}`,
   };
 }
@@ -1160,7 +1166,7 @@ function recoveryCard(): string {
 function concentrationCard(): string {
   const top = life.concentration();
   if (!top) return "";
-  return nextCard(`${esc(instrument(top.id).name)} is ${pctOf(top.share, 0)} of your investments`, "One company can fall 80%. A fund spreads the risk across hundreds.");
+  return nextCard(`${esc(instrument(top.id).name)} is ${pctOf(top.share, 0)} of your investments`, "One company can fall 80%. A fund spreads the risk across hundreds.", undefined, "concentration");
 }
 
 function marketChange(pts: ChartPt[], p: ChartPt, scrubbing: boolean): string {
@@ -1183,9 +1189,9 @@ function fundPage(id: InstrumentId): Page {
   const yearReturn = year.length > 1 ? year[year.length - 1] / year[0] - 1 : 0;
   const ch = dayChange(id);
   const colored = (f: number) => `<span class="txt-${dirTone(f)}">${signedPct(f)}</span>`;
-  const stat = (k: string, v: string) => `<div><span>${k}</span><b>${v}</b></div>`;
+  const stat = (k: string, v: string, tour?: string) => `<div${tour ? ` data-tour="${tour}"` : ""}><span>${k}</span><b>${v}</b></div>`;
   const position = pos
-    ? `<div class="section"><h2>Your position</h2><span>${num(pos.units, 4)} shares</span></div><div class="stats">${[
+    ? `<div class="section" data-tour="position"><h2>Your position</h2><span>${num(pos.units, 4)} shares</span></div><div class="stats" data-tour="position">${[
         stat("Market value", usd(pos.value)),
         stat("Average cost", `${usd(pos.cost / pos.units)} a share`),
         stat("Portfolio share", pctOf(pos.value / Math.max(1, life.investments()), 1)),
@@ -1193,14 +1199,14 @@ function fundPage(id: InstrumentId): Page {
         stat("Total return", `<span class="txt-${dirTone(pos.gain)}">${signedUsd(pos.gain)} (${signedPct(pos.gain / pos.cost)})</span>`),
         stat("Paid", usd(pos.cost)),
       ].join("")}</div>`
-    : nextCard("You don't own any yet", "Buy any dollar amount from $1; you get a fraction of a share.");
+    : nextCard("You don't own any yet", "Buy any dollar amount from $1; you get a fraction of a share.", undefined, "position");
   const stats = `<div class="section"><h2>Key statistics</h2><span>Past year of closes</span></div><div class="stats">${[
     stat("Today", colored(ch)),
     stat("1-year return", colored(yearReturn)),
     stat("Type", inst.kind === "fund" ? "Index fund" : inst.listed === false ? "Private company" : "Single stock"),
     stat("52-week high", usd(Math.max(...year))),
     stat("52-week low", usd(Math.min(...year))),
-    inst.kind === "fund" ? stat("Yearly fee", pctOf(inst.expenseRatio)) : stat("Swings vs. market", `${inst.beta.toFixed(1)}×`),
+    inst.kind === "fund" ? stat("Yearly fee", pctOf(inst.expenseRatio), "fee") : stat("Swings vs. market", `${inst.beta.toFixed(1)}×`, "beta"),
   ].join("")}</div>`;
   return {
     side: true,
@@ -1208,7 +1214,7 @@ function fundPage(id: InstrumentId): Page {
     main: `<button class="back" data-fund-back>← Investing</button>
       ${heroHtml(`${inst.name} · ${id}`)}${rangesHtml()}
       ${position}
-      <div class="card">
+      <div class="card" data-tour="buy">
         <b>Buy or sell</b>
         <p>Buying power ${usd(bp, 2)}. Orders fill at today's closing price, in fractions of a share.</p>
         <div class="amounts">${[25, 100, 500, 1000].map((a) => `<button data-amt="${a}" class="${a === amount ? "on" : ""}">${usd(a, 0)}</button>`).join("")}
@@ -1219,7 +1225,7 @@ function fundPage(id: InstrumentId): Page {
           <button class="cta plain" data-trade="sell" ${pos ? "" : "disabled"}>Sell ${usd(amount, 0)}</button>
           ${pos ? `<button class="cta plain" data-trade="sell-all">Sell all</button>` : ""}
         </div>
-        <label class="toggle"><input type="checkbox" data-recur ${recurring ? "checked" : ""}> ${recurring ? `Auto-invest ${usd(recurring.amount, 0)} of ${id} every payday` : `Also buy ${usd(amount, 0)} of ${id} every payday`}</label>
+        <label class="toggle" data-tour="recur"><input type="checkbox" data-recur ${recurring ? "checked" : ""}> ${recurring ? `Auto-invest ${usd(recurring.amount, 0)} of ${id} every payday` : `Also buy ${usd(amount, 0)} of ${id} every payday`}</label>
         ${tradeMsg ? `<div class="msg${tradeMsg.bad ? " bad" : ""}">${esc(tradeMsg.text)}</div>` : ""}
       </div>
       ${stats}
@@ -1420,7 +1426,9 @@ function cardsPage(): Page {
 // ---- Taxes ----------------------------------------------------------------------------
 
 function taxesPage(): Page {
-  const stat = (k: string, v: string) => `<div><span>${k}</span><b>${v}</b></div>`;
+  const stat = (k: string, v: string, tour?: string) => `<div${tour ? ` data-tour="${tour}"` : ""}><span>${k}</span><b>${v}</b></div>`;
+  // Sammy's taxes tour, again (inside the city, where Sammy is).
+  const replay = host ? `<button class="tour-q" data-tour-replay aria-label="Replay Sammy's taxes tour">?</button>` : "";
   const ret = life.pendingTaxReturn();
   if (!ret) {
     return {
@@ -1428,8 +1436,10 @@ function taxesPage(): Page {
       main: `${nextCard(
         "Nothing due yet",
         `Your return for the year becomes ready to file around April 15 of the following year.${life.taxTutorial.passed ? " You passed the tax tutorial, so it files itself on tax day." : ""}`,
+        undefined,
+        "tax-none",
       )}
-        <div class="section"><h2>This year so far</h2><span>Not filed yet</span></div>
+        <div class="section"><h2>This year so far</h2><span>Not filed yet ${replay}</span></div>
         <div class="stats">${stat("Wages this year", usd(life.wagesYtd()))}</div>`,
     };
   }
@@ -1439,19 +1449,20 @@ function taxesPage(): Page {
   return {
     side: false,
     tone: tutorial ? "flat" : totalOwed >= 0 ? "up" : "down",
-    main: `<div class="section"><h2>Your ${ret.year} tax return</h2><span>Single filer · ${esc(ret.state)}</span></div>
-      <div class="stats">${[
-        stat("Wages", usd(ret.wages)),
-        stat("Standard deduction", `−${usd(ret.federalStandardDeduction)}`),
-        stat("Federal taxable income", usd(ret.federalTaxableIncome)),
+    main: `<div class="section" data-tour="tax-return"><h2>Your ${ret.year} tax return</h2><span>Single filer · ${esc(ret.state)} ${replay}</span></div>
+      <div class="stats" data-tour="tax-return">${[
+        stat("Wages", usd(ret.wages), "tax-wages"),
+        stat("Standard deduction", `−${usd(ret.federalStandardDeduction)}`, "tax-taxable"),
+        stat("Federal taxable income", usd(ret.federalTaxableIncome), "tax-taxable"),
         stat("Federal tax", usd(ret.federalTax)),
-        stat("Earned Income Tax Credit", ret.eic > 0 ? `−${usd(ret.eic)}` : usd(0)),
-        stat("Federal withheld", usd(ret.federalWithheld)),
+        stat("Earned Income Tax Credit", ret.eic > 0 ? `−${usd(ret.eic)}` : usd(0), "tax-eic"),
+        stat("Federal withheld", usd(ret.federalWithheld), "tax-withheld"),
         ...(tutorial ? [] : [stat("Federal refund/owed", usd(ret.federalRefundOrOwed))]),
-        stat("State tax", usd(ret.stateTax)),
-        stat("State withheld", usd(ret.stateWithheld)),
+        stat("State tax", usd(ret.stateTax), "tax-state"),
+        stat("State withheld", usd(ret.stateWithheld), "tax-state"),
         ...(tutorial ? [] : [stat("State refund/owed", usd(ret.stateRefundOrOwed))]),
       ].join("")}</div>
+      ${bracketBarHtml(ret.federalTaxableIncome)}
       ${
         tutorial
           ? taxTutorialHtml(ret)
@@ -1464,6 +1475,19 @@ function taxesPage(): Page {
   };
 }
 
+/** Taxable income cut into its federal brackets: each slice's width is its dollars, so only the top slice pays the top rate. */
+function bracketBarHtml(taxable: number): string {
+  const { slices, marginal, effective } = bracketSlices(taxable);
+  if (!slices.length) return "";
+  const segs = slices
+    .map((s, i) => `<span class="bb-seg b${i}" style="flex-grow:${Math.max(s.amount, taxable * 0.06).toFixed(0)}" title="${usd(s.amount, 0)} taxed at ${pctOf(s.rate, 0)}">${pctOf(s.rate, 0)}</span>`)
+    .join("");
+  return `<div class="brackets" data-tour="tax-brackets">
+      <div class="bb-bar" role="img" aria-label="Federal brackets: ${slices.map((s) => `${usd(s.amount, 0)} at ${pctOf(s.rate, 0)}`).join(", ")}">${segs}</div>
+      <p>${slices.length > 1 ? `Only the top slice pays ${pctOf(marginal, 0)}. Your federal tax is ${pctOf(effective, 1)} of taxable income overall.` : `All of it falls in the first bracket, taxed at ${pctOf(marginal, 0)}.`}</p>
+    </div>`;
+}
+
 /** The year-1 tax tutorial (sim/tax/tutorial.ts): four steps, then the bottom line as a question. */
 function taxTutorialHtml(ret: TaxReturn): string {
   const steps = [
@@ -1472,7 +1496,7 @@ function taxTutorialHtml(ret: TaxReturn): string {
     `<b>The tax.</b> The brackets make that ${usd(ret.federalTax)} of federal tax${ret.stateTax > 0 ? ` and ${usd(ret.stateTax)} for ${esc(ret.state)}` : ""}${ret.eic > 0 ? `, less a ${usd(ret.eic)} Earned Income Tax Credit` : ""}.`,
     `<b>What you already paid.</b> Every paycheck withheld some: ${usd(ret.federalWithheld + ret.stateWithheld)} this year.`,
   ];
-  return `<div class="card tutorial">
+  return `<div class="card tutorial" data-tour="tax-quiz">
       <div class="tag">Tax tutorial · your first return</div>
       <ol>${steps.map((s) => `<li>${s}</li>`).join("")}</ol>
       <p><b>Your bottom line is what you already paid, plus credits, minus the tax.</b> Which is it?</p>
@@ -1708,7 +1732,12 @@ function wireChart(c: ChartSpec) {
 function renderTop() {
   q("[data-date]").textContent = clock.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
   app.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
-  app.querySelectorAll<HTMLButtonElement>("[data-speed]").forEach((b) => b.classList.toggle("on", Number(b.dataset.speed) === clock.speed));
+  app.querySelectorAll<HTMLButtonElement>("[data-speed]").forEach((b) => {
+    b.classList.toggle("on", Number(b.dataset.speed) === clock.speed);
+    // Sammy's tour holds the city's clock; the speed and skips wait for it.
+    b.disabled = clock.held;
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-skip]").forEach((b) => (b.disabled = clock.held));
   const panel = q("[data-menu-panel]");
   q("[data-menu]").setAttribute("aria-expanded", String(menuOpen));
   panel.hidden = !menuOpen;
@@ -1811,6 +1840,8 @@ app.addEventListener("click", (ev) => {
     return;
   }
   if (decision) return;
+  if (ds.tourReplay !== undefined) return host?.tour("taxes");
+  if (clock.held && (ds.speed !== undefined || ds.skip)) return;
   if (ds.menu !== undefined) menuOpen = !menuOpen;
   else if (!el.closest(".menu")) menuOpen = false;
   if (ds.tab) go(ds.tab as Tab);
@@ -1940,7 +1971,7 @@ async function startOver(saver: SaveManager) {
   render();
   const choice = await showNotice({
     title: "Start a new life?",
-    body: "This erases your saved life for good: your money, your city, and your calendar. Larp City then starts you over with the Narrator.",
+    body: `This erases your saved life for good: your money, your city, and your calendar. Larp City then starts you over with ${NARRATOR_NAME}.`,
     actions: ["Keep this life", "Erase and start over"],
   });
   if (choice === 0) {
@@ -2065,7 +2096,7 @@ window.addEventListener("keydown", (ev) => {
     render();
     return;
   }
-  if (ev.code !== "Space" || decision || (ev.target as HTMLElement).closest("input, select, button, textarea")) return;
+  if (ev.code !== "Space" || decision || clock.held || (ev.target as HTMLElement).closest("input, select, button, textarea")) return;
   ev.preventDefault();
   clock.speed = clock.speed ? 0 : resumeSpeed || 1;
   render();
@@ -2101,7 +2132,7 @@ if (noLife) {
   // Nothing to open here: lives start (and unreadable saves get sorted out) in the city.
   const [title, body] =
     noLife === "none"
-      ? ["No life here yet", "Your money lives in Larp City. Move in with the Narrator first, then come back to see it here."]
+      ? ["No life here yet", `Your money lives in Larp City. Move in with ${NARRATOR_NAME} first, then come back to see it here.`]
       : ["This life opens in the city", "Your saved life was made by a different version of Larp City. Open the city to sort it out."];
   document.documentElement.dataset.tone = "up";
   app.innerHTML = `<main class="d-nolife">
@@ -2115,6 +2146,8 @@ if (noLife) {
   // The city's ticker drives the clock and the city calls life.onDay; every day's events
   // reach onLifeEvents, which re-renders. Decision moments come through the phone.
   host.onShow(showParkedDecisions);
+  // A tour opening or closing turns the speed buttons off or back on.
+  host.onTour(() => render());
   host.onRewind((day) => {
     // The city went back to the morning of `day`: drop what the desk showed from then on and show that morning again.
     const trim = <T extends { day: number }>(list: T[]) => {

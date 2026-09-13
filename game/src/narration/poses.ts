@@ -11,8 +11,8 @@ export interface Pose {
   frame: number;
 }
 
-/** plain: explaining; dry: deadpan and still; sly: a wink and an aside; warm: a grin. */
-export type Mood = "plain" | "dry" | "sly" | "warm";
+/** plain: explaining; dry: deadpan and still; sly: a wink and an aside; warm: a grin; point: a wing out at what a tour shows. */
+export type Mood = "plain" | "dry" | "sly" | "warm" | "point";
 
 /**
  * Frames by expression, for the strips that are poses rather than motions;
@@ -40,11 +40,16 @@ export const MOOD_POSES: Record<Mood, Pose[]> = {
   dry: [...talk([0, 5, 12]), ...idle([0, 3, 8, 11])],
   sly: [...talk(EXPRESSIONS.talk.aside), ...talk(EXPRESSIONS.talk.wink), ...idle([4, 6, 13])],
   warm: [...talk(EXPRESSIONS.talk.chest), ...talk(EXPRESSIONS.talk.blink), ...talk([10, 11, 14, 15])],
+  // The talk strip's pointing frames; 14 raises the wing on the viewer's left (mirrored to point right).
+  point: talk(EXPRESSIONS.talk.point),
 };
 
 const TAG_MOOD: Record<string, Mood> = { sighs: "dry", slow: "dry", whispers: "sly", laughs: "warm" };
 /** A delivery tag colours about the next four or five words (ElevenLabs' guidance for Expressive Mode). */
 export const TAG_REACH = 5;
+
+/** The pose Sammy holds while pointing at a tour target between lines. */
+export const POINT_POSE: Pose = { anim: "talk", frame: 14 };
 
 /** Hold times in milliseconds: long enough to read as a pose, short enough to feel alive. */
 export const HOLD = {

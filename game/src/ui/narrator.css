@@ -1,4 +1,4 @@
-/* The owl narrator (ui/narrator.ts): the owl at the bottom of the city with a
+/* Sammy the owl (ui/narrator.ts): the owl at the bottom of the city with a
    square pixel speech bubble in the HUD's pixel theme (ui/pixel-theme.css).
    Words brighten as they're spoken. The owl stands above the modal windows
    too (the U.S. map, the Money window, the fast-forward); while it's up, those
@@ -152,4 +152,183 @@ body:has(#map:not([hidden]), .desk-overlay:not([hidden]), .ff-overlay:not([hidde
   .ff-overlay {
     transition: none;
   }
+}
+
+/* Tour mode (ui/tour.ts): Sammy stands beside the step's target (left and top set
+   in ui/narrator.ts), above the tour's dim, with the bubble's tail aimed at the
+   target and Back, Next, and Skip under the line. */
+.nr.tour {
+  z-index: 28;
+  /* !important: the open-window rules above (body:has(...) .nr) outrank this, and would pin him to the bottom. */
+  bottom: auto !important;
+  /* Its own size, not shrunk by where it's placed, so ui/tour.ts measures what it places. */
+  width: max-content;
+  transform: translateY(12px);
+  transition:
+    left 0.45s ease,
+    top 0.45s ease,
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+.nr.tour.in {
+  transform: none;
+}
+.nr.tour .nr-bubble {
+  width: min(390px, calc(100vw - 118px));
+  margin-bottom: 12px !important;
+}
+/* On the target's left, the owl stands on the bubble's right, next to the target. */
+.nr.tour[data-side="left"] {
+  flex-direction: row-reverse;
+}
+.nr.face-right .owl-sprite {
+  scale: -1 1;
+}
+/* The tail, aimed at the target: up or down at its middle when Sammy is below or
+   above it, and level with it when he's beside it. */
+.nr.tour[data-side="right"] .nr-bubble::before {
+  bottom: var(--tail-b, 12px);
+}
+.nr.tour[data-side="right"] .nr-bubble::after {
+  bottom: calc(var(--tail-b, 12px) + 3px);
+}
+.nr.tour[data-side="left"] .nr-bubble::before,
+.nr.tour[data-side="left"] .nr-bubble::after {
+  left: auto;
+  clip-path: polygon(0 0, 0 100%, 100% 100%, 100% 66%, 66% 66%, 66% 33%, 33% 33%, 33% 0);
+}
+.nr.tour[data-side="left"] .nr-bubble::before {
+  right: -18px;
+  bottom: var(--tail-b, 12px);
+}
+.nr.tour[data-side="left"] .nr-bubble::after {
+  right: -9px;
+  bottom: calc(var(--tail-b, 12px) + 3px);
+}
+.nr.tour[data-side="below"] .nr-bubble::before,
+.nr.tour[data-side="below"] .nr-bubble::after,
+.nr.tour[data-side="above"] .nr-bubble::before,
+.nr.tour[data-side="above"] .nr-bubble::after {
+  left: var(--tail-x, 24px);
+}
+.nr.tour[data-side="below"] .nr-bubble::before {
+  top: -18px;
+  bottom: auto;
+  clip-path: polygon(0 100%, 100% 100%, 100% 66%, 66% 66%, 66% 33%, 33% 33%, 33% 0, 0 0);
+}
+.nr.tour[data-side="below"] .nr-bubble::after {
+  top: -9px;
+  bottom: auto;
+  margin-left: 3px;
+  clip-path: polygon(0 100%, 100% 100%, 100% 66%, 66% 66%, 66% 33%, 33% 33%, 33% 0, 0 0);
+}
+.nr.tour[data-side="above"] .nr-bubble::before {
+  top: 100%;
+  bottom: auto;
+  margin-top: 3px;
+  clip-path: polygon(0 0, 100% 0, 100% 33%, 66% 33%, 66% 66%, 33% 66%, 33% 100%, 0 100%);
+}
+.nr.tour[data-side="above"] .nr-bubble::after {
+  top: 100%;
+  bottom: auto;
+  margin-left: 3px;
+  clip-path: polygon(0 0, 100% 0, 100% 33%, 66% 33%, 66% 66%, 33% 66%, 33% 100%, 0 100%);
+}
+.nr.tour[data-side="center"] .nr-bubble::before,
+.nr.tour[data-side="center"] .nr-bubble::after {
+  bottom: 12px;
+}
+.nr-bubble:focus {
+  outline: none;
+}
+.nr-bubble:focus-visible {
+  outline: 3px solid var(--blue-2, #158ced);
+  outline-offset: 3px;
+}
+.nr-tour {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.nr-tour[hidden] {
+  display: none;
+}
+.nr-count {
+  margin-right: auto;
+  color: #5b6b78;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.nr-count[hidden] {
+  display: block;
+  visibility: hidden;
+}
+.nr-tb {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 2px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: #fffdf0;
+  box-shadow: inset -2px -2px #d7cba8, 0 2px 0 var(--edge, #101a23);
+  color: var(--ink, #092c49);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.nr-tb[hidden] {
+  display: none;
+}
+.nr-tb.ghost {
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  color: #4a5b69;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.nr-tb.go {
+  background: var(--yellow, #ffdb39);
+  box-shadow: inset -2px -2px var(--yellow-2, #edae17), 0 2px 0 var(--edge, #101a23);
+}
+.nr-tb.go:disabled {
+  background: #e8e1c8;
+  box-shadow: inset -2px -2px #d0c7a8, 0 2px 0 var(--edge, #101a23);
+  color: #5b6b78;
+  cursor: default;
+}
+.nr-tb:not(:disabled):active {
+  transform: translateY(2px);
+  box-shadow: inset -2px -2px #d7cba8;
+}
+.nr-tb:focus-visible {
+  outline: 3px solid var(--blue-2, #158ced);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nr.tour {
+    transition: none;
+  }
+}
+
+/* A phone-width bubble keeps its buttons on one line. */
+.nr-tb,
+.nr-count {
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .nr-tour {
+    gap: 4px;
+  }
+  .nr-tb {
+    padding: 4px 8px;
+  }
+  .nr-long {
+    display: none;
+  }
+}
+
+.nr.tour.reduced {
+  transition: none;
 }

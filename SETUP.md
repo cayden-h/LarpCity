@@ -49,7 +49,7 @@ consent screen -> getUserMedia selfie (memory) --> POST /api/avatar ------------
 Persona Web SDK (templateId + environmentId) ----> POST /api/persona/complete ---------> Persona API: GET inquiry, then DELETE (redact)
                                           Persona --> POST /api/persona/webhook (HMAC check)
 voice interview (client tool submit_finances) <-- GET /api/voice/signed-url -----------> ElevenLabs Agent
-narrator lines, captions, sfx <------------------ POST /api/tts, /api/sfx (cached) ----> ElevenLabs TTS / Sound Effects
+Sammy's lines, captions, sfx <------------------ POST /api/tts, /api/sfx (cached) ----> ElevenLabs TTS / Sound Effects
 AI feedback, news digest <----------------------- POST /api/feedback, /api/news -------> Gemini text (JSON schema), Backboard memory + RAG
 bank view <-------------------------------------- /api/bank/* (monthly sync) ----------> Capital One Nessie
 charts, leaderboard, rewind <-------------------- /api/snapshot, /api/history/* -------> Tiger Data (Postgres + TimescaleDB)
@@ -236,11 +236,11 @@ Prizes: 3 months of Scale tier for "impactful use" of ElevenLabs audio, and wire
 
 1. Sign up at elevenlabs.io; the free plan gives 10k credits a month with TTS and Sound Effects (non-commercial, credit ElevenLabs).
 2. Developers > API Keys: create a key for the server.
-3. Voices: the owl narrator is Daniel, a built-in British voice (`onwK4e9ZLuTAKqWW03F9`); pick a **news anchor** voice too and copy both ids.
+3. Voices: Sammy, the owl narrator, is Daniel, a built-in British voice (`onwK4e9ZLuTAKqWW03F9`); pick a **news anchor** voice too and copy both ids.
    The free plan can only use built-in voices through the API; Voice Library voices and Voice Design need the Creator plan.
-4. Agents > New agent > Blank (the live one is "Larp City Narrator"):
-   - System prompt: the owl narrator, a dry, deadpan English storyteller who narrates the player in the third person, plus the job: ask, one question at a time, for job title, annual salary, monthly rent, total debt, and savings; confirm the numbers, then call `submit_finances` exactly once. It may use one delivery tag per turn from [sighs], [slow], [whispers], and [laughs].
-   - First message: "This is the story of a new arrival in Larp City. Before they could have the keys, the Narrator needed a few details. So. What do you do for work?"
+4. Agents > New agent > Blank (the live one is "Larp City Narrator"; rename it and its greeting to Sammy in the dashboard, which code can't change):
+   - System prompt: Sammy, the owl narrator, a dry, deadpan English storyteller who narrates the player in the third person, plus the job: ask, one question at a time, for job title, annual salary, monthly rent, total debt, and savings; confirm the numbers, then call `submit_finances` exactly once. It may use one delivery tag per turn from [sighs], [slow], [whispers], and [laughs].
+   - First message: "This is the story of a new arrival in Larp City. Before they could have the keys, Sammy needed a few details. So. What do you do for work?"
    - Voice: Daniel on `eleven_v3_conversational` (Expressive Mode), with those four suggested audio tags.
 5. Agent > Tools > Add Tool, type **Client**: name `submit_finances`, parameters `job` (string), `salary`, `rent`, `debt`, `savings` (numbers), and turn on **Wait for response**.
    Names are case-sensitive and must match the browser code.
@@ -272,7 +272,7 @@ app.get('/api/voice/signed-url', async (_req, res) => {
   res.json({ signedUrl: r.signedUrl ?? r.signed_url }); // field casing UNVERIFIED, log which one comes back
 });
 
-// Narrator line with captions, cached on disk by hash(voice|model|text) so repeats cost no credits.
+// Sammy's line with captions, cached on disk by hash(voice|model|text) so repeats cost no credits.
 // The owl reads on 'eleven_v3', which performs tags like [sighs]; the server leaves tags out of the captions.
 const out = await el.textToSpeech.convertWithTimestamps(voiceId, { text, modelId: 'eleven_v3' });
 // Live alerts: el.textToSpeech.stream(voiceId, { text, modelId: 'eleven_flash_v2_5' }) piped to the response as audio/mpeg.
@@ -306,7 +306,7 @@ Captions: group the alignment's character start times into words and show each w
 | Feature | ElevenLabs piece |
 | --- | --- |
 | Onboarding interview (real finances) | Agent + `submit_finances` client tool, with data collection as a backup |
-| The owl narrator's big moments: arrival, a debt paid off, a missed payment, collections, bankruptcy (respectful), a move, a crash | TTS with timestamps on `eleven_v3`; the lines and their timing rules are in `game/src/narration/lines.ts` |
+| Sammy's big moments: arrival, a debt paid off, a missed payment, collections, bankruptcy (respectful), a move, a crash | TTS with timestamps on `eleven_v3`; the lines and their timing rules are in `game/src/narration/lines.ts` |
 | Market crash and news alerts | Streaming TTS with `eleven_flash_v2_5` (low latency), anchor voice |
 | Newspaper digest read aloud | TTS of the Gemini-written digest |
 | Cash register, siren, crowd gasp | Sound effects, generated once and cached |
@@ -704,7 +704,7 @@ All accounts are on sixtyfourandten@gmail.com (Nessie is on the `cayden-h` GitHu
 - [ ] Persona: sandbox account, published selfie template with liveness (+ age if allowed), allowed domains, approve workflow, webhook; share template and environment ids.
 - [ ] Persona booth: ask for production or credits (Saturday morning).
 - [x] Nessie: GitHub login, key, the API probed, and the bank mirror (option B) running against it.
-- [x] ElevenLabs: key, narrator and anchor voices, the owl narrator Agent with the `submit_finances` client tool, Data collection, and the post-call webhook; ask for a promo code (promo code still to ask).
+- [x] ElevenLabs: key, narrator and anchor voices, Sammy's voice Agent with the `submit_finances` client tool, Data collection, and the post-call webhook; ask for a promo code (promo code still to ask).
 - [x] Gemini: three rotating keys in `GEMINI_API_KEYS` (image generation billing still to confirm).
 - [x] Tiger Data: ~~trial service~~ (done), ~~save `DATABASE_URL`~~ (done), ~~run the schema~~ (done: `python3 game/db/load.py` applies `game/db/schema.sql` and loads the card catalog and FRED rates).
 - [x] Backboard: key, the coach assistant with research docs uploaded (chat needs paid credits).
@@ -720,7 +720,7 @@ All accounts are on sixtyfourandten@gmail.com (Nessie is on the `cayden-h` GitHu
 | --- | --- |
 | Persona "Prove You're Human" (surprise) | Full mode only for verified adult humans; server-side check; redact on stage |
 | Capital One "Best Financial Hack" ($250 per member) | The whole game; live Nessie ledgers |
-| ElevenLabs (3 months Scale) and MLH Best Use of ElevenLabs (earbuds) | Voice interview, emotional narrator, news anchor, SFX, captions |
+| ElevenLabs (3 months Scale) and MLH Best Use of ElevenLabs (earbuds) | Voice interview, Sammy the emotional narrator, news anchor, SFX, captions |
 | MLH Best Use of Gemini (swag) | Selfie to avatar, aged future you, structured feedback, news digest |
 | MLH Best Use of Tiger Data (Stream Deck Mini) | Hypertables and continuous aggregates behind live charts, leaderboard, rewind |
 | MLH Best Use of Backboard (Tile pack) | Coach that remembers past sessions and cites our research |

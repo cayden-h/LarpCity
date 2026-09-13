@@ -165,7 +165,8 @@ export class FastForward {
   }
 
   open(): void {
-    if (!this.el.hidden) return;
+    // Not while Sammy's tour holds the clock (ui/tour.ts).
+    if (!this.el.hidden || this.deps.clock.held) return;
     const { clock, player } = this.deps;
     this.resumeSpeed = clock.speed || this.resumeSpeed;
     clock.speed = 0;

@@ -36,6 +36,8 @@ import { Hud } from "./ui/hud";
 import { mountHappinessMeter } from "./ui/happiness";
 import { runIntake } from "./ui/intake";
 import { Narrator } from "./ui/narrator";
+import { TourGuide } from "./ui/tour";
+import type { TourRecord } from "./narration/tour";
 import { NpcCard } from "./ui/npccard";
 import { showNotice } from "./ui/notice";
 import { Phone } from "./ui/phone";
@@ -224,6 +226,8 @@ const review = new ReviewGate();
 // The phone's Mail inbox (sim/mail) and what the Money desk last reported; both ride in the save.
 const mail = restored?.mail ?? new Inbox();
 let desk: DeskState | null = saved?.desk ?? null;
+// Sammy's tours the player finished or skipped (ui/tour.ts); they ride in the save too.
+let tours: TourRecord = saved?.tours ?? {};
 
 let shownTier = -1;
 function syncHomeTier() {
@@ -253,6 +257,8 @@ clock.onDay((day) => {
   }
   const cue = cueForEvents(events);
   if (cue) narrator.cue(cue);
+  // The first crash offers the stocks tour, if the player never took it (it waits for the decision).
+  if (events.some((e) => e.type === "bear_market")) guide.trigger("crash");
   syncHomeTier();
   hud.setPlayer(player.name, player.age, player.avatar);
   happiness.update(day);
@@ -316,7 +322,8 @@ function stopSkip(): void {
 
 /** Plays the days up to `target` as a time-lapse (the Calendar's "Skip to"); a decision on the way stops it there. */
 function skipTo(target: number): void {
-  if (skipTimer || target <= clock.day) return;
+  // Not while Sammy's tour holds the clock.
+  if (skipTimer || clock.held || target <= clock.day) return;
   const days = target - clock.day;
   const perStep = Math.ceil(days / SKIP_STEPS);
   clock.skipping = true;
@@ -456,6 +463,8 @@ const phone = new Phone({
   mail,
   // A letter read is kept read.
   mailChanged: () => saver.request(),
+  onAppOpen: (id) => guide.trigger(id),
+  replayTour: (id) => guide.replay(id),
   newLife: async () => {
     // Stop saving first, and let a write already on its way answer, so nothing lands after the erase
     // and brings this life back.
@@ -474,6 +483,20 @@ const phone = new Phone({
     // With the save and the profile gone, the reload starts the intake.
     history.replaceState(null, "", location.pathname);
     location.reload();
+  },
+});
+
+// Sammy's tours: stocks the first time the Stocks app opens, taxes the first time a return is ready.
+const guide = new TourGuide({
+  narrator,
+  clock,
+  phone,
+  life: () => player,
+  deskState: () => desk,
+  record: () => tours,
+  save: (r) => {
+    tours = r;
+    saver.request();
   },
 });
 
@@ -500,7 +523,7 @@ setInterval(() => hud.render(scene?.hero?.tier ?? null), 200);
 // game month. A second tab playing the same life wins; this one stops and says so.
 const saver = new SaveManager({
   api: saves,
-  build: () => encodeGame({ seed, day: clock.day, hash: location.hash.slice(1), bankRun, life: player, town, mail, desk }),
+  build: () => encodeGame({ seed, day: clock.day, hash: location.hash.slice(1), bankRun, life: player, town, mail, desk, tours }),
   runId: () => recorder.runId,
   // ?intake=1 over an existing save overwrites it rather than conflicting with it.
   baseRev: me?.save?.rev ?? null,
@@ -558,6 +581,9 @@ else {
   }
 }
 
+// A tour that was open when the page reloaded starts over.
+guide.resume();
+
 /** Advance the game by `seconds` of simulated frames and render once. Background tabs throttle rAF, so tests use this. */
 function step(seconds: number) {
   for (let i = 0; i < seconds * 30; i++) {
@@ -576,4 +602,4 @@ async function visit(abbrOrCity: string, seconds = 3) {
 }
 
 // Handy for testing from the console.
-Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, town, bank, recorder, phone, fastForward, narrator, saver, mail, review: () => review.unlock(), slots: () => openSlots({ current: slot, start: clock.start }) } });
+Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, town, bank, recorder, phone, fastForward, narrator, saver, mail, tour: (id: "stocks" | "taxes") => guide.replay(id), review: () => review.unlock(), slots: () => openSlots({ current: slot, start: clock.start }) } });

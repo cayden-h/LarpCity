@@ -63,3 +63,15 @@ export function filesItself(t: TutorialState): boolean {
 export function afterFiling(t: TutorialState, correct: boolean): TutorialState {
   return { done: true, passed: t.passed || correct };
 }
+
+/**
+ * Which mistake an answer made, for Sammy's reaction: the right one, reading the
+ * tax itself as what's owed (forgetting withholding), counting what was paid
+ * but forgetting the tax, or one of the padding answers.
+ */
+export function answerKind(ret: TaxReturn, amount: number): "right" | "forgot-withholding" | "forgot-tax" | "other" {
+  if (isCorrect(ret, amount)) return "right";
+  if (Math.abs(amount + ret.federalTax + ret.stateTax) < 1) return "forgot-withholding";
+  if (Math.abs(amount - (ret.federalWithheld + ret.stateWithheld + ret.eic)) < 1) return "forgot-tax";
+  return "other";
+}

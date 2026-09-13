@@ -1,5 +1,5 @@
-// The owl's lines: which cue a day's events raise, how lines are picked and
-// shown, and the timing rules that keep the narrator from chattering.
+// Sammy's lines: which cue a day's events raise, how lines are picked and
+// shown, and the timing rules that keep Sammy from chattering.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

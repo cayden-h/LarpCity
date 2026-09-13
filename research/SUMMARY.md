@@ -175,7 +175,7 @@ Built so far (2026-09-11 night), all in `game/`:
 - Setup for every API (keys, env vars, backend, costs) is in [../SETUP.md](../SETUP.md): Gemini image generation is paid only, Tiger Data is a 30-day trial, and Persona Sandbox performs no real verification.
 - **MLH sponsor prizes** ([prize page](https://www.mlh.com/events/hackrice-71/prizes)), each with a role in the game:
   - **Gemini API:** avatar creation, the aged "future you" avatar, recaps, and the "Your Real Plan" text.
-  - **ElevenLabs:** the game's narrator (mayor, news anchor, life events such as bankruptcy, eviction, and NPC deaths, handled respectfully), plus sound effects and captions.
+  - **ElevenLabs:** the game's narrator, Sammy the owl (mayor, news anchor, life events such as bankruptcy, eviction, and NPC deaths, handled respectfully), plus sound effects and captions.
   - **Tiger Data:** time-series database for weekly NPC finances, market, events, and current city data, powering live charts, the leaderboard, and calendar rewind.
   - **Vultr:** hosts the game and backend ($100 MLH credits), with a GPU or serverless inference as a stretch.
   - **Backboard:** player memory across sessions, RAG over our research, and model routing.

@@ -837,3 +837,32 @@
 .bank-amt.up { color: #138a3a; }
 .bank-amt.down { color: #c0392b; }
 .bank-none { color: #44697c; }
+
+/* Sammy's stocks tour, again (ui/tour.ts): a pixel "?" at the Stocks header's end. */
+.st-tour {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  padding: 0;
+  border: 2px solid #101a23;
+  border-radius: 0;
+  background: #ffdb39;
+  box-shadow: inset -2px -2px #edae17;
+  color: #101a23;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.st-tour:active {
+  transform: translateY(1px);
+}
+
+/* Phone width: the Money window's title bar keeps just its name and close button. */
+@media (max-width: 520px) {
+  .desk-hint {
+    display: none;
+  }
+}
