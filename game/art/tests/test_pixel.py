@@ -407,6 +407,159 @@ class Outline(unittest.TestCase):
         self.assertTrue(lines[1, 0])
 
 
+class SignObjects(unittest.TestCase):
+    """Every sign object has its own id (scene.py: (255, 0, ordinal)), so each sign's strokes are judged against
+    its own field tone, never the whole sprite's."""
+
+    def test_labels_tell_signs_apart_and_skip_everything_else(self):
+        ids = img(1, 4, GLASS)
+        ids[0, 1] = (*P.sign_id(0), 255)
+        ids[0, 2] = (*P.sign_id(7), 255)
+        ids[0, 3] = (*P.sign_id(7), 0)  # transparent in the ids render
+        self.assertEqual(P.sign_labels(ids).tolist(), [[0, 1, 8, 0]])
+        self.assertEqual(P.is_sign(ids).tolist(), [[False, True, True, False]])
+
+    def test_each_sign_is_judged_against_its_own_field(self):
+        # a large dark sign with light lettering beside a small light sign with dark lettering: against one field
+        # for the whole image (the dark sign's), the small sign's light field would pass for its stroke
+        big = img(4, 32, (40, 40, 40, 255))
+        big[:, 3:6, :3] = (230, 230, 230)
+        small = img(4, 12, (230, 225, 215, 255))
+        small[:, 2:6, :3] = (120, 40, 35)
+        a = np.concatenate([big, small], axis=1)
+        labels = np.zeros(a.shape[:2], np.int32)
+        labels[:, :32] = 1
+        labels[:, 32:] = 2
+        out = P.downsample(a, sign=labels)
+        self.assertEqual(tuple(out[0, 0, :3]), (230, 230, 230))  # the big sign's quarter-block stroke
+        self.assertEqual(tuple(out[0, 1, :3]), (230, 230, 230))
+        self.assertEqual(tuple(out[0, 8, :3]), (120, 40, 35))    # the small sign's half-and-half blocks
+        self.assertEqual(tuple(out[0, 9, :3]), (120, 40, 35))
+
+    def test_flatten_leaves_every_sign_alone(self):
+        day = img(4, 4, (0, 0, 0, 255))
+        day[..., 0] = (np.arange(16).reshape(4, 4) * 10).astype(np.uint8)
+        ids = img(4, 4, (*P.sign_id(3), 255))
+        np.testing.assert_array_equal(P.flatten(day, ids), day)
+
+    def test_no_inner_line_between_two_signs(self):
+        day = img(5, 6)
+        day[1:4, 1:5] = (200, 180, 160, 255)
+        ids = img(5, 6)
+        ids[1:4, 1:3] = (*P.sign_id(1), 255)
+        ids[1:4, 3:5] = (*P.sign_id(2), 255)
+        out, _ = P.outline(day, ids, [(200, 180, 160), (110, 99, 88), P.INK])
+        self.assertEqual(tuple(out[2, 2, :3]), (200, 180, 160))
+
+
+class GlassTones(unittest.TestCase):
+    def test_a_smooth_reflection_gradient_on_glass_keeps_one_tone(self):
+        # a tall glass face whose glass darkens smoothly from top to bottom (a curved face reflecting the sky),
+        # with light mullion rows: the glass takes one tone all the way down and every mullion the light tone,
+        # instead of the glass crossing DARK partway and breaking into shade patches
+        h, w = 8 * P.GLASS_SPAN, 2 * P.GLASS_SPAN
+        lum = np.linspace(110, 60, h)[:, None].repeat(w, 1)
+        rows = np.arange(h) % 8 == 0
+        lum[rows] *= 1.6
+        day = img(h, w, (0, 0, 0, 255))
+        day[..., :3] = np.rint(lum)[..., None].astype(np.uint8)
+        out = P.flatten(day, img(h, w, GLASS))
+        glass = {tuple(p) for p in out[~rows][..., :3].reshape(-1, 3).tolist()}
+        mullions = {tuple(p) for p in out[rows][..., :3].reshape(-1, 3).tolist()}
+        self.assertEqual(len(glass), 1)
+        self.assertEqual(len(mullions), 1)
+        self.assertGreater(P._lum(np.array(list(mullions)[0])), P._lum(np.array(list(glass)[0])))
+
+    def test_no_seams_where_the_share_of_mullions_changes(self):
+        # light fins over 40% of the columns up top and 60% below (foreshortening packs them on a curved face):
+        # judged against a median per patch, the lower patches would take the fins as their base and drop the
+        # glass to shade in a block-shaped patch
+        h, w = 4 * P.GLASS_SPAN, 2 * P.GLASS_SPAN
+        cols = np.arange(w) % 10
+        fin = np.zeros((h, w), bool)
+        fin[: h // 2] = cols[None] < 4
+        fin[h // 2:] = cols[None] < 6
+        day = img(h, w, (80, 80, 80, 255))
+        day[fin] = (128, 128, 128, 255)
+        out = P.flatten(day, img(h, w, GLASS))
+        self.assertEqual(len({tuple(p) for p in out[~fin][:, :3].tolist()}), 1)
+        self.assertEqual(len({tuple(p) for p in out[fin][:, :3].tolist()}), 1)
+
+    def test_lit_glass_is_glass_and_lit(self):
+        ids = img(1, 4, (5, 5, 0, 255))
+        ids[0, :, 2] = (96, P.LIT_BLUE[0], P.LIT_BLUE[1], 64)
+        self.assertEqual(P.is_glass(ids).tolist(), [[True, True, True, False]])
+        self.assertEqual(P.is_lit(ids).tolist(), [[False, True, True, False]])
+
+    def test_a_wall_keeps_its_one_median(self):
+        # off glass, tones stay relative to the whole region's median, so a wall's cast shadow stays shape
+        h, w = 4 * P.GLASS_SPAN, P.GLASS_SPAN
+        day = img(h, w, (100, 100, 100, 255))
+        day[: 2 * P.GLASS_SPAN] = (50, 50, 50, 255)  # a shadow over half the wall, several tiles tall
+        out = P.flatten(day, img(h, w, (5, 5, 64, 255)))
+        self.assertEqual(len({tuple(p) for p in out[: 2 * P.GLASS_SPAN, :, :3].reshape(-1, 3).tolist()}), 1)
+        self.assertLess(int(out[0, 0, 0]), int(out[-1, 0, 0]))
+
+
+class SignPalette(unittest.TestCase):
+    GOLD, RED = (232, 186, 72), (215, 30, 40)
+
+    def lettering(self):
+        """Gold lettering on red: pure gold (a little render jitter), anti-aliased blends toward the red, and the
+        red field, as the downsampled pixels of a sign."""
+        rng = np.random.default_rng(5)
+        gold = np.array(self.GOLD) + rng.integers(-2, 3, (60, 3))
+        t = rng.uniform(0.15, 0.45, (40, 1))
+        blends = np.array(self.GOLD) * (1 - t) + np.array(self.RED) * t
+        red = np.array(self.RED) + rng.integers(-2, 3, (100, 3))
+        px = np.clip(np.rint(np.concatenate([gold, blends, red])), 0, 255).astype(np.uint8)
+        a = img(1, len(px), (0, 0, 0, 255))
+        a[0, :, :3] = px
+        return a
+
+    def near(self, pal, rgb, tol=4):
+        return any(max(abs(int(c) - v) for c, v in zip(col, rgb)) <= tol for col in pal)
+
+    def test_a_snapped_color_is_the_brand_color_not_an_average_with_its_blends(self):
+        a = self.lettering()
+        self.assertFalse(self.near(P.build_palette([a], 2, ink=False), self.GOLD))  # the plain cut's dull tan
+        pal = P.build_palette([a], 2, ink=False, snap=True)
+        self.assertTrue(self.near(pal, self.GOLD))
+        self.assertTrue(self.near(pal, self.RED))
+
+    def test_snapped_colors_are_distinct_so_a_big_color_cannot_crowd_out_small_ones(self):
+        # a large amber area (lit shop glass, a little render jitter) beside small gold and red lettering: the median
+        # cut splits the amber into several boxes, which all snap to the same amber; the snapped palette keeps its
+        # colors apart and spends the freed slots on the gold and the red
+        rng = np.random.default_rng(6)
+        amber = np.array((252, 200, 128)) + rng.integers(-6, 7, (600, 3))
+        gold = np.array(self.GOLD) + rng.integers(-2, 3, (40, 3))
+        red = np.array(self.RED) + rng.integers(-2, 3, (40, 3))
+        px = np.clip(np.concatenate([amber, gold, red]), 0, 255).astype(np.uint8)
+        a = img(1, len(px), (0, 0, 0, 255))
+        a[0, :, :3] = px
+        pal = P.build_palette([a], 3, ink=False, snap=True)
+        self.assertEqual(len(pal), 3)
+        for c in ((252, 200, 128), self.GOLD, self.RED):
+            self.assertTrue(self.near(pal, c, tol=8), (c, pal))
+        for i, c in enumerate(pal):
+            for d in pal[i + 1:]:
+                self.assertGreaterEqual(sum((x - y) ** 2 for x, y in zip(c, d)) ** 0.5, P.SNAP_MERGE)
+
+    def test_the_day_palette_snaps_its_sign_colors(self):
+        a = self.lettering()
+        pal = P.build_day_palette([a], [np.ones(a.shape[:2], bool)], 4, 2)
+        self.assertTrue(self.near(pal, self.GOLD))
+
+    def test_misfit_is_the_share_of_sign_pixels_far_from_every_palette_color(self):
+        a = img(1, 4, (215, 30, 40, 255))
+        a[0, :2, :3] = self.GOLD
+        sign = np.ones((1, 4), bool)
+        self.assertEqual(P.sign_misfit([a], [sign], [self.RED, P.INK]), 0.5)
+        self.assertEqual(P.sign_misfit([a], [sign], [self.RED, self.GOLD]), 0.0)
+        self.assertEqual(P.sign_misfit([a], [np.zeros((1, 4), bool)], [self.RED]), 0.0)
+
+
 class Shadow(unittest.TestCase):
     def layers(self):
         """A 1x3 strip: a building pixel, a cast shadow pixel (in the day render only), and empty ground."""

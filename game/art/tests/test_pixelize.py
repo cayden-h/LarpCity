@@ -1,4 +1,5 @@
 """End-to-end tests of art/pixelize.py on a synthetic raw render. Run from game/:  python3 -m unittest discover -s art/tests -v"""
+import colorsys
 import contextlib
 import io
 import json
@@ -42,6 +43,31 @@ def building(name, crown=False):
         entry["crown"] = f"{name}.crown.png"
     entry["raw"] = {k: f"{name}.{k}.png" for k in layers}
     return layers, entry
+
+
+class SignColors(unittest.TestCase):
+    def test_warns_when_signs_need_more_colors_than_are_reserved(self):
+        # a sign in far more distinct brand colors than SIGN_COLORS: the palette build says so instead of
+        # quietly remapping the brand colors the median cut had no room for
+        layers, entry = building("rainbow")
+        n = pixelize.SIGN_COLORS * 2
+        for i in range(n):
+            r, g, b = colorsys.hsv_to_rgb(i / n, 1.0, 1.0)
+            x = 2 * S + (i % 8) * S
+            y = 4 * S + (i // 8) * S
+            layers["day"][y:y + S, x:x + S] = (round(r * 255), round(g * 255), round(b * 255), 255)
+            layers["ids"][y:y + S, x:x + S] = (*P.sign_id(0), 255)
+        with tempfile.TemporaryDirectory() as tmp:
+            art, public = Path(tmp) / "art", Path(tmp) / "public"
+            raw = art / ".raw" / CITY
+            raw.mkdir(parents=True)
+            for k, a in layers.items():
+                P.save(a, raw / entry["raw"][k])
+            (raw / "raw.json").write_text(json.dumps({"scale": S, "sprites": [entry]}))
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                pixelize.main([CITY], art_dir=art, public_dir=public)
+        self.assertIn("SIGN_COLORS", err.getvalue())
 
 
 class Pixelize(unittest.TestCase):

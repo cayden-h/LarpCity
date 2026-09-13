@@ -22,9 +22,12 @@ sys.path.insert(0, str(HERE))
 from lib import pixel as P  # noqa: E402
 
 DAY_COLORS, NIGHT_COLORS = 40, 16
-# Of the day colors, this many are cut from sign pixels alone (P.build_day_palette), so brand reds, golds, and
-# oranges survive next to the glass towers' many blues.
+# Of the day colors, this many are cut from sign and lit-glass pixels alone (P.build_day_palette), so brand reds,
+# golds, and oranges, and the shop windows' warm glow, survive next to the glass towers' many blues.
 SIGN_COLORS = 12
+# Past this share of sign pixels landing on a clearly different palette color (P.SIGN_MISS), the signs need more
+# than SIGN_COLORS colors: the median cut is merging brand colors, so the palette build warns.
+SIGN_MISS_SHARE = 0.05
 PUBLIC = HERE.parent / "public" / "sprites"
 OUTPUTS = ("day", "night", "crown", "walls")  # manifest keys that name a file in public/sprites/<city>/
 
@@ -60,17 +63,17 @@ class RawSprite:
 
     @cached_property
     def sign4(self) -> np.ndarray:
-        """Where the 4x ids render is a sign, so its strokes survive the downsample."""
-        return P.is_sign(self.ids4)
+        """Which sign object each 4x pixel belongs to (P.sign_labels), so its strokes survive the downsample."""
+        return P.sign_labels(self.ids4)
 
     @cached_property
     def ids1(self) -> np.ndarray:
         return P.downsample(self.ids4)
 
     @cached_property
-    def sign1(self) -> np.ndarray:
-        """Where the 1x ids are a sign."""
-        return P.is_sign(self.ids1)
+    def accent1(self) -> np.ndarray:
+        """Where the 1x ids are a sign or glass lit by day: the pixels that get the reserved palette colors."""
+        return P.is_sign(self.ids1) | P.is_lit(self.ids1)
 
     @cached_property
     def shadow1(self) -> np.ndarray:
@@ -89,7 +92,7 @@ class RawSprite:
         # reading a cached property computes and keeps it
         self.day1
         self.ids1
-        self.sign1
+        self.accent1
         self.shadow1
         self.night1
         self.release()
@@ -166,11 +169,16 @@ def main(argv, art_dir: Path = HERE, public_dir: Path = PUBLIC):
     if args.new_palette or not ppath.exists():
         print(f"[pixel] building palette from {len(sources)} sprites", flush=True)
         shrunk = [s.shrink() for s in sources.values()]
-        pal = {"day": P.build_day_palette([s.day1 for s in shrunk], [s.sign1 for s in shrunk], DAY_COLORS, SIGN_COLORS),
+        pal = {"day": P.build_day_palette([s.day1 for s in shrunk], [s.accent1 for s in shrunk], DAY_COLORS, SIGN_COLORS),
                "night": P.build_palette([s.night1 for s in shrunk], NIGHT_COLORS, ink=False)}
         ppath.parent.mkdir(parents=True, exist_ok=True)
         ppath.write_text(json.dumps(pal, indent=1))
         print(f"[pixel] new palette {ppath.name}", flush=True)
+        miss = P.sign_misfit([s.day1 for s in shrunk], [s.accent1 for s in shrunk], pal["day"])
+        if miss > SIGN_MISS_SHARE:
+            print(f"[pixel] warning: {miss:.0%} of sign pixels land more than {P.SIGN_MISS} from every palette color; "
+                  f"the signs need more than SIGN_COLORS ({SIGN_COLORS}) colors, so the median cut is merging brand "
+                  "colors", file=sys.stderr, flush=True)
     pal = json.loads(ppath.read_text())
     day_pal = [tuple(c) for c in pal["day"]]
     night_pal = [tuple(c) for c in pal["night"]]
