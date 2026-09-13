@@ -152,6 +152,12 @@ export class Sim {
     return { x: p.x - Math.sin(p.h) * car.lat, y: p.y + Math.cos(p.h) * car.lat, h: p.h };
   }
 
+  /** True while a car is in, reserved for, or clearing a movement that crosses this crosswalk. */
+  crosswalkBusy(node: RNode, arm: Arm): boolean {
+    for (const m of node.movements) if (m.crosswalks.includes(arm) && this.occupied(m)) return true;
+    return false;
+  }
+
   step(): void {
     this.time += DT;
     // onStuck (via tryChange, called from accel's gapAhead) or onDone may

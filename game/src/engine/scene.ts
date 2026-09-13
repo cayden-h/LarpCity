@@ -111,7 +111,6 @@ export class CityScene {
     this.objects.sortableChildren = true;
     this.world.addChild(this.ground.waterLayer, this.ground.landLayer, this.objects);
     this.root.addChild(this.world, this.weatherFx.view);
-    this.people = new People(this.grid, this.objects, seed);
 
     this.season = clock.season;
     this.snow = this.city.snowInWinter && this.season === "winter" ? 0.6 : 0;
@@ -134,6 +133,7 @@ export class CityScene {
       v.cullable = true;
       this.objects.addChild(v);
     }
+    this.people = new People(this.grid, this.net, this.traffic.sim, this.objects, seed);
 
     const ctx = { clock, night: () => this.clock.nightness, time: () => this.time, storm: () => this.weatherFx.stormy, sprites };
     for (const place of this.city.landmarks) {
