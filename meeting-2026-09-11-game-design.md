@@ -3,6 +3,7 @@
 Decisions from the team's game design meeting on Friday night of HackRice.
 Sources: the team's AI meeting notes (kept verbatim at the bottom) and the Granola notes for the meeting (https://notes.granola.ai/t/5ae65b87-db4a-4f75-887e-deb43fba1331).
 Where these decisions conflict with the earlier research docs, this file wins.
+The later revamp meeting ([meeting-2026-09-13-revamp.md](meeting-2026-09-13-revamp.md)) wins where it conflicts with this file (for example the preset avatar, and going back only in the end-of-game review).
 
 ## Decisions
 

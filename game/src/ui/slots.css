@@ -1,0 +1,86 @@
+/* The save slot picker (ui/slots.ts), in the phone's pixel style. */
+.slots-back {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(10, 20, 28, 0.55);
+}
+.slots {
+  position: relative;
+  width: min(520px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 18px 18px 20px;
+  border: 3px solid #101a23;
+  background: #f4f8f9;
+  color: #16212b;
+  box-shadow: 6px 6px #11283a;
+  font-family: "Pixelify Sans", system-ui, sans-serif;
+}
+.slots h2 {
+  margin: 4px 0 10px;
+  font-size: 22px;
+}
+.slots h2 + .slots-note { margin-top: -4px; }
+.slots-note,
+.slots-wait {
+  margin: 0 0 10px;
+  color: #4a5c66;
+  font-size: 14px;
+  line-height: 1.3;
+}
+.slots-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  border: 3px solid #101a23;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.slot-list,
+.demo-list {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.slot,
+.demo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 3px solid #101a23;
+  background: #fff;
+}
+.slot > div { min-width: 0; }
+.slot b,
+.demo b { display: block; font-size: 16px; }
+.slot span,
+.demo span { display: block; color: #4a5c66; font-size: 13px; line-height: 1.3; }
+.slot.here { background: #e3f1fb; }
+.slot .slots-btn { margin-left: auto; }
+.demo { flex-direction: column; align-items: stretch; gap: 4px; }
+.demo-slots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.slots-btn {
+  flex: none;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 3px solid #101a23;
+  background: linear-gradient(#ffe778, #ffcf2f);
+  color: #16212b;
+  font: inherit;
+  font-size: 15px;
+  box-shadow: inset 2px 2px #fff5ac, inset -2px -2px #c58b13, 0 3px #11283a;
+  cursor: pointer;
+}
+.slots-btn.small { min-height: 30px; font-size: 13px; }
+.slots-btn.armed { background: linear-gradient(#ff9d8f, #f0624f); box-shadow: inset 2px 2px #ffd0c8, inset -2px -2px #a63a2c, 0 3px #11283a; }
+.slots-btn:hover { filter: brightness(1.05); }

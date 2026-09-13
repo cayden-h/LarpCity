@@ -376,7 +376,7 @@ Prize: Google swag kits, "push the boundaries of what's possible with AI using G
 | --- | --- | --- |
 | AI feedback at goals, bankruptcy, and big swings (the meeting's three moments) | `POST /api/feedback` with `{ runId, trigger, day, goal? }`: the server reads the last 100 days of snapshots and 180 days of events and returns `{ headline, tip, mood }` | Built Sep 12; spoken by ElevenLabs later |
 | Newspaper digest after a skip | `POST /api/news` with `{ runId, from, to }`: 1 to 4 stories `{ title, where, blurb, impact }` about the notable events, never routine paychecks and bills | Built Sep 12 |
-| Avatar from the verified selfie | `POST /api/avatar`: image model, selfie + style reference, sliced into 8 directions in Pixi; answers 403 until Persona has verified an adult (Gemini's terms) | Route ready, waits on Persona and billing |
+| Avatar from the verified selfie | `POST /api/avatar`: image model, selfie + style reference, sliced into 8 directions in Pixi; answers 403 until Persona has verified an adult (Gemini's terms) | Route ready but unused: the in-game avatar became a male or female preset on 2026-09-13 |
 | Aged "future you" (Hershfield effect) | image edit of the player's sprite, "same character 30 years older, same style", hopeful on the good path | Not built |
 | "Your Real Plan" at the end | text model, personalized to the player's state and choices | Not built |
 
@@ -464,7 +464,8 @@ The server adds what the run routes need at boot (`server/src/migrations.sql`, r
 - `game/src/sim/record/` records the player's run from the first day: one snapshot per game day (net worth split into checking, savings, brokerage, retirement, and debt) and every life event, keyed `day:sequence`.
   It sends about once a game month, a whole goal fast-forward right after it finishes (in 5,000-row chunks), and keeps everything buffered while the server is down.
 - Net-worth charts read the weekly and monthly aggregates (a 40-year run is about 2,100 weekly rows instead of 14,600 daily ones); the calendar and newspaper read events by day range and kind.
-- Still to come: the rewind branches (a new run per changed decision with the old path as a ghost line), `market_prices`, and `debt_daily`.
+- Still to come: `market_prices` and `debt_daily`.
+  Going back happens only in the end-of-game review (2026-09-13), where each rewind forks the run (`POST /api/runs/:runId/fork`).
 
 ### 6. Test first
 

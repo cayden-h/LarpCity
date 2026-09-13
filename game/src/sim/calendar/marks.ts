@@ -6,6 +6,7 @@
 // score ticks) is left out.
 
 import type { DebtKind } from "../debt/types.ts";
+import { choiceLabel } from "../life/events.ts";
 import type { LifeEvent, PlayerLife } from "../life/player.ts";
 
 export type MarkTone = "red" | "blue";
@@ -109,6 +110,33 @@ export function marksFor(events: readonly LifeEvent[], life: Pick<PlayerLife, "b
         break;
       case "trade":
         if (!e.recurring) blue(e.side === "buy" ? "Buy" : "Sell", `${e.side === "buy" ? "Bought" : "Sold"} ${e.id}`, e.side === "buy" ? -e.amount : e.amount);
+        break;
+      case "marriage":
+        blue("Wed", "Got married");
+        break;
+      case "choice":
+        if (!e.auto) blue("Chose", choiceLabel(e.kind, e.option, e.amount));
+        break;
+      case "car_breakdown":
+        red("Car", `Your car broke down: ${dollars(e.repairCost)} to fix`);
+        break;
+      case "injury":
+        red("Hurt", `${e.cause === "car_crash" ? "Car crash" : "Injured"}: ${dollars(e.outOfPocket)} of a ${dollars(e.bill)} bill is yours`);
+        break;
+      case "divorce":
+        red("Split", e.prenup ? "Divorced; the prenup kept your money" : `Divorced without a prenup: lost ${dollars(e.lost)}`);
+        break;
+      case "penny_stock_tip":
+        red("Tip", `A hot tip on ${e.ticker}`);
+        break;
+      case "penny_stock_result":
+        red(e.payout >= e.stake ? "Win" : "Bust", `${e.ticker} paid back ${dollars(e.payout)} of ${dollars(e.stake)}`, e.payout);
+        break;
+      case "recession":
+        red("Slump", "The economy is in a recession");
+        break;
+      case "recession_over":
+        red("Boom", "The recession is over");
         break;
       default:
         break;

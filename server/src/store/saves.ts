@@ -62,10 +62,57 @@ export async function putProfile(db: Db, playerId: string, p: Omit<Profile, "dis
   );
 }
 
-export async function getSave(db: Db, playerId: string): Promise<SaveRow | null> {
+/** A player's save slots (meeting 2026-09-13): three, so judges can jump between pre-built lives. */
+export const SLOTS = [0, 1, 2] as const;
+export type Slot = (typeof SLOTS)[number];
+
+/** The saves table's name for a slot. Slot 0 keeps the name every save had before slots, so those still load. */
+export const slotKey = (slot: Slot): string => (slot === 0 ? "main" : `slot${slot}`);
+const slotOfKey = (key: string): Slot | null => SLOTS.find((s) => slotKey(s) === key) ?? null;
+
+/** What the slot picker shows about a saved life, read out of its save. */
+export interface SlotSummary {
+  slot: Slot;
+  gameDay: number;
+  updatedAt: string;
+  age: number | null;
+  job: string | null;
+  state: string | null;
+  netWorth: number | null;
+}
+
+const numOrNull = (v: string | null) => (v === null || !Number.isFinite(Number(v)) ? null : Number(v));
+
+/** The player's three slots, in order; an empty slot is null. */
+export async function listSlots(db: Db, playerId: string): Promise<(SlotSummary | null)[]> {
   const { rows } = await db.query(
-    `SELECT run_id, seed, version, game_day, state, rev, updated_at FROM saves WHERE player_id = $1 AND slot = 'main'`,
+    `SELECT slot, game_day, updated_at,
+            state->'life'->>'age' AS age, state->'life'->>'job' AS job, state->'life'->'place'->>'abbr' AS place,
+            state->'life'->'history'->-1->>'netWorth' AS net_worth
+       FROM saves WHERE player_id = $1`,
     [playerId],
+  );
+  const out: (SlotSummary | null)[] = SLOTS.map(() => null);
+  for (const r of rows) {
+    const slot = slotOfKey(r.slot);
+    if (slot === null) continue;
+    out[slot] = {
+      slot,
+      gameDay: r.game_day,
+      updatedAt: new Date(r.updated_at).toISOString(),
+      age: numOrNull(r.age),
+      job: r.job || null,
+      state: r.place ?? null,
+      netWorth: numOrNull(r.net_worth),
+    };
+  }
+  return out;
+}
+
+export async function getSave(db: Db, playerId: string, slot: Slot = 0): Promise<SaveRow | null> {
+  const { rows } = await db.query(
+    `SELECT run_id, seed, version, game_day, state, rev, updated_at FROM saves WHERE player_id = $1 AND slot = $2`,
+    [playerId, slotKey(slot)],
   );
   const r = rows[0];
   if (!r) return null;
@@ -82,34 +129,37 @@ const RUN_IS_LIVE_AND_OWNED = `EXISTS (
 )`;
 
 /** Writes the save and returns its new rev; throws SaveConflict when `baseRev` is stale, or the run is not a live run of this player with its own seed. */
-export async function putSave(db: Db, playerId: string, w: SaveWrite): Promise<number> {
-  const params = [playerId, w.runId, w.seed, w.version, w.gameDay, JSON.stringify(w.state)];
+export async function putSave(db: Db, playerId: string, w: SaveWrite, slot: Slot = 0): Promise<number> {
+  const params = [playerId, w.runId, w.seed, w.version, w.gameDay, JSON.stringify(w.state), slotKey(slot)];
   const { rows } =
     w.baseRev === null
       ? await db.query<{ rev: number }>(
-          `INSERT INTO saves (player_id, run_id, seed, version, game_day, state)
-           SELECT $1, $2, $3, $4, $5, $6 WHERE ${RUN_IS_LIVE_AND_OWNED}
+          `INSERT INTO saves (player_id, run_id, seed, version, game_day, state, slot)
+           SELECT $1, $2, $3, $4, $5, $6, $7 WHERE ${RUN_IS_LIVE_AND_OWNED}
            ON CONFLICT (player_id, slot) DO NOTHING RETURNING rev`,
           params,
         )
       : await db.query<{ rev: number }>(
           `UPDATE saves SET run_id = $2, seed = $3, version = $4, game_day = $5, state = $6, rev = rev + 1, updated_at = now()
-           WHERE player_id = $1 AND slot = 'main' AND rev = $7 AND ${RUN_IS_LIVE_AND_OWNED} RETURNING rev`,
+           WHERE player_id = $1 AND slot = $7 AND rev = $8 AND ${RUN_IS_LIVE_AND_OWNED} RETURNING rev`,
           [...params, w.baseRev],
         );
   if (!rows[0]) throw new SaveConflict("stale save");
   return rows[0].rev;
 }
 
-/** "New life": forgets the save and the profile and marks the saved run ended, all in one transaction. */
-export async function deleteLife(db: Db, playerId: string): Promise<void> {
+/**
+ * "New life" in a slot: forgets that slot's save and the profile (so the slot's next life starts
+ * with the intake) and marks the slot's run ended, all in one transaction. Other slots keep theirs.
+ */
+export async function deleteLife(db: Db, playerId: string, slot: Slot = 0): Promise<void> {
   const c = await db.connect();
   try {
     await c.query("BEGIN");
     await c.query(
-      `WITH d AS (DELETE FROM saves WHERE player_id = $1 RETURNING run_id)
+      `WITH d AS (DELETE FROM saves WHERE player_id = $1 AND slot = $2 RETURNING run_id)
        UPDATE runs SET ended_at = now() WHERE id IN (SELECT run_id FROM d) AND ended_at IS NULL`,
-      [playerId],
+      [playerId, slotKey(slot)],
     );
     await c.query(`DELETE FROM profiles WHERE player_id = $1`, [playerId]);
     await c.query("COMMIT");

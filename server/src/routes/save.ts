@@ -3,15 +3,16 @@
 // session's player. The game calls GET /api/me once on boot to decide
 // between resuming, building a life from the profile, and the intake.
 //
-//   GET    /api/me        -> { player, profile, save }
-//   PUT    /api/profile   the confirmed intake          -> 204
-//   PUT    /api/save      { runId, seed, version, gameDay, state, baseRev } -> { rev } | 409
-//   DELETE /api/save      "New life": save, profile, and the run's end -> 204
+//   GET    /api/me?slot=N     -> { player, profile, save (slot N's), slot, slots (all three, null when empty) }
+//   PUT    /api/profile       the confirmed intake          -> 204
+//   PUT    /api/save?slot=N   { runId, seed, version, gameDay, state, baseRev } -> { rev } | 409
+//   DELETE /api/save?slot=N   "New life" in slot N: its save, the profile, and its run's end -> 204
+// N is 0, 1, or 2 (0 when absent); the player's session decides whose slots they are.
 import { Router } from "express";
 import { z } from "zod";
 import { pool } from "../db.js";
 import { handle, HttpError, parse, Reply } from "../http.js";
-import { deleteLife, getProfile, getSave, putProfile, putSave, SaveConflict } from "../store/saves.js";
+import { deleteLife, getProfile, getSave, listSlots, putProfile, putSave, SaveConflict, type Slot } from "../store/saves.js";
 import { ownRun } from "./snapshot.js";
 
 export const saveRouter = Router();
@@ -61,12 +62,17 @@ export const saveBody = z.object({
   baseRev: z.number().int().min(1).nullable(),
 });
 
+/** Which of the player's save slots a request means: `?slot=` 0, 1, or 2, and 0 when absent. Anything else is a 400. */
+export const slotQuery = z.object({ slot: z.coerce.number().int().min(0).max(2).default(0) });
+const slotOf = (query: unknown): Slot => parse(slotQuery, query).slot as Slot;
+
 saveRouter.get(
   "/me",
   handle(async (req) => {
+    const slot = slotOf(req.query);
     const { rows } = await pool.query<{ id: string; name: string }>(`SELECT id, name FROM players WHERE id = $1`, [req.playerId]);
-    const [profile, save] = await Promise.all([getProfile(pool, req.playerId), getSave(pool, req.playerId)]);
-    return { player: rows[0] ?? { id: req.playerId, name: null }, profile, save };
+    const [profile, save, slots] = await Promise.all([getProfile(pool, req.playerId), getSave(pool, req.playerId, slot), listSlots(pool, req.playerId)]);
+    return { player: rows[0] ?? { id: req.playerId, name: null }, profile, save, slot, slots };
   }),
 );
 
@@ -81,10 +87,11 @@ saveRouter.put(
 saveRouter.put(
   "/save",
   handle(async (req) => {
+    const slot = slotOf(req.query);
     const body = parse(saveBody, req.body);
     const runId = await ownRun(req, body.runId);
     try {
-      return { rev: await putSave(pool, req.playerId, { ...body, runId }) };
+      return { rev: await putSave(pool, req.playerId, { ...body, runId }, slot) };
     } catch (err) {
       if (err instanceof SaveConflict) throw new HttpError(409, "save_conflict");
       throw err;
@@ -95,7 +102,7 @@ saveRouter.put(
 saveRouter.delete(
   "/save",
   handle(async (req) => {
-    await deleteLife(pool, req.playerId);
+    await deleteLife(pool, req.playerId, slotOf(req.query));
     return new Reply(204, null);
   }),
 );

@@ -67,9 +67,12 @@ export class NpcTown {
     }
   }
 
-  /** Every NPC's life as plain JSON, for the saved game. */
+  /**
+   * Every NPC's life as plain JSON, for the saved game: only the last NPC_SAVE_DAYS of history, with
+   * no weekly tail, since 50 NPCs' weekly rows outgrew the server's save limit within 3 game years.
+   */
   toSave(): Record<string, LifeSave> {
-    return Object.fromEntries([...this.lives].map(([id, life]) => [id, life.toSave(NPC_SAVE_DAYS)]));
+    return Object.fromEntries([...this.lives].map(([id, life]) => [id, life.toSave(NPC_SAVE_DAYS, 0)]));
   }
 
   /** Puts every NPC back to the morning of `day` when the player rewinds (NPCs behind it catch up as usual). */

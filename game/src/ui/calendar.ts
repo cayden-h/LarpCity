@@ -3,8 +3,9 @@
 // are grayed out. Red chips are money days and things that happen to the
 // player; blue chips are what they chose. A future day shows only scheduled
 // money, plus a yellow "?" on the next decision day, which never says what the
-// decision is. Tapping a day opens a small sheet: a past day can be gone back
-// to (a real rewind, sim/rewind), and the decision day can be skipped to. The
+// decision is. Tapping a day opens a small sheet: in the end-of-game review a
+// past day can be gone back to (a real rewind, sim/rewind; during play it says
+// so instead), and the decision day can be skipped to any time. The
 // back arrow zooms out to the year; tapping a year there switches years.
 // Design: docs/superpowers/specs/2026-09-12-phone-calendar-design.md.
 
@@ -20,12 +21,16 @@ export interface CalendarDeps {
   firstDay: () => number;
   /** Goes back to the morning of a past day. */
   rewindTo: (day: number) => void;
+  /** Whether going back is open (only in the end-of-game review, sim/rewind/gate.ts); open when not given. */
+  canGoBack?: () => boolean;
   /** Plays the days up to a future day as a time-lapse. */
   skipTo: (day: number) => void;
   /** The year view's back arrow: the phone's home screen. */
   onHome: () => void;
   /** Erases this life and starts over with the intake (the year view's "Start a new life"); rejects when the server can't be reached. */
   newLife?: () => Promise<void>;
+  /** Opens the save slot picker (the year view's "Save slots"). */
+  openSlots?: () => void;
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -301,7 +306,11 @@ export class CalendarApp {
       const marks = this.marksOn(day, kind);
       const worth = this.netWorthOn(day);
       content = `<div class="cal-rows">${marks.length ? marks.map((m) => row(m.tone, m.text, m.amount)).join("") : row("", "A quiet day")}${worth === null ? "" : row("", kind === "today" ? "Net worth now" : "Net worth that night", worth, false)}</div>`;
-      if (kind === "past") action = `<button class="cal-action" data-cal-go="${day}">Go back to ${short(date)}</button>`;
+      if (kind === "past")
+        action =
+          this.deps.canGoBack?.() === false
+            ? `<p class="cal-locked">Going back opens in your retirement review. Until then, every choice sticks.</p>`
+            : `<button class="cal-action" data-cal-go="${day}">Go back to ${short(date)}</button>`;
     }
     return `
       <button class="cal-dim" data-cal-close aria-label="Close"></button>
@@ -357,6 +366,7 @@ export class CalendarApp {
       </header>
       <div class="cal-years">${years}</div>
       <div class="cal-year">${minis}</div>
+      ${this.deps.openSlots ? `<button class="cal-slots" data-cal-slots>Save slots</button>` : ""}
       ${this.deps.newLife ? this.newLifeHtml() : ""}`;
   }
 
@@ -416,6 +426,7 @@ export class CalendarApp {
       return this.render();
     }
     if (data.calNewLife !== undefined) return this.onNewLife();
+    if (data.calSlots !== undefined) return this.deps.openSlots?.();
     if (data.calSpeed !== undefined) {
       this.deps.clock.speed = Number(data.calSpeed);
       return this.render();

@@ -11,6 +11,7 @@
     "debt:charts": "node scripts/debt-charts.ts",
     "market:snapshot": "node scripts/build-market-snapshot.ts",
     "narration:pack": "node scripts/build-narration.ts",
+    "demo:slots": "node scripts/build-demo-slots.ts",
     "art:sf": "python3 art/make_ads.py && blender -b -P art/build.py -- --city san-francisco && python3 art/pixelize.py san-francisco && python3 art/check_register.py san-francisco"
   },
   "devDependencies": {
