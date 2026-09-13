@@ -12,19 +12,20 @@ npm run dev
 ```
 
 Open the printed URL.
-Add a state to the URL to jump straight there, for example `#CA` or `#NY`; `#TX` (Houston) is the default.
-The first visit opens Sammy's intake (Sammy is the owl narrator); the voice call needs the server from `../server` running and a microphone, and typing the numbers or skipping works without either.
-The answers are remembered in the browser: add `?intake=1` to do the intake again, or `?intake=0` to skip it (the sample household).
+The game is San Francisco, California (`#CA`); any other state in the URL falls back to it.
+The first visit opens the title screen, where Sammy (the owl narrator) can walk you through the game, then the save slots.
+`?slot=0` (1, 2) goes straight into a slot, `?intake=1` starts a new life over its save, and `?intake=0` skips the title and Sammy's setup.
 
 ## What you can do
 
 - **Title screen and Learn:** a new life opens on Larp City's name, Sammy, and a Learn button over a blurred San Francisco (`src/ui/title.ts`).
-  Learn has Sammy walk through the game in eight bubbles (the retirement goal, the phone, milestones and where you live, time and skips, what stops a skip, his tips, then setup), with Back, Next, and Skip; the script is `src/narration/learn.ts`.
-  Finishing or skipping it, or "Skip to setup", opens the intake.
-- **Intake:** before the city opens, Sammy the owl (an ElevenLabs voice agent with a dry, deadpan English voice) asks for your job, salary, rent, debt, and savings, real or made up, and you check the numbers before moving in. You can type them instead, or skip to the sample household. Your life starts from those numbers: take-home is 80% of the salary, the rent is what you said (rescaled if you move states), the debt is a credit card for the first $5,000 plus a personal loan for the rest, and the savings sit in high-yield savings.
-  Everyone also starts with the starter portfolio (`STARTER_PORTFOLIO`), on top of the stated savings and debt, so net worth moves with the market from day one.
+  Learn has Sammy walk through the game in eight bubbles (who you are, the retirement goal, the phone, milestones and where you live, time and skips, what stops a skip, his tips, then the save slots and goals), with Back, Next, and Skip; the script is `src/narration/learn.ts`.
+  Finishing or skipping it, or "Skip to save slots", opens the save slot picker full screen (`src/ui/slots.ts`): play a saved life, start a new one in an empty slot ("New life" over a saved one asks twice), or load a demo life.
+- **Sammy's setup:** a new life never asks for money. Everyone starts the same way (`defaultAnswers` and `starterFor` in `src/sim/life/intake.ts`): age 22, a new-grad job, a salary drawn from $35,000-$50,000 (20% higher in a high cost-of-living state), $20,000-$40,000 of debt as a credit card plus a personal loan, a 600 credit score, the fixed car loan, rent at the state's median, and $3,700 in high-yield savings, all drawn from the run's seed.
+  Sammy presents that life, then the player picks a name and a man or a woman, a health plan, and a starter card, and sets the four permanent goals one at a time, each with the age to reach it: retire by, debt-free by, own a home by (with the down payment), and married by (or not a priority) (`src/ui/intake.ts`).
+  Everyone also starts with the starter portfolio (`STARTER_PORTFOLIO`), so net worth moves with the market from day one.
 - **Sammy:** the owl narrator reads out the big moments at the bottom of the screen, read aloud with each word lighting up as it's spoken: arriving, paying off a debt, a missed payment, collections, bankruptcy, a big credit score change, a new home, a move, a market crash (a bear market, as the Money window opens on the crash decision) and the market's return to its high, and the end of a fast-forward.
-  While Sammy talks over the U.S. map, the Money window, or the fast-forward, the window leaves a band clear at the bottom for it.
+  While Sammy talks over the Money window or the fast-forward, the window leaves a band clear at the bottom for it.
   The mute button keeps the captions and drops the voice.
   The lines are in `src/narration/lines.ts` (his name is `NARRATOR_NAME` there); the owl's animations are cut from the sheets in `art/owl/` by `art/owl/slice.py`.
 - **Sammy's tours:** the first time you open Stocks, Sammy offers a two-minute tour of investing, and the first time a tax return is ready, opening Taxes walks you through it, ending on the bottom-line question.
@@ -42,7 +43,7 @@ The answers are remembered in the browser: add `?intake=1` to do the intake agai
   The home screen shows the date, an S&P 500 widget, and the apps.
   **Stocks** lists the HackRice sponsor stocks at today's game prices (tap one to open its page in the Money desk) and a market watchlist, and opens the Money desk over the city (city time pauses while it is open).
   **Goals** opens the fast-forward.
-  **Map** shows the city you are in, its cost-of-living tier, and a button to the U.S. map.
+  **Map** shows San Francisco and its cost-of-living tier.
   **Weather** shows the city's weather, any event under way, and the season (dropped from the phone per the 2026-09-13 meeting, in P2).
   **Calendar** shows the player's days as a month grid in the pixel theme: red chips for money days and events, blue for their own choices, only scheduled money on future days, and a yellow "?" on the next decision day, which never says what it is.
   Tapping a past day goes back to that morning (a real rewind, `src/sim/rewind/`) once the end-of-game review opens it; during play the day's sheet says so instead, tapping the "?" plays the days up to it as a time-lapse, the back arrow zooms out to the year, and the speed strip is pause, 1x, and 2x.
@@ -52,7 +53,6 @@ The answers are remembered in the browser: add `?intake=1` to do the intake agai
   **Mail** shows your life's letters (a bank statement, a missed payment, a goal reached).
   **News** is the Larp City Ledger, a monthly newspaper the server writes from your run's stored data.
   **Bank** is your Capital One Nessie bank statement.
-- **U.S. map:** a pixel map shaded by cost-of-living tier (BEA price parities), with pixel pins for the hand-made cities, a marker on where you are, and a preview of your city captured from the canvas; visit any state for free.
 - The city's event buttons (hurricane, crash, boom, and the rest), the sky slider, and the zoom buttons are gone from the screen.
   The events still run from the console, for example `larp.scene().trigger("crash")`; the others are `hurricane`, `snowstorm`, `wildfire`, `drought`, `fog`, `pandemic`, `boom`, and `clear` (which ends them).
   `larp.scene().resetCamera()` recenters the camera, and `larp.clock.pinnedTimeOfDay = 0.8` holds the sky at one time of day (`null` lets it run again).
@@ -69,7 +69,7 @@ From the browser console, `larp.step(5)` simulates 5 seconds (useful in backgrou
 
 ## How it is built
 
-- PixiJS v8, Vite, TypeScript; the HUD, the phone, and the U.S. map are plain DOM over the canvas.
+- PixiJS v8, Vite, TypeScript; the HUD and the phone are plain DOM over the canvas.
 - `src/ui/pixel-theme.css`: the pixel look over the whole DOM UI (hard-edged panels, pixel buttons, the phone's apps, and the map), imported by `src/main.ts`.
   It sets the Pixelify Sans font (`public/fonts/`, preloaded in `index.html`); `src/ui/pixel-icons.ts` draws the pixel icons for the phone and the HUD.
 - `src/engine/`: the scene and camera, the world builder that wraps each city in suburbs, farms, and terrain (`world.ts`), isometric math, the chunked studded ground (`ground.ts`), the brick building builder (`bricks.ts`), traffic drawing and boats (`traffic.ts`), NPCs on foot (`people.ts`, whose street walkers use `roads/sidewalks.ts`), weather effects, and the player's home.
@@ -91,11 +91,12 @@ From the browser console, `larp.step(5)` simulates 5 seconds (useful in backgrou
 - `src/sim/mail/`: the phone's Mail app (`inbox.ts`, `MAX_MAIL` letters kept, newest first): letters built from the life's events (a bill, a missed payment, a credit score move, a raise, a market crash), skipping routine days so the inbox reads like the moments that matter; opening a decision letter opens the Money desk on it.
   The inbox is part of the saved game.
 - `src/sim/wellbeing/`: pure wellbeing factors, decaying event pulses, retirement readiness and the combined life score. `PlayerLife` supplies state and stores a daily wellbeing value alongside its separate credit score.
-- `src/ui/title.ts`: the title screen before a new life's intake; Learn borrows the `Narrator` in tour mode (`beginTour`, `tourLine`, `place`, `endTour`), centered, to read `src/narration/learn.ts`.
+- `src/ui/title.ts`: the title screen before the save slots; Learn borrows the `Narrator` in tour mode (`beginTour`, `tourLine`, `place`, `endTour`), centered, to read `src/narration/learn.ts`.
   Its lines join `allLines()`, so the narration pack voices them like every other line.
 - `src/ui/phone.ts`: the phone hub and its app registry (add new apps to `APPS`), with the Stocks, Map, Weather, and Timeline views, the Calendar (`src/ui/calendar.ts`, data in `src/sim/calendar/`), and the Money window.
-  `src/main.ts` gives it the city (`getWorld`), the U.S. map (`openMap`, with a preview from `captureCityPreview`), and the time-lapse skip (`skipDays`).
-  `src/ui/skip-setup.ts` is the fast-forward setup screen; `src/ui/hud.ts` (the home card), `usmap.ts`, and `npccard.ts` are the rest of the DOM HUD.
+  `src/main.ts` gives it the city (`getWorld`) and the time-lapse skip (`skipTo`).
+  `src/ui/skip-setup.ts` is the fast-forward setup screen; `src/ui/hud.ts` (the home card) and `npccard.ts` are the rest of the DOM HUD.
+- `src/ui/intake.ts`: Sammy's setup for a new life (the generated life, name and avatar, health plan, starter card, and the four goals with their ages); `src/ui/goal-picker.ts` turns its picks into goals.
 - `debt.html` + `src/debt-demo/main.ts`: the Money desk ([design](../research/12-credit-desk-ui.md)) in Robinhood's look: a logo-and-search top bar (`/` or ⌘K finds stocks, cards, debts, and pages), a floating time dock, Home (net worth), Cash (accounts, transfers, and a bank-style statement), Investing (funds, stocks, and the HackRice sponsors, each with a position and key statistics page), Debt, Credit, and Cards, over the city's `PlayerLife` (opened from the phone) or its own (standalone), both with the starter portfolio (`STARTER_PORTFOLIO`), so net worth moves with the market from day one and charts show the real market before day 0.
   Investing charts you, if you had held, and autopilot on one zero-based chart; a bear market pauses time for Sell everything, Sell half, Hold, or Buy more; the recovery card compares the lines and shows the coach's lesson; and a card warns when one stock is over 20% of the portfolio ([spec](../docs/superpowers/specs/2026-09-12-investing-twins-design.md)).
   Standalone, the desk records its own run through `src/sim/record/`; `src/net/recap.ts` asks the server's coach for the recovery lesson.

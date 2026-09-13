@@ -170,7 +170,7 @@ test("rent is paid from savings while checking is still empty", () => {
   assert.equal(rent.paid, 1_200);
 });
 
-import { profileFromIntake, SAVINGS_RANGE, STARTER_JOBS, starterFor } from "../src/sim/life/intake.ts";
+import { DEFAULT_SAVINGS, profileFromIntake, STARTER_JOBS, starterFor } from "../src/sim/life/intake.ts";
 import { rngFor } from "../src/engine/rng.ts";
 
 test("intake answers become a profile of the money fields only", () => {
@@ -189,7 +189,7 @@ test("starterFor generates a new life's money from the seed, the same every time
   const a = starterFor(CA, rngFor("starter", 20260912));
   assert.deepEqual(starterFor(CA, rngFor("starter", 20260912)), a);
   assert.ok((STARTER_JOBS as readonly string[]).includes(a.job));
-  assert.ok(a.savings >= SAVINGS_RANGE.min && a.savings <= SAVINGS_RANGE.max && a.savings % 50 === 0);
+  assert.equal(a.savings, DEFAULT_SAVINGS);
   assert.equal(a.creditScore, 600);
 });
 

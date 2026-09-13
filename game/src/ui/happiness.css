@@ -1,9 +1,10 @@
 /* Bottom-left happiness meter: stacked directly above the home card so the two
    never overlap (the home card sits at left: 22px; bottom: 18px; see .home in
-   pixel-theme.css). Task 5 (HUD ID card) should coordinate final placement. */
+   pixel-theme.css), level with the ID card. --home-h is the home card's real
+   height (ui/hud.ts), which grows when the save chip shows. */
 .happiness {
   left: 22px;
-  bottom: 150px;
+  bottom: calc(36px + var(--home-h, 114px));
   min-width: 0;
   width: 84px;
   padding: 8px;

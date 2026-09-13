@@ -15,7 +15,7 @@ import { rngFor } from "./engine/rng";
 import type { StateInfo } from "./engine/types";
 import { cueForEvents, welcomeBackLine } from "./narration/lines";
 import { PlayerLife, STARTER_PORTFOLIO } from "./sim/life";
-import { DEFAULT_GOALS, DEFAULT_INSURANCE_PLAN_ID, lifeFromIntake, starterFor } from "./sim/life/intake";
+import { DEFAULT_GOALS, DEFAULT_INSURANCE_PLAN_ID, defaultAnswers, lifeFromIntake, starterFor } from "./sim/life/intake";
 import { MATCH_UP_TO } from "./sim/life/player";
 import { BEGINNER_CARDS } from "./data/cards-beginner";
 import { Inbox, type DebtLookup } from "./sim/mail/inbox";
@@ -173,6 +173,8 @@ if (saved && restored) {
   player = restored.life;
   player.place = HOME;
 } else {
+  // Every new life is the default start (median rent, the default savings), with its job, salary,
+  // and debt drawn from the seed.
   const starter = starterFor(state, rngFor("starter", seed));
   // ?intake=0 skips the setup (for tests) with the default picks.
   const picks =
@@ -180,7 +182,10 @@ if (saved && restored) {
       ? { name: "You", avatar: "male" as const, insurancePlanId: DEFAULT_INSURANCE_PLAN_ID, selectedCardId: BEGINNER_CARDS[0].slug, goals: DEFAULT_GOALS }
       : await runSetup({ backdrop: SF_PLATE, starter, placeName: "San Francisco" });
   // A 6-month emergency fund and the full employer match, as the revamp meeting set; both change later.
-  player = lifeFromIntake({ ...starter, ...picks, emergencyMonths: 6, k401Pct: MATCH_UP_TO }, { place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO });
+  player = lifeFromIntake(
+    { ...defaultAnswers(state, picks.avatar), ...starter, ...picks, emergencyMonths: 6, k401Pct: MATCH_UP_TO },
+    { place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO },
+  );
 }
 
 // The named NPCs' money lives on the same market (src/data/npcs.ts), and the

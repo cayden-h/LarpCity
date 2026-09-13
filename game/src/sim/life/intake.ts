@@ -1,7 +1,8 @@
-// Onboarding answers (Sammy's voice interview or the typed form, see
-// ui/intake.ts) and the starting money life they build: gross pay and
-// take-home, the stated rent, the total debt as a credit card plus a personal
-// loan, and savings.
+// A new life's starting answers and the money life they build: gross pay and
+// take-home, the rent, the total debt as a credit card plus a personal loan,
+// and savings. Every new life starts from `defaultAnswers` (the title screen,
+// ui/title.ts, only asks who's moving in); the rest of the answer helpers read
+// numbers a player states, as the old voice and typed intake did.
 
 import { creditCard, installment, newBook } from "../debt/factory.ts";
 import type { Debt } from "../debt/types.ts";
@@ -18,6 +19,7 @@ import {
   type ExpenseTierLevel,
   type Place,
 } from "./player.ts";
+import { medianRent } from "./homes.ts";
 import { applyOrders, currentOrders } from "../skip/orders.ts";
 import type { Profile, ProfileSource } from "../save/client.ts";
 import { BEGINNER_CARD_SLUGS } from "../../data/cards-beginner.ts";
@@ -116,8 +118,8 @@ export function randomizeStarter(place: Place, rng: () => number = Math.random):
 
 /** New-grad jobs a generated life starts in. */
 export const STARTER_JOBS = ["Junior analyst", "Barista", "Line cook", "Retail associate", "Junior designer", "Lab assistant", "Teaching aide", "Support rep"] as const;
-/** Starting savings land somewhere in here, in $50 steps. */
-export const SAVINGS_RANGE = { min: 500, max: 3_000 } as const;
+/** What a new life has in high-yield savings on day one (the old sample household's checking and savings together). */
+export const DEFAULT_SAVINGS = 3_700;
 
 /** The money a new life starts with, generated rather than asked (meeting 2026-09-13). */
 export interface Starter {
@@ -131,8 +133,7 @@ export interface Starter {
 /** A new life's job, salary, debt, and savings, drawn from `rng` (seed it from the run, so it replays). */
 export function starterFor(place: Place, rng: () => number): Starter {
   const { salary, debt, creditScore } = randomizeStarter(place, rng);
-  const savings = Math.round((SAVINGS_RANGE.min + rng() * (SAVINGS_RANGE.max - SAVINGS_RANGE.min)) / 50) * 50;
-  return { job: STARTER_JOBS[Math.floor(rng() * STARTER_JOBS.length)], salary, debt, savings, creditScore };
+  return { job: STARTER_JOBS[Math.floor(rng() * STARTER_JOBS.length)], salary, debt, savings: DEFAULT_SAVINGS, creditScore };
 }
 
 const NUMBER_KEYS = ["salary", "rent", "debt", "savings"] as const;
@@ -245,7 +246,16 @@ function carLoanDebt(o: { monthly: number; months: number }, day: number): Debt 
 }
 
 /** The onboarding answers, minus the numbers a fresh (not-yet-stated) intake doesn't have yet; no rent means the state's median. */
-type IntakeAnswersInput = Omit<IntakeAnswers, "salary" | "debt" | "rent"> & Partial<Pick<IntakeAnswers, "salary" | "debt" | "rent">>;
+export type IntakeAnswersInput = Omit<IntakeAnswers, "salary" | "debt" | "rent"> & Partial<Pick<IntakeAnswers, "salary" | "debt" | "rent">>;
+
+/**
+ * Every new life's base: the salary and debt are left for `randomizeStarter`
+ * (or `starterFor`), the rent is the state's median, and the goals are the
+ * defaults until Sammy's setup (ui/intake.ts) replaces them.
+ */
+export function defaultAnswers(place: Place, avatar: "male" | "female"): IntakeAnswersInput {
+  return { job: "", name: "You", avatar, rent: medianRent(place), savings: DEFAULT_SAVINGS, goals: DEFAULT_GOALS };
+}
 
 /**
  * The player's starting life from the onboarding answers. A stated salary or
