@@ -71,3 +71,13 @@ test("straight movements never cross a crosswalk while it shows walk", () => {
   for (let t = 0; t < plan.cycle; t += 0.25) if (node.arms.some((arm) => walkAllowed(plan, arm, t))) walked = true;
   assert.ok(walked, "people get a walk signal sometime");
 });
+
+test("a ramp/arterial signal node has no crosswalk arms", () => {
+  const net = buildGraph([
+    road("a", "arterial", [[0.5, 10], [20.5, 10]]),
+    { ...road("r", "ramp", [[10, 10], [10, 20.5]]), lanes: [1, 0] },
+  ]);
+  const node = net.nodes.find((n) => n.arms.some((a) => a.seg.road.cls === "ramp"))!;
+  assert.equal(node.control, "signal");
+  assert.ok(node.arms.every((a) => !a.crosswalk), "no arm at a ramp junction gets a crosswalk");
+});

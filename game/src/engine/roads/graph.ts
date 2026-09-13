@@ -328,7 +328,10 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
       n.inCore = !!core && n.p.x >= core.x && n.p.x <= core.x + core.w && n.p.y >= core.y && n.p.y <= core.y + core.h;
       const infos = n.arms.map((a) => ({ cls: a.seg.road.cls, axis: (Math.abs(a.dir.x) > 0.5 ? 0 : 1) as 0 | 1 }));
       n.control = controlKind(n.kind, infos, n.inCore);
-      const walks = hasCrosswalks(n.control);
+      // A ramp meets its arterial right beside the highway it serves, so the
+      // crosswalk band there would land on the overpass deck. Keep the
+      // node's signal or allway control, just drop its crosswalks.
+      const walks = hasCrosswalks(n.control) && !n.arms.some((a) => a.seg.road.cls === "ramp");
       for (const a of n.arms) {
         const others = n.arms.filter((o) => o !== a && Math.abs(dot(o.dir, a.dir)) < 0.5);
         if (n.kind === "merge") a.trim = a.seg.road.cls === "ramp" ? 0 : 1.5;

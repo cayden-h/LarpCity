@@ -8,6 +8,7 @@ import type { CityGrid } from "../grid";
 import { depthOf, iso, tileCorners, flat } from "../iso";
 import { minorArms, signalState, type Light, type SignalPlan } from "./control";
 import type { Movement, RoadNet } from "./graph";
+import { roadMarks, type Mark } from "./marks";
 import { DECK_Z } from "./pose";
 import type { Sim } from "./sim";
 import { roadTiles } from "./types";
@@ -32,7 +33,20 @@ interface Head {
 export function buildRoadProps(net: RoadNet, sim: Sim, grid: CityGrid): RoadProps {
   const views: Container[] = [], tintables: Container[] = [], heads: Head[] = [];
 
-  // Overpass decks, one per overpass tile, facing along the road on top.
+  // Overpass decks, one per overpass tile, facing along the road on top,
+  // stamped with the real road markings of whichever road is up there
+  // (never the highway underneath, which draws its own at grade).
+  const deckMarks = new Map<string, Mark[]>();
+  for (const m of roadMarks(net, () => false)) {
+    if (m.hwy) continue;
+    const mid = m.pts.reduce((s, p) => ({ x: s.x + p.x / m.pts.length, y: s.y + p.y / m.pts.length }), { x: 0, y: 0 });
+    const tx = Math.floor(mid.x), ty = Math.floor(mid.y);
+    if (grid.at(tx, ty) !== "O") continue;
+    const key = `${tx},${ty}`;
+    const list = deckMarks.get(key);
+    if (list) list.push(m);
+    else deckMarks.set(key, [m]);
+  }
   const seen = new Set<string>();
   for (const road of new Set(net.segments.map((s) => s.road))) {
     if (road.cls === "highway") continue;
@@ -41,12 +55,22 @@ export function buildRoadProps(net: RoadNet, sim: Sim, grid: CityGrid): RoadProp
       const key = `${x},${y}`;
       if (grid.at(x, y) !== "O" || seen.has(key)) continue;
       seen.add(key);
-      const g = deck(grid, x, y, alongX, road.cls === "arterial");
+      const g = deck(grid, x, y, alongX, deckMarks.get(key) ?? []);
       g.zIndex = depthOf(x, y, 60);
       views.push(g);
       tintables.push(g);
     }
   }
+
+  // A pole planted at the base offset, stepped outward along `side` until it
+  // lands off any road tile (up to 1.5 extra tiles), or null if it never does.
+  const poleSpot = (baseX: number, baseY: number, side: { x: number; y: number }): { x: number; y: number } | null => {
+    for (let extra = 0; extra <= 1.5 + 1e-6; extra += 0.25) {
+      const px = baseX + side.x * extra, py = baseY + side.y * extra;
+      if (!grid.isRoad(Math.floor(px), Math.floor(py))) return { x: px, y: py };
+    }
+    return null;
+  };
 
   for (const node of net.nodes) {
     const plan = sim.signals.get(node.id) ?? null;
@@ -56,8 +80,14 @@ export function buildRoadProps(net: RoadNet, sim: Sim, grid: CityGrid): RoadProp
       if (!incoming.length) continue;
       const din = { x: -arm.dir.x, y: -arm.dir.y }, right = { x: -din.y, y: din.x };
       const hw = arm.seg.width / 2;
-      const px = node.p.x + arm.dir.x * (arm.trim + 0.05) + right.x * (hw + 0.08);
-      const py = node.p.y + arm.dir.y * (arm.trim + 0.05) + right.y * (hw + 0.08);
+      const along = arm.trim + 0.05;
+      const rightX = node.p.x + arm.dir.x * along + right.x * (hw + 0.08);
+      const rightY = node.p.y + arm.dir.y * along + right.y * (hw + 0.08);
+      const leftX = node.p.x + arm.dir.x * along - right.x * (hw + 0.08);
+      const leftY = node.p.y + arm.dir.y * along - right.y * (hw + 0.08);
+      const spot = poleSpot(rightX, rightY, right) ?? poleSpot(leftX, leftY, { x: -right.x, y: -right.y });
+      if (!spot) continue;
+      const { x: px, y: py } = spot;
       const base = iso(px, py);
       const pole = new Container();
       const g = new Graphics();
@@ -111,7 +141,7 @@ export function buildRoadProps(net: RoadNet, sim: Sim, grid: CityGrid): RoadProp
   };
 }
 
-function deck(grid: CityGrid, x: number, y: number, alongX: boolean, doubleYellow: boolean): Graphics {
+function deck(grid: CityGrid, x: number, y: number, alongX: boolean, marks: Mark[]): Graphics {
   const g = new Graphics();
   const top = 0x5b616b;
   const [T, R, B, L] = tileCorners(x, y, DECK_Z);
@@ -123,21 +153,15 @@ function deck(grid: CityGrid, x: number, y: number, alongX: boolean, doubleYello
   // Railings where the deck ends (no more overpass beside it).
   const edges: [typeof T, typeof T, number, number][] = alongX ? [[T, R, x, y - 1], [L, B, x, y + 1]] : [[T, L, x - 1, y], [R, B, x + 1, y]];
   for (const [p, q, nx, ny] of edges) if (grid.at(nx, ny) !== "O") g.moveTo(p.x, p.y - 4).lineTo(q.x, q.y - 4).stroke({ width: 1.5, color: 0xc9ccd2 });
-  // The center line where the road's centerline crosses this tile.
-  const yellow = 0xf3d23b;
-  if (alongX) {
-    const onEdge = doubleYellow ? grid.at(x, y + 1) === "O" : true;
-    if (onEdge) {
-      const cy = doubleYellow ? y + 1 : y + 0.5;
-      const a = iso(x, cy, DECK_Z), b = iso(x + 1, cy, DECK_Z);
-      g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: 1.5, color: yellow });
-    }
-  } else {
-    const onEdge = doubleYellow ? grid.at(x + 1, y) === "O" : true;
-    if (onEdge) {
-      const cx = doubleYellow ? x + 1 : x + 0.5;
-      const a = iso(cx, y, DECK_Z), b = iso(cx, y + 1, DECK_Z);
-      g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: 1.5, color: yellow });
+  // The deck road's real markings (center line, dividers, edges) stamped on top.
+  for (const m of marks) {
+    const pts = m.pts.map((p) => iso(p.x, p.y, DECK_Z));
+    const color = m.color === "yellow" ? 0xf3d23b : 0xf2f2f2;
+    if (m.kind === "quad") g.poly(flat(pts)).fill({ color, alpha: 0.88 });
+    else {
+      g.moveTo(pts[0].x, pts[0].y);
+      for (const p of pts.slice(1)) g.lineTo(p.x, p.y);
+      g.stroke({ width: m.width, color, alpha: 0.9 });
     }
   }
   return g;
