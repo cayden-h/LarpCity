@@ -206,6 +206,12 @@ class Setup {
               <button type="button" class="btn in-big in-card-tile${pick(c.slug === this.cardId)}" data-card="${c.slug}" ${pressed(c.slug === this.cardId)}>
                 ${cardArt(c, "tile")}
                 <span class="in-card-name">${c.name}</span>
+                <ul class="in-card-perks">
+                  ${c.perks
+                    .slice(0, 2)
+                    .map((p) => `<li>${p}</li>`)
+                    .join("")}
+                </ul>
               </button>`,
             ).join("")}
           </div>`;
