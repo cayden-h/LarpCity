@@ -54,6 +54,28 @@ continuous aggregate inside a transaction.
 create a throwaway database (the local Docker one above works):
 `TEST_DATABASE_URL='postgres://postgres:larp@127.0.0.1:5433/postgres' npm test`.
 
+## Profile and saves
+
+Each player's confirmed intake and saved game live in Tiger Data (`profiles` and `saves` tables,
+`src/store/saves.ts`), keyed by the session's player.
+`GET /api/me` is the one call the game makes on boot, to decide between resuming, building a life
+from the profile, and running the intake.
+
+| Route | Body | Returns |
+| --- | --- | --- |
+| `GET /api/me` | | `{ player, profile, save }` |
+| `PUT /api/profile` | the confirmed intake | `204` |
+| `PUT /api/save` | `{ runId, seed, version, gameDay, state, baseRev }` | `{ rev }`, or `409` when `baseRev` is stale, the run has ended, the run isn't this player's, or its seed doesn't match the run's own seed |
+| `DELETE /api/save` | | `204`; "New life": forgets the save and profile and ends the run, all in one transaction |
+
+The save's `state` is opaque JSON (only the game's own codec, `game/src/sim/save/`, knows its
+shape) capped at 1.5 MB (`MAX_STATE_BYTES` in `src/routes/save.ts`), which a 60-year save stays well
+under once its history is compacted.
+`rev` is optimistic concurrency: a write names the rev it started from, so two tabs (or a stale
+retry) can't silently clobber each other's progress.
+The AI coach and the newspaper below read the player's job and financial state from this same
+profile, never from text the browser sends.
+
 ## AI coach and newspaper (Gemini)
 
 Feedback and the newspaper are written from the run's own data in Tiger Data, never from text the
