@@ -32,6 +32,26 @@ const CARD_APR = 0.2396;
 const LOAN_APR = 0.11;
 const LOAN_MONTHS = 60;
 
+/** Every fresh life (voice, typed, or randomized) starts the debt engine's credit score here, not wherever the seeded debts happen to score. */
+export const CREDIT_SCORE_START = 600;
+/** A starter salary lands somewhere in here before any cost-of-living scaling. */
+export const SALARY_RANGE = { min: 35_000, max: 50_000 } as const;
+/** A starter debt load lands somewhere in here, split into a card and a loan by `debtsFor`. */
+export const DEBT_RANGE = { min: 20_000, max: 40_000 } as const;
+/** Applied to the randomized salary when the place's cost of living clears `HIGH_COST_RPP_THRESHOLD`. */
+export const HIGH_COST_SALARY_MULTIPLIER = 1.2;
+/** BEA RPP-all (US = 100) at or above this counts as high cost of living (TX is 97.4, CA is 110.72). */
+const HIGH_COST_RPP_THRESHOLD = 105;
+
+/** A starting salary and debt for a fresh life with no stated numbers, scaled up for a high cost-of-living place. */
+export function randomizeStarter(place: Place, rng: () => number = Math.random): { salary: number; debt: number; creditScore: number } {
+  const highCost = place.rpp.all >= HIGH_COST_RPP_THRESHOLD;
+  const salaryBase = SALARY_RANGE.min + rng() * (SALARY_RANGE.max - SALARY_RANGE.min);
+  const salary = Math.round(highCost ? salaryBase * HIGH_COST_SALARY_MULTIPLIER : salaryBase);
+  const debt = Math.round(DEBT_RANGE.min + rng() * (DEBT_RANGE.max - DEBT_RANGE.min));
+  return { salary, debt, creditScore: CREDIT_SCORE_START };
+}
+
 const NUMBER_KEYS = ["salary", "rent", "debt", "savings"] as const;
 
 /**
@@ -87,17 +107,29 @@ export function debtsFor(total: number, day: number): Debt[] {
   return debts;
 }
 
-/** The player's starting life from the onboarding answers. */
-export function lifeFromIntake(a: IntakeAnswers, o: { place: Place; day: number; market: MarketPath; holdings?: Partial<Record<InstrumentId, number>> }): PlayerLife {
-  const monthlyTakeHome = takeHomeFor(a.salary, o.place.abbr);
-  const book = newBook({ debts: debtsFor(a.debt, o.day), agi: a.salary, monthlyTakeHome, strategy: "avalanche", day: o.day });
+/** The onboarding answers, minus the numbers a fresh (not-yet-stated) intake doesn't have yet. */
+type IntakeAnswersInput = Omit<IntakeAnswers, "salary" | "debt"> & Partial<Pick<IntakeAnswers, "salary" | "debt">>;
+
+/**
+ * The player's starting life from the onboarding answers. A stated salary or
+ * debt always wins; either one left unstated is filled in by
+ * `randomizeStarter`, scaled to the place. A fresh life's credit score always
+ * starts at `CREDIT_SCORE_START`, regardless of the seeded debts' own score.
+ */
+export function lifeFromIntake(a: IntakeAnswersInput, o: { place: Place; day: number; market: MarketPath; holdings?: Partial<Record<InstrumentId, number>>; rng?: () => number }): PlayerLife {
+  const seeded = a.salary === undefined || a.debt === undefined ? randomizeStarter(o.place, o.rng) : undefined;
+  const salary = a.salary ?? seeded!.salary;
+  const debt = a.debt ?? seeded!.debt;
+  const monthlyTakeHome = takeHomeFor(salary, o.place.abbr);
+  const book = newBook({ debts: debtsFor(debt, o.day), agi: salary, monthlyTakeHome, strategy: "avalanche", day: o.day });
+  book.profile.score = CREDIT_SCORE_START;
   // Savings sit in the high-yield account. Checking fills with the first
   // paycheck, and bills draw on savings when it runs short (Ledger.wallet).
   const accounts = defaultAccounts(o.day).map((acct) => ({ ...acct, balance: acct.id === "savings" ? a.savings : 0 }));
   return new PlayerLife({
     place: o.place,
     day: o.day,
-    grossAnnual: a.salary,
+    grossAnnual: salary,
     monthlyTakeHome,
     job: a.job,
     rent: a.rent,

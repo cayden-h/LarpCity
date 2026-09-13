@@ -7,10 +7,15 @@ import {
   CARD_PORTION,
   coerceAnswers,
   completeAnswers,
+  CREDIT_SCORE_START,
+  DEBT_RANGE,
   debtsFor,
+  HIGH_COST_SALARY_MULTIPLIER,
   INTAKE_LIMITS,
   lifeFromIntake,
   parseDollars,
+  randomizeStarter,
+  SALARY_RANGE,
   takeHomeFor,
   type IntakeAnswers,
 } from "../src/sim/life/intake.ts";
@@ -137,4 +142,52 @@ test("a skipped intake is a profile with no numbers, and no answers", () => {
   const p = profileFromIntake(null, "skipped", "CA");
   assert.deepEqual(p, { job: null, salary: null, rent: null, debt: null, savings: null, state: "CA", source: "skipped" });
   assert.equal(answersFromProfile({ ...p, displayName: null }), null);
+});
+
+test("randomizeStarter stays within the base range for a normal cost-of-living place", () => {
+  const rng = () => 0.5;
+  const { salary, debt, creditScore } = randomizeStarter(TX, rng);
+  assert.ok(salary >= SALARY_RANGE.min && salary <= SALARY_RANGE.max, `salary ${salary} out of range`);
+  assert.ok(debt >= DEBT_RANGE.min && debt <= DEBT_RANGE.max, `debt ${debt} out of range`);
+  assert.equal(creditScore, CREDIT_SCORE_START);
+});
+
+test("randomizeStarter scales salary up for a high cost-of-living place like California", () => {
+  const rng = () => 0.5;
+  const { salary } = randomizeStarter(CA, rng);
+  assert.ok(salary > SALARY_RANGE.max, `expected CA salary above ${SALARY_RANGE.max}, got ${salary}`);
+  assert.ok(salary <= Math.round(SALARY_RANGE.max * HIGH_COST_SALARY_MULTIPLIER));
+});
+
+test("randomizeStarter's debt does not depend on cost of living", () => {
+  const rng = () => 0.5;
+  assert.equal(randomizeStarter(TX, rng).debt, randomizeStarter(CA, rng).debt);
+});
+
+test("lifeFromIntake randomizes salary and debt when they're left unstated, scaled to the place", () => {
+  const rng = () => 0.5;
+  const { job, rent, savings } = NURSE;
+  const life = lifeFromIntake({ job, rent, savings }, { place: TX, day: 0, market: new MarketPath(), rng });
+  const { salary: expectedSalary, debt: expectedDebt } = randomizeStarter(TX, rng);
+  assert.equal(life.grossAnnual, expectedSalary);
+  assert.equal(Math.round(life.totalDebt()), expectedDebt);
+});
+
+test("a stated salary or debt overrides randomization even when the other is missing", () => {
+  const rng = () => 0.5;
+  const life = lifeFromIntake({ job: "Nurse", rent: 1_500, savings: 5_000, salary: 85_000 }, { place: TX, day: 0, market: new MarketPath(), rng });
+  assert.equal(life.grossAnnual, 85_000);
+  const { debt: expectedDebt } = randomizeStarter(TX, rng);
+  assert.equal(Math.round(life.totalDebt()), expectedDebt);
+});
+
+test("an explicit typed intake (both salary and debt stated) is never randomized", () => {
+  const life = lifeFor();
+  assert.equal(life.grossAnnual, 85_000);
+  assert.equal(Math.round(life.totalDebt()), 20_000);
+});
+
+test("a freshly-built life always starts with a 600 credit score", () => {
+  assert.equal(lifeFor().book.profile.score, CREDIT_SCORE_START);
+  assert.equal(lifeFromIntake(NURSE, { place: CA, day: 0, market: new MarketPath() }).book.profile.score, CREDIT_SCORE_START);
 });
