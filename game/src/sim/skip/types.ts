@@ -42,7 +42,9 @@ export type Goal =
   | { kind: "net_worth"; amount: number }
   | { kind: "house"; downPct: number }
   | { kind: "marriage" }
-  | { kind: "status"; annualIncome: number };
+  | { kind: "status"; annualIncome: number }
+  | { kind: "retirement_age"; targetAge: number }
+  | { kind: "debt_free_by_age"; targetAge: number };
 
 /** What a goal check reads. The daily life and the monthly preview both build one, so they agree. */
 export interface GoalView {

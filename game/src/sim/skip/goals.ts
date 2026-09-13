@@ -76,7 +76,7 @@ export function liquidSavings(v: GoalView): number {
   return v.emergency + Math.max(0, v.cash - v.monthlyExpenses);
 }
 
-export function isMet(goal: Goal, v: GoalView): boolean {
+export function isMet(goal: Goal, v: GoalView, currentAge = 0): boolean {
   switch (goal.kind) {
     case "debt_free":
       return v.debt < 0.5;
@@ -92,6 +92,26 @@ export function isMet(goal: Goal, v: GoalView): boolean {
       return v.relationship === "partnered";
     case "status":
       return v.grossAnnual >= goal.annualIncome;
+    case "retirement_age":
+      return currentAge >= goal.targetAge;
+    case "debt_free_by_age":
+      return v.debt < 0.5;
+  }
+}
+
+/** Progress toward a goal, 0..1 clamped. Currently only defined for retirement_age and debt_free_by_age. */
+export function progressOf(goal: Goal, v: GoalView, currentAge = 0): number {
+  switch (goal.kind) {
+    case "retirement_age": {
+      // Assume working life starts at 18; clamp to [0, 1].
+      if (currentAge <= 0) return isMet(goal, v, currentAge) ? 1 : 0;
+      return Math.max(0, Math.min(1, (currentAge - 18) / (goal.targetAge - 18)));
+    }
+    case "debt_free_by_age":
+      // Progress is binary: either debt is paid off (progress 1) or not (progress 0).
+      return v.debt < 0.5 ? 1 : 0;
+    default:
+      return 0;
   }
 }
 
@@ -129,7 +149,7 @@ export interface PriceTag {
   progress: number | null;
 }
 
-export function priceTag(goal: Goal, v: GoalView, placeName: string): PriceTag {
+export function priceTag(goal: Goal, v: GoalView, placeName: string, currentAge = 0): PriceTag {
   switch (goal.kind) {
     case "debt_free":
       return v.debt < 0.5
@@ -165,6 +185,16 @@ export function priceTag(goal: Goal, v: GoalView, placeName: string): PriceTag {
       return {
         text: `You're earning ${dollars(v.grossAnnual)} a year before taxes. Reach ${dollars(goal.annualIncome)}. This plan assumes your current pay; a career change or raise is needed to increase it.`,
         progress: goal.annualIncome > 0 ? Math.max(0, Math.min(1, v.grossAnnual / goal.annualIncome)) : 1,
+      };
+    case "retirement_age":
+      return {
+        text: currentAge > 0 ? `Retire at ${goal.targetAge}. You are ${currentAge}.` : `Retire at ${goal.targetAge}.`,
+        progress: progressOf(goal, v, currentAge),
+      };
+    case "debt_free_by_age":
+      return {
+        text: `Pay off all debt by age ${goal.targetAge}. ${v.debt < 0.5 ? "You have no debt." : `You have ${dollars(v.debt)} of debt.`}`,
+        progress: progressOf(goal, v, currentAge),
       };
   }
 }
