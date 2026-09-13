@@ -3,6 +3,8 @@
 import { boatArt, BOAT_KINDS } from "./boats.ts";
 import { PixelCanvas } from "./canvas.ts";
 import { glintArt, patternArt, TERRAINS } from "./ground-art.ts";
+import { personArt } from "./people-art.ts";
+import { signalArt, signalLampArt, stopSignArt, yieldSignArt } from "./props.ts";
 import { boulderArt, cactusArt, reedsArt, SPECIES, treeArt, VARIANTS } from "./plants.ts";
 import { lampArt, vehicleArt } from "./vehicles.ts";
 
@@ -36,6 +38,16 @@ export function contactFamilies(): Family[] {
     })),
     { name: "vehicle-lamps", kind: "glint", art: range(8).map(lampArt) },
     ...BOAT_KINDS.map((k) => ({ name: `boat-${k}`, art: [boatArt(k, true, false, 0), boatArt(k, true, true, 1), boatArt(k, false, false, 0), boatArt(k, false, true, 1)] })),
+    {
+      name: "people",
+      art: [
+        { skin: 0xf1c27d, hair: 0x2b1b0e, shirt: 0xe53935, pants: 0x263238, cap: null },
+        { skin: 0x8d5524, hair: 0x111111, shirt: 0x1e88e5, pants: 0x5d4037, cap: 0xfdd835 },
+        { skin: 0xe0ac69, hair: 0xd4a017, shirt: 0xffffff, pants: 0x1565c0, cap: null },
+      ].flatMap((look) => ([1, -1] as const).flatMap((dir) => range(3).map((f) => personArt(look, f, dir)))),
+    },
+    { name: "props", art: [signalArt(false), signalArt(true), stopSignArt(), yieldSignArt()] },
+    { name: "props-lit", kind: "glint", art: [signalLampArt("R", ""), signalLampArt("Y", ""), signalLampArt("G", "G")] },
     { name: "ground", kind: "pattern", art: TERRAINS.map((t) => tiled(patternArt(t, GROUND[t]))) },
     { name: "water-glints", kind: "glint", art: range(3).map((f) => glintArt(f, GROUND.deep)) },
   ];

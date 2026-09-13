@@ -3,8 +3,9 @@
 // the economy and the weather, so clicking someone shows who they are. The
 // simulation can later drive these with real NPC finances.
 
-import { Container, Graphics } from "pixi.js";
-import { shade } from "./color";
+import { Container, Sprite, type Texture } from "pixi.js";
+import { pixelTexture } from "./pixel/atlas";
+import { personArt, residentRingArt, type PersonLook } from "./pixel/people-art";
 import type { CityGrid } from "./grid";
 import { BRIDGE_Z } from "./ground";
 import { iso } from "./iso";
@@ -91,9 +92,11 @@ interface Walker {
   speed: number;
   phase: number;
   view: Container;
-  body: Graphics;
-  legL: Graphics;
-  legR: Graphics;
+  body: Sprite;
+  /** Walk frames (stand, stride, stride) facing right, then left. */
+  frames: Texture[][];
+  /** 1 faces right, -1 left; drawn per side so the light stays on the left. */
+  dir: number;
   info: Omit<NpcInfo, "thought">;
   seedIndex: number;
   leaving: boolean;
@@ -154,12 +157,9 @@ export class People {
       // Walk cycle.
       const moving = w.pause <= 0;
       w.phase += dt * (moving ? 9 : 0);
-      const swing = moving ? Math.sin(w.phase) * 1.3 : 0;
-      w.legL.y = Math.max(0, swing) * -1;
-      w.legR.y = Math.max(0, -swing) * -1;
-      w.body.y = moving ? -Math.abs(Math.sin(w.phase)) * 0.6 : 0;
+      const frame = moving ? [1, 0, 2, 0][Math.floor(w.phase / (Math.PI / 2)) % 4] : 0;
+      w.body.texture = w.frames[w.dir < 0 ? 1 : 0][frame];
       w.body.tint = this.tint;
-      w.legL.tint = w.legR.tint = this.tint;
       if (w.leaving) {
         w.view.alpha -= dt * 1.5;
         if (w.view.alpha <= 0) {
@@ -264,13 +264,13 @@ export class People {
     const z = c === "B" || c === "O" ? BRIDGE_Z : 0;
     w.pause = p.vx === 0 && p.vy === 0 ? 1 : 0;
     const facing = p.vx - p.vy >= 0 ? 1 : -1;
-    this.place(w, p.x, p.y, z, p.vx === 0 && p.vy === 0 ? w.view.scale.x : facing);
+    this.place(w, p.x, p.y, z, p.vx === 0 && p.vy === 0 ? w.dir : facing);
   }
 
   private stepPlaza(w: Walker, dt: number): void {
     if (w.pause > 0) {
       w.pause -= dt;
-      this.place(w, w.px, w.py, 0, w.view.scale.x);
+      this.place(w, w.px, w.py, 0, w.dir);
       return;
     }
     const dx = w.tx - w.px, dy = w.ty - w.py;
@@ -296,39 +296,25 @@ export class People {
 
   private place(w: Walker, px: number, py: number, z: number, facing: number): void {
     const p = iso(px, py, z);
-    w.view.position.set(p.x, p.y);
-    w.view.scale.x = facing;
+    w.view.position.set(Math.round(p.x), Math.round(p.y));
+    w.dir = facing;
     w.view.zIndex = (px + py) * 100 + 45 + (z > 0 ? 30 : 0);
   }
 }
 
 /** A small gold ring at a resident's feet, so the 8 real NPCs read as distinct from ambient foot traffic. */
 function markResident(view: Container): void {
-  const ring = new Graphics().ellipse(0, 0.5, 5.5, 2.4).stroke({ width: 0.8, color: 0xf4c430, alpha: 0.85 });
-  view.addChildAt(ring, 0);
+  view.addChildAt(new Sprite(pixelTexture("resident-ring", residentRingArt)), 0);
 }
 
-function drawPerson(r: Rng): { view: Container; body: Graphics; legL: Graphics; legR: Graphics } {
-  const skin = pick(r, SKIN), shirt = pick(r, SHIRTS), pants = pick(r, PANTS), hair = pick(r, HAIR);
+/** A pixel-art figure (pixel/people-art.ts): its walk frames come from the shared atlas. */
+function drawPerson(r: Rng): { view: Container; body: Sprite; frames: Texture[][]; dir: number } {
+  const look: PersonLook = { skin: pick(r, SKIN), shirt: pick(r, SHIRTS), pants: pick(r, PANTS), hair: pick(r, HAIR), cap: null };
+  if (r() < 0.25) look.cap = pick(r, SHIRTS);
+  const id = `${look.skin}:${look.shirt}:${look.pants}:${look.hair}:${look.cap}`;
+  const frames = ([1, -1] as const).map((dir) => [0, 1, 2].map((f) => pixelTexture(`person:${id}:${dir}:${f}`, () => personArt(look, f, dir))));
   const view = new Container();
-  const shadow = new Graphics().ellipse(0, 0, 4.5, 2).fill({ color: 0x000000, alpha: 0.18 });
-  const legL = new Graphics().rect(-2.7, -6.5, 2.4, 6.5).fill(pants);
-  const legR = new Graphics().rect(0.3, -6.5, 2.4, 6.5).fill(shade(pants, 0.85));
-  const body = new Graphics();
-  body.roundRect(-3.6, -13, 7.2, 7, 1.6).fill(shirt);
-  body.rect(-4.9, -12.4, 1.5, 5.2).fill(shade(shirt, 0.85));
-  body.rect(3.4, -12.4, 1.5, 5.2).fill(shade(shirt, 0.75));
-  body.circle(-4.2, -7, 1).fill(skin);
-  body.circle(4.2, -7, 1).fill(skin);
-  body.rect(-1.2, -14.2, 2.4, 1.4).fill(skin);
-  body.circle(0, -16.6, 3.1).fill(skin);
-  if (r() < 0.25) {
-    // A cap.
-    const cap = pick(r, SHIRTS);
-    body.roundRect(-3.3, -20.4, 6.6, 2.6, 1).fill(cap);
-    body.rect(0.5, -18.2, 3.6, 1).fill(shade(cap, 0.8));
-  } else body.ellipse(0, -18.6, 3.3, 1.9).fill(hair);
-  body.circle(1.2, -16.8, 0.45).fill(0x222222);
-  view.addChild(shadow, legL, legR, body);
-  return { view, body, legL, legR };
+  const body = new Sprite(frames[0][0]);
+  view.addChild(body);
+  return { view, body, frames, dir: 1 };
 }
