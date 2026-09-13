@@ -246,6 +246,9 @@ export class FastForward {
         return { kind: "marriage" };
       case "status":
         return { kind: "status", annualIncome: this.targetIncome };
+      case "retirement_age":
+      case "debt_free_by_age":
+        throw new Error(`UI support not yet implemented for ${this.goalKind}`);
     }
   }
 
@@ -413,10 +416,10 @@ export class FastForward {
 
     const view = viewOf(player);
     const goal = this.goal();
-    const tag = priceTag(goal, view, player.place.name);
+    const tag = priceTag(goal, view, player.place.name, player.age);
     this.q("[data-tag]").innerHTML = `${tag.text}${tag.progress === null ? "" : `<div class="ff-meter" role="progressbar" aria-valuenow="${Math.round(tag.progress * 100)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${(tag.progress * 100).toFixed(1)}%"></i></div>`}`;
 
-    const met = isMet(goal, view);
+    const met = isMet(goal, view, player.age);
     const go = this.q<HTMLButtonElement>("[data-start]");
     go.disabled = met;
     go.classList.toggle("warn", this.armed && !met);

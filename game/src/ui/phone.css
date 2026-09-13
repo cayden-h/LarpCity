@@ -599,7 +599,9 @@
   line-height: 1.3;
 }
 .app-retry,
-.mail-open {
+.mail-open,
+.goals-ff-open,
+.goals-retire-open {
   width: 100%;
   min-height: 38px;
   border: 3px solid var(--edge, #101a23);
@@ -611,7 +613,9 @@
   cursor: pointer;
 }
 .app-retry:hover,
-.mail-open:hover { filter: brightness(1.05); }
+.mail-open:hover,
+.goals-ff-open:hover,
+.goals-retire-open:hover:not(:disabled) { filter: brightness(1.05); }
 /* The unread count on the Mail icon. */
 .phone .app-badge.count {
   top: -6px;
@@ -673,6 +677,112 @@
 .mail-row.good .mail-subject { color: #138a3a; }
 .mail-body { padding: 0 6px 10px 16px; font-size: 13px; line-height: 1.3; }
 .mail-body p { margin: 0 0 8px; }
+
+.goals-item {
+  padding: 8px 4px;
+}
+.goals-item + .goals-item { border-top: 2px solid #c4d3c9; }
+.goals-item-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+.goals-item.met .goals-item-title { color: #138a3a; }
+.goals-item-text {
+  margin-top: 2px;
+  color: #4f6876;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.goals-retire-open { margin-top: 8px; }
+/* Same pixel-button shape as .goals-ff-open/.goals-retire-open, just a different color. */
+.goals-vacation-open {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 8px;
+  border: 3px solid var(--edge, #101a23);
+  background: linear-gradient(#7fd6ff, #1c93d6);
+  color: #0a2438;
+  font: inherit;
+  font-size: 16px;
+  box-shadow: inset 3px 3px #d6f4ff, inset -3px -3px #0c5f8f, 0 3px #11283a;
+  cursor: pointer;
+}
+.goals-vacation-open:hover { filter: brightness(1.05); }
+.goals-retire-open:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.6) brightness(0.9);
+  opacity: 0.7;
+}
+
+/* End-of-run score screen (ui/endgame.ts) ---------------------------------------- */
+.endgame-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(8, 16, 34, 0.55);
+  backdrop-filter: blur(4px);
+  font-family: "Pixelify Sans", monospace;
+}
+.endgame-window {
+  display: flex;
+  flex-direction: column;
+  width: min(420px, 100%);
+  border: 3px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: var(--paper, #fff7dd);
+  box-shadow: 0 30px 80px rgba(10, 30, 70, 0.45);
+}
+.endgame-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 42px;
+  padding: 0 8px 0 16px;
+  background: var(--yellow, #ffdb39);
+  border-bottom: 3px solid var(--edge, #101a23);
+  color: var(--ink, #092c49);
+  font-weight: 700;
+  font-size: 16px;
+}
+.endgame-title { margin-right: auto; }
+.endgame-close {
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--edge, #101a23);
+  border-radius: 0;
+  background: #fff;
+  color: var(--ink, #092c49);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.endgame-close:hover { filter: brightness(1.05); }
+.endgame-body {
+  padding: 18px 16px 22px;
+  color: var(--ink, #092c49);
+}
+.endgame-headline {
+  margin: 0 0 14px;
+  font-size: 20px;
+  line-height: 1.25;
+}
+.endgame-headline.pass { color: #138a3a; }
+.endgame-headline.fail { color: #c0392b; }
+.endgame-scores { margin: 0; }
+.endgame-score-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-top: 2px solid #c4d3c9;
+  font-size: 15px;
+}
+.endgame-score-row dt { margin: 0; }
+.endgame-score-row dd { margin: 0; font-weight: 700; }
+.endgame-final { font-size: 17px; }
+.endgame-final dd { color: #b8860b; }
 
 .news-date {
   margin: 0;

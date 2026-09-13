@@ -3,30 +3,35 @@
 // stocks at today's game prices (tap one to open its page), the real interest
 // rates the game doesn't simulate (labeled as real), and opens the
 // Money desk (/debt.html) in a window over the city, sharing the city's player
-// and clock through window.larpMoney. Goals opens the fast-forward setup screen
-// (ui/skip-setup.ts). Map and Weather show where the player is and the city's
-// weather and season. Calendar (ui/calendar.ts) shows the player's days, goes
+// and clock through window.larpMoney. Goals opens the Goals app view (each of
+// the player's permanent goals with a progress bar); the fast-forward setup
+// screen (ui/skip-setup.ts) and Retire are reachable from inside it.
+// Map shows where the player is. Calendar (ui/calendar.ts) shows the player's days, goes
 // back to a past one, skips to the next decision, sets the clock's speed, and
 // (in its year view) starts a new life. Mail, News, and Bank are the life's
 // letters, the Larp City Ledger, and the Nessie bank statement (ui/phone-apps.ts).
 
 import "./phone.css";
 import { CalendarApp } from "./calendar";
-import { BankApp, mailHtml, NewsApp, type BankStatement, type Story } from "./phone-apps";
+import { BankApp, isBillingMail, mailHtml, NewsApp, type BankStatement, type Story } from "./phone-apps";
 import { pixelIcon } from "./pixel-icons";
 import type { Clock } from "../engine/clock";
 import { apiFetch } from "../net/api";
 import { MARKET, type SeriesId } from "../data/market";
 import type { SceneStatus } from "../engine/scene";
-import type { CityDef, StateInfo, WeatherKind } from "../engine/types";
+import type { CityDef, StateInfo } from "../engine/types";
 import { latest, type LifeEvent, type PlayerLife } from "../sim/life";
 import type { Inbox } from "../sim/mail/inbox";
 import { INSTRUMENTS, type Instrument, type InstrumentId } from "../sim/market";
 import type { RunRecorder } from "../sim/record";
 import type { DeskState } from "../sim/save/types";
+import { isMet, priceTag, viewOf } from "../sim/skip/goals";
+import type { Goal, GoalView } from "../sim/skip/types";
+import { goOnVacation } from "./vacation";
+import { buildEndgameScore, mountEndgame, retirementReady } from "./endgame.ts";
 
 interface AppDef {
-  id: "stocks" | "goals" | "taxes" | "map" | "weather" | "calendar" | "news" | "mail" | "bank";
+  id: "stocks" | "goals" | "taxes" | "map" | "calendar" | "news" | "mail" | "bank";
   name: string;
   icon: string;
   ready: boolean;
@@ -37,12 +42,23 @@ const APPS: AppDef[] = [
   { id: "goals", name: "Goals", icon: pixelIcon("goals"), ready: true },
   { id: "taxes", name: "Taxes", icon: pixelIcon("taxes"), ready: true },
   { id: "map", name: "Map", icon: pixelIcon("map"), ready: true },
-  { id: "weather", name: "Weather", icon: pixelIcon("weather"), ready: true },
   { id: "calendar", name: "Calendar", icon: pixelIcon("calendar"), ready: true },
   { id: "news", name: "News", icon: pixelIcon("news"), ready: true },
   { id: "mail", name: "Mail", icon: pixelIcon("mail"), ready: true },
   { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: true },
 ];
+
+/** One title per `Goal["kind"]`, shown in the Goals app; the `Record` keeps this exhaustive as new kinds are added. */
+const GOAL_TITLES: Record<Goal["kind"], string> = {
+  debt_free: "Pay off all debt",
+  emergency_fund: "Emergency fund",
+  net_worth: "Net worth goal",
+  house: "Buy a house",
+  marriage: "Get married",
+  status: "Income goal",
+  retirement_age: "Retire early",
+  debt_free_by_age: "Debt-free by a target age",
+};
 
 /** Real interest rates the game doesn't simulate: shown from the FRED snapshot and labeled as real. */
 const RATES: { id: SeriesId; ticker: string; name: string }[] = [
@@ -56,35 +72,6 @@ interface WorldSnapshot {
   city: CityDef;
   status: SceneStatus | null;
 }
-
-const WEATHER_NAME: Record<WeatherKind, string> = {
-  clear: "Clear skies",
-  cloudy: "Cloudy",
-  rain: "Rain",
-  storm: "Storm",
-  snow: "Snow",
-  fog: "Fog",
-  heat: "Heat wave",
-  smoke: "Smoky",
-};
-
-const WEATHER_SYMBOL: Record<WeatherKind, string> = {
-  clear: "☀",
-  cloudy: "☁",
-  rain: "☂",
-  storm: "ϟ",
-  snow: "❄",
-  fog: "≋",
-  heat: "☀",
-  smoke: "≋",
-};
-
-const SEASON_NOTE = {
-  spring: "New growth and milder days",
-  summer: "Long days and warm weather",
-  fall: "Cooler air and changing leaves",
-  winter: "Short days and colder weather",
-} as const;
 
 const OPEN_KEY = "larp.phone.open";
 
@@ -141,7 +128,7 @@ export interface PhoneDeps {
   rewindTo?: (day: number) => void;
   /** The earliest day the player can go back to. */
   firstDay?: () => number;
-  /** Where the player is and the city's weather, for the Map and Weather apps. */
+  /** Where the player is, for the Map app. */
   getWorld: () => WorldSnapshot;
   /** The Money desk changed something the save must keep (a payment, a trade, its feed); quiet only updates the copy. */
   changed: (desk: DeskState, o?: { quiet?: boolean }) => void;
@@ -327,24 +314,6 @@ export class Phone {
             <button class="map-open-button" data-open-map>${pixelIcon("map")} Open U.S. map</button>
           </section>
 
-          <section class="view view-weather" data-view="weather" hidden>
-            <header class="phone-app-head">
-              <button class="st-back" data-home aria-label="Back to home">‹</button>
-              <div><div class="st-title">Weather</div><div class="st-sub" data-weather-place></div></div>
-            </header>
-            <div class="weather-now">
-              <span class="weather-symbol" data-weather-symbol></span>
-              <strong data-weather-name></strong>
-              <span data-weather-event></span>
-            </div>
-            <div class="season-card">
-              <span class="season-kicker">Current season</span>
-              <strong data-season-name></strong>
-              <span data-season-note></span>
-            </div>
-            <div class="weather-date" data-weather-date></div>
-          </section>
-
           <section class="view view-calendar" data-view="calendar" hidden></section>
 
           <section class="view view-app view-mail" data-view="mail" hidden>
@@ -353,6 +322,17 @@ export class Phone {
               <div><div class="st-title">Mail</div><div class="st-sub">Letters about your money</div></div>
             </header>
             <ul class="app-scroll mail-list" data-mail-list></ul>
+          </section>
+
+          <section class="view view-app view-goals" data-view="goals" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">Goals</div><div class="st-sub">Set once, for the whole run</div></div>
+            </header>
+            <ul class="app-scroll goals-list" data-goals-list></ul>
+            <button class="goals-ff-open" data-open-ff>Fast-forward to a goal <span aria-hidden="true">↗</span></button>
+            <button class="goals-vacation-open" data-vacation>Go on vacation <span aria-hidden="true">✈️</span></button>
+            <button class="goals-retire-open" data-retire disabled>Retire <span aria-hidden="true">🏖️</span></button>
           </section>
 
           <section class="view view-app view-news" data-view="news" hidden>
@@ -432,16 +412,54 @@ export class Phone {
     if (btn.dataset.openMap !== undefined) return this.deps.openMap?.();
     if (btn.dataset.mailId) return this.toggleMail(btn.dataset.mailId);
     if (btn.dataset.newsRetry !== undefined) return void this.news.load();
+    if (btn.dataset.openFf !== undefined) return this.deps.openFastForward?.();
+    if (btn.dataset.vacation !== undefined) {
+      if (!goOnVacation(this.deps.player, this.deps.clock.day)) this.toast("Already relaxed — take another vacation later.");
+      return;
+    }
+    if (btn.dataset.retire !== undefined) return this.onRetire();
     const id = btn.dataset.app as AppDef["id"] | undefined;
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;
     if (!app.ready) return this.toast(`${app.name} is coming soon`);
-    if (id === "goals") return this.deps.openFastForward?.();
     if (id === "taxes") return this.openDesk(undefined, "taxes");
     this.show(id);
     if (id === "mail") this.renderMail();
     if (id === "news") void this.news.load();
     if (id === "bank") void this.bank.load();
+    if (id === "goals") this.renderGoals();
+  }
+
+  /** The Goals app: the 4 permanent goals set once at intake, each with a progress bar. */
+  private renderGoals(): void {
+    const life = this.deps.player;
+    const view = viewOf(life);
+    const list = this.q("[data-goals-list]");
+    list.innerHTML = life.goals.length
+      ? life.goals.map((g) => this.goalItem(g, view)).join("")
+      : `<li class="app-empty">No goals set yet.</li>`;
+    // Retirement readiness changes over the run, so re-check on every open rather than once.
+    this.q<HTMLButtonElement>("[data-retire]").disabled = !retirementReady(life, life.goals, view, life.age);
+  }
+
+  /** Retiring is a one-way action: pause the clock (like the Money desk) and show the final score. */
+  private onRetire(): void {
+    this.resumeSpeed = this.deps.clock.speed || this.resumeSpeed;
+    this.deps.clock.speed = 0;
+    const score = buildEndgameScore(this.deps.player, Math.floor(this.deps.player.age), this.deps.player.today);
+    mountEndgame(document.body, { score });
+  }
+
+  private goalItem(goal: Goal, view: GoalView): string {
+    const life = this.deps.player;
+    const tag = priceTag(goal, view, life.place.name, life.age);
+    const title = GOAL_TITLES[goal.kind];
+    const met = isMet(goal, view, life.age);
+    return `<li class="goals-item${met ? " met" : ""}">
+      <div class="goals-item-title">${title}${met ? " ✓" : ""}</div>
+      <div class="goals-item-text">${tag.text}</div>
+      ${tag.progress === null ? "" : `<div class="ff-meter" role="progressbar" aria-valuenow="${Math.round(tag.progress * 100)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${(tag.progress * 100).toFixed(1)}%"></i></div>`}
+    </li>`;
   }
 
   /**
@@ -495,12 +513,14 @@ export class Phone {
   renderMail() {
     const { mail } = this.deps;
     if (this.openMail && !mail.items.some((m) => m.id === this.openMail)) this.openMail = null;
+    const billing = mail.items.filter(isBillingMail);
     const list = this.q("[data-mail-list]");
     const scroll = list.scrollTop;
-    list.innerHTML = mailHtml(mail.items, this.openMail, (d) => this.dateOf(d));
+    list.innerHTML = mailHtml(billing, this.openMail, (d) => this.dateOf(d));
     list.scrollTop = scroll;
     const badge = this.q("[data-badge=mail]");
-    const n = mail.unread();
+    // Counts only the billing mail actually shown, so the badge and the visible list agree.
+    const n = billing.filter((m) => !m.read).length;
     badge.textContent = n > 99 ? "99+" : String(n);
     badge.hidden = n === 0;
     this.q("[data-app=mail]").ariaLabel = n ? `Mail, ${n} unread` : "Mail";
@@ -530,9 +550,7 @@ export class Phone {
     const d = clock.date;
     this.q("[data-dow]").textContent = d.toLocaleDateString("en-US", { weekday: "long" });
     this.q("[data-date]").textContent = d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
-    const { state, city, status } = this.deps.getWorld();
-    const weather = status?.weather ?? "clear";
-    const season = status?.season ?? clock.season;
+    const { state, city } = this.deps.getWorld();
     this.q("[data-map-city]").textContent = `${city.name}, ${state.abbr}`;
     const tier = this.q("[data-map-tier]");
     tier.textContent = state.tier;
@@ -540,13 +558,6 @@ export class Phone {
     this.q("[data-map-tagline]").textContent = city.tagline;
     this.q("[data-map-state]").textContent = state.name;
     this.q("[data-map-cost]").textContent = `${state.rpp.all.toFixed(1)} · ${state.tier}`;
-    this.q("[data-weather-place]").textContent = `${city.name}, ${state.abbr}`;
-    this.q("[data-weather-symbol]").textContent = WEATHER_SYMBOL[weather];
-    this.q("[data-weather-name]").textContent = WEATHER_NAME[weather];
-    this.q("[data-weather-event]").textContent = status?.event ?? "Current conditions";
-    this.q("[data-season-name]").textContent = season[0].toUpperCase() + season.slice(1);
-    this.q("[data-season-note]").textContent = SEASON_NOTE[season];
-    this.q("[data-weather-date]").textContent = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
     this.calendar.refresh();
     // Sponsor prices move with the city clock, so redraw once per game day.
     if (clock.day !== this.stockDay) this.renderStocks();

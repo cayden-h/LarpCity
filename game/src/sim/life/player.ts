@@ -26,7 +26,7 @@ import { Ledger, type LedgerSave } from "../money/accounts.ts";
 import type { Account, ApplicationRecord, Holding } from "../money/types.ts";
 import { deepCopy } from "../rewind/copy.ts";
 import { CrashWatch, PANIC_DRAWDOWN, type CrashSave } from "../skip/crash.ts";
-import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
+import { LIFESTYLE_FACTOR, type Goal, type StandingOrders } from "../skip/types.ts";
 import { fileReturn } from "../tax/filing.ts";
 import { penaltyFor } from "../tax/penalties.ts";
 import type { TaxReturn } from "../tax/types.ts";
@@ -201,6 +201,10 @@ export interface LifeOptions {
   carLoan?: { monthly: number; months: number };
   /** Monthly car insurance premium billed on `CAR_INSURANCE_BILL_DOM`; defaults to `DEFAULT_CAR_INSURANCE_MONTHLY`. */
   carInsuranceMonthly?: number;
+  /** Set once at onboarding, permanent (sim/skip's Goal union, one per required category). */
+  goals?: Goal[];
+  /** The player's name for the HUD ID card; defaults to "You". */
+  name?: string;
 }
 
 /** A position valued at a day's price. */
@@ -267,6 +271,8 @@ export interface LifeSave {
   insurancePlanId?: string;
   /** Beginner credit card slug chosen at onboarding (frontend-only); optional so a save from before it existed still loads. */
   selectedCardId?: string;
+  goals?: Goal[];
+  name?: string;
   reemployedDay?: number | null;
   pulses?: Pulse[];
   taxYear?: number;
@@ -370,6 +376,10 @@ export class PlayerLife {
   carLoan: { monthly: number; months: number } = { ...DEFAULT_CAR_LOAN };
   /** Monthly car insurance premium, billed on `CAR_INSURANCE_BILL_DOM`. */
   carInsuranceMonthly: number = DEFAULT_CAR_INSURANCE_MONTHLY;
+  /** Set once at onboarding, permanent — no editing after (sim/skip's Goal union, one per required category). */
+  goals: Goal[];
+  /** The player's name for the HUD ID card; "You" for the sample household. */
+  name: string;
   /** The plan from the fast-forward setup screen (sim/skip), in force from the day it was set. */
   orders: StandingOrders | null = null;
   /**
@@ -520,6 +530,8 @@ export class PlayerLife {
       // the constructor otherwise sets for a fresh life.
       this.relationship = s.relationship ?? "single";
       this.commuteMinutes = s.commuteMinutes ?? 23;
+      this.goals = s.goals ?? [];
+      this.name = s.name ?? "You";
       this.reemployedDay = s.reemployedDay ?? null;
       this.pulses.push(...(s.pulses ?? []));
       this.taxYear = s.taxYear ?? 0;
@@ -556,6 +568,8 @@ export class PlayerLife {
     this.expenseTiers = o.expenseTiers ?? { ...DEFAULT_EXPENSE_TIERS };
     this.carLoan = o.carLoan ?? { ...DEFAULT_CAR_LOAN };
     this.carInsuranceMonthly = o.carInsuranceMonthly ?? DEFAULT_CAR_INSURANCE_MONTHLY;
+    this.goals = o.goals ?? [];
+    this.name = o.name ?? "You";
     this.commuteMinutes = o.commuteMinutes ?? 23;
     this.rentAnchor = o.rent === undefined ? null : { amount: o.rent, housing: o.place.rpp.housing };
     this.housing = rentalHome(o.rent !== undefined && o.rent > medianRent(o.place) ? 3 : 1);
@@ -617,6 +631,8 @@ export class PlayerLife {
       startSnap: this.startSnap,
       relationship: this.relationship,
       commuteMinutes: this.commuteMinutes,
+      goals: this.goals,
+      name: this.name,
       reemployedDay: this.reemployedDay,
       pulses: this.pulses,
       taxYear: this.taxYear,
