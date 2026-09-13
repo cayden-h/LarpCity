@@ -4,7 +4,7 @@
 // Lanes and movements are both "tracks" the traffic sim drives along.
 
 import { controlKind, hasCrosswalks, type ControlKind } from "./control.ts";
-import { bezier, minDistance, Path, type P } from "./geometry.ts";
+import { bezier, pathsClose, Path, type P } from "./geometry.ts";
 import { LANE_W, roadSpeed, roadWidth, type RoadDef } from "./types.ts";
 
 export type NodeKind = "cross" | "bend" | "end" | "edge" | "merge";
@@ -133,10 +133,28 @@ const isHwy = (r: RoadDef) => r.cls === "highway";
 export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
   const nodes: RNode[] = [];
   const merges = new Set<RNode>();
+  // Spatial hash for nodeAt: cells are 1 tile square, well over twice the 0.3
+  // match radius, so any node within range of a point lies in its 3x3
+  // neighborhood of cells. Keeps the same "first node created that matches"
+  // semantics as the old linear scan by picking the lowest id among matches.
+  const cellOf = (p: P) => `${Math.floor(p.x)},${Math.floor(p.y)}`;
+  const cells = new Map<string, RNode[]>();
   const nodeAt = (p: P): RNode => {
-    for (const n of nodes) if (dist(n.p, p) < 0.3) return n;
+    const cx = Math.floor(p.x), cy = Math.floor(p.y);
+    let best: RNode | null = null;
+    for (let dx = -1; dx <= 1; dx++)
+      for (let dy = -1; dy <= 1; dy++) {
+        const bucket = cells.get(`${cx + dx},${cy + dy}`);
+        if (!bucket) continue;
+        for (const n of bucket) if (dist(n.p, p) < 0.3 && (!best || n.id < best.id)) best = n;
+      }
+    if (best) return best;
     const n: RNode = { id: nodes.length, p: { ...p }, kind: "end", arms: [], control: "none", inCore: false, movements: [] };
     nodes.push(n);
+    const key = cellOf(n.p);
+    const bucket = cells.get(key);
+    if (bucket) bucket.push(n);
+    else cells.set(key, [n]);
     return n;
   };
 
@@ -327,8 +345,12 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
     from.out.push(m);
   };
   for (const node of liveNodes) {
-    const ins = (a: Arm) => a.seg.lanes.filter((l) => l.to === node).sort((x, y) => x.index - y.index);
-    const outs = (a: Arm) => a.seg.lanes.filter((l) => l.from === node).sort((x, y) => x.index - y.index);
+    // Each arm's lanes into and out of this node, sorted once per arm and reused across
+    // every (ai, ao) pair below instead of refiltering and resorting per pair.
+    const insByArm: Lane[][] = node.arms.map((a) => a.seg.lanes.filter((l) => l.to === node).sort((x, y) => x.index - y.index));
+    const outsByArm: Lane[][] = node.arms.map((a) => a.seg.lanes.filter((l) => l.from === node).sort((x, y) => x.index - y.index));
+    const ins = (a: Arm) => insByArm[node.arms.indexOf(a)];
+    const outs = (a: Arm) => outsByArm[node.arms.indexOf(a)];
     if (node.kind === "merge") {
       const rampArm = node.arms.find((a) => a.seg.road.cls === "ramp");
       const hwyArms = node.arms.filter((a) => a !== rampArm);
@@ -384,7 +406,7 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
       for (let j = i + 1; j < ms.length; j++) {
         const a = ms[i], b = ms[j];
         if (a.from === b.from) continue;
-        const clash = a.to === b.to || (!a.flyover && !b.flyover && minDistance(a.path, b.path) < 0.3);
+        const clash = a.to === b.to || (!a.flyover && !b.flyover && pathsClose(a.path, b.path, 0.3));
         if (clash) {
           a.conflicts.push(b);
           b.conflicts.push(a);

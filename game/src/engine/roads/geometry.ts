@@ -17,12 +17,41 @@ export class Path {
   readonly pts: P[];
   readonly cum: number[];
   readonly length: number;
+  /** Axis-aligned bounds of pts, for a cheap reject before a full distance scan. */
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minY: number;
+  readonly maxY: number;
+  /** Per-segment bounds (segBox[4*i..4*i+3] = minX,maxX,minY,maxY of pts[i]..pts[i+1]), for
+   * rejecting most segment pairs before the full segSeg computation. */
+  readonly segBox: Float64Array;
 
   constructor(pts: P[]) {
     this.pts = pts;
     this.cum = [0];
     for (let i = 1; i < pts.length; i++) this.cum.push(this.cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
     this.length = this.cum[this.cum.length - 1];
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const n = Math.max(0, pts.length - 1);
+    const segBox = new Float64Array(n * 4);
+    for (let i = 0; i < n; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const sMinX = Math.min(a.x, b.x), sMaxX = Math.max(a.x, b.x);
+      const sMinY = Math.min(a.y, b.y), sMaxY = Math.max(a.y, b.y);
+      segBox[i * 4] = sMinX;
+      segBox[i * 4 + 1] = sMaxX;
+      segBox[i * 4 + 2] = sMinY;
+      segBox[i * 4 + 3] = sMaxY;
+      if (sMinX < minX) minX = sMinX;
+      if (sMaxX > maxX) maxX = sMaxX;
+      if (sMinY < minY) minY = sMinY;
+      if (sMaxY > maxY) maxY = sMaxY;
+    }
+    this.segBox = segBox;
+    this.minX = pts.length ? minX : Infinity;
+    this.maxX = pts.length ? maxX : -Infinity;
+    this.minY = pts.length ? minY : Infinity;
+    this.maxY = pts.length ? maxY : -Infinity;
   }
 
   /** Point and heading at distance s along the path, clamped to its ends. */
@@ -88,4 +117,25 @@ export function minDistance(p: Path, q: Path): number {
   for (let i = 1; i < p.pts.length; i++)
     for (let j = 1; j < q.pts.length; j++) best = Math.min(best, segSeg(p.pts[i - 1], p.pts[i], q.pts[j - 1], q.pts[j]));
   return best;
+}
+
+/**
+ * Whether two paths ever come within `thresh` of each other: exactly
+ * `minDistance(p, q) < thresh`, but a bounding-box reject skips the scan
+ * when the paths cannot possibly be close, and the scan itself stops at the
+ * first close pair instead of always finding the true minimum (the caller
+ * only needs the boolean, and most conflicting movements clash immediately).
+ */
+export function pathsClose(p: Path, q: Path, thresh: number): boolean {
+  if (p.minX - q.maxX >= thresh || q.minX - p.maxX >= thresh || p.minY - q.maxY >= thresh || q.minY - p.maxY >= thresh) return false;
+  const pb = p.segBox, qb = q.segBox;
+  const pn = pb.length / 4, qn = qb.length / 4;
+  for (let i = 0; i < pn; i++) {
+    const pMinX = pb[i * 4], pMaxX = pb[i * 4 + 1], pMinY = pb[i * 4 + 2], pMaxY = pb[i * 4 + 3];
+    for (let j = 0; j < qn; j++) {
+      if (pMinX - qb[j * 4 + 1] >= thresh || qb[j * 4] - pMaxX >= thresh || pMinY - qb[j * 4 + 3] >= thresh || qb[j * 4 + 2] - pMaxY >= thresh) continue;
+      if (segSeg(p.pts[i], p.pts[i + 1], q.pts[j], q.pts[j + 1]) < thresh) return true;
+    }
+  }
+  return false;
 }

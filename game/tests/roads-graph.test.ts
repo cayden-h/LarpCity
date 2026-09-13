@@ -99,3 +99,18 @@ test("every lane and movement has a unique track id", () => {
   assert.equal(net.tracks.length, net.lanes.length + net.movements.length);
   net.tracks.forEach((t, i) => assert.equal(t.tid, i));
 });
+
+test("a 200-road grid builds in well under a second", () => {
+  // 100 horizontal + 100 vertical 1-tile locals, an arterial-spaced local grid every 6
+  // tiles: the shape the world builder feeds buildGraph for a full 300-600 road world.
+  const n = 100;
+  const span = n * 6;
+  const roads: RoadDef[] = [];
+  for (let i = 0; i < n; i++) roads.push(local(`h${i}`, [[0, i * 6], [span, i * 6]]));
+  for (let i = 0; i < n; i++) roads.push(local(`v${i}`, [[i * 6, 0], [i * 6, span]]));
+  const t0 = performance.now();
+  const net = buildGraph(roads);
+  const elapsed = performance.now() - t0;
+  console.log(`200-road grid: ${elapsed.toFixed(1)} ms, ${net.nodes.length} nodes, ${net.movements.length} movements`);
+  assert.ok(elapsed < 1500, `expected well under 1500 ms, took ${elapsed.toFixed(1)} ms`);
+});
