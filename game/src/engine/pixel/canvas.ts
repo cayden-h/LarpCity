@@ -121,19 +121,28 @@ export class PixelCanvas {
    * silhouette), and every solid pixel next to a later-drawn part (the edges
    * between parts), like the pixel pass. Glowing pixels stay lit.
    */
-  outline(ink = INK): this {
+  outline(opts: { outside?: boolean; ink?: number } = {}): this {
     const { w, h, rgba, parts, glow } = this;
+    const ink = opts.ink ?? INK;
     const solid = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && rgba[(y * w + x) * 4 + 3] === 255;
+    const lit = (x: number, y: number) => solid(x, y) && !glow[y * w + x];
     const mark: number[] = [];
     for (let y = 0; y < h; y++)
       for (let x = 0; x < w; x++) {
         const i = y * w + x;
-        if (rgba[i * 4 + 3] !== 255 || glow[i]) continue;
+        const around = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
+        if (rgba[i * 4 + 3] !== 255) {
+          // Outside: the ring of pixels just beyond the silhouette (small art keeps its colors).
+          if (opts.outside && around.some(([nx, ny]) => lit(nx, ny))) mark.push(i);
+          continue;
+        }
+        if (glow[i]) continue;
         let edge = false;
-        for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        for (const [nx, ny] of around) {
           if (!solid(nx, ny)) {
-            edge = true;
-            break;
+            if (!opts.outside) edge = true;
+            if (edge) break;
+            continue;
           }
           const q = parts[ny * w + nx];
           if (parts[i] && q && q > parts[i] && !glow[ny * w + nx]) {
@@ -147,8 +156,17 @@ export class PixelCanvas {
       rgba[i * 4] = (ink >> 16) & 255;
       rgba[i * 4 + 1] = (ink >> 8) & 255;
       rgba[i * 4 + 2] = ink & 255;
+      rgba[i * 4 + 3] = 255;
+      parts[i] = 0;
     }
     return this;
+  }
+
+  /** Solid pixels, as a count (tests and sanity checks). */
+  get solidCount(): number {
+    let n = 0;
+    for (let i = 3; i < this.rgba.length; i += 4) if (this.rgba[i] === 255) n++;
+    return n;
   }
 
   /** Calls `fill` for every buffer pixel whose center is inside the polygon (even-odd). */
