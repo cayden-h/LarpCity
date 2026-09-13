@@ -16,7 +16,7 @@
 //      lifts, harbors...) are placed where they fit.
 
 import { cellHash, fbm } from "./noise.ts";
-import { dropStrandedHighways, fitRoads, outskirtRoads, ringFits, stampRoads, type Frame } from "./roads/outskirts.ts";
+import { ringFits, stampRoads, worldRoads, type Frame } from "./roads/outskirts.ts";
 import type { RoadDef } from "./roads/types";
 import { rngFor } from "./rng.ts";
 import type { CityDef, FeatureSpec, LandmarkPlacement, Outskirts, TileChar, Zone } from "./types";
@@ -28,8 +28,8 @@ export const RV = 66;
 const DEFAULTS: Outskirts = { terrain: "plains", farms: 0.35, forest: 0.25, suburbs: 10, grid: 6, beltway: true, features: [] };
 
 const OPEN = new Set<TileChar>([".", "f", "F", "s", "~", "m"]);
-/** Core tiles a street may be continued across to reach the core's edge. */
-const PAVABLE = new Set<TileChar>([".", "b", "p", "s", "f", "F", "~"]);
+/** Core tiles a street may be continued across to reach the core's edge (open ground and lots, never parks). */
+const PAVABLE = new Set<TileChar>([".", "b", "s", "f", "F", "~"]);
 /** The narrowest suburbs worth shrinking to so a highway ring fits in the world. */
 const MIN_RING_SUBURBS = 6;
 
@@ -64,6 +64,7 @@ export function expandWorld(source: CityDef, seed: number): World {
         o.suburbs = s;
         break;
       }
+  const ring = o.beltway && ringFits({ Mx, My, cw, ch, inside }, o.suburbs);
 
   const at = (x: number, y: number): TileChar => (x >= 0 && y >= 0 && x < cw && y < ch ? ((core[y][x] ?? " ") as TileChar) : " ");
   const g: TileChar[][] = Array.from({ length: N }, () => Array<TileChar>(N).fill(" "));
@@ -99,8 +100,8 @@ export function expandWorld(source: CityDef, seed: number): World {
   const footprint = new Set<string>();
   for (const l of source.landmarks) for (let j = 0; j < l.d; j++) for (let i = 0; i < l.w; i++) footprint.add(`${l.x + Mx + i},${l.y + My + j}`);
   const free = (X: number, Y: number) => inside(X, Y) && PAVABLE.has(get(X, Y)) && !footprint.has(`${X},${Y}`);
-  const frame: Frame = { N, Mx, My, cw, ch, S: o.suburbs, G: o.grid, ring: o.beltway, seed, inside: (X, Y) => inside(X, Y), tile: get, free };
-  const roads = [...coreRoads, ...dropStrandedHighways(fitRoads(outskirtRoads(frame, coreRoads), frame))];
+  const frame: Frame = { N, Mx, My, cw, ch, S: o.suburbs, G: o.grid, ring, seed, inside: (X, Y) => inside(X, Y), tile: get, free };
+  const roads = [...coreRoads, ...worldRoads(frame, coreRoads)];
   const streets = stampRoads(g, roads);
 
   // Street frontage becomes lots: dense in the suburbs, the odd farmhouse beyond.
@@ -138,9 +139,9 @@ export function expandWorld(source: CityDef, seed: number): World {
     }
 
   const zones: Zone[] = source.zones.map((z) => ({ ...z, x: z.x + Mx, y: z.y + My }));
-  // Strip malls where the frontage road meets the main roads.
-  if (o.beltway) {
-    const r = o.suburbs + 1;
+  // Strip malls on the frontage road, by the ring, where it meets the main roads.
+  if (ring) {
+    const r = o.suburbs - 1;
     for (const [zx, zy] of [[Mx + cw / 2, My - r], [Mx + cw / 2, My + ch + r], [Mx - r, My + ch / 2], [Mx + cw + r, My + ch / 2]])
       zones.push({ x: zx, y: zy, r: 3, kind: "midtown" });
   }
@@ -156,7 +157,6 @@ export function expandWorld(source: CityDef, seed: number): World {
   };
   return { city, center: { x: cc, y: cc }, region: { cx: cc, cy: cc, ru: RU, rv: RV } };
 }
-
 
 function terrainTile(o: Outskirts, seed: number, X: number, Y: number, d: number): TileChar {
   const n = fbm(seed, X * 0.085, Y * 0.085);

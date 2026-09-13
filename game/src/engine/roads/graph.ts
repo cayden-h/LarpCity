@@ -140,21 +140,22 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
   // match radius, so any node within range of a point lies in its 3x3
   // neighborhood of cells. Keeps the same "first node created that matches"
   // semantics as the old linear scan by picking the lowest id among matches.
-  const cellOf = (p: P) => `${Math.floor(p.x)},${Math.floor(p.y)}`;
+  const cellOf = (p: P): [number, number] => [Math.floor(p.x), Math.floor(p.y)];
+  const cellKey = (cx: number, cy: number) => `${cx},${cy}`;
   const cells = new Map<string, RNode[]>();
   const nodeAt = (p: P): RNode => {
-    const cx = Math.floor(p.x), cy = Math.floor(p.y);
+    const [cx, cy] = cellOf(p);
     let best: RNode | null = null;
     for (let dx = -1; dx <= 1; dx++)
       for (let dy = -1; dy <= 1; dy++) {
-        const bucket = cells.get(`${cx + dx},${cy + dy}`);
+        const bucket = cells.get(cellKey(cx + dx, cy + dy));
         if (!bucket) continue;
         for (const n of bucket) if (dist(n.p, p) < 0.3 && (!best || n.id < best.id)) best = n;
       }
     if (best) return best;
     const n: RNode = { id: nodes.length, p: { ...p }, kind: "end", arms: [], control: "none", inCore: false, movements: [] };
     nodes.push(n);
-    const key = cellOf(n.p);
+    const key = cellKey(cx, cy);
     const bucket = cells.get(key);
     if (bucket) bucket.push(n);
     else cells.set(key, [n]);
@@ -177,8 +178,9 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
   const along = (pc: Piece, p: P) => (pc.horiz ? p.x : p.y);
   const lo = (pc: Piece) => Math.min(along(pc, pc.a), along(pc, pc.b));
   const hi = (pc: Piece) => Math.max(along(pc, pc.a), along(pc, pc.b));
-  // Original extents: whether two pieces meet must not depend on the order
-  // earlier junctions snapped their ends in.
+  // Original extents. Junctions are found against these, so whether two pieces
+  // meet does not depend on the order earlier junctions snapped their ends in;
+  // snapping only ever extends a piece, so its final extent is order-free too.
   const olo = (pc: Piece) => Math.min(along(pc, pc.a0), along(pc, pc.b0));
   const ohi = (pc: Piece) => Math.max(along(pc, pc.a0), along(pc, pc.b0));
   /** Move the piece end nearest v (an along-axis coordinate) out or in to v. */
@@ -189,7 +191,9 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
     if (pc.horiz) e.x = v;
     else e.y = v;
   };
-  const tOf = (pc: Piece, p: P) => dist(pc.a, p);
+  /** Distance along the piece from its start to p (p may sit off the centerline, as at a width change). */
+  const tOf = (pc: Piece, p: P) => Math.abs(along(pc, p) - along(pc, pc.a));
+  const acrossOf = (pc: Piece) => (pc.horiz ? pc.a.y : pc.a.x);
   /** Whether along-axis coordinate v is within reach of a ramp piece's highway end. */
   const atRampHighwayEnd = (pc: Piece, v: number, reachHw: number) => {
     const road = pc.road;
@@ -197,6 +201,34 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
     const [ex, ey] = road.ramp === "off" ? road.path[0] : road.path[road.path.length - 1];
     return Math.abs((pc.horiz ? ex : ey) - v) <= reachHw + 0.51;
   };
+
+  // A street that changes width where it crosses a road (a 1-tile core street
+  // continued as a 2-tile arterial past the perimeter road) has its halves'
+  // centerlines half a tile apart. Both halves join the crossing road at one
+  // node on the wider half's centerline; the narrow half's junction sits half
+  // a tile off its own line.
+  const joinAcross = new Map<Piece, Map<Piece, number>>();
+  for (const H of pieces) {
+    if (isHwy(H.road)) continue;
+    const y = acrossOf(H), reachH = H.hw + 0.51;
+    const ends: { V: Piece; side: number; x: number }[] = [];
+    for (const V of pieces) {
+      if (V.horiz === H.horiz || V.road === H.road || isHwy(V.road)) continue;
+      const x = acrossOf(V);
+      if (x <= olo(H) || x >= ohi(H)) continue;
+      const side = Math.abs(olo(V) - y) <= reachH ? 1 : Math.abs(ohi(V) - y) <= reachH ? -1 : 0;
+      if (side) ends.push({ V, side, x });
+    }
+    for (const a of ends)
+      for (const b of ends) {
+        const off = Math.abs(a.x - b.x);
+        if (a.side !== -b.side || off < 0.01 || off > 0.51 || a.V.hw >= b.V.hw) continue;
+        const m = joinAcross.get(a.V) ?? new Map<Piece, number>();
+        m.set(H, b.x);
+        joinAcross.set(a.V, m);
+      }
+  }
+  const joinOf = (pc: Piece, other: Piece) => joinAcross.get(pc)?.get(other) ?? acrossOf(pc);
 
   // 2. Junctions between pieces.
   const pending: { pc: Piece; p: P; merge?: boolean }[] = [];
@@ -206,7 +238,7 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
       if (A.road === B.road) continue;
       if (A.horiz !== B.horiz) {
         const H = A.horiz ? A : B, V = A.horiz ? B : A;
-        const x = V.a.x, y = H.a.y;
+        const x = joinOf(V, H), y = joinOf(H, V);
         const eH = V.hw + 0.51, eV = H.hw + 0.51;
         if (x < olo(H) - eH || x > ohi(H) + eH || y < olo(V) - eV || y > ohi(V) + eV) continue;
         const through = (pc: Piece, v: number) => v > olo(pc) + 0.51 && v < ohi(pc) - 0.51;
@@ -221,7 +253,7 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
         pending.push({ pc: H, p }, { pc: V, p });
         continue;
       }
-      const across = (pc: Piece) => (pc.horiz ? pc.a.y : pc.a.x);
+      const across = acrossOf;
       const gapAcross = Math.abs(across(A) - across(B));
       if (gapAcross < 0.01) {
         // Collinear: join ends at most one tile apart.
@@ -246,7 +278,11 @@ export function buildGraph(roads: RoadDef[], opts: GraphOptions = {}): RoadNet {
       const ends = road.ramp === "off" ? (isFirst ? [ramp.a] : []) : road.ramp === "on" ? (isLast ? [ramp.b] : []) : [];
       for (const e of ends) {
         const v = along(hwy, e);
-        if (v <= olo(hwy) + 1.5 || v >= ohi(hwy) - 1.5) continue;
+        // A highway may end at a merge node (a terminal: its last ramps take
+        // all of one direction's traffic off and bring the other's on), but a
+        // merge anywhere else that close to its end would sit inside the end's own junction.
+        const terminal = Math.abs(v - olo(hwy)) < 0.01 || Math.abs(v - ohi(hwy)) < 0.01;
+        if (!terminal && (v <= olo(hwy) + 1.5 || v >= ohi(hwy) - 1.5)) continue;
         const p = hwy.horiz ? { x: v, y: across(hwy) } : { x: across(hwy), y: v };
         const n = nodeAt(p);
         merges.add(n);

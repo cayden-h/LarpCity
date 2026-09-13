@@ -48,6 +48,8 @@ export class Path {
       if (sMaxY > maxY) maxY = sMaxY;
     }
     this.segBox = segBox;
+    // A path of fewer than two points has no segments: its bounds stay at the
+    // empty sentinels (min Infinity, max -Infinity), so pathsClose rejects it at once.
     this.minX = pts.length ? minX : Infinity;
     this.maxX = pts.length ? maxX : -Infinity;
     this.minY = pts.length ? minY : Infinity;
