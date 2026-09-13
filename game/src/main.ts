@@ -2,7 +2,7 @@ import "./style.css";
 import { Application, CullerPlugin, extensions } from "pixi.js";
 import { BankClient } from "./api/bank";
 import { HomePicker } from "./ui/home-picker";
-import { cityFor, LANDMARKS, stateForPin } from "./cities";
+import { cityFor, LANDMARKS } from "./cities";
 import { BACKGROUND_NPCS } from "./data/background-npcs";
 import { NPCS } from "./data/npcs";
 import { STATES } from "./data/states";
@@ -11,11 +11,13 @@ import { Clock } from "./engine/clock";
 import type { ResidentSeed } from "./engine/people";
 import { CityScene } from "./engine/scene";
 import { loadSpriteSet } from "./engine/sprites";
-import { prerenderCityThumbnails } from "./engine/thumbnails";
+import { rngFor } from "./engine/rng";
 import type { StateInfo } from "./engine/types";
 import { cueForEvents, welcomeBackLine } from "./narration/lines";
 import { PlayerLife, STARTER_PORTFOLIO } from "./sim/life";
-import { answersFromProfile, defaultAnswers, lifeFromIntake, profileFromIntake } from "./sim/life/intake";
+import { DEFAULT_GOALS, DEFAULT_INSURANCE_PLAN_ID, defaultAnswers, lifeFromIntake, starterFor } from "./sim/life/intake";
+import { MATCH_UP_TO } from "./sim/life/player";
+import { BEGINNER_CARDS } from "./data/cards-beginner";
 import { Inbox, type DebtLookup } from "./sim/mail/inbox";
 import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
@@ -24,7 +26,7 @@ import { describeHabit } from "./sim/npcs/habits";
 import { RunRecorder } from "./sim/record";
 import { LifeTimeline } from "./sim/rewind";
 import { ReviewGate } from "./sim/rewind/gate";
-import { bootPath, fetchMe, offlineNotice, resumePlace } from "./sim/save/boot";
+import { bootPath, fetchMe, offlineNotice } from "./sim/save/boot";
 import { saveApi } from "./sim/save/client";
 import { encodeGame, parseSave, restoreGame, SaveFormatError, type RestoredGame } from "./sim/save/codec";
 import { trimDesk } from "./sim/save/desk";
@@ -34,6 +36,7 @@ import { openSlots } from "./ui/slots";
 import type { DeskState, GameSave } from "./sim/save/types";
 import { Hud } from "./ui/hud";
 import { mountHappinessMeter } from "./ui/happiness";
+import { runSetup } from "./ui/intake";
 import { Narrator } from "./ui/narrator";
 import { runTitle } from "./ui/title";
 import { TourGuide } from "./ui/tour";
@@ -42,7 +45,6 @@ import { NpcCard } from "./ui/npccard";
 import { showNotice } from "./ui/notice";
 import { Phone } from "./ui/phone";
 import { FastForward } from "./ui/skip-setup";
-import { UsMap } from "./ui/usmap";
 import "./ui/pixel-theme.css";
 import "./ui/happiness.css";
 
@@ -67,10 +69,20 @@ let scene: CityScene | null = null;
 let skipTimer = 0;
 const params = new URLSearchParams(location.search);
 
-// The hash is a state (#CA) or a specialized city (#dallas).
-const stateFor = (h: string) => STATES.find((s) => s.abbr === h.toUpperCase()) ?? stateForPin(h.toLowerCase(), STATES);
-const fromHash = () => stateFor(location.hash.slice(1));
-const TX = STATES.find((s) => s.abbr === "TX")!;
+// There is one place: San Francisco, California. Any other hash (#TX, #dallas) falls back to #CA.
+const HOME = STATES.find((s) => s.abbr === "CA")!;
+if (location.hash !== `#${HOME.abbr}`) history.replaceState(null, "", `${location.pathname}${location.search}#${HOME.abbr}`);
+const SF_PLATE = `${import.meta.env.BASE_URL}cities/san-francisco/plates/day.jpg`;
+
+// Sammy narrates the big moments; the title screen borrows him first.
+const narrator = new Narrator();
+
+// A plain visit opens on the title screen (Learn, or skip), then the save slots. Picking a slot
+// reloads with ?slot=, which boots straight into it, as does a reload mid-game or a demo link.
+if (!params.has("slot") && !params.has("demo") && params.get("intake") !== "0") {
+  await runTitle({ backdrop: SF_PLATE, narrator });
+  await openSlots({ current: null, start: clock.start, boot: { backdrop: SF_PLATE } });
+}
 
 // Who this is and where they left off (server/src/routes/save.ts), retried through a blip. A /me
 // that still fails is never taken as "no save" (sim/save/boot.ts): the player picks between trying
@@ -109,15 +121,12 @@ if (path === "offline") {
 
 let saved: GameSave | null = null;
 let restored: RestoredGame | null = null;
-/** A resumed game's state (its rent depends on it) and the city it was showing inside that state. */
-let resumed: { home: StateInfo; city: StateInfo } | null = null;
 if (path === "resume" && (demoState || me?.save)) {
   try {
     saved = parseSave(demoState ?? me?.save?.state);
-    resumed = resumePlace(saved.life.place?.abbr, saved.hash, STATES, stateFor);
-    if (!resumed) throw new SaveFormatError(`the saved state ${saved.life.place?.abbr} doesn't exist`);
     // Decoded whole before anything live is built, so a bad save can't half-load (sim/save/codec.ts).
-    restored = restoreGame(saved, { market: new MarketPath(saved.seed, clock.start), place: resumed.home, start: clock.start });
+    // A life saved in another state (before there was only one) comes back in California.
+    restored = restoreGame(saved, { market: new MarketPath(saved.seed, clock.start), place: HOME, start: clock.start });
   } catch (err) {
     if (!(err instanceof SaveFormatError)) throw err;
     console.warn("[save] can't load the saved game:", err.message);
@@ -128,7 +137,7 @@ if (path === "resume" && (demoState || me?.save)) {
     });
     // If the old save can't be deleted, every write of the new life would 409 against it: play unsaved instead.
     if (!(await saves.deleteSave().then(() => true, () => false))) saving = false;
-    saved = restored = resumed = null;
+    saved = restored = null;
     demoState = null;
     if (me) {
       me.save = null;
@@ -138,9 +147,7 @@ if (path === "resume" && (demoState || me?.save)) {
   }
 }
 
-// A saved game goes back where the player was. Otherwise start where the link points, so the
-// rent the player states belongs to that state, or in their profile's state.
-let state: StateInfo = resumed?.city ?? fromHash() ?? STATES.find((s) => s.abbr === me?.profile?.state) ?? TX;
+let state: StateInfo = HOME;
 
 // The run's seed: the market path and every random draw hang off it (?seed= to replay one).
 const seed = saved?.seed ?? (Number(params.get("seed")) || 20260912);
@@ -156,31 +163,32 @@ if (params.has("intake") || params.has("demo") || (saved && params.has("seed")))
   history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
-// The player's money life: paychecks, rent for the current state, and the debt engine run once
-// per game day (research/07-debt-system-design.md), with a starter portfolio on the seeded market.
-// It is restored from the save, or built from the profile; with no profile, the owl's voice
-// interview (or the typed form) asks first and the answers become the profile.
+// The player's money life: paychecks, rent, and the debt engine run once per game day
+// (research/07-debt-system-design.md), with a starter portfolio on the seeded market. It is
+// restored from the save; a new life's money is generated from the seed (never asked), and
+// Sammy's setup takes the player's name, avatar, health plan, starter card, and goals.
 let player: PlayerLife;
-// The owl narrates the big moments from here on (narration/lines.ts); a new life's title screen borrows him first.
-const narrator = new Narrator();
 if (saved && restored) {
   clock.jumpTo(saved.day);
   player = restored.life;
   // The end screen offers to play a demo life again, for the next judge.
   if (demoState && demo) rememberDemo(slot, demo);
-  // The saved state itself (same abbr, so the rent doesn't change), not the city picked inside it.
-  player.place = resumed!.home;
+  player.place = HOME;
 } else {
   rememberDemo(slot, null);
-  const profile = path === "fromProfile" ? (me?.profile ?? null) : null;
-  // A new life: the title screen and Sammy's Learn walkthrough (always over San Francisco), then the
-  // one choice, who's moving in. The profile it leaves stores no numbers: every new life is the default start.
-  const avatar = profile ? "male" : await runTitle({ backdrop: `${import.meta.env.BASE_URL}cities/san-francisco/plates/day.jpg`, narrator });
-  // Played without saving, the real profile on the server must stay as it is.
-  if (!profile && saving) void saves.putProfile(profileFromIntake(null, "skipped", state.abbr)).catch(() => undefined);
-  // An older profile with stated numbers still builds that life.
-  const answers = profile ? answersFromProfile(profile) : null;
-  player = lifeFromIntake(answers ?? defaultAnswers(state, avatar), { place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO });
+  // Every new life is the default start (median rent, the default savings), with its job, salary,
+  // and debt drawn from the seed.
+  const starter = starterFor(state, rngFor("starter", seed));
+  // ?intake=0 skips the setup (for tests) with the default picks.
+  const picks =
+    params.get("intake") === "0"
+      ? { name: "You", avatar: "male" as const, insurancePlanId: DEFAULT_INSURANCE_PLAN_ID, selectedCardId: BEGINNER_CARDS[0].slug, goals: DEFAULT_GOALS }
+      : await runSetup({ backdrop: SF_PLATE, starter, placeName: "San Francisco" });
+  // A 6-month emergency fund and the full employer match, as the revamp meeting set; both change later.
+  player = lifeFromIntake(
+    { ...defaultAnswers(state, picks.avatar), ...starter, ...picks, emergencyMonths: 6, k401Pct: MATCH_UP_TO },
+    { place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO },
+  );
 }
 
 // The named NPCs' money lives on the same market (src/data/npcs.ts), and the
@@ -217,8 +225,8 @@ const recorder = new RunRecorder({ life: player, seed, base: api, runId: saved ?
 // A checkpoint every game day, so the Calendar can go back to any past day (sim/rewind). A resumed
 // game's first checkpoint is the day it was loaded on, so the Calendar goes back no further than that.
 const timeline = new LifeTimeline(player, { start: clock.start });
-// Going back opens only in the end-of-game review (sim/rewind/gate.ts): the Goals app's Retire opens it
-// (phone.onRetired), and larp.review() in the console does too.
+// Going back opens only in the end-of-game review (sim/rewind/gate.ts).
+// The Goals app's Retire button opens it (phone onRetire); larp.review() in the console does too.
 const review = new ReviewGate();
 
 // The phone's Mail inbox (sim/mail) and what the Money desk last reported; both ride in the save.
@@ -283,8 +291,7 @@ async function displayCity(next: StateInfo): Promise<void> {
   const cityResidents = residents;
   const city = cityFor(next);
   // Keep saves consistent even if they flush before this city's network request finishes.
-  const home = STATES.find((s) => s.abbr === next.abbr);
-  history.replaceState(null, "", `#${home && home.cityId !== next.cityId ? next.cityId : next.abbr}`);
+  history.replaceState(null, "", `#${next.abbr}`);
   npcCard.hide();
   const sprites = await loadSpriteSet(city.id);
   if (revision !== cityLoadRevision) return;
@@ -294,15 +301,6 @@ async function displayCity(next: StateInfo): Promise<void> {
   scene.onHomePick = tier => showHomePicker(tier);
   app.stage.addChild(scene.root);
   scene.resize(app.screen.width, app.screen.height);
-}
-
-async function open(next: StateInfo): Promise<void> {
-  if (next.abbr !== player.place.abbr) {
-    player.setPlace(next, clock.day);
-    narrator.cue("moved");
-    saver.request();
-  }
-  await displayCity(next);
 }
 
 const npcCard = new NpcCard(document.getElementById("npc")!, bankClient);
@@ -338,11 +336,6 @@ function rewindTo(day: number): void {
   clock.speed = 0;
   timeline.rewindTo(day);
   clock.jumpTo(day);
-  if (state.abbr !== player.place.abbr) {
-    const restoredState = STATES.find(s => s.abbr === player.place.abbr);
-    // Restore presentation directly; rewinding must never initiate a financial move.
-    if (restoredState) void displayCity(restoredState);
-  }
   town.rewind(day);
   mail.rewind(day);
   bank.rewind(day);
@@ -383,45 +376,6 @@ hud.setPlayer(player.name, player.age, player.avatar);
 
 const happiness = mountHappinessMeter(document.getElementById("happiness")!, { life: player });
 
-const map = new UsMap(document.getElementById("map")!, STATES, (s) => void open(s));
-
-// Every distinct city (6 hand-made, 8 regional templates) gets a real in-game
-// render in the background so the map never requires a visit to show one.
-prerenderCityThumbnails(
-  STATES,
-  (cityId, url) => map.setPreview(cityId, url),
-  (cityId) => map.hasPreview(cityId),
-);
-
-function captureCityPreview(): string | null {
-  try {
-    // Capture the real rendered city rather than the separate photographic plates.
-    app.render();
-    const source = app.canvas;
-    const preview = document.createElement("canvas");
-    preview.width = 560;
-    preview.height = 315;
-    const context = preview.getContext("2d");
-    if (!context || !source.width || !source.height) return null;
-
-    const targetRatio = preview.width / preview.height;
-    const sourceRatio = source.width / source.height;
-    let sx = 0, sy = 0, sw = source.width, sh = source.height;
-    if (sourceRatio > targetRatio) {
-      sw = source.height * targetRatio;
-      sx = (source.width - sw) / 2;
-    } else {
-      sh = source.width / targetRatio;
-      sy = (source.height - sh) / 2;
-    }
-    context.imageSmoothingEnabled = false;
-    context.drawImage(source, sx, sy, sw, sh, 0, 0, preview.width, preview.height);
-    return preview.toDataURL("image/webp", 0.84);
-  } catch {
-    return null;
-  }
-}
-
 // Fast-forward to a goal: the setup screen runs the days headless, then the calendar jumps.
 const fastForward = new FastForward({
   clock,
@@ -439,19 +393,18 @@ const fastForward = new FastForward({
   },
 });
 
-// The player's phone is the hub for market, goals, travel, and the calendar
+// The player's phone is the hub for market, goals, and the calendar
 // (Stocks opens the Money desk; Goals opens the fast-forward; Calendar goes back and skips ahead).
 const phone = new Phone({
   clock,
   player,
   recorder,
   openFastForward: () => fastForward.open(),
-  openMap: () => map.open(state, captureCityPreview()),
   skipTo,
   rewindTo,
   canGoBack: () => review.unlocked,
+  onRetire: () => review.unlock(),
   openSlots: () => void openSlots({ current: slot, start: clock.start }),
-  onRetired: () => review.unlock(),
   // A demo life loads fresh from public/demo/ into this slot again, the same for every judge.
   replayDemo: () => {
     const d = demoFor(slot);
@@ -494,9 +447,8 @@ const phone = new Phone({
         throw err;
       }
     }
-    // With the save and the profile gone, the reload starts the intake.
-    history.replaceState(null, "", location.pathname);
-    location.reload();
+    // With the save gone, the same slot starts Sammy's setup for a new life.
+    location.href = `${location.pathname}?slot=${slot}`;
   },
 });
 
@@ -567,12 +519,11 @@ window.addEventListener("pageshow", (e) => {
   if (e.persisted) location.reload();
 });
 
-// Shared links and back/forward change only the hash, so follow it.
+// Only California exists: a link or back/forward to another state's hash goes back to #CA.
 window.addEventListener("hashchange", () => {
-  const s = fromHash();
-  if (s && s.cityId !== state.cityId) void open(s);
+  if (location.hash !== `#${HOME.abbr}`) history.replaceState(null, "", `#${HOME.abbr}`);
 });
-await open(state);
+await displayCity(state);
 // Show the player's real home from the first frame, not the hero's default tier.
 syncHomeTier();
 // A choice a life event left unanswered (saved mid-decision, or a demo slot) opens the Money desk on it.
@@ -608,12 +559,5 @@ function step(seconds: number) {
   return scene?.status();
 }
 
-async function visit(abbrOrCity: string, seconds = 3) {
-  const s = STATES.find((st) => st.abbr === abbrOrCity.toUpperCase()) ?? stateForPin(abbrOrCity.toLowerCase(), STATES);
-  if (!s) throw new Error(`unknown state or city ${abbrOrCity}`);
-  await open(s);
-  return step(seconds);
-}
-
 // Handy for testing from the console.
-Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, town, bank, recorder, phone, fastForward, narrator, saver, mail, tour: (id: "stocks" | "taxes") => guide.replay(id), review: () => review.unlock(), slots: () => openSlots({ current: slot, start: clock.start }) } });
+Object.assign(window, { larp: { app, clock, step, scene: () => scene, states: STATES, player, town, bank, recorder, phone, fastForward, narrator, saver, mail, tour: (id: "stocks" | "taxes") => guide.replay(id), review: () => review.unlock(), slots: () => openSlots({ current: slot, start: clock.start }) } });

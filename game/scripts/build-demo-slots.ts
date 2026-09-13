@@ -109,7 +109,10 @@ mkdirSync(OUT, { recursive: true });
       life.monthlyTakeHome = Math.round(life.monthlyTakeHome * step[2]);
       if (life.employed) life.book.monthlyTakeHome = life.monthlyTakeHome;
     }
+    // The house goal: a small house with 10% down, the first year the bank says yes.
+    if (year >= 8 && life.homeTier() < 2) life.chooseHome(2, day, { downPct: 0.1 });
   }
+  if (life.homeTier() < 2) throw new Error("almost-retired never bought its house; retune its saving");
   // The judges' end screen: Retire must be on the moment the demo loads (ui/endgame.ts, retirementReady).
   if (retirementReadiness(life) < 85) throw new Error(`almost-retired can't retire on load (readiness ${retirementReadiness(life)}); retune its saving`);
   write("almost-retired", life, day, market);

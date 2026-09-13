@@ -187,3 +187,20 @@
   .endgame-headline { font-size: 28px; }
   .endgame-final b { font-size: 28px; }
 }
+.endgame-review {
+  margin: 0 0 12px;
+  color: #4f6876;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Retire in the Goals app glows once it's on, so a judge on the retirement demo finds it. */
+.goals-retire-open:not(:disabled) {
+  animation: endgame-retire-glow 1.6s ease-in-out infinite;
+}
+@keyframes endgame-retire-glow {
+  50% { filter: brightness(1.12); box-shadow: inset 3px 3px #d6f4ff, inset -3px -3px #0c5f8f, 0 3px #11283a, 0 0 0 4px rgba(255, 219, 57, 0.85); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .goals-retire-open:not(:disabled) { animation: none; }
+}

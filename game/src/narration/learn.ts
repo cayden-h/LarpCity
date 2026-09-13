@@ -21,13 +21,13 @@ export const LEARN: readonly LearnStep[] = [
   { anim: "step", mood: "plain", line: "Time moves a day at a time. Speed it up, or skip straight to the next thing that needs you." },
   { anim: "magic", mood: "sly", line: "Skips stop for the big stuff. A market crash, a car breakdown, a trip to the hospital, a divorce. I'll explain what happened. Calmly." },
   { anim: "tip-hat", mood: "sly", line: "I'll pop in with tips when you reach a goal, go broke, or your stocks swing. [whispers] Mostly: diversify." },
-  { anim: "cheer", mood: "warm", line: "Your goals are set: retire by sixty-five, get married, be debt-free by forty-five, and buy a house. Now, who's moving in?" },
+  { anim: "cheer", mood: "warm", line: "First, pick a save slot. Then we'll set your goals together. They're permanent, so choose like a grown-up." },
 ];
 
 export const learnLines = (): string[] => LEARN.map((s) => s.line);
 
 /**
- * The first and last lines, rewritten for the default life, aren't in the narration pack yet:
+ * The first and last lines, rewritten for the default life and the save slots, aren't in the narration pack yet:
  * ElevenLabs is out of credits until 2026-10-12, so until then they read silently. Rebuild the
  * pack for just these two and empty this; tests/narration-pack.test.ts fails once one has a clip.
  */

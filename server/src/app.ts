@@ -6,7 +6,7 @@ import express, { type Express } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import { env } from "./env.js";
-import { generalLimiter, strictLimiter } from "./middleware/rateLimit.js";
+import { bankLimiter, generalLimiter, strictLimiter } from "./middleware/rateLimit.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { healthRouter } from "./routes/health.js";
 import { personaRouter, personaWebhookRouter } from "./routes/persona.js";
@@ -39,8 +39,8 @@ export function createApp(): Express {
   app.use(generalLimiter);
 
   app.use("/api/persona", strictLimiter, personaRouter);
-  app.use("/api/bank", nessieRouter);
-  app.use("/api/bank-bg", backgroundBankRouter);
+  app.use("/api/bank", bankLimiter, nessieRouter);
+  app.use("/api/bank-bg", bankLimiter, backgroundBankRouter);
   app.use("/api/voice", strictLimiter, voiceRouter);
   app.use("/api", aiRouter);
   app.use("/api/coach", coachRouter);

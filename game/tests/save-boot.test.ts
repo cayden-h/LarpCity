@@ -42,6 +42,17 @@ test("fetchMe retries network failures and 5xx, then succeeds", async () => {
   assert.equal(calls, 3);
 });
 
+test("fetchMe retries a rate limit (429) instead of booting offline", async () => {
+  let calls = 0;
+  const r = await fetchMe(async () => {
+    calls++;
+    if (calls === 1) throw new ApiError(429, "slow down");
+    return me;
+  }, { tries: 3, delayMs: 0, sleep: noSleep });
+  assert.deepEqual(r, { ok: true, me });
+  assert.equal(calls, 2);
+});
+
 test("fetchMe gives up after its tries", async () => {
   let calls = 0;
   const r = await fetchMe(async () => {

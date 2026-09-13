@@ -63,7 +63,7 @@ export const DEMOS: readonly DemoLife[] = [
   {
     id: "almost-retired",
     title: "Ready to retire",
-    pitch: "62, after forty years of steady saving. Open Goals and press Retire to see the final score, then look back on the whole life.",
+    pitch: "61, after forty years of steady saving. Open Goals and press Retire to see the final score, then look back on the whole life.",
   },
 ];
 

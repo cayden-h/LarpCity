@@ -116,6 +116,26 @@ export function randomizeStarter(place: Place, rng: () => number = Math.random):
   return { salary, debt, creditScore: CREDIT_SCORE_START };
 }
 
+/** New-grad jobs a generated life starts in. */
+export const STARTER_JOBS = ["Junior analyst", "Barista", "Line cook", "Retail associate", "Junior designer", "Lab assistant", "Teaching aide", "Support rep"] as const;
+/** What a new life has in high-yield savings on day one (the old sample household's checking and savings together). */
+export const DEFAULT_SAVINGS = 3_700;
+
+/** The money a new life starts with, generated rather than asked (meeting 2026-09-13). */
+export interface Starter {
+  job: string;
+  salary: number;
+  debt: number;
+  savings: number;
+  creditScore: number;
+}
+
+/** A new life's job, salary, debt, and savings, drawn from `rng` (seed it from the run, so it replays). */
+export function starterFor(place: Place, rng: () => number): Starter {
+  const { salary, debt, creditScore } = randomizeStarter(place, rng);
+  return { job: STARTER_JOBS[Math.floor(rng() * STARTER_JOBS.length)], salary, debt, savings: DEFAULT_SAVINGS, creditScore };
+}
+
 const NUMBER_KEYS = ["salary", "rent", "debt", "savings"] as const;
 
 /**
@@ -225,15 +245,13 @@ function carLoanDebt(o: { monthly: number; months: number }, day: number): Debt 
   });
 }
 
-/** The onboarding answers, minus the numbers a fresh (not-yet-stated) intake doesn't have yet. */
-export type IntakeAnswersInput = Omit<IntakeAnswers, "salary" | "debt"> & Partial<Pick<IntakeAnswers, "salary" | "debt">>;
-
-/** What a new life has in high-yield savings on day one (the old sample household's checking and savings together). */
-export const DEFAULT_SAVINGS = 3_700;
+/** The onboarding answers, minus the numbers a fresh (not-yet-stated) intake doesn't have yet; no rent means the state's median. */
+export type IntakeAnswersInput = Omit<IntakeAnswers, "salary" | "debt" | "rent"> & Partial<Pick<IntakeAnswers, "salary" | "debt" | "rent">>;
 
 /**
- * Every new life: only who moves in is chosen. The salary and debt are left for
- * `randomizeStarter`, the rent is the state's median, and the goals are the defaults.
+ * Every new life's base: the salary and debt are left for `randomizeStarter`
+ * (or `starterFor`), the rent is the state's median, and the goals are the
+ * defaults until Sammy's setup (ui/intake.ts) replaces them.
  */
 export function defaultAnswers(place: Place, avatar: "male" | "female"): IntakeAnswersInput {
   return { job: "", name: "You", avatar, rent: medianRent(place), savings: DEFAULT_SAVINGS, goals: DEFAULT_GOALS };
@@ -295,16 +313,4 @@ export function lifeFromIntake(a: IntakeAnswersInput, o: { place: Place; day: nu
 export function profileFromIntake(a: IntakeAnswers | null, source: ProfileSource, state: string): Omit<Profile, "displayName"> {
   if (!a) return { job: null, salary: null, rent: null, debt: null, savings: null, state, source: "skipped" };
   return { job: a.job, salary: a.salary, rent: a.rent, debt: a.debt, savings: a.savings, state, source };
-}
-
-/**
- * The intake answers a stored profile holds, or null for a skipped intake (the sample household).
- * A profile never stores goals/name/avatar (local save state only, sim/skip's Goal union), so a
- * resumed profile gets `DEFAULT_GOALS` and the same name/avatar defaults a skipped intake gets —
- * not routed through `completeAnswers`, which would reject it for lacking a "chosen" goal set.
- */
-export function answersFromProfile(p: Profile): IntakeAnswers | null {
-  if (p.source === "skipped") return null;
-  if (p.salary === null || p.rent === null || p.debt === null || p.savings === null) return null;
-  return { job: p.job ?? "", salary: p.salary, rent: p.rent, debt: p.debt, savings: p.savings, name: "You", avatar: "male", goals: DEFAULT_GOALS };
 }

@@ -39,6 +39,7 @@ export interface EndgameScore {
   netWorth: number;
   retirementSavings: number;
   creditScore: number;
+  debt: number;
 }
 
 export function buildEndgameScore(life: WellbeingLife & RetirementLife, retiredAge: number, today: number): EndgameScore {
@@ -52,6 +53,7 @@ export function buildEndgameScore(life: WellbeingLife & RetirementLife, retiredA
     netWorth: Math.round(life.netWorth()),
     retirementSavings: Math.round(life.retirementSavings()),
     creditScore: Math.round(life.book.profile.score),
+    debt: Math.round(life.totalDebt()),
   };
 }
 
@@ -111,13 +113,14 @@ export function mountEndgame(host: HTMLElement, deps: EndgameDeps): void {
       <div class="endgame-final"><span>Final score</span><b>${score.final}</b><small>/ 100</small></div>
       <dl class="endgame-scores">
         ${stat("Money readiness", `${score.RR}`)}
-        ${stat("Happiness", `${score.Wlife}`)}
+        ${stat("Lifetime happiness", `${score.Wlife}`)}
         ${stat("Net worth", money(score.netWorth))}
         ${stat("Retirement savings", money(score.retirementSavings))}
         ${stat("Credit score", `${score.creditScore}`)}
-        ${stat("Retired at", `${score.retiredAge}`)}
+        ${stat("Debt", money(score.debt))}
       </dl>
       ${goals.length ? `<ul class="endgame-goals" aria-label="Goals">${goals.map((g) => `<li class="${g.met ? "met" : ""}">${esc(g.title)}${g.met ? "" : " (not reached)"}</li>`).join("")}</ul>` : ""}
+      <p class="endgame-review">Your review is open: in the Calendar, tap any past day to go back and try a different choice.</p>
       <div class="endgame-actions">
         <button class="endgame-btn primary" data-look-back>Look back at your life</button>
         ${replay ? `<button class="endgame-btn" data-replay>Play "${esc(replay.title)}" again</button>` : ""}

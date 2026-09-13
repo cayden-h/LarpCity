@@ -2,8 +2,9 @@
 // penny-stock tips, and recession layoffs. Every roll is keyed by (seed, kind,
 // day) through engine/rng.ts, the same way the yearly marriage roll is, so a
 // run's events replay exactly on resume and rewind, and nothing the player does
-// moves another event's day. The rates are gameplay placeholders, tuned so a
-// demo sees something every year or two; the money rules below them are real
+// moves another event's day. The rates are gameplay placeholders, halved on
+// 2026-09-13 because events came too often (about 13 in a 40-year life, down
+// from 26: a pause every three years or so); the money rules below them are real
 // (deductibles and coinsurance, a 72-month car loan, community property).
 //
 // This file is pure: PlayerLife owns the state and applies the consequences.
@@ -52,16 +53,16 @@ export function choiceLabel(kind: ChoiceKind, option: string, amount: number): s
 export const CHOICE_DAYS = 7;
 
 export const EVENT_RATES = {
-  injuryPerYear: 0.1,
+  injuryPerYear: 0.05,
   /** Share of injuries that are car crashes, for a player with a car. */
   carCrashShare: 0.4,
-  divorcePerYear: 0.03,
-  carBreakdownBasePerYear: 0.1,
+  divorcePerYear: 0.015,
+  carBreakdownBasePerYear: 0.05,
   /** Each year of the car's age adds this much yearly chance. */
-  carBreakdownPerCarYear: 0.06,
-  pennyTipPerYear: 0.2,
+  carBreakdownPerCarYear: 0.03,
+  pennyTipPerYear: 0.1,
   /** Monthly chance of a layoff while the economy is in recession. */
-  recessionLayoffPerMonth: 0.04,
+  recessionLayoffPerMonth: 0.02,
 } as const;
 
 /** A bear market this many calendar days long is a recession. */

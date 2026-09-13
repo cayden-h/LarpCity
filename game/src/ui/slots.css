@@ -61,12 +61,23 @@
   background: #fff;
 }
 .slot > div { min-width: 0; }
+.slot .slot-btns { display: flex; flex: none; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-left: auto; }
+/* Right after the title screen: the whole screen, over the blurred city. */
+.slots-boot {
+  background: #24497f var(--backdrop, none) center / cover no-repeat;
+}
+.slots-boot::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 16, 34, 0.52);
+  backdrop-filter: blur(6px);
+}
 .slot b,
 .demo b { display: block; font-size: 16px; }
 .slot span,
 .demo span { display: block; color: #4a5c66; font-size: 13px; line-height: 1.3; }
 .slot.here { background: #e3f1fb; }
-.slot .slots-btn { margin-left: auto; }
 .demo { flex-direction: column; align-items: stretch; gap: 4px; }
 .demo-slots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .slots-btn {

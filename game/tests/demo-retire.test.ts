@@ -9,6 +9,7 @@ import { STATES } from "../src/data/states.ts";
 import { MarketPath } from "../src/sim/market/index.ts";
 import { parseSave, restoreGame } from "../src/sim/save/codec.ts";
 import { DEMOS } from "../src/sim/save/slot.ts";
+import { isMet, viewOf } from "../src/sim/skip/goals.ts";
 import { buildEndgameScore } from "../src/ui/endgame.ts";
 import { retirementReadiness } from "../src/sim/wellbeing/retirement.ts";
 
@@ -30,6 +31,13 @@ test("the retirement demo can retire on load, and retiring passes", () => {
   const score = buildEndgameScore(life, Math.floor(life.age), save.day);
   assert.equal(score.passed, true);
   assert.ok(score.retiredAge < 65);
+});
+
+test("the retirement demo owns its house, so the house goal reads as met", () => {
+  const { life } = load("almost-retired");
+  const house = life.goals.find((g) => g.kind === "house")!;
+  assert.ok(life.homeTier() >= 2);
+  assert.equal(isMet(house, viewOf(life), life.age), true);
 });
 
 test("loading the retirement demo twice gives the same end screen", () => {

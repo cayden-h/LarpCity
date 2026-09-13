@@ -165,7 +165,8 @@ test("with a signed prenup, divorce keeps the money", () => {
 
 test("an injury bills what insurance leaves, and a crash raises car insurance", () => {
   const life = new PlayerLife({ place: TX, day: 0, carInsuranceMonthly: 200 });
-  const hit = runUntil(life, (e) => e.type === "injury", 365 * 30);
+  // Injuries are rare (about one in 20 years), so look far enough ahead to find this seed's first.
+  const hit = runUntil(life, (e) => e.type === "injury", 365 * 60);
   assert.ok(hit);
   const inj = hit.event as Extract<LifeEvent, { type: "injury" }>;
   const deductible = INSURANCE_PLANS.find((p) => p.id === life.insurancePlanId)?.deductible;

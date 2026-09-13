@@ -19,7 +19,7 @@ export class Hud {
     this.el = root;
     root.innerHTML = `
       <section class="card home">
-        <div class="label">${pixelIcon("home")} Your home <span class="hud-who" data-who></span></div>
+        <div class="label">${pixelIcon("home")} Your home</div>
         <div class="home-row">
           <button type="button" class="home-name home-choose" data-home aria-haspopup="dialog" title="Choose a home"></button>
           <button class="round find" data-home-focus type="button" title="Find my home" aria-label="Find my home">${pixelIcon("pin")}</button>
@@ -33,6 +33,7 @@ export class Hud {
           <div class="id-card-info">
             <div class="id-card-name" data-player-name></div>
             <div class="id-card-age" data-player-age></div>
+            <div class="id-card-job" data-who></div>
           </div>
         </div>
       </section>`;
@@ -48,9 +49,9 @@ export class Hud {
     this.q("[data-home]").textContent = homeTier === null ? "No home lot" : HOME_TIERS[homeTier];
   }
 
-  /** The player's job from the intake (their name, once accounts exist). */
+  /** The player's job, on the ID card under their age. */
   setWho(text: string): void {
-    this.q("[data-who]").textContent = text ? `· ${text}` : "";
+    this.q("[data-who]").textContent = text;
   }
 
   /** Fills the ID card; name/avatar are fixed at intake, but age advances daily, so this is called again from `clock.onDay`. */

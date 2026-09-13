@@ -42,8 +42,10 @@ export type Goal =
   | { kind: "debt_free" }
   | { kind: "emergency_fund"; months: number }
   | { kind: "net_worth"; amount: number }
-  | { kind: "house"; downPct: number }
-  | { kind: "marriage" }
+  /** `targetAge`: the age the player hopes to own a home by, set with Sammy at onboarding. */
+  | { kind: "house"; downPct: number; targetAge?: number }
+  /** `targetAge`: the age the player hopes to marry by; none means marriage isn't a priority. */
+  | { kind: "marriage"; targetAge?: number }
   | { kind: "status"; annualIncome: number }
   | { kind: "retirement_age"; targetAge: number }
   | { kind: "debt_free_by_age"; targetAge: number };
