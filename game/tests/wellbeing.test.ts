@@ -15,7 +15,7 @@ test("pulse decay and cushion softening use the adopted formulas", () => {
   assert.equal(cushionSoftening(0), 1.3);
   assert.equal(cushionSoftening(0.5), 1.05);
   assert.equal(cushionSoftening(1), 0.8);
-  assert.deepEqual(Object.keys(PULSE_TABLE), ["marriage", "firstChild", "divorce", "layoff", "bankruptcy", "retiredOnTrack", "forcedRetirement", "vacation", "familyTime"]);
+  assert.deepEqual(Object.keys(PULSE_TABLE), ["marriage", "firstChild", "divorce", "layoff", "bankruptcy", "retiredOnTrack", "forcedRetirement", "vacation", "familyTime", "injury", "carBreakdown", "recession"]);
   assert.deepEqual(PULSE_TABLE.bankruptcy, { p0: -6, halfLifeDays: 730, startDay: 0 });
 });
 

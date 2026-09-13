@@ -20,6 +20,7 @@ import {
   type EventView,
 } from "../src/sim/life/events.ts";
 import { bottomLine, isCorrect, tutorialOptions } from "../src/sim/tax/tutorial.ts";
+import { INSURANCE_PLANS } from "../src/sim/life/intake.ts";
 
 const TX: Place = { abbr: "TX", name: "Texas", rpp: { all: 97.4, goods: 97.0, housing: 88.6 } };
 const START = new Date(2026, 8, 11);
@@ -167,7 +168,8 @@ test("an injury bills what insurance leaves, and a crash raises car insurance", 
   const hit = runUntil(life, (e) => e.type === "injury", 365 * 30);
   assert.ok(hit);
   const inj = hit.event as Extract<LifeEvent, { type: "injury" }>;
-  assert.equal(inj.outOfPocket, outOfPocket(inj.bill, inj.insured));
+  const deductible = INSURANCE_PLANS.find((p) => p.id === life.insurancePlanId)?.deductible;
+  assert.equal(inj.outOfPocket, outOfPocket(inj.bill, inj.insured, deductible));
   assert.ok(life.needsDecision([inj]));
   assert.equal(life.carInsurance(hit.day), inj.cause === "car_crash" ? 250 : 200);
   life.choose("injury", "payment_plan", hit.day);

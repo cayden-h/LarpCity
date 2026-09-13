@@ -13,6 +13,11 @@ export const PULSE_TABLE = {
   forcedRetirement: { p0: -6, halfLifeDays: 730, startDay: 0 },
   vacation: { p0: 3, halfLifeDays: 14, startDay: 0 },
   familyTime: { p0: 2, halfLifeDays: 21, startDay: 0 },
+  // Life events (sim/life/events.ts): placeholders in research/09's range. An injury hurts like a small
+  // layoff, a breakdown is a bad week, and a recession weighs on everyone for months.
+  injury: { p0: -3, halfLifeDays: 180, startDay: 0 },
+  carBreakdown: { p0: -1, halfLifeDays: 90, startDay: 0 },
+  recession: { p0: -2, halfLifeDays: 180, startDay: 0 },
 } as const satisfies Record<string, Pulse>;
 
 export function decay(pulse: Pulse, today: number): number {

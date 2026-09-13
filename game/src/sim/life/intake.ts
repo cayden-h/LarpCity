@@ -22,23 +22,8 @@ import { applyOrders, currentOrders } from "../skip/orders.ts";
 import type { Profile, ProfileSource } from "../save/client.ts";
 import { BEGINNER_CARD_SLUGS } from "../../data/cards-beginner.ts";
 
-/** A health-insurance tier offered at onboarding; frontend-only for now, stored inert until P3 wires injury/hospital events to it. */
-export interface InsurancePlan {
-  id: string;
-  name: string;
-  monthlyPremium: number;
-  deductible: number;
-}
-
-/** Three static tiers, in the game's dollar scale (rent runs roughly $1,000-2,000/mo). */
-export const INSURANCE_PLANS: InsurancePlan[] = [
-  { id: "bronze", name: "Bronze", monthlyPremium: 180, deductible: 5_000 },
-  { id: "silver", name: "Silver", monthlyPremium: 280, deductible: 2_000 },
-  { id: "gold", name: "Gold", monthlyPremium: 420, deductible: 500 },
-];
-
-/** The tier a skipped or unset intake defaults to. */
-export const DEFAULT_INSURANCE_PLAN_ID = INSURANCE_PLANS[1].id;
+import { DEFAULT_INSURANCE_PLAN_ID, INSURANCE_PLANS, type InsurancePlan } from "./insurance.ts";
+export { DEFAULT_INSURANCE_PLAN_ID, INSURANCE_PLANS, type InsurancePlan };
 
 /** The four goal categories the onboarding goal screen fills in, one goal each, permanently. */
 export const REQUIRED_GOAL_KINDS = ["retirement_age", "marriage", "debt_free_by_age", "house"] as const;

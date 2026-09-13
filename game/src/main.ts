@@ -217,7 +217,8 @@ const recorder = new RunRecorder({ life: player, seed, base: api, runId: saved ?
 // game's first checkpoint is the day it was loaded on, so the Calendar goes back no further than that.
 const timeline = new LifeTimeline(player, { start: clock.start });
 // Going back opens only in the end-of-game review (sim/rewind/gate.ts).
-// P2 placeholder: P2's endgame (ui/endgame.ts) unlocks it when the player retires; until then, larp.review() does.
+// P2's endgame (ui/endgame.ts) has no Retire button mounted yet; whatever mounts it should call review.unlock()
+// when the player retires. Until then, larp.review() in the console opens it.
 const review = new ReviewGate();
 
 // The phone's Mail inbox (sim/mail) and what the Money desk last reported; both ride in the save.

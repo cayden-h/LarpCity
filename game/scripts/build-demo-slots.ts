@@ -6,16 +6,14 @@
 //
 //   npm run demo:slots
 //
-// P1 placeholder: the starting life copies P1's onboarding defaults by hand (22,
-// San Francisco pay near its $60k ceiling, $30k of student loans, a 600 score,
-// the $500 car loan and $200 car insurance). Once P1's lifeFromIntake lands,
-// build it from there instead.
+// The starting life is P1's onboarding (lifeFromIntake): 22, San Francisco pay at
+// its $60k ceiling, $30k of starting debt, a 600 score, the $500 car loan and $200
+// car insurance, and the four permanent goals (DEFAULT_GOALS).
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { STATES } from "../src/data/states.ts";
-import { installment, newBook, studentLoan } from "../src/sim/debt/factory.ts";
-import { principalFor } from "../src/sim/life/events.ts";
-import { PlayerLife, STARTER_PORTFOLIO, TAKE_HOME_SHARE, type LifeEvent } from "../src/sim/life/player.ts";
+import { DEFAULT_GOALS, lifeFromIntake } from "../src/sim/life/intake.ts";
+import { PlayerLife, STARTER_PORTFOLIO, type LifeEvent } from "../src/sim/life/player.ts";
 import { Inbox } from "../src/sim/mail/inbox.ts";
 import { MarketPath, type InstrumentId } from "../src/sim/market/index.ts";
 import { NpcTown } from "../src/sim/npcs/index.ts";
@@ -40,36 +38,11 @@ const CAREER: [year: number, job: string, raise: number][] = [
 ];
 
 function starter(market: MarketPath, holdings: Partial<Record<InstrumentId, number>> = STARTER_PORTFOLIO): PlayerLife {
-  const monthlyTakeHome = Math.round((GROSS * TAKE_HOME_SHARE) / 12);
-  const carBalance = principalFor(500, 72, 0.07);
-  const book = newBook({
-    debts: [
-      studentLoan({ id: "student", name: "Federal student loans", balance: 30_000, apr: 0.0639, plan: "standard", agi: GROSS, day: 0, openedDay: -120 }),
-      installment({ id: "car", kind: "auto", name: "Car loan", balance: carBalance, apr: 0.07, months: 72, payment: 500, day: 0, openedDay: 0 }),
-    ],
-    agi: GROSS,
-    monthlyTakeHome,
-    day: 0,
-    historyYears: 4,
-    strategy: "avalanche",
-  });
-  book.profile.score = 600;
-  return new PlayerLife({
-    place: CA,
-    day: 0,
-    market,
-    age: 22,
-    grossAnnual: GROSS,
-    monthlyTakeHome,
-    job: CAREER[0][1],
+  return lifeFromIntake(
     // With roommates: San Francisco's median rent is out of reach at 22.
-    rent: 1_400,
-    book,
-    holdings,
-    carLoan: { monthly: 500, months: 72 },
-    carInsuranceMonthly: 200,
-    insurancePlanId: "silver",
-  });
+    { job: CAREER[0][1], salary: GROSS, debt: 30_000, rent: 1_400, savings: 2_500, name: "Alex", avatar: "female", insurancePlanId: "silver", goals: DEFAULT_GOALS },
+    { place: CA, day: 0, market, holdings },
+  );
 }
 
 /** Plays `days` from `from`, failing the build if the life goes bankrupt on the way. */

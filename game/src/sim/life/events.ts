@@ -133,11 +133,11 @@ export function injuryBill(seed: number, day: number, hasCar: boolean): { cause:
   return { cause, bill };
 }
 
-/** The player's share of a bill: with insurance the deductible and 20% after it, capped; without, all of it. */
-export function outOfPocket(bill: number, insured: boolean): number {
+/** The player's share of a bill: with insurance the plan's deductible and 20% after it, capped; without, all of it. */
+export function outOfPocket(bill: number, insured: boolean, deductible = HEALTH_DEDUCTIBLE): number {
   if (!insured) return round2(bill);
-  const afterDeductible = Math.max(0, bill - HEALTH_DEDUCTIBLE);
-  return round2(Math.min(HEALTH_OOP_MAX, Math.min(bill, HEALTH_DEDUCTIBLE) + HEALTH_COINSURANCE * afterDeductible));
+  const afterDeductible = Math.max(0, bill - deductible);
+  return round2(Math.min(HEALTH_OOP_MAX, Math.min(bill, deductible) + HEALTH_COINSURANCE * afterDeductible));
 }
 
 const TICKERS = ["QBIT", "MOONR", "HYPR", "ZAPP", "FLUX", "GLOW"] as const;
@@ -171,14 +171,3 @@ export function paymentFor(balance: number, months: number, apr: number): number
   const r = apr / 12;
   return round2(r === 0 ? balance / months : (balance * r) / (1 - (1 + r) ** -months));
 }
-
-/**
- * Happiness pulses for the new events, in the shape of sim/wellbeing's
- * PULSE_TABLE (divorce is already there). Placeholders in research/09's range:
- * an injury hurts like a small layoff, a breakdown is a bad week.
- */
-export const EVENT_PULSES = {
-  injury: { p0: -3, halfLifeDays: 180 },
-  car_breakdown: { p0: -1, halfLifeDays: 90 },
-  recession: { p0: -2, halfLifeDays: 180 },
-} as const;
