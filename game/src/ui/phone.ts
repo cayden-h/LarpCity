@@ -26,6 +26,7 @@ import type { DeskState } from "../sim/save/types";
 import { isMet, priceTag, viewOf } from "../sim/skip/goals";
 import type { Goal, GoalView } from "../sim/skip/types";
 import { goOnVacation } from "./vacation";
+import { buildEndgameScore, mountEndgame, retirementReady } from "./endgame.ts";
 
 interface AppDef {
   id: "stocks" | "goals" | "taxes" | "map" | "calendar" | "news" | "mail" | "bank";
@@ -329,6 +330,7 @@ export class Phone {
             <ul class="app-scroll goals-list" data-goals-list></ul>
             <button class="goals-ff-open" data-open-ff>Fast-forward to a goal <span aria-hidden="true">↗</span></button>
             <button class="goals-vacation-open" data-vacation>Go on vacation <span aria-hidden="true">✈️</span></button>
+            <button class="goals-retire-open" data-retire disabled>Retire <span aria-hidden="true">🏖️</span></button>
           </section>
 
           <section class="view view-app view-news" data-view="news" hidden>
@@ -410,6 +412,7 @@ export class Phone {
     if (btn.dataset.newsRetry !== undefined) return void this.news.load();
     if (btn.dataset.openFf !== undefined) return this.deps.openFastForward?.();
     if (btn.dataset.vacation !== undefined) return goOnVacation(this.deps.player, this.deps.clock.day);
+    if (btn.dataset.retire !== undefined) return this.onRetire();
     const id = btn.dataset.app as AppDef["id"] | undefined;
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;
@@ -430,6 +433,16 @@ export class Phone {
     list.innerHTML = life.goals.length
       ? life.goals.map((g) => this.goalItem(g, view)).join("")
       : `<li class="app-empty">No goals set yet.</li>`;
+    // Retirement readiness changes over the run, so re-check on every open rather than once.
+    this.q<HTMLButtonElement>("[data-retire]").disabled = !retirementReady(life);
+  }
+
+  /** Retiring is a one-way action: pause the clock (like the Money desk) and show the final score. */
+  private onRetire(): void {
+    this.resumeSpeed = this.deps.clock.speed || this.resumeSpeed;
+    this.deps.clock.speed = 0;
+    const score = buildEndgameScore(this.deps.player, this.deps.player.age, this.deps.player.today);
+    mountEndgame(document.body, { score });
   }
 
   private goalItem(goal: Goal, view: GoalView): string {
