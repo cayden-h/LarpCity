@@ -402,3 +402,16 @@ test("visibilitychange's flush and pagehide's keepalive don't both fire for the 
   m.flushOnUnload(); // nothing changed since that save landed
   assert.equal(keepalive.length, 0);
 });
+
+test("a stopped manager sends nothing, even on unload", async () => {
+  const t = fakeTimers();
+  const { api, puts, keepalive } = fakeApi();
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: null, timers: t.timers });
+  m.request();
+  m.stop();
+  assert.equal(t.pending.size, 0);
+  m.request();
+  await m.flush();
+  m.flushOnUnload();
+  assert.equal(puts.length + keepalive.length, 0);
+});

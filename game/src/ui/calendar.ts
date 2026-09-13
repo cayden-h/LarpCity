@@ -24,10 +24,14 @@ export interface CalendarDeps {
   skipTo: (day: number) => void;
   /** The year view's back arrow: the phone's home screen. */
   onHome: () => void;
+  /** Erases this life and starts over with the intake (the year view's "Start a new life"); rejects when the server can't be reached. */
+  newLife?: () => Promise<void>;
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DAY_MS = 86_400_000;
+/** How long "Start a new life" stays armed for the second tap. */
+const NEW_LIFE_ARM_MS = 4000;
 /** Chips a month cell has room for; more collapse into "+n". */
 const MAX_CHIPS = 2;
 const SPEEDS: { speed: number; label: string; name: string }[] = [
@@ -65,6 +69,9 @@ export class CalendarApp {
   private lastIndexed: LifeEvent | undefined;
   private forecast = { key: "", day: null as number | null };
   private toastTimer = 0;
+  /** "Start a new life" asks twice: the first tap arms it, the second erases. */
+  private erase: "idle" | "armed" | "erasing" = "idle";
+  private eraseTimer = 0;
 
   constructor(root: HTMLElement, deps: CalendarDeps) {
     this.root = root;
@@ -106,6 +113,14 @@ export class CalendarApp {
     this.render();
     const d = this.dateOf(day);
     this.toast(`Back to ${weekday(d)}, ${short(d)}. Press play when you're ready.`);
+  }
+
+  /** The Money desk's "Start over": the year view with "Start a new life" already armed, so one more tap erases. */
+  armNewLife(): void {
+    this.mode = "year";
+    this.year = this.deps.clock.date.getFullYear();
+    this.selected = null;
+    this.arm();
   }
 
   // ---- Data ------------------------------------------------------------------
@@ -188,7 +203,7 @@ export class CalendarApp {
 
   private stateKey(): string {
     const { clock, life } = this.deps;
-    return `${clock.day}:${life.log.length}:${clock.speed}:${this.mode}:${this.year}:${this.month}:${this.selected}`;
+    return `${clock.day}:${life.log.length}:${clock.speed}:${this.mode}:${this.year}:${this.month}:${this.selected}:${this.erase}`;
   }
 
   // ---- Drawing ---------------------------------------------------------------
@@ -331,7 +346,13 @@ export class CalendarApp {
         <div><div class="st-title">Calendar</div><div class="st-sub">Tap a month</div></div>
       </header>
       <div class="cal-years">${years}</div>
-      <div class="cal-year">${minis}</div>`;
+      <div class="cal-year">${minis}</div>
+      ${this.deps.newLife ? this.newLifeHtml() : ""}`;
+  }
+
+  private newLifeHtml(): string {
+    const label = { idle: "Start a new life", armed: "Tap again to erase this life", erasing: "Erasing…" }[this.erase];
+    return `<button class="cal-new-life${this.erase === "idle" ? "" : " armed"}" data-cal-new-life ${this.erase === "erasing" ? "disabled" : ""}>${label}</button>`;
   }
 
   // ---- Input -----------------------------------------------------------------
@@ -383,10 +404,34 @@ export class CalendarApp {
       this.mode = "month";
       return this.render();
     }
+    if (data.calNewLife !== undefined) return this.onNewLife();
     if (data.calSpeed !== undefined) {
       this.deps.clock.speed = Number(data.calSpeed);
       return this.render();
     }
+  }
+
+  private arm(): void {
+    this.erase = "armed";
+    clearTimeout(this.eraseTimer);
+    this.eraseTimer = window.setTimeout(() => {
+      this.erase = "idle";
+      this.render();
+    }, NEW_LIFE_ARM_MS);
+    this.render();
+  }
+
+  private onNewLife(): void {
+    if (this.erase === "erasing" || !this.deps.newLife) return;
+    if (this.erase === "idle") return this.arm();
+    clearTimeout(this.eraseTimer);
+    this.erase = "erasing";
+    this.render();
+    this.deps.newLife().catch(() => {
+      this.erase = "idle";
+      this.render();
+      this.toast("Can't reach the server. This life is still here.");
+    });
   }
 
   private toast(text: string): void {

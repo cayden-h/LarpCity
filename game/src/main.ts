@@ -9,7 +9,7 @@ import type { StateInfo } from "./engine/types";
 import { cueForEvents, welcomeBackLine } from "./narration/lines";
 import { PlayerLife, STARTER_PORTFOLIO } from "./sim/life";
 import { answersFromProfile, lifeFromIntake, profileFromIntake } from "./sim/life/intake";
-import { Inbox } from "./sim/mail/inbox";
+import { Inbox, type DebtLookup } from "./sim/mail/inbox";
 import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
 import { NpcTown } from "./sim/npcs";
@@ -341,6 +341,28 @@ const phone = new Phone({
     saver.request();
   },
   deskState: () => desk,
+  mail,
+  newLife: async () => {
+    // Played without saving there is no save to erase: the reload asks the server again, so the
+    // player's real save comes back if the server does, or they get a fresh unsaved life.
+    if (saving) await saves.deleteSave();
+    // The erased life must not be saved again on the way out.
+    saver.stop();
+    // With the save and the profile gone, the reload starts the intake.
+    history.replaceState(null, "", location.pathname);
+    location.reload();
+  },
+});
+
+// Letters for the Mail app (sim/mail). A rewind replays its days inside player.quietly(), which
+// mutes this listener, so replayed days file no second letters; Inbox.rewind(day) already kept the
+// letters through that day (rewindTo above).
+const debtLookup: DebtLookup = (id) => {
+  const d = player.book.debts.find((x) => x.id === id);
+  return d ? { name: d.name, kind: d.kind } : { name: "Loan" };
+};
+player.onEvents((events) => {
+  if (mail.add(events, debtLookup).length) phone.renderMail();
 });
 
 app.renderer.on("resize", (w: number, h: number) => scene?.resize(w, h));

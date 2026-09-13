@@ -54,6 +54,8 @@ export class SaveManager {
   private failures = 0;
   private inflight: Promise<void> | null = null;
   private again = false;
+  /** Set by stop(): this life was erased, so nothing may write it back. */
+  private stopped = false;
   /** True from a write() call after a change (request()) until a write that started at or after that change succeeds. */
   private dirty = false;
   /** Bumped by every request(); a write remembers the value at its start to tell if a newer change arrived. */
@@ -113,9 +115,17 @@ export class SaveManager {
     this.o.api.putSaveKeepalive(json);
   }
 
-  /** Once a conflict or failure has landed, or when saving is off, request()/flush() become no-ops. */
+  /** Never save again (the life was just erased for a new one): a pending write is dropped and
+   *  request(), flush(), and flushOnUnload() do nothing from here on. */
+  stop(): void {
+    this.stopped = true;
+    if (this.timer !== null) this.timers.clear(this.timer);
+    this.timer = null;
+  }
+
+  /** Once stopped, a conflict or failure has landed, or when saving is off, request()/flush()/flushOnUnload() are no-ops. */
   private done(): boolean {
-    return this.o.off === true || this.status === "conflict" || this.status === "failed";
+    return this.stopped || this.o.off === true || this.status === "conflict" || this.status === "failed";
   }
 
   private body(): SavePut | null {
@@ -151,6 +161,9 @@ export class SaveManager {
       if (mark === this.dirtyMark) this.dirty = false;
       this.setStatus("saved");
     } catch (err) {
+      // A write that was in flight when the life was erased: its answer (a 409 against the deleted
+      // save, most likely) means nothing now, and must not raise the "playing somewhere else" notice.
+      if (this.stopped) return;
       if (err instanceof ApiError && err.status === 409) {
         if (this.uncertain) {
           await this.resolveUncertain(body.runId);

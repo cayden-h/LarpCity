@@ -6,16 +6,21 @@
 // and clock through window.larpMoney. Goals opens the fast-forward setup screen
 // (ui/skip-setup.ts). Map and Weather show where the player is and the city's
 // weather and season. Calendar (ui/calendar.ts) shows the player's days, goes
-// back to a past one, skips to the next decision, and sets the clock's speed.
+// back to a past one, skips to the next decision, sets the clock's speed, and
+// (in its year view) starts a new life. Mail, News, and Bank are the life's
+// letters, the Larp City Ledger, and the Nessie bank statement (ui/phone-apps.ts).
 
 import "./phone.css";
 import { CalendarApp } from "./calendar";
+import { bankHtml, mailHtml, newsHtml, type BankStatement, type NewsView, type Story } from "./phone-apps";
 import { pixelIcon } from "./pixel-icons";
 import type { Clock } from "../engine/clock";
+import { apiFetch } from "../net/api";
 import { MARKET, type SeriesId } from "../data/market";
 import type { SceneStatus } from "../engine/scene";
 import type { CityDef, StateInfo, WeatherKind } from "../engine/types";
 import { latest, type LifeEvent, type PlayerLife } from "../sim/life";
+import type { Inbox } from "../sim/mail/inbox";
 import { INSTRUMENTS, type Instrument, type InstrumentId } from "../sim/market";
 import type { RunRecorder } from "../sim/record";
 import type { DeskState } from "../sim/save/types";
@@ -33,16 +38,16 @@ const APPS: AppDef[] = [
   { id: "map", name: "Map", icon: pixelIcon("map"), ready: true },
   { id: "weather", name: "Weather", icon: pixelIcon("weather"), ready: true },
   { id: "calendar", name: "Calendar", icon: pixelIcon("calendar"), ready: true },
-  { id: "news", name: "News", icon: pixelIcon("news"), ready: false },
-  { id: "mail", name: "Mail", icon: pixelIcon("mail"), ready: false },
-  { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: false },
+  { id: "news", name: "News", icon: pixelIcon("news"), ready: true },
+  { id: "mail", name: "Mail", icon: pixelIcon("mail"), ready: true },
+  { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: true },
 ];
 
 /** Real interest rates the game doesn't simulate: shown from the FRED snapshot and labeled as real. */
 const RATES: { id: SeriesId; ticker: string; name: string }[] = [
-  { id: "DFF", ticker: "FED", name: "Fed Funds Rate" },
-  { id: "DGS10", ticker: "10Y", name: "10-Year Treasury Yield" },
-  { id: "MORTGAGE30US", ticker: "30Y MTG", name: "30-Year Fixed Mortgage" },
+  { id: "DFF", ticker: "FED", name: "Fed funds rate" },
+  { id: "DGS10", ticker: "10Y", name: "10-year Treasury" },
+  { id: "MORTGAGE30US", ticker: "30Y MTG", name: "30-year mortgage" },
 ];
 
 interface WorldSnapshot {
@@ -141,6 +146,10 @@ export interface PhoneDeps {
   changed: (desk: DeskState) => void;
   /** What the Money desk last reported, so it comes back when the desk opens. */
   deskState: () => DeskState | null;
+  /** The Mail inbox (sim/mail). */
+  mail: Inbox;
+  /** Erases this life and starts over with the intake; rejects when the server can't be reached. */
+  newLife: () => Promise<void>;
 }
 
 /**
@@ -169,6 +178,8 @@ export interface MoneyHost {
   changed: (desk: DeskState) => void;
   /** The desk's feed and statement from the save, to restore on load. */
   deskState: () => DeskState | null;
+  /** The desk's "Start over": closes the desk and opens the Calendar's year view with "Start a new life" armed. */
+  newLife: () => void;
 }
 
 export class Phone {
@@ -184,6 +195,10 @@ export class Phone {
   private readonly showListeners: (() => void)[] = [];
   private readonly rewindListeners: ((day: number) => void)[] = [];
   private readonly calendar: CalendarApp;
+  /** The letter shown open in Mail. */
+  private openMail: string | null = null;
+  /** The Ledger by the range it covers ("from-to"), so reopening News doesn't ask the server again. */
+  private readonly newsCache = new Map<string, NewsView>();
 
   constructor(deps: PhoneDeps) {
     this.deps = deps;
@@ -210,6 +225,12 @@ export class Phone {
       onRewind: (fn) => this.rewindListeners.push(fn),
       changed: (desk) => this.deps.changed(desk),
       deskState: () => this.deps.deskState(),
+      newLife: () => {
+        this.closeDesk();
+        this.setOpen(true);
+        this.show("calendar");
+        this.calendar.armNewLife();
+      },
     };
     (window as unknown as { larpMoney?: MoneyHost }).larpMoney = host;
     this.calendar = new CalendarApp(this.q('[data-view="calendar"]'), {
@@ -219,6 +240,7 @@ export class Phone {
       rewindTo: (day) => deps.rewindTo?.(day),
       skipTo: (day) => deps.skipTo?.(day),
       onHome: () => this.show("home"),
+      newLife: () => deps.newLife(),
     });
 
     this.setOpen(readOpen(), false);
@@ -231,6 +253,7 @@ export class Phone {
     });
 
     this.renderStocks();
+    this.renderMail();
     this.renderStatus();
     setInterval(() => this.renderStatus(), 1000);
   }
@@ -261,7 +284,7 @@ export class Phone {
                 (a) => `<button class="app${a.ready ? "" : " soon"}" data-app="${a.id}" aria-label="${a.name}${a.ready ? "" : " (coming soon)"}">
                   <span class="app-icon">${a.icon}</span>
                   <span class="app-name">${a.name}</span>
-                  ${a.ready ? "" : `<span class="app-badge">Soon</span>`}
+                  ${a.ready ? `<span class="app-badge count" data-badge="${a.id}" hidden></span>` : `<span class="app-badge">Soon</span>`}
                 </button>`,
               ).join("")}
             </div>
@@ -316,6 +339,30 @@ export class Phone {
 
           <section class="view view-calendar" data-view="calendar" hidden></section>
 
+          <section class="view view-app view-mail" data-view="mail" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">Mail</div><div class="st-sub">Letters about your money</div></div>
+            </header>
+            <ul class="app-scroll mail-list" data-mail-list></ul>
+          </section>
+
+          <section class="view view-app view-news" data-view="news" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">The Ledger</div><div class="st-sub">Larp City's newspaper</div></div>
+            </header>
+            <div class="app-scroll news-body" data-news></div>
+          </section>
+
+          <section class="view view-app view-bank" data-view="bank" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">Bank</div><div class="st-sub">Capital One Nessie statement</div></div>
+            </header>
+            <div class="app-scroll bank-body" data-bank></div>
+          </section>
+
           <button class="home-bar" data-home aria-label="Go home"></button>
         </div>
       </div>
@@ -358,12 +405,17 @@ export class Phone {
     if (btn.dataset.desk !== undefined) return this.openDesk();
     if (btn.dataset.stock) return this.openDesk(btn.dataset.stock);
     if (btn.dataset.openMap !== undefined) return this.deps.openMap?.();
+    if (btn.dataset.mailId) return this.toggleMail(btn.dataset.mailId);
+    if (btn.dataset.newsRetry !== undefined) return void this.loadNews();
     const id = btn.dataset.app as AppDef["id"] | undefined;
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;
     if (!app.ready) return this.toast(`${app.name} is coming soon`);
     if (id === "goals") return this.deps.openFastForward?.();
     this.show(id);
+    if (id === "mail") this.renderMail();
+    if (id === "news") void this.loadNews();
+    if (id === "bank") void this.loadBank();
   }
 
   /**
@@ -387,7 +439,87 @@ export class Phone {
     this.parked = [];
     for (const fn of this.rewindListeners) fn(day);
     this.calendar.rewound(day);
+    // The inbox already dropped the letters after `day` (main.ts); the Ledger's days changed too.
+    this.newsCache.clear();
+    this.renderMail();
     if (decisions.length) this.showDecision(decisions);
+  }
+
+  private dateOf(day: number): Date {
+    const d = new Date(this.deps.clock.start);
+    d.setDate(d.getDate() + day);
+    return d;
+  }
+
+  /** Opens a letter (marking it read) or closes the open one. */
+  private toggleMail(id: string) {
+    this.openMail = this.openMail === id ? null : id;
+    this.deps.mail.markRead(id);
+    this.renderMail();
+  }
+
+  /** Redraws the inbox and the unread badge; main.ts calls it when new mail arrives. */
+  renderMail() {
+    const { mail } = this.deps;
+    if (this.openMail && !mail.items.some((m) => m.id === this.openMail)) this.openMail = null;
+    const list = this.q("[data-mail-list]");
+    const scroll = list.scrollTop;
+    list.innerHTML = mailHtml(mail.items, this.openMail, (d) => this.dateOf(d));
+    list.scrollTop = scroll;
+    const badge = this.q("[data-badge=mail]");
+    const n = mail.unread();
+    badge.textContent = n > 99 ? "99+" : String(n);
+    badge.hidden = n === 0;
+    this.q("[data-app=mail]").ariaLabel = n ? `Mail, ${n} unread` : "Mail";
+  }
+
+  /**
+   * The Ledger covers the last whole game month; in the first month, the days
+   * played so far. The run's unsent days go to the server first, and a rewind's
+   * fork has to answer before there is a run to print from.
+   */
+  private async loadNews() {
+    const { clock, recorder } = this.deps;
+    const d = clock.date;
+    const firstOfMonth = clock.day - (d.getDate() - 1);
+    const whole = firstOfMonth > 0;
+    // Day 0 is mid-month, so the game's first whole month can start partway through.
+    const daysLastMonth = new Date(d.getFullYear(), d.getMonth(), 0).getDate();
+    const from = whole ? Math.max(0, firstOfMonth - daysLastMonth) : 0;
+    const to = whole ? firstOfMonth - 1 : clock.day;
+    const month = whole ? new Date(d.getFullYear(), d.getMonth() - 1, 1) : d;
+    const label = month.toLocaleDateString("en-US", { month: "long", year: "numeric" }) + (whole ? "" : ", so far");
+    const key = `${from}-${to}`;
+    const el = this.q("[data-news]");
+    const cached = this.newsCache.get(key);
+    if (cached) return void (el.innerHTML = newsHtml(cached));
+    el.innerHTML = newsHtml({ status: "loading" });
+    let view: NewsView = { status: "off" };
+    if (recorder) {
+      try {
+        await recorder.idle();
+        await recorder.tick(true);
+        const runId = recorder.runId;
+        if (runId) {
+          const r = await apiFetch<{ stories: Story[] }>("/news", { method: "POST", body: JSON.stringify({ runId, from, to }) });
+          view = { status: "ready", label, stories: r.stories };
+          this.newsCache.set(key, view);
+        }
+      } catch {
+        // Leave it "off"; "Try again" (or the next open) asks again.
+      }
+    }
+    el.innerHTML = newsHtml(view);
+  }
+
+  private async loadBank() {
+    const el = this.q("[data-bank]");
+    el.innerHTML = bankHtml("loading");
+    try {
+      el.innerHTML = bankHtml(await apiFetch<BankStatement>("/bank/player"));
+    } catch {
+      el.innerHTML = bankHtml("off");
+    }
   }
 
   /** Opens the Money window, on a stock's page when `stock` is given (the desk reads #stock=ID). */
