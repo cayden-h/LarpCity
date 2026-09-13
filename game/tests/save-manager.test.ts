@@ -471,6 +471,46 @@ test("stop() resolves once the write in flight answers, and its 409 raises no co
   assert.equal(t.pending.size, 0);
 });
 
+test("stop() while an uncertain write's /me check is pending wins: no conflict, and resume() writes again", async () => {
+  const t = fakeTimers();
+  let sent = 0;
+  let resolveMe: ((v: Me) => void) | null = null;
+  // A state that differs from what this write sent (game(1)), so the /me check finds a mismatch.
+  const stored: { runId: string; rev: number; state: unknown } = { runId: "run", rev: 1, state: game(2) };
+  const api: SaveApi = {
+    me: () => new Promise((res) => (resolveMe = res)),
+    putProfile: async () => undefined,
+    deleteSave: async () => undefined,
+    putSave: async (b) => {
+      sent++;
+      if (sent === 1) {
+        // Commits server-side, but the response is lost, leaving the write "uncertain".
+        throw new TypeError("network down");
+      }
+      // The retry, still carrying the old baseRev, gets a 409 and triggers resolveUncertain().
+      throw new ApiError(409, "conflict");
+    },
+    putSaveKeepalive: () => undefined,
+  };
+  const m = new SaveManager({ api, build: () => game(1), runId: () => "run", baseRev: null, timers: t.timers });
+  m.request();
+  t.run(); // write #1: network failure, marks uncertain
+  await settle();
+  t.run(); // the retry: 409, kicks off resolveUncertain() -> me() (pending)
+  await settle();
+  assert.notEqual(m.status, "conflict", "still waiting on /me");
+  m.stop();
+  // /me resolves after stop(), reporting a different stored state than what this write sent.
+  resolveMe!({ player: { id: "p", name: null }, profile: null, save: { runId: stored.runId, seed: 1, version: 1, gameDay: 1, state: stored.state, rev: stored.rev, updatedAt: "" } });
+  await settle();
+  assert.notEqual(m.status, "conflict");
+  m.resume();
+  assert.equal(t.pending.size, 1, "resume() schedules a write instead of being a no-op");
+  t.run();
+  await settle();
+  assert.equal(sent, 3, "resume() actually wrote again");
+});
+
 test("resume() after a stop whose erase failed saves the change that was waiting", async () => {
   const t = fakeTimers();
   const { api, puts } = fakeApi();

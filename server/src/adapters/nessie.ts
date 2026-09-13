@@ -109,6 +109,9 @@ export interface NessieLike {
   listWithdrawals(accountId: string): Promise<MoneyTx[]>;
 }
 
+/** A hung Nessie call must not hold the mirror's shared NPC-create lock (mirror.ts) forever. */
+export const NESSIE_TIMEOUT_MS = 10_000;
+
 export interface NessieOptions {
   baseUrl: string;
   apiKey: string;
@@ -116,6 +119,8 @@ export interface NessieOptions {
   /** Retries for throttling (any method) and server errors on reads and deletes. Default 2. */
   retries?: number;
   retryDelayMs?: number;
+  /** Per-request timeout; a request that doesn't answer in time is aborted. Default NESSIE_TIMEOUT_MS. */
+  timeoutMs?: number;
 }
 
 export class Nessie implements NessieLike {
@@ -124,6 +129,7 @@ export class Nessie implements NessieLike {
   private readonly fetchFn: typeof fetch;
   private readonly retries: number;
   private readonly retryDelayMs: number;
+  private readonly timeoutMs: number;
 
   constructor(opts: NessieOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
@@ -131,6 +137,7 @@ export class Nessie implements NessieLike {
     this.fetchFn = opts.fetchFn ?? ((...a) => fetch(...a));
     this.retries = opts.retries ?? 2;
     this.retryDelayMs = opts.retryDelayMs ?? 300;
+    this.timeoutMs = opts.timeoutMs ?? NESSIE_TIMEOUT_MS;
   }
 
   // Customers (cannot be deleted)
@@ -189,8 +196,12 @@ export class Nessie implements NessieLike {
         method,
         headers: body === undefined ? undefined : { "Content-Type": "application/json" },
         body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (e) {
+      if (e instanceof Error && (e.name === "AbortError" || e.name === "TimeoutError")) {
+        throw new NessieError(504, `Nessie ${method} ${path} timed out after ${this.timeoutMs}ms`);
+      }
       throw new NessieError(502, `Nessie ${method} ${path} failed: ${this.redact(e instanceof Error ? e.message : String(e))}`);
     }
     const text = await res.text();

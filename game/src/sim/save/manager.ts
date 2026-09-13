@@ -227,6 +227,12 @@ export class SaveManager {
       this.schedule(Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** this.failures++));
       return;
     }
+    // stop() ran while /me was in flight: the life may be mid-erase, so a mismatch here proves
+    // nothing. Leave it unsaved and undecided; resume() (if the erase didn't happen) picks it back up.
+    if (this.stopped) {
+      this.dirty = true;
+      return;
+    }
     if (me.save && me.save.runId === runId && JSON.stringify(me.save.state) === this.uncertainState) {
       this.rev = me.save.rev;
       this.uncertain = false;

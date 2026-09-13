@@ -202,6 +202,8 @@ export class Phone {
   private openMail: string | null = null;
   private readonly news: NewsApp;
   private readonly bank: BankApp;
+  /** The view show() last drew, so rewound() knows whether News or Bank is on screen. */
+  private currentView: "home" | AppDef["id"] = "home";
 
   constructor(deps: PhoneDeps) {
     this.deps = deps;
@@ -392,6 +394,7 @@ export class Phone {
   }
 
   private show(view: "home" | AppDef["id"]) {
+    this.currentView = view;
     this.el.querySelectorAll<HTMLElement>("[data-view]").forEach((v) => (v.hidden = v.dataset.view !== view));
     if (view === "calendar") this.calendar.show();
     else this.calendar.hide();
@@ -458,6 +461,9 @@ export class Phone {
     // and the bank statement is being posted again from here.
     this.news.rewound();
     this.bank.leave();
+    // A News or Bank view left on screen through the rewind is showing stale, or still-loading, content: reload it.
+    if (this.currentView === "news") void this.news.load();
+    if (this.currentView === "bank") void this.bank.load();
     this.renderMail();
     if (decisions.length) this.showDecision(decisions);
   }
