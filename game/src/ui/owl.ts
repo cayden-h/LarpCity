@@ -86,11 +86,32 @@ function loadOwl(): Promise<Manifest> {
   return manifest;
 }
 
+/**
+ * Each strip's image, loaded once and shared by every owl, so no owl shows a strip before it has
+ * arrived. It waits for `load`, not `decode()`: Chrome holds a decode back while the tab is hidden,
+ * which would keep Sammy invisible in a game opened in a background tab.
+ */
+const loading = new Map<string, Promise<void>>();
+const loaded = new Set<string>();
+function loadStrip(file: string): Promise<void> {
+  let p = loading.get(file);
+  if (!p) {
+    const img = new Image();
+    // A strip that fails to load still counts as done, so the owl shows (as it would have) rather than hiding forever.
+    p = new Promise<void>((done) => {
+      img.onload = img.onerror = () => done();
+      img.src = BASE + file;
+    }).then(() => void loaded.add(file));
+    loading.set(file, p);
+  }
+  return p;
+}
+
 /** Starts downloading strips so their first frame doesn't flash in. */
 export function preloadOwl(anims: OwlAnim[]): void {
   void loadOwl()
     .then((m) => {
-      for (const a of anims) new Image().src = BASE + m.animations[a].file;
+      for (const a of anims) void loadStrip(m.animations[a].file);
     })
     .catch(() => undefined);
 }
@@ -108,6 +129,8 @@ export class Owl {
   /** The strip whose size and anchor are applied now. */
   private laidOut: OwlAnim | null = null;
   private shown: Pose | null = null;
+  /** The latest frame asked for while its strip was still downloading; shown once it has. */
+  private wanted: Pose | null = null;
   private mode: "off" | "motion" | "rest" | "talk" = "off";
   private mood: Mood = "plain";
   private pose: Pose | null = null;
@@ -122,7 +145,8 @@ export class Owl {
   constructor(size: number) {
     this.size = size;
     this.el = document.createElement("div");
-    this.el.className = "owl";
+    // Hidden, shadow and all, until its first strip has loaded (owl.css), so it never stands as an empty shadow.
+    this.el.className = "owl waiting";
     this.el.setAttribute("aria-hidden", "true");
     this.el.style.setProperty("--owl-size", `${size}px`);
     this.sprite = document.createElement("div");
@@ -301,6 +325,18 @@ export class Owl {
     const m = this.manifest;
     if (!m) return;
     const strip = m.animations[anim];
+    // A strip still downloading would leave the box empty: keep the last frame (or stay hidden) until it has loaded.
+    if (!loaded.has(strip.file)) {
+      this.wanted = { anim, frame };
+      void loadStrip(strip.file).then(() => {
+        const w = this.wanted;
+        if (w?.anim !== anim) return;
+        this.wanted = null;
+        this.show(w.anim, w.frame);
+      });
+      return;
+    }
+    this.wanted = null;
     // Scale by the owl's own height in this strip, so it stands the same size whichever sheet a pose came from.
     const s = this.size / (strip.owlHeight ?? m.animations.idle.frameHeight);
     if (this.laidOut !== anim) {
@@ -315,5 +351,6 @@ export class Owl {
     }
     this.sprite.style.backgroundPosition = `${-frame * strip.frameWidth * s}px 0`;
     this.shown = { anim, frame };
+    this.el.classList.remove("waiting");
   }
 }
