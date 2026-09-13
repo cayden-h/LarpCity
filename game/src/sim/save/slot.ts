@@ -58,7 +58,7 @@ export const DEMOS: readonly DemoLife[] = [
   {
     id: "ai-bubble",
     title: "Married into the AI bubble",
-    pitch: "Just married with a prenup to decide, and heavy in the hyped AI stock days before the bubble pops.",
+    pitch: "Just married with a prenup to decide, and heavy in the hyped AI stock as the bubble starts to pop.",
   },
   {
     id: "almost-retired",
