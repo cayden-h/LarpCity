@@ -23,12 +23,18 @@ STONE, STUCCO, SANDSTONE = (0.35, 0.33, 0.29, 1), (0.4, 0.39, 0.35, 1), (0.4, 0.
 # Dressed stone reads as courses coarser than brick; concrete and stucco are smooth.
 STONE_COURSE = 5
 # A shop's glass fills this share of the ground floor, leaving the rest for a sign band about 9 px tall, so a
-# brand's lettering is 6 to 7 px at 1x (art/make_ads.py fascia).
+# brand's lettering is 6 to 7 px at 1x (storefront() below sizes the band, lib/signs.py fascia fits the art to it).
 SHOP_GLASS = 0.5
-# The blade sign sticks this far out (Blender units): about 10 px wide on screen, so its mark reads at 1x. It
-# hangs at least BLADE_DEPTH + BLADE_INSET along the front, so its outer edge stays on screen inside the lot's
-# left corner and the sprite still registers on its diamond (art/check_register.py).
-BLADE_DEPTH, BLADE_INSET = 0.36, 0.06
+# A lit shop interior glows through its glass by day at this emission strength, so shop windows read warm and bright
+# like the reference's little windows instead of mirroring the dim sky fill grey-brown.
+SHOP_DAY_GLOW = 0.9
+# The blade sign sticks BLADE_DEPTH (Blender units) out of the left face: about 10 px wide on screen, so its mark
+# reads at 1x.
+BLADE_DEPTH = 0.36
+# The blade hangs at x = BLADE_DEPTH + BLADE_INSET. Its tip (x, -d - BLADE_DEPTH) lands (x - d - BLADE_DEPTH) * HALF_W
+# px across the screen and the lot's left corner (0, -d) at -d * HALF_W, so any x >= BLADE_DEPTH keeps the tip inside
+# the lot's silhouette (art/check_register.py); the inset (about 2 px) also clears the blade's frame and the outline.
+BLADE_INSET = 0.06
 # The Ferry Building's frieze over its top floor, tall enough for its 10 px name panel plus a px above and below
 # and the cornice on top.
 FERRY_FRIEZE_PX, FERRY_SIGN_PX = 15, 10
@@ -137,21 +143,28 @@ FACADES = {
 
 def storefront(w, d, floors, seed, facade="brick", fascia=None, fascia_side=None, blade=None, atm=False, lit=0.5):
     """A street-corner shop: warm lit shop windows on both faces, a sign band over them, a blade sign, upper-floor
-    windows. fascia is the front (-Y) band's art; fascia_side, if given, the side (+X) band's, else the same."""
+    windows. fascia is the front (-Y) band's art; fascia_side, if given, the side (+X) band's, else the same. All the
+    signs must be one brand's (catalog.shop names them from one; the kind prefix, fa-, fs-, or bl-, is all that differs)."""
+    brands = {name.split("-", 1)[1] for name in (fascia, fascia_side, blade) if name}
+    if len(brands) > 1:
+        raise ValueError(f"storefront signs mix brands: {sorted(brands)}")
     rng = random.Random(seed)
     top = body_top(floors)
     wall = FACADES[facade](rng)
     box("body", 0, -d, 0, w, 0, top, wall)
     dark = M.flat("plinth", (0.16, 0.16, 0.17, 1), rough=0.6)
     box("plinth", -0.008, -d - 0.008, 0, w + 0.008, 0.008, PLINTH, dark)
-    # Shop glass: a warm lit interior shows through by day (a little emission), fully lit at night.
-    shop = M.windows("shop", 1 / 3, FZ, 1.0, (0.62, 0.5, 0.36, 1), frame_frac=0.05, frame_color=(0.1, 0.1, 0.11, 1), strength=1.3)
+    # Shop glass: a warm lit interior glows through by day (SHOP_DAY_GLOW), fully lit at night.
+    shop = M.windows("shop", 1 / 3, FZ, 1.0, (0.62, 0.5, 0.36, 1), frame_frac=0.05, frame_color=(0.1, 0.1, 0.11, 1), strength=1.3,
+                     day_glow=SHOP_DAY_GLOW)
     g1 = PLINTH + FZ * SHOP_GLASS
     box("shop-y", 0.03, -d - 0.006, PLINTH, w - 0.03, -d + 0.02, g1, shop)
     box("shop-x", w - 0.02, -d + 0.03, PLINTH, w + 0.006, -0.03, g1, shop)
     band_z, band_h = g1 + px(0.8), PLINTH + FZ * 0.98 - (g1 + px(0.8))
     if fascia:
-        signs.fascia(fascia, "-Y", w, d, band_z, band_h)
+        # the blade juts toward the viewer, so on screen it hangs down over the front band from the corner to its own
+        # x; the band's art starts past it
+        signs.fascia(fascia, "-Y", w, d, band_z, band_h, u_min=BLADE_DEPTH + BLADE_INSET if blade else 0.0)
         signs.fascia(fascia_side or fascia, "+X", w, d, band_z, band_h)
     if atm:
         red = M.flat("atm", signs.srgb((0.843, 0.118, 0.157)), rough=0.4)
@@ -237,8 +250,9 @@ def ferry_building(w, d, floors, seed):
     box("band", tx - tw / 2 - 0.02, ty - tw / 2 - 0.02, shaft - px(3), tx + tw / 2 + 0.02, ty + tw / 2 + 0.02, shaft, trim)
     clock = M.flat("clock", (0.96, 0.95, 0.9, 1), rough=0.5, glow=(1.0, 0.95, 0.8, 1), strength=5.0)
     cz, cs = shaft - px(24), 0.24
-    face_quad("clock-y", "-Y", tx + tw / 2, -ty + tw / 2, tx - cs / 2, tx + cs / 2, cz, cz + cs * 1.16, clock, off=0.004)
-    face_quad("clock-x", "+X", tx + tw / 2, -ty + tw / 2, tw / 2 - cs / 2, tw / 2 + cs / 2, cz, cz + cs * 1.16, clock, off=0.004)
+    off = signs.FACE_OFFSET["clock"]
+    face_quad("clock-y", "-Y", tx + tw / 2, -ty + tw / 2, tx - cs / 2, tx + cs / 2, cz, cz + cs * 1.16, clock, off=off)
+    face_quad("clock-x", "+X", tx + tw / 2, -ty + tw / 2, tw / 2 - cs / 2, tw / 2 + cs / 2, cz, cz + cs * 1.16, clock, off=off)
     pyramid("cap", tx, ty, tw * 0.44, shaft + px(26), px(26), M.flat("cap", (0.45, 0.47, 0.46, 1), rough=0.5, metal=0.3))
     signs.panel("fe-port-of-sf.png", "-Y", w, d, body_top(3) + px(1), px(FERRY_SIGN_PX))
     return shaft + px(52)

@@ -12,6 +12,10 @@ from .iso import px
 
 ADS = Path(__file__).resolve().parent.parent / "ads"
 BULLETIN = 14 / 48  # height / width of a 14 x 48 ft bulletin
+# How far (Blender units) each kind of sign face stands off the wall it is on, so it never z-fights what lies under
+# it: paint and the clock sit just off bare stone, a panel clears the facade's pattern, and a fascia clears its
+# raceway, which stands 0.012 proud of the wall.
+FACE_OFFSET = {"mural": 0.003, "clock": 0.004, "panel": 0.006, "fascia": 0.014}
 
 
 def srgb(c):
@@ -94,20 +98,22 @@ def _aspect(image_name):
     return w / h
 
 
-def fascia(image_name, face, w, d, z0, max_h, strength=1.6):
-    """A storefront sign band centered on a facade over a dark raceway that spans the whole front: as wide as
-    fits (92% of the facade) at most max_h tall, with the art's own aspect."""
+def fascia(image_name, face, w, d, z0, max_h, strength=1.6, u_min=0.0):
+    """A storefront sign band over a dark raceway that spans the whole front: as wide as fits (92% of the facade
+    from u_min on) at most max_h tall, with the art's own aspect, centered on that stretch. u_min keeps the art clear
+    of something in front of the facade's start (a blade sign), which would otherwise hide its first letters."""
     span = w if face == "-Y" else d
     aspect = _aspect(image_name)
-    width = min(span * 0.92, max_h * aspect)
+    room = span - u_min
+    width = min(room * 0.92, max_h * aspect)
     h = width / aspect
-    u0 = (span - width) / 2
+    u0 = u_min + (room - width) / 2
     raceway = M.flat("raceway", (0.06, 0.06, 0.07, 1), rough=0.5)
     if face == "-Y":
         box("raceway-y", 0, -d - 0.012, z0 - 0.004, w, -d + 0.01, z0 + h + 0.004, raceway)
     else:
         box("raceway-x", w - 0.01, -d, z0 - 0.004, w + 0.012, 0, z0 + h + 0.004, raceway)
-    face_quad(f"fascia{face}", face, w, d, u0, u0 + width, z0, z0 + h, M.image(f"fa-{image_name}", ADS / image_name, strength=strength), off=0.014)
+    face_quad(f"fascia{face}", face, w, d, u0, u0 + width, z0, z0 + h, M.image(f"fa-{image_name}", ADS / image_name, strength=strength), off=FACE_OFFSET["fascia"])
     return z0 + h
 
 
@@ -117,7 +123,7 @@ def panel(image_name, face, w, d, z0, h, strength=1.0):
     width = h * _aspect(image_name)
     u0 = (span - width) / 2
     return face_quad(f"panel{face}", face, w, d, u0, u0 + width, z0, z0 + h,
-                     M.image(f"pa-{image_name}", ADS / image_name, strength=strength), off=0.006)
+                     M.image(f"pa-{image_name}", ADS / image_name, strength=strength), off=FACE_OFFSET["panel"])
 
 
 def blade(image_name, bx, d, z0, depth=0.26, strength=1.8):
@@ -155,7 +161,7 @@ def mural(image_name, face, w, d, u0, u1, z0, aspect):
     """Paint on a wall: transparent art whose height is (u1 - u0) / aspect. Flat paint, with no brick relief:
     sign regions keep their detail in the pixel pass, so relief would come out as speckle."""
     z1 = z0 + (u1 - u0) / aspect
-    face_quad(f"mural{face}", face, w, d, u0, u1, z0, z1, M.image(f"mu-{image_name}", ADS / image_name, glow=False, alpha=True, rough=0.9), off=0.003)
+    face_quad(f"mural{face}", face, w, d, u0, u1, z0, z1, M.image(f"mu-{image_name}", ADS / image_name, glow=False, alpha=True, rough=0.9), off=FACE_OFFSET["mural"])
     return z1
 
 

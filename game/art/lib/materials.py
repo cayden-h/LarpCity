@@ -87,20 +87,22 @@ def flat(name, color, rough=0.6, metal=0.0, glow=None, strength=0.0):
 
 
 def _grid(nt):
-    """The shading point's 1x screen pixel, from Object-space position (objects sit at the origin, so this is
-    world space): returns (column, row along the face's courses) as integer-valued sockets. A world point lands
+    """The shading point's 1x screen pixel, from its world-space position (the Geometry node's), so the pattern stays
+    on the screen grid whatever the object's transform, a rotated parent (a facing turn) included; the normal is
+    world space too. Returns (column, row along the face's courses) as integer-valued sockets. A world point lands
     at screen ((x + y) * HALF_W, (x - y) * HALF_H - z * Z_PX_PER_BU) game px from tile (0, 0)'s top corner, and
     the framing puts that corner on a pixel corner, so floor() of it is the 1x pixel, the same for every raw
     pixel of a 4 x 4 block. Along a left (-Y) face a course climbs half a pixel per column, along a right (+X)
     face it drops half a pixel, so the course row is row -+ floor(column / 2): 2:1 pixel-art lines."""
+    geometry = nt.nodes.new("ShaderNodeNewGeometry")
     sep = nt.nodes.new("ShaderNodeSeparateXYZ")
-    nt.links.new(nt.nodes.new("ShaderNodeTexCoord").outputs["Object"], sep.inputs[0])
+    nt.links.new(geometry.outputs["Position"], sep.inputs[0])
     x, y, z = sep.outputs[0], sep.outputs[1], sep.outputs[2]
     col = _math(nt, "FLOOR", _math(nt, "MULTIPLY", _math(nt, "ADD", x, y), HALF_W))
     row = _math(nt, "FLOOR", _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", _math(nt, "SUBTRACT", x, y), HALF_H),
                                    _math(nt, "MULTIPLY", z, Z_PX_PER_BU)))
     normal = nt.nodes.new("ShaderNodeSeparateXYZ")
-    nt.links.new(nt.nodes.new("ShaderNodeNewGeometry").outputs["Normal"], normal.inputs[0])
+    nt.links.new(geometry.outputs["Normal"], normal.inputs[0])
     # the id pass's rule for a right face: the normal leans more toward +X than toward -Y
     right = _math(nt, "GREATER_THAN", normal.outputs[0], _math(nt, "MULTIPLY", normal.outputs[1], -1.0))
     sign = _math(nt, "MULTIPLY_ADD", right, 2.0, -1.0)  # +1 on a right face, -1 on a left one
@@ -159,11 +161,13 @@ def paint(name, color=(0.8, 0.8, 0.78, 1), period_px=3):
     return lined(name, color, period_px) if period_px else flat(name, color, rough=0.8)
 
 
-def windows(name, cell_u, cell_z, lit_share, tint=(0.08, 0.14, 0.2, 1), frame_frac=0.0, frame_color=(0.62, 0.64, 0.66, 1), strength=1.6, center=None):
+def windows(name, cell_u, cell_z, lit_share, tint=(0.08, 0.14, 0.2, 1), frame_frac=0.0, frame_color=(0.62, 0.64, 0.66, 1), strength=1.6, center=None, day_glow=0.0):
     """Glass that reflects the sky by day. Cells are cell_u wide along either
     visible facade (u = x - y) and cell_z tall; at night a random lit_share of
     cells glows warm. frame_frac of each cell edge is a metal mullion.
-    center = (cx, cy, r): a rounded tower, where u runs around the tower instead."""
+    center = (cx, cy, r): a rounded tower, where u runs around the tower instead.
+    day_glow: the lit cells also glow warm by day at this strength (a lit shop interior seen through its window).
+    The cells ride with the mesh (object space), unlike _grid's pixel patterns, which must sit on the screen grid."""
     m, nt, out = _base(name)
     m["glass"] = True  # the pixel pass drops sky reflections (large light patches) on glass only
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
@@ -199,7 +203,19 @@ def windows(name, cell_u, cell_z, lit_share, tint=(0.08, 0.14, 0.2, 1), frame_fr
     wall = _math(nt, "LESS_THAN", _math(nt, "ABSOLUTE", normal.outputs[2]), 0.5)
     lit = _math(nt, "MULTIPLY", lit, wall)
     warm = _mix_rgb(nt, noise.outputs["Value"], WARM_A, WARM_B)
-    _finish(nt, out, bsdf.outputs[0], _mix_rgb(nt, lit, (0, 0, 0, 1), warm), strength)
+    glow = _mix_rgb(nt, lit, (0, 0, 0, 1), warm)
+    day = bsdf.outputs[0]
+    if day_glow:
+        m["lit"] = True  # the id pass flags it, so the pixel pass reserves palette colors for its glow (lib/pixel.py is_lit)
+        # not named "emit": set_mask and set_night only touch the night emission
+        em = nt.nodes.new("ShaderNodeEmission")
+        nt.links.new(glow, em.inputs["Color"])
+        em.inputs["Strength"].default_value = day_glow
+        add = nt.nodes.new("ShaderNodeAddShader")
+        nt.links.new(day, add.inputs[0])
+        nt.links.new(em.outputs[0], add.inputs[1])
+        day = add.outputs[0]
+    _finish(nt, out, day, glow, strength)
     return m
 
 

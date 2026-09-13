@@ -158,23 +158,27 @@ def render(path) -> None:
     bpy.ops.render.render(write_still=True)
 
 
-SIGN_ID = (1.0, 0.0, 1.0, 1.0)  # lib/pixel.py SIGN_ID (255, 0, 255); no object id can equal it, since its G is never 0
+def _sign_color(ordinal: int) -> tuple:
+    """lib/pixel.py sign_id(ordinal) as a linear emission color: R 255 and G 0 mark a sign, B is the sign's ordinal."""
+    return (1.0, 0.0, ordinal / 255, 1.0)
 
 
-def _id_material(name: str, index: int, sign: bool, alpha_image: str | None = None, glass: bool = False):
-    """Flat emission for the id pass, in exact bytes under the Raw view transform. Signs get SIGN_ID (where an
-    alpha image is painted, if alpha_image; clear elsewhere). Anything else encodes the object's index, the
-    face direction, and glass: R = index % 256, G = 1 + index // 256, plus 128 if the face points right (+X)
-    rather than left (-Y), B = 64 + 127 if the face points up + 32 if the object is glass (64, 96, 191, or 223;
-    lib/pixel.py GLASS_BLUE). G is never 0, so no object id equals SIGN_ID."""
+def _id_material(name: str, index: int, sign: int | None, alpha_image: str | None = None, glass: bool = False,
+                 lit: bool = False):
+    """Flat emission for the id pass, in exact bytes under the Raw view transform. A sign (sign = its ordinal among
+    the sprite's signs) gets _sign_color(sign), where an alpha image is painted if alpha_image, and is clear
+    elsewhere; each sign keeps its own id, so the pixel pass judges its strokes against its own field. Anything else
+    encodes the object's index, the face direction, and glass: R = index % 256, G = 1 + index // 256, plus 128 if
+    the face points right (+X) rather than left (-Y), B = 64 + 127 if the face points up + 32 if the object is glass
+    + 16 if it is glass lit by day (lib/pixel.py GLASS_BLUE and LIT_BLUE). G is never 0, so no object id is a sign's."""
     m = bpy.data.materials.new(f"id-{name}")
     m.use_nodes = True
     nt = m.node_tree
     nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     em = nt.nodes.new("ShaderNodeEmission")
-    if sign:
-        em.inputs["Color"].default_value = SIGN_ID
+    if sign is not None:
+        em.inputs["Color"].default_value = _sign_color(sign)
         if alpha_image:
             tex = nt.nodes.new("ShaderNodeTexImage")
             tex.image = bpy.data.images[alpha_image]
@@ -213,7 +217,7 @@ def _id_material(name: str, index: int, sign: bool, alpha_image: str | None = No
     color = nt.nodes.new("ShaderNodeCombineColor")
     color.inputs[0].default_value = (index % 256) / 255
     nt.links.new(node("ADD", node("MULTIPLY", right, 128 / 255), (1 + index // 256) / 255), color.inputs[1])
-    nt.links.new(node("ADD", node("MULTIPLY", up, 127 / 255), (64 + 32 * glass) / 255), color.inputs[2])
+    nt.links.new(node("ADD", node("MULTIPLY", up, 127 / 255), (64 + 32 * glass + 16 * (glass and lit)) / 255), color.inputs[2])
     nt.links.new(color.outputs[0], em.inputs["Color"])
     return m
 
@@ -233,11 +237,17 @@ def set_ids() -> None:
     sc.render.dither_intensity = 0.0  # the 8-bit dither would scatter +-1 neighbors around every id
     kinds = ("MESH", "FONT", "CURVE")
     objs = sorted((o for o in sc.objects if o.type in kinds and not o.get("shadow_catcher")), key=lambda o: o.name)
+    signs = 0
     for i, o in enumerate(objs):
         mats = [s.material for s in o.material_slots if s.material]
-        sign = o.type == "FONT" or any(m.get("sign") for m in mats)
+        sign = None
+        if o.type == "FONT" or any(m.get("sign") for m in mats):
+            if signs > 255:
+                raise ValueError(f"id pass: more than 256 signs in one sprite ({o.name}); a sign's ordinal is one byte")
+            sign, signs = signs, signs + 1
         alpha = next((m["sign_alpha"] for m in mats if m.get("sign_alpha")), None)
-        mat = _id_material(o.name, i, sign, alpha, glass=any(m.get("glass") for m in mats))
+        mat = _id_material(o.name, i, sign, alpha, glass=any(m.get("glass") for m in mats),
+                           lit=any(m.get("lit") for m in mats))
         o.data.materials.clear()
         o.data.materials.append(mat)
     print(f"[art] id pass: {len(objs)} objects", flush=True)
