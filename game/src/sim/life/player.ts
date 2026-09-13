@@ -42,6 +42,30 @@ import { BEGINNER_CARD_SLUGS } from "../../data/cards-beginner.ts";
 import { PULSE_TABLE } from "../wellbeing/pulses.ts";
 import { wellbeing } from "../wellbeing/index.ts";
 import type { Pulse } from "../wellbeing/types.ts";
+import {
+  CHOICE_DAYS,
+  CHOICE_OPTIONS,
+  CRASH_SURCHARGE,
+  CRASH_SURCHARGE_DAYS,
+  EVENT_PULSES,
+  NEW_CAR,
+  PENNY_MAX_STAKE,
+  PENNY_MIN_STAKE,
+  RECESSION_BEAR_DAYS,
+  TRADE_IN,
+  injuryBill,
+  outOfPocket,
+  paymentFor,
+  pennyStock,
+  principalFor,
+  rehireDays,
+  repairCost,
+  rollEvents,
+  type ChoiceKind,
+  type InjuryCause,
+  type PendingChoice,
+} from "./events.ts";
+import { TUTORIAL_START, afterFiling, filesItself, isCorrect, type TutorialState } from "../tax/tutorial.ts";
 
 /** What the life needs to know about where the player lives (a StateInfo satisfies it). */
 export interface Place {
@@ -130,7 +154,17 @@ export type LifeEvent =
   | { type: "market_recovered"; day: number; you: number; held: number; autopilot: number }
   | { type: "tax_ready"; day: number; year: number }
   | { type: "tax_filed"; day: number; year: number; refundOrOwed: number; auto: boolean }
-  | { type: "tax_penalty"; day: number; amount: number };
+  | { type: "tax_penalty"; day: number; amount: number }
+  // Life events (sim/life/events.ts).
+  | { type: "car_breakdown"; day: number; repairCost: number }
+  | { type: "injury"; day: number; cause: InjuryCause; bill: number; outOfPocket: number; insured: boolean }
+  | { type: "divorce"; day: number; prenup: boolean; lost: number }
+  | { type: "penny_stock_tip"; day: number; ticker: string; stake: number }
+  | { type: "penny_stock_result"; day: number; ticker: string; stake: number; payout: number }
+  | { type: "recession"; day: number }
+  | { type: "recession_over"; day: number }
+  /** The player (or, after a week unanswered, the default) answered a choice; `amount` is what it cost or staked. */
+  | { type: "choice"; day: number; kind: ChoiceKind; option: string; amount: number; auto: boolean };
 
 export interface LifeSnapshot {
   day: number;
@@ -205,6 +239,39 @@ export interface LifeOptions {
   goals?: Goal[];
   /** The player's name for the HUD ID card; defaults to "You". */
   name?: string;
+  /** Random life events (sim/life/events.ts); on unless a test pins exact numbers. */
+  lifeEvents?: boolean;
+}
+
+/** Life events' state (sim/life/events.ts), saved with the life. */
+export interface LifeEventsSave {
+  on: boolean;
+  /** The day the car was bought, or null with no car. */
+  carSince: number | null;
+  carInsuranceMonthly: number;
+  insurancePlanId: string | null;
+  /** A crash's insurance surcharge lasts until this day. */
+  crashSurchargeUntil: number | null;
+  /** Signed at the wedding; null while single or undecided. */
+  prenup: boolean | null;
+  choices: PendingChoice[];
+  /** Penny stocks bought, each paying out on its day. */
+  penny: { ticker: string; stake: number; payoutDay: number; multiple: number }[];
+  /** First day of the current bear market, or null in a bull market. */
+  bearSince: number | null;
+  recession: boolean;
+  /** A recession layoff ends with a new job on this day. */
+  rehireDay: number | null;
+}
+
+function freshEvents(o: Partial<LifeEventsSave>): LifeEventsSave {
+  return { on: true, carSince: null, carInsuranceMonthly: 0, insurancePlanId: null, crashSurchargeUntil: null, prenup: null, choices: [], penny: [], bearSince: null, recession: false, rehireDay: null, ...o };
+}
+
+/** The day the player's car was bought: when its open auto loan began, or null with none. */
+function carSinceFrom(book: DebtBook): number | null {
+  const auto = book.debts.find((d) => d.kind === "auto" && isOpen(d));
+  return auto ? auto.openedDay : null;
 }
 
 /** A position valued at a day's price. */
@@ -296,6 +363,9 @@ export interface LifeSave {
   carLoan?: { monthly: number; months: number };
   /** Optional so a save from before car insurance existed still loads with its own default. */
   carInsuranceMonthly?: number;
+  /** Life events and the year-1 tax tutorial; optional so an older save loads with nothing pending. */
+  events?: LifeEventsSave;
+  taxTutorial?: TutorialState;
 }
 
 /** Days of daily history a saved player life keeps; older days keep every 7th. */
@@ -458,9 +528,14 @@ export class PlayerLife {
   /** Calendar years already checked for marriage, preventing rerolls on duplicate ticks. */
   private readonly marriageRollYears = new Set<number>();
   private readonly bankruptcyPulseDays = new Set<number>();
-  /** Coverage is an employment-derived approximation until insurance shopping exists. */
+  /** Life events' state (sim/life/events.ts): the car, pending choices, penny stocks, the recession. */
+  private ev!: LifeEventsSave;
+  /** The year-1 tax tutorial (sim/tax/tutorial.ts). */
+  taxTutorial: TutorialState = { ...TUTORIAL_START };
+  /** The health plan decides coverage ("none" is uninsured); before onboarding picks one, coverage comes with the job. */
   get insured(): boolean {
-    return this.employed;
+    const plan = this.ev?.insurancePlanId ?? null;
+    return plan === null ? this.employed : plan !== "none";
   }
 
   /** Gross wages earned so far in the current calendar year (resets each January 1 payday); shown on the Taxes tab. */
@@ -548,6 +623,8 @@ export class PlayerLife {
       for (const d of s.convertedTaxDueDays ?? []) this.convertedTaxDueDays.add(d);
       for (const y of s.marriageRollYears ?? []) this.marriageRollYears.add(y);
       for (const d of s.bankruptcyPulseDays ?? []) this.bankruptcyPulseDays.add(d);
+      this.ev = s.events ?? freshEvents({ carSince: carSinceFrom(s.book) });
+      this.taxTutorial = s.taxTutorial ?? { ...TUTORIAL_START };
       return;
     }
     this.crash = new CrashWatch();
@@ -579,6 +656,13 @@ export class PlayerLife {
     this.ltmPeak = this.market.price("LTM", o.day);
     this.twins = new Twins(this.market);
     if (o.holdings) this.seedHoldings(o.holdings, o.day);
+    this.ev = freshEvents({
+      on: o.lifeEvents ?? true,
+      // P1 placeholder: onboarding's car loan means a new car; otherwise the car is as old as its loan.
+      carSince: o.carLoan ? o.day : carSinceFrom(this.book),
+      carInsuranceMonthly: o.carInsuranceMonthly ?? 0,
+      insurancePlanId: o.insurancePlanId ?? null,
+    });
     this.startSnap = this.snapshot(o.day);
     this.record(o.day);
   }
@@ -649,6 +733,8 @@ export class PlayerLife {
       convertedTaxDueDays: [...this.convertedTaxDueDays],
       marriageRollYears: [...this.marriageRollYears],
       bankruptcyPulseDays: [...this.bankruptcyPulseDays],
+      events: this.ev,
+      taxTutorial: this.taxTutorial,
     };
     return JSON.parse(JSON.stringify(save));
   }
@@ -993,11 +1079,7 @@ export class PlayerLife {
       this.marriageRollYears.add(year);
       // Gameplay placeholder pending age-banded marriage-rate calibration.
       const ANNUAL_MARRIAGE_CHANCE = 0.08;
-      if (rngFor("marriage", this.market.seed, year)() < ANNUAL_MARRIAGE_CHANCE) {
-        this.relationship = "partnered";
-        this.addPulse(PULSE_TABLE.marriage.p0, PULSE_TABLE.marriage.halfLifeDays, day);
-        events.push({ type: "marriage", day });
-      }
+      if (rngFor("marriage", this.market.seed, year)() < ANNUAL_MARRIAGE_CHANCE) events.push(this.wed(day));
     }
 
     if (payday) {
@@ -1057,6 +1139,11 @@ export class PlayerLife {
       events.push({ type: "bill", day, name: "Car insurance", amount, paid: wallet.withdraw(amount, "Car insurance") });
     }
     if (dom === 15) events.push({ type: "bill", day, name: "Living costs", amount: this.living, paid: wallet.withdraw(this.living, "Living costs") });
+    // P1 placeholder: car insurance is billed here until P1's onboarding bills it; drop this if it does.
+    if (dom === 1 && this.ev.carInsuranceMonthly > 0) {
+      const amount = this.carInsurance(day);
+      events.push({ type: "bill", day, name: "Car insurance", amount, paid: wallet.withdraw(amount, "Car insurance") });
+    }
 
     events.push(...tickDay(this.book, { day, date, env: { cashRateAnnual: this.cashRate(date) }, wallet }));
 
@@ -1104,8 +1191,11 @@ export class PlayerLife {
       });
       this.taxReadyDay = day;
       events.push({ type: "tax_ready", day, year: priorYear });
+      // Passed the year-1 tutorial: every later return files itself on tax day (sim/tax/tutorial.ts).
+      if (filesItself(this.taxTutorial)) events.push(this.settleReturn(day, true));
     }
 
+    events.push(...this.tickLifeEvents(day));
     events.push(...this.watchMarket(day));
     this.record(day);
     this.emit(events);
@@ -1139,7 +1229,18 @@ export class PlayerLife {
 
   /** Events that pause time for a decision in the desk. */
   needsDecision(events: LifeEvent[]): boolean {
-    return events.some((e) => e.type === "cannot_cover" || e.type === "bankruptcy_eligible" || e.type === "bear_market" || (e.type === "home" && e.to === 0));
+    return events.some(
+      (e) =>
+        e.type === "cannot_cover" ||
+        e.type === "bankruptcy_eligible" ||
+        e.type === "bear_market" ||
+        (e.type === "home" && e.to === 0) ||
+        e.type === "car_breakdown" ||
+        e.type === "injury" ||
+        e.type === "penny_stock_tip" ||
+        // A wedding asks about the prenup.
+        (e.type === "marriage" && this.ev.on),
+    );
   }
 
   setPlace(place: Place, day: number): LifeEvent {
@@ -1164,18 +1265,240 @@ export class PlayerLife {
       this.emit([unchanged]);
       return unchanged;
     }
-    if (employed) this.reemployedDay = day;
-    else this.addPulse(PULSE_TABLE.layoff.p0, PULSE_TABLE.layoff.halfLifeDays, day);
-    this.employed = employed;
-    this.book.monthlyTakeHome = this.monthlyTakeHome * (employed ? 1 : UNEMPLOYMENT_SHARE);
-    const e: LifeEvent = { type: "job", day, employed };
+    const e = this.employ(employed, day);
     this.record(day);
     this.emit([e]);
     return e;
   }
 
+  /** Starts or ends the job without telling anyone (setEmployed, and a recession's layoff and rehire). */
+  private employ(employed: boolean, day: number): LifeEvent {
+    if (employed) {
+      this.reemployedDay = day;
+      this.ev.rehireDay = null;
+    } else this.addPulse(PULSE_TABLE.layoff.p0, PULSE_TABLE.layoff.halfLifeDays, day);
+    this.employed = employed;
+    this.book.monthlyTakeHome = this.monthlyTakeHome * (employed ? 1 : UNEMPLOYMENT_SHARE);
+    return { type: "job", day, employed };
+  }
+
   addPulse(p0: number, halfLifeDays: number, day: number): void {
     this.pulses.push({ p0, halfLifeDays, startDay: day });
+  }
+
+  // P2 placeholder: P2's happiness hook. Life events push their pulses through it; switch to P2's once it lands.
+  triggerPulse(pulse: { p0: number; halfLifeDays: number }, day: number): void {
+    this.addPulse(pulse.p0, pulse.halfLifeDays, day);
+  }
+
+  /** Marries now (the yearly roll calls wed; demos call this), with a prenup to decide. */
+  marry(day = this.today): LifeEvent {
+    const e = this.wed(day);
+    this.record(day);
+    this.emit([e]);
+    return e;
+  }
+
+  private wed(day: number): LifeEvent {
+    this.relationship = "partnered";
+    this.triggerPulse(PULSE_TABLE.marriage, day);
+    // The prenup is decided at the wedding (meeting 2026-09-13).
+    if (this.ev.on) this.ev.choices.push({ kind: "prenup", day, amount: 0 });
+    return { type: "marriage", day };
+  }
+
+  /** Divorces now (the event calls split; demos call this): without a prenup, the spouse leaves with half of everything. */
+  divorce(day = this.today): LifeEvent {
+    const e = this.split(day);
+    this.record(day);
+    this.emit([e]);
+    return e;
+  }
+
+  /** Whether the player signed a prenup; null while single or undecided. */
+  prenup(): boolean | null {
+    return this.ev.prenup;
+  }
+
+  /** Whether the economy is in a recession (a bear market over RECESSION_BEAR_DAYS long). */
+  inRecession(): boolean {
+    return this.ev.recession;
+  }
+
+  /** Car insurance per month on `day`, with a crash's surcharge while it lasts; 0 with none. */
+  carInsurance(day = this.today): number {
+    const surcharged = this.ev.crashSurchargeUntil !== null && day < this.ev.crashSurchargeUntil;
+    return round2(this.ev.carInsuranceMonthly * (surcharged ? CRASH_SURCHARGE : 1));
+  }
+
+  private split(day: number): LifeEvent {
+    const prenup = this.ev.prenup === true;
+    let lost = 0;
+    if (!prenup) {
+      // A community-property split: half of every account and every holding.
+      for (const a of this.ledger.accounts.values()) {
+        if (a.balance > 0) {
+          const half = round2(a.balance / 2);
+          a.balance = round2(a.balance - half);
+          lost += half;
+        }
+        for (const [id, h] of Object.entries(a.holdings ?? {}) as [InstrumentId, Holding | undefined][]) {
+          if (!h || h.units <= 1e-9) continue;
+          lost += (h.units / 2) * this.market.price(id, day);
+          h.units /= 2;
+          h.cost = round2(h.cost / 2);
+        }
+      }
+    }
+    this.relationship = "single";
+    this.ev.prenup = null;
+    this.ev.choices = this.ev.choices.filter((c) => c.kind !== "prenup");
+    this.triggerPulse(PULSE_TABLE.divorce, day);
+    return { type: "divorce", day, prenup, lost: round2(lost) };
+  }
+
+  /** Choices life events left that the player hasn't answered, oldest first. */
+  pendingChoices(): readonly PendingChoice[] {
+    return this.ev.choices;
+  }
+
+  /** Answers a pending choice (the Money desk's buttons); null when there is no such choice or option. */
+  choose(kind: ChoiceKind, option: string, day = this.today): LifeEvent | null {
+    const c = this.ev.choices.find((x) => x.kind === kind);
+    if (!c || !(CHOICE_OPTIONS[kind] as readonly string[]).includes(option)) return null;
+    const e = this.settleChoice(c, option, day, false);
+    this.record(day);
+    this.emit([e]);
+    return e;
+  }
+
+  private settleChoice(c: PendingChoice, option: string, day: number, auto: boolean): LifeEvent {
+    this.ev.choices = this.ev.choices.filter((x) => x !== c);
+    const wallet = this.ledger.wallet();
+    let amount = c.amount;
+    switch (c.kind) {
+      case "prenup":
+        this.ev.prenup = option === "sign";
+        break;
+      case "car_breakdown":
+        if (option === "replace") {
+          const checking = this.ledger.get("checking");
+          checking.balance = round2(checking.balance + TRADE_IN);
+          amount = principalFor(NEW_CAR.monthly, NEW_CAR.months, NEW_CAR.apr);
+          this.book.debts.push(
+            installment({ id: `car-${day}`, kind: "auto", name: "New car loan", balance: amount, apr: NEW_CAR.apr, months: NEW_CAR.months, payment: NEW_CAR.monthly, day, openedDay: day }),
+          );
+          this.ev.carSince = day;
+        } else this.financeShortfall(c.amount - wallet.withdraw(c.amount, "Car repair"), "Repair shop financing", 0.18, day);
+        break;
+      case "injury":
+        // Paying now takes what cash covers; either way the rest goes on the hospital's 0% plan, never a card.
+        this.financeShortfall(option === "pay_now" ? c.amount - wallet.withdraw(c.amount, "Hospital bill") : c.amount, "Hospital payment plan", 0, day);
+        break;
+      case "penny_stock": {
+        const checking = this.ledger.get("checking");
+        if (option === "buy" && checking.balance >= c.amount) {
+          checking.balance = round2(checking.balance - c.amount);
+          const outcome = pennyStock(this.market.seed, c.day);
+          this.ev.penny.push({ ticker: outcome.ticker, stake: c.amount, payoutDay: day + outcome.resolveDays, multiple: outcome.multiple });
+        } else {
+          option = "pass";
+          amount = 0;
+        }
+        break;
+      }
+    }
+    return { type: "choice", day, kind: c.kind, option, amount: round2(amount), auto };
+  }
+
+  /** What cash couldn't cover becomes a 12-month installment loan, so a bill never overdraws. */
+  private financeShortfall(amount: number, name: string, apr: number, day: number): void {
+    if (amount < 1) return;
+    const balance = round2(amount);
+    const id = `${name.toLowerCase().replace(/\W+/g, "-")}-${day}`;
+    this.book.debts.push(installment({ id, kind: "personal", name, balance, apr, months: 12, payment: paymentFor(balance, 12, apr), day, openedDay: day }));
+  }
+
+  /**
+   * The day's life events (sim/life/events.ts): a week-old choice takes its
+   * default, penny stocks pay out, a long bear market becomes a recession (and
+   * a recession layoff ends in a new job), then today's rolls.
+   */
+  private tickLifeEvents(day: number): LifeEvent[] {
+    const ev = this.ev;
+    if (!ev.on) return [];
+    const out: LifeEvent[] = [];
+    for (const c of [...ev.choices]) if (day - c.day >= CHOICE_DAYS) out.push(this.settleChoice(c, CHOICE_OPTIONS[c.kind][0], day, true));
+    for (const p of [...ev.penny]) {
+      if (day < p.payoutDay) continue;
+      ev.penny = ev.penny.filter((x) => x !== p);
+      const payout = round2(p.stake * p.multiple);
+      const checking = this.ledger.get("checking");
+      checking.balance = round2(checking.balance + payout);
+      out.push({ type: "penny_stock_result", day, ticker: p.ticker, stake: p.stake, payout });
+    }
+    if (this.market.regime(day) === "bear") {
+      ev.bearSince ??= day;
+      if (!ev.recession && day - ev.bearSince >= RECESSION_BEAR_DAYS) {
+        ev.recession = true;
+        this.triggerPulse(EVENT_PULSES.recession, day);
+        out.push({ type: "recession", day });
+      }
+    } else {
+      ev.bearSince = null;
+      if (ev.recession) {
+        ev.recession = false;
+        out.push({ type: "recession_over", day });
+      }
+    }
+    if (ev.rehireDay !== null && day >= ev.rehireDay && !this.employed) out.push(this.employ(true, day));
+
+    const seed = this.market.seed;
+    const hasCar = ev.carSince !== null;
+    const carAgeDays = hasCar ? day - ev.carSince! : 0;
+    const waiting = (kind: ChoiceKind) => ev.choices.some((c) => c.kind === kind);
+    const rolled = rollEvents(seed, day, { married: this.relationship === "partnered", hasCar, carAgeDays, employed: this.employed, inRecession: ev.recession });
+    for (const kind of rolled) {
+      switch (kind) {
+        case "car_breakdown": {
+          if (waiting("car_breakdown")) break;
+          const cost = repairCost(seed, day, carAgeDays);
+          ev.choices.push({ kind: "car_breakdown", day, amount: cost });
+          this.triggerPulse(EVENT_PULSES.car_breakdown, day);
+          out.push({ type: "car_breakdown", day, repairCost: cost });
+          break;
+        }
+        case "injury": {
+          if (waiting("injury")) break;
+          const { cause, bill } = injuryBill(seed, day, hasCar);
+          const insured = this.insured;
+          const owe = outOfPocket(bill, insured);
+          if (cause === "car_crash") ev.crashSurchargeUntil = day + CRASH_SURCHARGE_DAYS;
+          ev.choices.push({ kind: "injury", day, amount: owe });
+          this.triggerPulse(EVENT_PULSES.injury, day);
+          out.push({ type: "injury", day, cause, bill, outOfPocket: owe, insured });
+          break;
+        }
+        case "divorce":
+          out.push(this.split(day));
+          break;
+        case "penny_stock": {
+          if (waiting("penny_stock") || ev.penny.length) break;
+          const spare = this.ledger.get("checking").balance - this.monthlyExpenses();
+          const stake = Math.min(PENNY_MAX_STAKE, Math.floor(spare / 100) * 100);
+          if (stake < PENNY_MIN_STAKE) break;
+          const { ticker } = pennyStock(seed, day);
+          ev.choices.push({ kind: "penny_stock", day, amount: stake, ticker });
+          out.push({ type: "penny_stock_tip", day, ticker, stake });
+          break;
+        }
+        case "recession_layoff":
+          out.push(this.employ(false, day));
+          ev.rehireDay = day + rehireDays(seed, day);
+          break;
+      }
+    }
+    return out;
   }
 
   /** Files through the debt engine and records the researched wellbeing shock exactly once. */
@@ -1245,9 +1568,18 @@ export class PlayerLife {
    * and interest run from the original April 15 due date regardless of when
    * (or whether) the player files; only failure-to-file stops the moment you file.
    */
-  fileTaxes(day: number, auto = false): LifeEvent {
+  fileTaxes(day: number, auto = false, answer?: number): LifeEvent {
+    const e = this.settleReturn(day, auto, answer);
+    this.record(day);
+    this.emit([e]);
+    return e;
+  }
+
+  /** Files the pending return without telling anyone; `answer` is the player's bottom line in the tax tutorial. */
+  private settleReturn(day: number, auto: boolean, answer?: number): LifeEvent {
     const ret = this.pendingReturn;
     if (!ret) throw new Error("No pending tax return to file.");
+    if (!auto) this.taxTutorial = afterFiling(this.taxTutorial, answer !== undefined && isCorrect(ret, answer));
     const refundOrOwed = round2(ret.federalRefundOrOwed + ret.stateRefundOrOwed);
     const checking = this.ledger.get("checking");
     if (refundOrOwed >= 0) checking.balance = round2(checking.balance + refundOrOwed);
@@ -1277,10 +1609,7 @@ export class PlayerLife {
     }
     ret.filedDay = day;
     this.pendingReturn = null;
-    const e: LifeEvent = { type: "tax_filed", day, year: ret.year, refundOrOwed, auto };
-    this.record(day);
-    this.emit([e]);
-    return e;
+    return { type: "tax_filed", day, year: ret.year, refundOrOwed, auto };
   }
 
   /**
