@@ -11,7 +11,14 @@ from .geo import box, cylinder, face_quad, quad
 from .iso import px
 
 ADS = Path(__file__).resolve().parent.parent / "ads"
-BULLETIN = 14 / 48  # height / width of a 14 x 48 ft bulletin
+# Board height / width. A real 14 x 48 ft bulletin (14/48 = 0.29) draws a strip too shallow to hold a legible
+# wordmark at 1x once it's downsized to a rooftop prop; 0.5 keeps the board landscape but tall enough that its
+# art (make_ads.py's BB_ASPECT, kept equal to 1 / BULLETIN) can fill it with one big brand mark and still read
+# at a handful of pixels tall.
+BULLETIN = 0.5
+# Board width as a fraction of the lot span it stands across: as wide as the lot allows while clearing the
+# roof parapet on both sides.
+BULLETIN_W_FRAC = 0.94
 # How far (Blender units) each kind of sign face stands off the wall it is on, so it never z-fights what lies under
 # it: paint and the clock sit just off bare stone, a panel clears the facade's pattern, and a fascia clears its
 # raceway, which stands 0.012 proud of the wall.
@@ -69,7 +76,7 @@ def _board(f, image_name, bw, z0, steel, lamp, tag):
 def bulletin(image_name, w, d, z, face="-Y"):
     """A steel rooftop bulletin standing across the roof, facing one visible facade."""
     span = w if face == "-Y" else d
-    bw = min(span, 2) * 0.86
+    bw = min(span, 2) * BULLETIN_W_FRAC
     f = Frame(face, w / 2, -d / 2)
     steel, lamp = _steel(), _lamp()
     lift = px(9)
@@ -79,7 +86,7 @@ def bulletin(image_name, w, d, z, face="-Y"):
     return _board(f, image_name, bw, z + lift, steel, lamp, "bb")
 
 
-def monopole(image_a, image_b, height_px=46, bw=1.1):
+def monopole(image_a, image_b, height_px=46, bw=1.6):
     """A freeway V: two bulletins on one pole at the lot's front corner, one facing each way."""
     steel, lamp = _steel(), _lamp()
     h = px(height_px)
@@ -140,9 +147,11 @@ def blade(image_name, bx, d, z0, depth=0.26, strength=1.8):
 
 
 def logo_wall(image_name, x0, x1, y, z0, strength=1.3):
-    """A lit logo wall (2:1 art) facing -Y at depth y, seen through lobby glass."""
+    """A lit logo wall (2:1 art) facing -Y at depth y, seen through two layers of lobby glass and a recessed
+    plaza, which by day leaves it starved of light; day_glow keeps the mark bright and legible in daylight too."""
     h = (x1 - x0) / 2
-    quad("logo-wall", [(x0, y, z0), (x1, y, z0), (x1, y, z0 + h), (x0, y, z0 + h)], M.image(f"lw-{image_name}", ADS / image_name, strength=strength))
+    quad("logo-wall", [(x0, y, z0), (x1, y, z0), (x1, y, z0 + h), (x0, y, z0 + h)],
+         M.image(f"lw-{image_name}", ADS / image_name, strength=strength, day_glow=1.6))
     return z0 + h
 
 

@@ -508,41 +508,52 @@ GOOGLE_COLORS = ["#4285F4", "#EA4335", "#FBBC05", "#4285F4", "#34A853", "#EA4335
 
 # ---------------------------------------------------------------- layouts
 
-def billboard(name, bg, headline, color, logo, font=HELV_BOLD, paint=None):
-    s = Sign(name, 1372, 400, bg)
-    if paint:
-        paint(s)
-    x0, y0, x1, y1 = s.safe
-    s.text(headline, font, (x0, y0, s.w * 0.72, y1), color, max_size=150, spacing=0.18)
-    logo(s, (s.w * 0.76, y1 - 84, x1, y1))
+# Rooftop bulletins and freeway boards carry the brand's own mark and wordmark only, filling almost the whole
+# safe area (docs/superpowers/specs/2026-09-12-blender-houses-design.md, "Look check": a tagline shares the box
+# with the mark and shrinks both to specks at 1x, where a lot's board is often half a tile wide). BB_ASPECT is
+# the art's width / height and must match signs.py's BULLETIN (1 / BULLETIN), so the image tiles the board with
+# no letterboxing.
+BB_ASPECT = 2.0
+BB_W, BB_H = 1200, round(1200 / BB_ASPECT)
+
+
+def billboard(name, bg, logo, align="center"):
+    s = Sign(name, BB_W, BB_H, bg)
+    logo(s, s.safe, align=align)
     s.finish()
     return s
 
 
-def shelter(name, bg, headline, color, logo, font=HELV_BOLD):
+def stacked(mark, aspect, word, font, color, mark_frac=0.5, gap_frac=0.05):
+    """Mark centered above a wordmark, both sized to the box's width: for a tall panel (a shelter), where
+    lockup's side-by-side layout would starve the word of width and shrink everything to fit."""
+    def draw(s, box, align="center"):
+        x0, y0, x1, y1 = box
+        h = y1 - y0
+        mh = h * mark_frac
+        mw = mh * aspect
+        mx0 = x0 + ((x1 - x0) - mw) / 2
+        mark(s, (mx0, y0, mx0 + mw, y0 + mh))
+        s.text(word, font, (x0, y0 + mh + h * gap_frac, x1, y1), color, align="center")
+    return draw
+
+
+def shelter(name, bg, mark, aspect, word, color):
     s = Sign(name, 600, 900, bg)
-    x0, y0, x1, y1 = s.safe
-    s.text(headline, font, (x0, y0 + 20, x1, y1 - 170), color, max_size=150, spacing=0.12)
-    logo(s, (x0, y1 - 80, x1, y1), align="left")
+    stacked(mark, aspect, word, HELV_BOLD, color)(s, s.safe)
     s.finish()
 
 
 def bb_lovable():
-    s = Sign("bb-lovable", 1372, 400, "#FE7B02")
-    s.background(hgradient((1372, 1), ["#FE7B02", "#F9449E", "#4B73FF"]))
-    x0, y0, x1, y1 = s.safe
-    s.text("Build a\nROI calculator", HELV_BOLD, (x0, y0, s.w * 0.72, y1), "white", max_size=150, spacing=0.18)
-    logo_lovable("white", "white")(s, (s.w * 0.76, y1 - 84, x1, y1))
+    s = Sign("bb-lovable", BB_W, BB_H, "#FE7B02")
+    s.background(hgradient((BB_W, 1), ["#FE7B02", "#F9449E", "#4B73FF"]))
+    logo_lovable("white", "white")(s, s.safe, align="center")
     s.finish()
 
 
 def bb_anthropic():
-    s = Sign("bb-anthropic", 1372, 400, "#FAF9F5")
-    x0, y0, x1, y1 = s.safe
-    text = "Keep thinking."
-    pl = s.fit(text, GEORGIA, (x0, y0, s.w * 0.72, y1), max_size=170)
-    s.draw_text(pl, ["#141413"] * (len(text) - 1) + ["#D97757"])
-    wordmark("ANTHROPIC", HELV_BOLD, "#141413", text_h=0.5)(s, (s.w * 0.76, y1 - 84, x1, y1))
+    s = Sign("bb-anthropic", BB_W, BB_H, "#FAF9F5")
+    wordmark("ANTHROPIC", HELV_BOLD, "#141413", text_h=0.68)(s, s.safe, align="center")
     s.finish()
 
 
@@ -741,22 +752,19 @@ def main():
     for old in OUT.glob("*.png"):
         old.unlink()
 
-    # bulletins
-    billboard("bb-elevenlabs", "white", "Your voice.\nAny language.", "black", logo_elevenlabs("black"))
-    billboard("bb-persona", "black", "Verify humans,\nnot bots.", "white", logo_persona("#7379FD", "white"))
-    billboard("bb-nordvpn", "#4687FF", "Public Wi-Fi?\nNot your problem.", "white",
-              logo_nord("white", "#4687FF", "white"))
-    billboard("bb-capital-one", "#004879", "What's in\nyour wallet?", "white",
-              lambda s, box: capital_one_lockup(s, (box[0], box[1] - 40, box[2], box[3])))
+    # bulletins: brand mark and wordmark only, no tagline (see billboard() above)
+    billboard("bb-elevenlabs", "white", logo_elevenlabs("black"))
+    billboard("bb-persona", "black", logo_persona("#7379FD", "white"))
+    billboard("bb-nordvpn", "#4687FF", logo_nord("white", "#4687FF", "white"))
+    billboard("bb-capital-one", "#004879", lambda s, box, align="center": capital_one_lockup(s, box, align=align))
     bb_lovable()
     bb_anthropic()
-    billboard("bb-openai", "black", "Plan the trip.\nAsk ChatGPT.", "white", wordmark("OpenAI", HELV_BOLD, "white"))
+    billboard("bb-openai", "black", wordmark("OpenAI", HELV_BOLD, "white", text_h=0.6))
 
-    # bus shelters
-    shelter("sh-persona", "white", "Verify\nhumans,\nnot bots.", "black", logo_persona("#7379FD", "black"))
-    shelter("sh-nordvpn", "#4687FF", "Public\nWi-Fi?\nNot your\nproblem.", "white",
-            logo_nord("white", "#4687FF", "white"))
-    shelter("sh-elevenlabs", "white", "Your\nvoice.\nAny\nlanguage.", "black", logo_elevenlabs("black"))
+    # bus shelters: brand mark stacked over its wordmark, no tagline
+    shelter("sh-persona", "white", lambda s, b: mark_persona(s, b, "#7379FD"), PERSONA_ASPECT, "persona", "black")
+    shelter("sh-nordvpn", "#4687FF", lambda s, b: mark_nord(s, b, "white", "#4687FF"), 1.0, "NordVPN", "white")
+    shelter("sh-elevenlabs", "white", lambda s, b: mark_elevenlabs(s, b, "black"), ELEVEN_ASPECT, "ElevenLabs", "black")
 
     # storefront fascias and blades
     fascia("fa-capital-one-cafe", "#004879", fa_capital_one)

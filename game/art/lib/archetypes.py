@@ -193,7 +193,7 @@ def hq_lobby(w, d, floors, seed, logo=None, monument=None, lit=0.4):
     soffit = M.flat("soffit", (0.82, 0.8, 0.76, 1), rough=0.7, glow=(1.0, 0.9, 0.75, 1), strength=0.6)
     box("soffit", 0, -d, lobby - px(1.5), w, 0, lobby, soffit)
     recess = 0.22
-    glass = M.clear_glass("lobby-glass")
+    glass = M.clear_glass("lobby-glass", see_through=True)
     box("lobby-y", 0.06, -d + recess - 0.012, px(1), w - 0.06, -d + recess, lobby - px(1.5), glass)
     box("lobby-x", w - 0.012, -d + recess, px(1), w, -0.06, lobby - px(1.5), glass)
     interior = M.flat("interior", (0.22, 0.2, 0.18, 1), rough=0.8)
@@ -204,7 +204,7 @@ def hq_lobby(w, d, floors, seed, logo=None, monument=None, lit=0.4):
         box(f"col{x}", x, -d, px(1), x + 0.06, -d + 0.06, lobby - px(1.5), col)
     box("col-back", w - 0.06, -0.06, px(1), w, 0, lobby - px(1.5), col)
     if logo:
-        lw = min((w - 0.55) * 0.9, (lobby - px(4)) * 2 * 0.9)
+        lw = min((w - 0.55) * 0.96, (lobby - px(4)) * 2 * 0.96)
         x0 = 0.25 + ((w - 0.55) - lw) / 2
         signs.logo_wall(logo, x0, x0 + lw, core_front - 0.003, px(1) + (lobby - px(2.5) - lw / 2) / 2)
     if monument:

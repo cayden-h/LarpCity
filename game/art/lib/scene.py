@@ -222,11 +222,25 @@ def _id_material(name: str, index: int, sign: int | None, alpha_image: str | Non
     return m
 
 
+def _see_through_id_material(name):
+    """A hole in the id pass: a bare transparent BSDF, so the camera ray keeps going and the id pass shows
+    whatever real, opaque object (a sign, an interior wall) sits behind this see-through glass, exactly as
+    the day pass's own ray-traced transmission already does."""
+    m = bpy.data.materials.new(f"id-{name}")
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    nt.links.new(nt.nodes.new("ShaderNodeBsdfTransparent").outputs[0], out.inputs["Surface"])
+    return m
+
+
 def set_ids() -> None:
     """Id pass, always the last render of a sprite (it replaces every material): each object's faces glow one
     flat color per face direction, with no lights, sky, shadow catcher, noise, or anti-aliasing.
     "Sign" is decided per object: any sign material slot (and any text) marks the whole object; so is "glass"
-    (a glass material slot, materials.windows or clear_glass), which scopes the pixel pass's sheen rule."""
+    (a glass material slot, materials.windows), which scopes the pixel pass's sheen rule. A see_through object
+    (materials.clear_glass) gets no id of its own at all; it is a hole the id pass's camera ray passes through."""
     set_night(True)
     sc = bpy.context.scene
     sc.view_settings.view_transform = "Raw"  # emission v / 255 renders to exactly byte v
@@ -240,14 +254,17 @@ def set_ids() -> None:
     signs = 0
     for i, o in enumerate(objs):
         mats = [s.material for s in o.material_slots if s.material]
-        sign = None
-        if o.type == "FONT" or any(m.get("sign") for m in mats):
-            if signs > 255:
-                raise ValueError(f"id pass: more than 256 signs in one sprite ({o.name}); a sign's ordinal is one byte")
-            sign, signs = signs, signs + 1
-        alpha = next((m["sign_alpha"] for m in mats if m.get("sign_alpha")), None)
-        mat = _id_material(o.name, i, sign, alpha, glass=any(m.get("glass") for m in mats),
-                           lit=any(m.get("lit") for m in mats))
+        if any(m.get("see_through") for m in mats):
+            mat = _see_through_id_material(o.name)
+        else:
+            sign = None
+            if o.type == "FONT" or any(m.get("sign") for m in mats):
+                if signs > 255:
+                    raise ValueError(f"id pass: more than 256 signs in one sprite ({o.name}); a sign's ordinal is one byte")
+                sign, signs = signs, signs + 1
+            alpha = next((m["sign_alpha"] for m in mats if m.get("sign_alpha")), None)
+            mat = _id_material(o.name, i, sign, alpha, glass=any(m.get("glass") for m in mats),
+                               lit=any(m.get("lit") for m in mats))
         o.data.materials.clear()
         o.data.materials.append(mat)
     print(f"[art] id pass: {len(objs)} objects", flush=True)

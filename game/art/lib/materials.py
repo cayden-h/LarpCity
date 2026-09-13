@@ -219,10 +219,14 @@ def windows(name, cell_u, cell_z, lit_share, tint=(0.08, 0.14, 0.2, 1), frame_fr
     return m
 
 
-def clear_glass(name, tint=(0.86, 0.92, 0.95, 1)):
-    """See-through glass (lobbies, shelters). Transparent in the night pass, so what glows behind it shows."""
+def clear_glass(name, tint=(0.86, 0.92, 0.95, 1), see_through=False):
+    """See-through glass (lobbies, shelters). Transparent in the night pass, so what glows behind it shows.
+    see_through: for glass with something behind it worth keeping legible (a lobby's logo wall) — the id pass
+    renders it as an actual hole instead of its own opaque "glass" id, so what it fronts keeps its own id and
+    the pixel pass's sign-preserving stroke rule, rather than being hidden behind a flat glass tone and washed
+    out. Everywhere else (nothing meaningful behind the pane) it stays a normal glass id."""
     m, nt, out = _base(name)
-    m["glass"] = True
+    m["see_through" if see_through else "glass"] = True
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.inputs["Base Color"].default_value = tint
     bsdf.inputs["Roughness"].default_value = 0.03
@@ -235,9 +239,11 @@ def clear_glass(name, tint=(0.86, 0.92, 0.95, 1)):
     return m
 
 
-def image(name, path, strength=1.2, glow=True, alpha=False, rough=0.5, top_lit=False):
+def image(name, path, strength=1.2, glow=True, alpha=False, rough=0.5, top_lit=False, day_glow=0.0):
     """An image on a UV-mapped face (ad, sign, mural). Glows with its own colors at night unless glow=False.
-    alpha: transparent where the image is. top_lit: brighter at the top, like a billboard under floodlights."""
+    alpha: transparent where the image is. top_lit: brighter at the top, like a billboard under floodlights.
+    day_glow: also lit by day at this emission strength, for a sign recessed behind glass (a lobby logo wall)
+    that would otherwise read as a dark smear under the scene's ambient light."""
     m, nt, out = _base(name)
     m["sign"] = True  # the pixel pass keeps sign detail and draws no inner lines across it
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
@@ -252,7 +258,16 @@ def image(name, path, strength=1.2, glow=True, alpha=False, rough=0.5, top_lit=F
         uv = nt.nodes.new("ShaderNodeSeparateXYZ")
         nt.links.new(nt.nodes.new("ShaderNodeTexCoord").outputs["UV"], uv.inputs[0])
         gradient = _math(nt, "MULTIPLY_ADD", uv.outputs[1], 0.7, 0.3)
-    shader = _finish(nt, out, bsdf.outputs[0], tex.outputs["Color"] if glow else None, strength if glow else 0.0,
+    day = bsdf.outputs[0]
+    if day_glow:
+        em = nt.nodes.new("ShaderNodeEmission")
+        nt.links.new(tex.outputs["Color"], em.inputs["Color"])
+        em.inputs["Strength"].default_value = day_glow
+        add = nt.nodes.new("ShaderNodeAddShader")
+        nt.links.new(day, add.inputs[0])
+        nt.links.new(em.outputs[0], add.inputs[1])
+        day = add.outputs[0]
+    shader = _finish(nt, out, day, tex.outputs["Color"] if glow else None, strength if glow else 0.0,
                      gradient=gradient, link=not alpha)
     if alpha:
         m["sign_alpha"] = tex.image.name  # the id pass is a sign only where the image is painted
