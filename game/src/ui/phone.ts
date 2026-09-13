@@ -1,7 +1,7 @@
 // The player's phone: the hub where the game's apps live. It pulls up from the
-// bottom-right corner. Stocks lists the HackRice sponsor stocks at today's game
-// prices (tap one to open its page), then the market from the FRED snapshot
-// (plus live Alpha Vantage quotes when the dev server has a key), and opens the
+// bottom-right corner. Stocks lists the city's funds and the HackRice sponsor
+// stocks at today's game prices (tap one to open its page), the real interest
+// rates the game doesn't simulate (labeled as real), and opens the
 // Money desk (/debt.html) in a window over the city, sharing the city's player
 // and clock through window.larpMoney. Goals opens the fast-forward setup screen
 // (ui/skip-setup.ts). Map and Weather show where the player is and the city's
@@ -16,7 +16,7 @@ import { MARKET, type SeriesId } from "../data/market";
 import type { SceneStatus } from "../engine/scene";
 import type { CityDef, StateInfo, WeatherKind } from "../engine/types";
 import { latest, type LifeEvent, type PlayerLife } from "../sim/life";
-import { INSTRUMENTS } from "../sim/market";
+import { INSTRUMENTS, type Instrument, type InstrumentId } from "../sim/market";
 import type { RunRecorder } from "../sim/record";
 import type { DeskState } from "../sim/save/types";
 
@@ -38,21 +38,12 @@ const APPS: AppDef[] = [
   { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: false },
 ];
 
-const WATCHLIST: { id: SeriesId; ticker: string; name: string }[] = [
-  { id: "SP500", ticker: "S&P 500", name: "Standard & Poor's 500" },
-  { id: "NASDAQCOM", ticker: "NASDAQ", name: "Nasdaq Composite" },
-  { id: "DJIA", ticker: "DOW", name: "Dow Jones Industrial" },
+/** Real interest rates the game doesn't simulate: shown from the FRED snapshot and labeled as real. */
+const RATES: { id: SeriesId; ticker: string; name: string }[] = [
+  { id: "DFF", ticker: "FED", name: "Fed Funds Rate" },
   { id: "DGS10", ticker: "10Y", name: "10-Year Treasury Yield" },
   { id: "MORTGAGE30US", ticker: "30Y MTG", name: "30-Year Fixed Mortgage" },
-  { id: "DFF", ticker: "FED", name: "Fed Funds Rate" },
 ];
-
-interface LiveQuote {
-  symbol: string;
-  price: number;
-  change: number;
-  changePct: number;
-}
 
 interface WorldSnapshot {
   state: StateInfo;
@@ -184,7 +175,6 @@ export class Phone {
   private readonly el: HTMLElement;
   private readonly overlay: HTMLElement;
   private readonly deps: PhoneDeps;
-  private live: LiveQuote[] = [];
   /** Game day the Stocks list was drawn for; sponsor prices move with the city clock. */
   private stockDay = Number.NEGATIVE_INFINITY;
   private toastTimer = 0;
@@ -243,14 +233,9 @@ export class Phone {
     this.renderStocks();
     this.renderStatus();
     setInterval(() => this.renderStatus(), 1000);
-    void this.loadLive();
   }
 
   private markup(): string {
-    const home = WATCHLIST[0];
-    const l = latest(home.id);
-    const pts = MARKET.series[home.id].points.slice(-60).map((p) => p[1]);
-    const up = pts[pts.length - 1] >= pts[0];
     return `
       <div class="phone-body">
         <div class="phone-screen">
@@ -266,10 +251,10 @@ export class Phone {
           <section class="view view-home" data-view="home">
             <div class="home-clock"><div class="hc-day" data-dow></div><div class="hc-date" data-date></div></div>
             <button class="widget" data-app="stocks" aria-label="Open Stocks">
-              <div class="w-top"><span class="w-name">${home.ticker}</span><span class="w-chg ${up ? "up" : "down"}">${l.changePct >= 0 ? "+" : "−"}${Math.abs(l.changePct * 100).toFixed(2)}%</span></div>
-              <div class="w-value">${fmtIndex(l.value)}</div>
-              ${sparkline(pts, up).replace('width="56" height="22"', 'width="100%" height="34" preserveAspectRatio="none"')}
-              <div class="w-foot">Stocks · as of ${new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+              <div class="w-top"><span class="w-name">LTM</span><span class="w-chg" data-w-chg></span></div>
+              <div class="w-value" data-w-value></div>
+              <div data-w-spark style="display: contents"></div>
+              <div class="w-foot">Larp Total Market · in game</div>
             </button>
             <div class="app-grid">
               ${APPS.map(
@@ -450,8 +435,8 @@ export class Phone {
     if (clock.day !== this.stockDay) this.renderStocks();
   }
 
-  /** The HackRice sponsors on the city player's market: today's close, the move since the last trading day, and about six weeks of closes. */
-  private sponsorRows(): string[] {
+  /** An instrument on the city player's market: today's close, the move since the last trading day, and about six weeks of closes. */
+  private quote(id: InstrumentId): { px: number; chg: number; pts: number[]; tone: "up" | "down" | "flat" } {
     const market = this.deps.player.market;
     const day = this.deps.clock.day;
     const trading = (d: number) => ![0, 6].includes(market.dateOf(d).getDay());
@@ -459,11 +444,15 @@ export class Phone {
     while (!trading(today)) today--;
     let prev = today - 1;
     while (!trading(prev)) prev--;
-    return INSTRUMENTS.filter((i) => i.sponsor).map((i) => {
-      const px = market.price(i.id, today);
-      const chg = px / market.price(i.id, prev) - 1;
-      const pts = market.series(i.id, day - 42, day).filter((p) => trading(p.day)).map((p) => p.value);
-      const tone = Math.abs(chg) < 1e-6 ? "flat" : chg > 0 ? "up" : "down";
+    const px = market.price(id, today);
+    const chg = px / market.price(id, prev) - 1;
+    const pts = market.series(id, day - 42, day).filter((p) => trading(p.day)).map((p) => p.value);
+    return { px, chg, pts, tone: Math.abs(chg) < 1e-6 ? "flat" : chg > 0 ? "up" : "down" };
+  }
+
+  private instrumentRows(list: readonly Instrument[]): string[] {
+    return list.map((i) => {
+      const { px, chg, pts, tone } = this.quote(i.id);
       return `<button class="st-row link" data-stock="${i.id}" aria-label="${i.name}: open in Money"><div class="st-name"><b>${i.id}</b><span>${i.name}${i.listed === false ? " · private" : ""}</span></div>${sparkline(pts, pts[pts.length - 1] >= pts[0])}<div class="st-right"><span class="st-px">$${fmtIndex(px)}</span><span class="st-pill ${tone}">${chg >= 0 ? "+" : "−"}${Math.abs(chg * 100).toFixed(2)}%</span></div></button>`;
     });
   }
@@ -472,39 +461,32 @@ export class Phone {
     this.stockDay = this.deps.clock.day;
     const item = (row: string) => `<li class="st-item">${row}</li>`;
     const sec = (title: string, note: string) => `<li class="st-sec"><span>${title}</span><span>${note}</span></li>`;
-    const live = this.live.map((q) => {
-      const up = q.change >= 0;
-      return `<div class="st-row"><div class="st-name"><b>${q.symbol}</b><span>Live · Alpha Vantage</span></div><span class="spark-slot"></span><div class="st-right"><span class="st-px">${fmtIndex(q.price)}</span><span class="st-pill ${up ? "up" : "down"}">${up ? "+" : "−"}${Math.abs(q.changePct * 100).toFixed(2)}%</span></div></div>`;
-    });
-    const fred = WATCHLIST.map((w) => {
-      const l = latest(w.id);
-      const pct = MARKET.series[w.id].unit === "percent";
-      const pts = MARKET.series[w.id].points.slice(-60).map((p) => p[1]);
+    const rates = RATES.map((r) => {
+      const l = latest(r.id);
+      const pts = MARKET.series[r.id].points.slice(-60).map((p) => p[1]);
       const up = l.change >= 0;
-      const value = pct ? `${l.value.toFixed(2)}%` : fmtIndex(l.value);
-      const chg = pct ? `${up ? "+" : "−"}${Math.abs(l.change * 100).toFixed(0)} bp` : `${up ? "+" : "−"}${Math.abs(l.changePct * 100).toFixed(2)}%`;
-      return `<div class="st-row"><div class="st-name"><b>${w.ticker}</b><span>${w.name}</span></div>${sparkline(pts, pts[pts.length - 1] >= pts[0])}<div class="st-right"><span class="st-px">${value}</span><span class="st-pill ${up ? "up" : "down"}">${chg}</span></div></div>`;
+      return `<div class="st-row"><div class="st-name"><b>${r.ticker}</b><span>${r.name}</span></div>${sparkline(pts, pts[pts.length - 1] >= pts[0])}<div class="st-right"><span class="st-px">${l.value.toFixed(2)}%</span><span class="st-pill ${up ? "up" : "down"}">${up ? "+" : "−"}${Math.abs(l.change * 100).toFixed(0)} bp</span></div></div>`;
     });
-    const asOf = new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const asOf = new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     this.q("[data-st-list]").innerHTML = [
+      sec("Funds and stocks", "In game"),
+      ...this.instrumentRows(INSTRUMENTS.filter((i) => !i.sponsor)).map(item),
       // "In game" (not "Game prices") so the full title fits on the phone's 192px row.
       sec("HackRice sponsors", "In game"),
-      ...this.sponsorRows().map(item),
-      sec("Markets", `${this.live.length ? "Live and " : ""}FRED, ${asOf}`),
-      ...[...live, ...fred].map(item),
+      ...this.instrumentRows(INSTRUMENTS.filter((i) => i.sponsor)).map(item),
+      sec("Real rates", `FRED, ${asOf}`),
+      ...rates.map(item),
     ].join("");
     this.q("[data-st-sub]").textContent = `Larp City, ${this.deps.clock.date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
-  }
 
-  private async loadLive() {
-    try {
-      const res = await fetch("/api/market/quotes?symbols=SPY,QQQ,DIA,IWM");
-      if (!res.ok) return;
-      const j = (await res.json()) as { quotes?: LiveQuote[] };
-      this.live = (j.quotes ?? []).filter((q) => Number.isFinite(q.price) && q.price > 0);
-      if (this.live.length) this.renderStocks();
-    } catch {
-      // No dev server proxy or no key: the FRED snapshot is enough.
-    }
+    const ltm = this.quote("LTM");
+    const chg = this.q("[data-w-chg]");
+    chg.textContent = `${ltm.chg >= 0 ? "+" : "−"}${Math.abs(ltm.chg * 100).toFixed(2)}%`;
+    chg.className = `w-chg ${ltm.chg >= 0 ? "up" : "down"}`;
+    this.q("[data-w-value]").textContent = `$${fmtIndex(ltm.px)}`;
+    this.q("[data-w-spark]").innerHTML = sparkline(ltm.pts, ltm.pts[ltm.pts.length - 1] >= ltm.pts[0]).replace(
+      'width="56" height="22"',
+      'width="100%" height="34" preserveAspectRatio="none"',
+    );
   }
 }
