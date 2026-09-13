@@ -130,7 +130,7 @@ function walkLadder(book: DebtBook, d: Debt, day: number, events: DebtEvent[]) {
     const deficiency = owed(d) * (1 - REPO_RECOVERY);
     d.balance = deficiency;
     d.accrued = 0;
-    d.secured = undefined;
+    delete d.secured;
     d.status = "collections";
     d.scheduledPayment = 0;
     book.profile.collections.push({ day, debtId: d.id });

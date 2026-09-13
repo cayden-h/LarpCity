@@ -110,6 +110,75 @@ test("statement for an entity that was never opened is a 404", async () => {
   await assert.rejects(mirror.statement(SESSION_A, "npc-maya"), (e: MirrorError) => e.status === 404);
 });
 
+test("concurrent first opens for different entities share one customer load and don't clobber each other", async () => {
+  const { fake, mirror } = setup();
+  await Promise.all([
+    mirror.open(SESSION_A, "player", { run: "r1", opening: OPENING }),
+    mirror.open(SESSION_A, "npc-maya", { run: "r1", opening: OPENING }),
+    mirror.open(SESSION_A, "npc-leo", { run: "r1", opening: OPENING }),
+  ]);
+  assert.equal(fake.customers.length, 3, "each entity got its own customer on the first open");
+
+  // A same-process reopen must find all three by name, not recreate any of them.
+  await Promise.all([
+    mirror.open(SESSION_A, "player", { run: "r2", opening: OPENING }),
+    mirror.open(SESSION_A, "npc-maya", { run: "r2", opening: OPENING }),
+    mirror.open(SESSION_A, "npc-leo", { run: "r2", opening: OPENING }),
+  ]);
+  assert.equal(fake.customers.length, 3, "reopening the same entities never creates duplicate customers");
+});
+
+test("two sessions opening the same NPC for the first time at once still create only one customer", async () => {
+  const { fake, mirror } = setup();
+  await Promise.all([
+    mirror.open(SESSION_A, "npc-maya", { run: "r1", opening: OPENING }),
+    mirror.open(SESSION_B, "npc-maya", { run: "r1", opening: OPENING }),
+  ]);
+  assert.equal(fake.customers.length, 1, "one Maya customer, not two");
+});
+
+test("concurrent first opens of different NPCs can't pass the cap together", async () => {
+  const { fake, mirror } = setup();
+  for (let i = 0; i < MAX_NPC_CUSTOMERS - 1; i++) {
+    await mirror.open(SESSION_A, `npc-${"abcdefghijklmnop"[i]}x`, { run: "r1", opening: OPENING });
+  }
+  const results = await Promise.allSettled(["npc-ya", "npc-yb", "npc-yc"].map((e) => mirror.open(SESSION_A, e, { run: "r1", opening: OPENING })));
+  assert.equal(fake.customers.length, MAX_NPC_CUSTOMERS);
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  for (const r of results) if (r.status === "rejected") assert.equal((r.reason as MirrorError).status, 429);
+});
+
+/** A mirror whose Nessie fails the first `times` requests that match. */
+function failing(match: (method: string, path: string) => boolean, times = 1) {
+  const fake = fakeNessie();
+  let left = times;
+  const fetchFn = (async (input: string | URL | Request, init: RequestInit = {}) => {
+    if (left > 0 && match(init.method ?? "GET", new URL(String(input)).pathname)) {
+      left--;
+      return new Response('"down"', { status: 500 });
+    }
+    return fake.fetchFn(input, init);
+  }) as typeof fetch;
+  const nessie = new Nessie({ baseUrl: "https://nessie.test", apiKey: "k", fetchFn, retries: 0 });
+  return { fake, mirror: new MirrorService(nessie, "larpcity") };
+}
+
+test("a failed load of the customer list is asked for again next time", async () => {
+  const { fake, mirror } = failing((m, p) => m === "GET" && p === "/customers");
+  await assert.rejects(mirror.open(SESSION_A, "npc-maya", { run: "r1", opening: OPENING }));
+  await mirror.open(SESSION_A, "npc-maya", { run: "r1", opening: OPENING });
+  assert.equal(fake.customers.length, 1);
+});
+
+test("a rejected customer create lets the next open create it", async () => {
+  const { fake, mirror } = failing((m, p) => m === "POST" && p === "/customers");
+  await assert.rejects(mirror.open(SESSION_A, "npc-maya", { run: "r1", opening: OPENING }));
+  assert.equal(fake.customers.length, 0);
+  await mirror.open(SESSION_A, "npc-maya", { run: "r1", opening: OPENING });
+  await mirror.open(SESSION_A, "npc-leo", { run: "r1", opening: OPENING });
+  assert.equal(fake.customers.length, 2, "the failed create didn't block the NPC lock either");
+});
+
 test("request bodies are validated before anything reaches Nessie", () => {
   assert.ok(openBody.safeParse({ run: "20260912-abc", name: "Maya", opening: OPENING }).success);
   assert.ok(!openBody.safeParse({ run: "has space", opening: OPENING }).success);

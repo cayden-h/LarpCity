@@ -5,7 +5,7 @@
 //   POST /api/runs/:runId/fork   { throughDay }          -> 201 { runId }  a rewind's branch, with the run through that day
 //   POST /api/snapshot           { runId, entries }      -> { stored }   one row per game day, latest wins
 //   POST /api/events             { runId, events }       -> { stored }   once per event key
-//   GET  /api/history/:runId     ?bucket=day|week|month&from&to   (week and month come from continuous aggregates)
+//   GET  /api/history/:runId     ?bucket=day|week|month&from&to   (week and month bucket the run's own rows)
 //   GET  /api/events/:runId      ?from&to&kinds=a,b
 //   GET  /api/leaderboard        each run's latest net worth
 import { Router, type Request } from "express";

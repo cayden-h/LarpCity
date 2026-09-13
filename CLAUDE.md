@@ -72,6 +72,8 @@ That is what makes rewind, fast-forward, and "what if" comparisons possible: sto
 - `sim/record/` (`RunRecorder`): sends the run's daily snapshots and every life event to the server (Tiger Data); `sim/npcs/` and `sim/mirror/` run the named NPCs and the Capital One Nessie bank mirror.
 - `sim/rewind/` (`LifeTimeline`): a checkpoint of a life for every game day, restored into the same `PlayerLife`, so the Calendar goes back to any past day exactly; `rewindTo` in `src/main.ts` rewinds the clock, NPCs, bank mirror, and recorder (which forks the run on the server) with it.
 - `sim/calendar/`: the Calendar's day chips (`marksFor`), each future day's scheduled money (`scheduleFor`, matching the debt engine's due days), and the next decision day (`nextDecisionDay`, a detached copy run ahead).
+- `sim/save/`: the whole game as one saved document (`GameSave`, `toSave`/`fromSave` on each stateful sim class), `codec.ts` (`restoreGame`), `boot.ts` (resume, from-profile, intake, or offline), and `manager.ts` (`SaveManager`, autosaving on decisions, new months, and skips, and treating a 409 as another tab now owning the life).
+- `sim/mail/` (`Inbox`): the phone's Mail app, letters built from the life's events, skipping routine days; opening a decision letter opens the Money desk on it.
 
 **Rendering and world (`game/src/engine/`, `game/src/cities/`)**: a PixiJS v8 isometric renderer.
 `engine/world.ts` wraps each city in generated suburbs, farms, and terrain; `engine/bricks.ts` is the procedural building builder where no sprite set exists; `cities/` holds the 6 hand-made cities (Houston, Dallas, Austin, San Francisco, New York, Miami) plus per-state "vibe" templates.
@@ -79,7 +81,7 @@ Cities with a sprite set draw pre-rendered Blender sprites (`engine/sprite-pick.
 Everything random is seeded, so a city's weather and traffic replay identically.
 
 **UI (`game/src/ui/`)**: DOM over the canvas, in Eric's pixel theme (`pixel-theme.css`, the Pixelify Sans font, `pixel-icons.ts`).
-The HUD (`hud.ts`) is just the "Your home" card; the phone (`phone.ts`, pulled up from the bottom-right) is the hub: Stocks (sponsor stocks and markets, opens the Money desk), Goals (the fast-forward, `skip-setup.ts`), Map (the pixel U.S. map, `usmap.ts`), Weather, and Calendar (`calendar.ts`: the month and year views, going back to a past day, skipping to the next decision day, and the speed).
+The HUD (`hud.ts`) is just the "Your home" card; the phone (`phone.ts`, pulled up from the bottom-right) is the hub: Stocks (sponsor stocks and markets, opens the Money desk), Goals (the fast-forward, `skip-setup.ts`), Map (the pixel U.S. map, `usmap.ts`), Weather, Calendar (`calendar.ts`: the month and year views, going back to a past day, skipping to the next decision day, the speed, and "Start a new life" from the year view), and the live Mail, News, and Bank apps (`phone-apps.ts`), reading the life's inbox, the Ledger, and the Nessie statement.
 Add new phone apps to `APPS`.
 `intake.ts` is the onboarding (voice interview through ElevenLabs, or a typed form), and `narrator.ts` with `src/narration/lines.ts` is the owl narrator and its pre-voiced lines.
 Scene events, camera reset, and the pinned sky time have no buttons anymore; use them from the console (`larp.scene().trigger("crash")`).
@@ -97,7 +99,7 @@ Standalone, it runs and records its own life.
 
 Express + Zod + pg in `server/src/`; every provider key stays here and the browser only calls `/api/*` (the Persona template and environment ids are the only values safe client-side).
 Routes use the `handle`/`parse`/`HttpError` helpers in `http.ts`; provider clients are in `adapters/` (Persona, Nessie with a local fallback and replay, ElevenLabs, Gemini with key and model rotation, Backboard).
-Run data lives in Tiger Data (Postgres + TimescaleDB): `store/runs.ts` for runs, snapshots, events, and history (with weekly and monthly continuous aggregates); `migrations.sql` is additive, runs one statement at a time on boot, and must stay idempotent.
+Run data lives in Tiger Data (Postgres + TimescaleDB): `store/runs.ts` for runs, snapshots, events, and history (weekly and monthly buckets of the run's own rows; the continuous aggregates are for cross-run analytics); `store/saves.ts` and `routes/save.ts` for the player's profile and saved game (`GET /api/me`, `PUT /api/profile`, `PUT /api/save` with optimistic-concurrency `rev`, `DELETE /api/save` for "New life"); `migrations.sql` is additive, runs one statement at a time on boot, and must stay idempotent.
 The Gemini coach and newspaper (`ai/facts.ts`, `ai/coach.ts`) write only from the run's stored data, never from browser text, and fall back to plain-text templates; `/api/feedback` triggers are goal, bankruptcy, swing, and recovery.
 The base schema is `game/db/schema.sql` (loader `game/db/load.py`, needs `psycopg`); deployment notes (Caddy, systemd, Vultr) are in `server/deploy/` and `server/README.md`.
 

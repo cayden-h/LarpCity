@@ -7,18 +7,26 @@ import { CityScene } from "./engine/scene";
 import { loadSpriteSet } from "./engine/sprites";
 import { prerenderCityThumbnails } from "./engine/thumbnails";
 import type { StateInfo } from "./engine/types";
-import { cueForEvents } from "./narration/lines";
+import { cueForEvents, welcomeBackLine } from "./narration/lines";
 import { PlayerLife, STARTER_PORTFOLIO } from "./sim/life";
-import { lifeFromIntake } from "./sim/life/intake";
+import { answersFromProfile, lifeFromIntake, profileFromIntake } from "./sim/life/intake";
+import { Inbox, type DebtLookup } from "./sim/mail/inbox";
 import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
 import { NpcTown } from "./sim/npcs";
 import { RunRecorder } from "./sim/record";
 import { LifeTimeline } from "./sim/rewind";
+import { bootPath, fetchMe, offlineNotice, resumePlace } from "./sim/save/boot";
+import { saveApi } from "./sim/save/client";
+import { encodeGame, parseSave, restoreGame, SaveFormatError, type RestoredGame } from "./sim/save/codec";
+import { trimDesk } from "./sim/save/desk";
+import { SaveManager } from "./sim/save/manager";
+import type { DeskState, GameSave } from "./sim/save/types";
 import { Hud } from "./ui/hud";
 import { runIntake } from "./ui/intake";
 import { Narrator } from "./ui/narrator";
 import { NpcCard } from "./ui/npccard";
+import { showNotice } from "./ui/notice";
 import { Phone } from "./ui/phone";
 import { FastForward } from "./ui/skip-setup";
 import { UsMap } from "./ui/usmap";
@@ -39,34 +47,102 @@ document.getElementById("app")!.appendChild(app.canvas);
 
 const clock = new Clock();
 let scene: CityScene | null = null;
-let state: StateInfo = STATES.find((s) => s.abbr === "TX")!;
 /** The time-lapse skip's interval, or 0 when no skip is playing. */
 let skipTimer = 0;
-
-// The run's seed: the market path and every random draw hang off it (?seed= to replay one).
-const seed = Number(new URLSearchParams(location.search).get("seed")) || 20260912;
+const params = new URLSearchParams(location.search);
 
 // The hash is a state (#CA) or a specialized city (#dallas).
-const fromHash = () => {
-  const h = location.hash.slice(1);
-  return STATES.find((s) => s.abbr === h.toUpperCase()) ?? stateForPin(h.toLowerCase(), STATES);
-};
-// Start where the link points, so the rent the player states belongs to that state.
-state = fromHash() ?? state;
+const stateFor = (h: string) => STATES.find((s) => s.abbr === h.toUpperCase()) ?? stateForPin(h.toLowerCase(), STATES);
+const fromHash = () => stateFor(location.hash.slice(1));
+const TX = STATES.find((s) => s.abbr === "TX")!;
 
-// Onboarding: the owl's voice interview (or the typed form) sets the player's
-// job, pay, rent, debt, and savings before the first day runs; skipping it
-// keeps the sample household.
-const intake = await runIntake({ backdrop: `${import.meta.env.BASE_URL}cities/${state.cityId}/plates/day.jpg` });
+// Who this is and where they left off (server/src/routes/save.ts), retried through a blip. A /me
+// that still fails is never taken as "no save" (sim/save/boot.ts): the player picks between trying
+// again and a fresh life that is never saved, so their real profile and save are left alone.
+const saves = saveApi();
+const meResult = await fetchMe(() => saves.me(), { tries: 3, delayMs: 800 });
+// ?intake=1 starts a new life over the save (the save manager then overwrites it).
+let path = bootPath(meResult, { intake: params.get("intake") === "1" });
+const me = meResult.ok ? meResult.me : null;
+/** Whether this life may be written to the server (its profile and its save). */
+let saving = path !== "offline";
+if (path === "offline") {
+  // A 4xx is the server refusing this save, not the server being down; the notice says which.
+  const choice = await showNotice({ ...offlineNotice(meResult), actions: ["Try again", "Play without saving"] });
+  if (choice === 0) {
+    location.reload();
+    await new Promise(() => undefined);
+  }
+}
 
-// The player's money life: paychecks, rent for the current state, and the
-// debt engine run once per game day (research/07-debt-system-design.md);
-// investments (a starter portfolio from day one, with or without the
-// interview) move with the seeded market.
-const market = new MarketPath(seed, clock.start);
-const player = intake
-  ? lifeFromIntake(intake, { place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO })
-  : new PlayerLife({ place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO });
+let saved: GameSave | null = null;
+let restored: RestoredGame | null = null;
+/** A resumed game's state (its rent depends on it) and the city it was showing inside that state. */
+let resumed: { home: StateInfo; city: StateInfo } | null = null;
+if (path === "resume" && me?.save) {
+  try {
+    saved = parseSave(me.save.state);
+    resumed = resumePlace(saved.life.place?.abbr, saved.hash, STATES, stateFor);
+    if (!resumed) throw new SaveFormatError(`the saved state ${saved.life.place?.abbr} doesn't exist`);
+    // Decoded whole before anything live is built, so a bad save can't half-load (sim/save/codec.ts).
+    restored = restoreGame(saved, { market: new MarketPath(saved.seed, clock.start), place: resumed.home, start: clock.start });
+  } catch (err) {
+    if (!(err instanceof SaveFormatError)) throw err;
+    console.warn("[save] can't load the saved game:", err.message);
+    await showNotice({
+      title: "A save this version can't load",
+      body: "This life was saved by a different version of Larp City, or the save is damaged, so it can't be loaded here.",
+      actions: ["Start a new life"],
+    });
+    // If the old save can't be deleted, every write of the new life would 409 against it: play unsaved instead.
+    if (!(await saves.deleteSave().then(() => true, () => false))) saving = false;
+    saved = restored = resumed = null;
+    me.save = null;
+    me.profile = null;
+    path = "intake";
+  }
+}
+
+// A saved game goes back where the player was. Otherwise start where the link points, so the
+// rent the player states belongs to that state, or in their profile's state.
+let state: StateInfo = resumed?.city ?? fromHash() ?? STATES.find((s) => s.abbr === me?.profile?.state) ?? TX;
+
+// The run's seed: the market path and every random draw hang off it (?seed= to replay one).
+const seed = saved?.seed ?? (Number(params.get("seed")) || 20260912);
+const market = restored?.life.market ?? new MarketPath(seed, clock.start);
+// Read once: a reload (another tab's conflict, the back/forward cache) must not start the intake over
+// the save again, and a resumed game's seed is its own.
+if (params.has("intake") || (saved && params.has("seed"))) {
+  const url = new URL(location.href);
+  url.searchParams.delete("intake");
+  if (saved) url.searchParams.delete("seed");
+  history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+// The player's money life: paychecks, rent for the current state, and the debt engine run once
+// per game day (research/07-debt-system-design.md), with a starter portfolio on the seeded market.
+// It is restored from the save, or built from the profile; with no profile, the owl's voice
+// interview (or the typed form) asks first and the answers become the profile.
+let player: PlayerLife;
+if (saved && restored) {
+  clock.jumpTo(saved.day);
+  player = restored.life;
+  // The saved state itself (same abbr, so the rent doesn't change), not the city picked inside it.
+  player.place = resumed!.home;
+} else {
+  let profile = path === "fromProfile" ? (me?.profile ?? null) : null;
+  if (!profile) {
+    const r = await runIntake({ backdrop: `${import.meta.env.BASE_URL}cities/${state.cityId}/plates/day.jpg` });
+    const p = profileFromIntake(r.answers, r.source, state.abbr);
+    profile = { ...p, displayName: null };
+    // Played without saving, the real profile on the server must stay as it is.
+    if (saving) void saves.putProfile(p).catch(() => undefined);
+  }
+  const answers = answersFromProfile(profile);
+  player = answers
+    ? lifeFromIntake(answers, { place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO })
+    : new PlayerLife({ place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO });
+}
 
 // The owl narrates the big moments from here on (narration/lines.ts).
 const narrator = new Narrator();
@@ -74,17 +150,24 @@ const narrator = new Narrator();
 // The named NPCs' money lives on the same market (src/data/npcs.ts), and the
 // bank mirror posts the player's and theirs to Capital One Nessie through the
 // server, one statement per game month (off when the server isn't running).
-const town = new NpcTown({ place: state, day: clock.day, market: player.market, start: clock.start });
+const town = restored?.town ?? new NpcTown({ place: state, day: clock.day, market: player.market, start: clock.start });
 const api = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api`;
-const bank = new BankSync({ run: `${seed}-${Date.now().toString(36)}`, start: clock.start, base: `${api}/bank` });
+// A resumed game keeps its Nessie accounts: the server reopens the same run and reads back its balances.
+const bankRun = saved?.bankRun || `${seed}-${Date.now().toString(36)}`;
+const bank = new BankSync({ run: bankRun, start: clock.start, base: `${api}/bank` });
 bank.add("player", "Player", player);
 for (const [id, life] of town.lives) bank.add(id, town.profiles.get(id)!.first, life);
 void bank.begin();
-// The player's daily snapshots and life events, recorded in Tiger Data for charts, history, and the leaderboard.
-const recorder = new RunRecorder({ life: player, seed, base: api });
-void recorder.begin();
-// A checkpoint every game day, so the Calendar can go back to any past day (sim/rewind).
+// The player's daily snapshots and life events, recorded in Tiger Data for charts, history, and
+// the leaderboard; a resumed game records into its saved run.
+const recorder = new RunRecorder({ life: player, seed, base: api, runId: saved ? me?.save?.runId : undefined });
+// A checkpoint every game day, so the Calendar can go back to any past day (sim/rewind). A resumed
+// game's first checkpoint is the day it was loaded on, so the Calendar goes back no further than that.
 const timeline = new LifeTimeline(player, { start: clock.start });
+
+// The phone's Mail inbox (sim/mail) and what the Money desk last reported; both ride in the save.
+const mail = restored?.mail ?? new Inbox();
+let desk: DeskState | null = saved?.desk ?? null;
 
 let shownTier = -1;
 function syncHomeTier() {
@@ -114,6 +197,8 @@ clock.onDay((day) => {
   town.onDay(day);
   void bank.tick(day);
   void recorder.tick();
+  // Save each new game month, so time-lapses and long idle play are kept too.
+  if (clock.date.getDate() === 1) saver.request();
 });
 
 async function open(next: StateInfo): Promise<void> {
@@ -128,6 +213,7 @@ async function open(next: StateInfo): Promise<void> {
   if (next.abbr !== state.abbr) {
     player.setPlace(next, clock.day);
     narrator.cue("moved");
+    saver.request();
   }
   state = next;
   const city = cityFor(next);
@@ -148,6 +234,8 @@ const npcCard = new NpcCard(document.getElementById("npc")!);
 const SKIP_STEPS = 60;
 
 function stopSkip(): void {
+  // A time-lapse that was running is a lot of days to lose: save where it ended.
+  if (skipTimer) saver.request();
   clearInterval(skipTimer);
   skipTimer = 0;
   clock.skipping = false;
@@ -173,8 +261,16 @@ function rewindTo(day: number): void {
   timeline.rewindTo(day);
   clock.jumpTo(day);
   town.rewind(day);
+  mail.rewind(day);
   bank.rewind(day);
-  void recorder.rewind(day);
+  // The rewound game saves onto the forked run, so wait for the fork to answer (sim/record).
+  void recorder
+    .rewind(day)
+    .catch(() => undefined)
+    .then(() => saver.request());
+  // The desk trims its own lists when it hears about the rewind; trim the city's copy of them too,
+  // so a save before the desk reports again doesn't bring the discarded days back.
+  if (desk) desk = trimDesk(desk, day);
   syncHomeTier();
   phone.rewound(day, player.log.filter((e) => e.day === day && player.needsDecision([e])));
 }
@@ -236,6 +332,7 @@ const fastForward = new FastForward({
     town.catchUp(result.toDay);
     void bank.tick(result.toDay);
     void recorder.tick(true);
+    saver.request();
   },
 });
 
@@ -251,6 +348,44 @@ const phone = new Phone({
   rewindTo,
   firstDay: () => timeline.firstDay,
   getWorld: () => ({ state, city: scene?.city ?? cityFor(state), status: scene?.status() ?? null }),
+  changed: (d, o) => {
+    desk = d;
+    if (!o?.quiet) saver.request();
+  },
+  deskState: () => desk,
+  mail,
+  // A letter read is kept read.
+  mailChanged: () => saver.request(),
+  newLife: async () => {
+    // Stop saving first, and let a write already on its way answer, so nothing lands after the erase
+    // and brings this life back.
+    await saver.stop();
+    // Played without saving there is no save to erase: the reload asks the server again, so the
+    // player's real save comes back if the server does, or they get a fresh unsaved life.
+    if (saving) {
+      try {
+        await saves.deleteSave();
+      } catch (err) {
+        // Nothing was erased: this life carries on, and saves again (the Calendar says so).
+        saver.resume();
+        throw err;
+      }
+    }
+    // With the save and the profile gone, the reload starts the intake.
+    history.replaceState(null, "", location.pathname);
+    location.reload();
+  },
+});
+
+// Letters for the Mail app (sim/mail). A rewind replays its days inside player.quietly(), which
+// mutes this listener, so replayed days file no second letters; Inbox.rewind(day) already kept the
+// letters through that day (rewindTo above).
+const debtLookup: DebtLookup = (id) => {
+  const d = player.book.debts.find((x) => x.id === id);
+  return d ? { name: d.name, kind: d.kind } : { name: "Loan" };
+};
+player.onEvents((events) => {
+  if (mail.add(events, debtLookup).length) phone.renderMail();
 });
 
 app.renderer.on("resize", (w: number, h: number) => scene?.resize(w, h));
@@ -261,6 +396,40 @@ app.ticker.add((ticker) => {
 });
 setInterval(() => hud.render(scene?.hero?.tier ?? null), 200);
 
+// Autosave (sim/save/manager.ts): after a rewind, a move, a skip, the desk's decisions, and each
+// game month. A second tab playing the same life wins; this one stops and says so.
+const saver = new SaveManager({
+  api: saves,
+  build: () => encodeGame({ seed, day: clock.day, hash: location.hash.slice(1), bankRun, life: player, town, mail, desk }),
+  runId: () => recorder.runId,
+  // ?intake=1 over an existing save overwrites it rather than conflicting with it.
+  baseRev: me?.save?.rev ?? null,
+  off: !saving,
+  onStatus: (s) => {
+    hud.setSave(s);
+    if (s !== "conflict") return;
+    stopSkip();
+    clock.speed = 0;
+    void showNotice({
+      title: "Playing somewhere else",
+      body: "This life is open in another tab, so this one stopped saving. Reload to carry on from there.",
+      actions: ["Reload"],
+    }).then(() => location.reload());
+  },
+});
+// Played without saving: the HUD says so from the start.
+hud.setSave(saver.status);
+hud.setWho(player.job);
+void recorder.begin().then(() => saver.request());
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") void saver.flush();
+});
+window.addEventListener("pagehide", () => saver.flushOnUnload());
+// Back from the back/forward cache, this page's rev may be stale: load the life fresh instead.
+window.addEventListener("pageshow", (e) => {
+  if (e.persisted) location.reload();
+});
+
 // Shared links and back/forward change only the hash, so follow it.
 window.addEventListener("hashchange", () => {
   const s = fromHash();
@@ -270,14 +439,17 @@ await open(state);
 // Show the player's real home from the first frame, not the hero's default tier.
 syncHomeTier();
 
-// The owl opens the story once per browser tab.
-try {
-  if (!sessionStorage.getItem("larp.narrator.arrived")) {
-    sessionStorage.setItem("larp.narrator.arrived", "1");
+// The owl opens the story once per browser tab, or welcomes a returning player back.
+if (saved) narrator.speak(welcomeBackLine(player.job || null, clock.date), "arrival");
+else {
+  try {
+    if (!sessionStorage.getItem("larp.narrator.arrived")) {
+      sessionStorage.setItem("larp.narrator.arrived", "1");
+      narrator.cue("arrival");
+    }
+  } catch {
     narrator.cue("arrival");
   }
-} catch {
-  narrator.cue("arrival");
 }
 
 /** Advance the game by `seconds` of simulated frames and render once. Background tabs throttle rAF, so tests use this. */
@@ -298,4 +470,4 @@ async function visit(abbrOrCity: string, seconds = 3) {
 }
 
 // Handy for testing from the console.
-Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, town, bank, recorder, phone, fastForward, narrator } });
+Object.assign(window, { larp: { app, clock, open, visit, step, scene: () => scene, states: STATES, player, town, bank, recorder, phone, fastForward, narrator, saver, mail } });

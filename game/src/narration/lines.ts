@@ -252,3 +252,13 @@ export class CueGate {
     return true;
   }
 }
+
+/** The owl's greeting for a returning player: their job (from the intake) and the game date they're back on. */
+export function welcomeBackLine(job: string | null, date: Date): string {
+  const t = job?.trim() ?? "";
+  // "Nurse" reads "nurse" mid-sentence, but "CEO at AWS" keeps its capitals.
+  const plain = t.length > 1 && t[1] === t[1].toLowerCase() && t[1] !== t[1].toUpperCase();
+  const who = t ? `, ${plain ? t[0].toLowerCase() + t.slice(1) : t}` : "";
+  const when = date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  return `Welcome back${who}. It's ${when}, and your money is right where you left it.`;
+}

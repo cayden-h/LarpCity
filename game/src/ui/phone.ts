@@ -1,24 +1,29 @@
 // The player's phone: the hub where the game's apps live. It pulls up from the
-// bottom-right corner. Stocks lists the HackRice sponsor stocks at today's game
-// prices (tap one to open its page), then the market from the FRED snapshot
-// (plus live Alpha Vantage quotes when the dev server has a key), and opens the
+// bottom-right corner. Stocks lists the city's funds and the HackRice sponsor
+// stocks at today's game prices (tap one to open its page), the real interest
+// rates the game doesn't simulate (labeled as real), and opens the
 // Money desk (/debt.html) in a window over the city, sharing the city's player
 // and clock through window.larpMoney. Goals opens the fast-forward setup screen
 // (ui/skip-setup.ts). Map and Weather show where the player is and the city's
 // weather and season. Calendar (ui/calendar.ts) shows the player's days, goes
-// back to a past one, skips to the next decision, and sets the clock's speed.
-// News and Mail are static placeholder content; no backend yet.
+// back to a past one, skips to the next decision, sets the clock's speed, and
+// (in its year view) starts a new life. Mail, News, and Bank are the life's
+// letters, the Larp City Ledger, and the Nessie bank statement (ui/phone-apps.ts).
 
 import "./phone.css";
 import { CalendarApp } from "./calendar";
+import { BankApp, mailHtml, NewsApp, type BankStatement, type Story } from "./phone-apps";
 import { pixelIcon } from "./pixel-icons";
 import type { Clock } from "../engine/clock";
+import { apiFetch } from "../net/api";
 import { MARKET, type SeriesId } from "../data/market";
 import type { SceneStatus } from "../engine/scene";
 import type { CityDef, StateInfo, WeatherKind } from "../engine/types";
 import { latest, type LifeEvent, type PlayerLife } from "../sim/life";
-import { INSTRUMENTS } from "../sim/market";
+import type { Inbox } from "../sim/mail/inbox";
+import { INSTRUMENTS, type Instrument, type InstrumentId } from "../sim/market";
 import type { RunRecorder } from "../sim/record";
+import type { DeskState } from "../sim/save/types";
 
 interface AppDef {
   id: "stocks" | "goals" | "map" | "weather" | "calendar" | "news" | "mail" | "bank";
@@ -35,24 +40,15 @@ const APPS: AppDef[] = [
   { id: "calendar", name: "Calendar", icon: pixelIcon("calendar"), ready: true },
   { id: "news", name: "News", icon: pixelIcon("news"), ready: true },
   { id: "mail", name: "Mail", icon: pixelIcon("mail"), ready: true },
-  { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: false },
+  { id: "bank", name: "Bank", icon: pixelIcon("bank"), ready: true },
 ];
 
-const WATCHLIST: { id: SeriesId; ticker: string; name: string }[] = [
-  { id: "SP500", ticker: "S&P 500", name: "Standard & Poor's 500" },
-  { id: "NASDAQCOM", ticker: "NASDAQ", name: "Nasdaq Composite" },
-  { id: "DJIA", ticker: "DOW", name: "Dow Jones Industrial" },
-  { id: "DGS10", ticker: "10Y", name: "10-Year Treasury Yield" },
-  { id: "MORTGAGE30US", ticker: "30Y MTG", name: "30-Year Fixed Mortgage" },
-  { id: "DFF", ticker: "FED", name: "Fed Funds Rate" },
+/** Real interest rates the game doesn't simulate: shown from the FRED snapshot and labeled as real. */
+const RATES: { id: SeriesId; ticker: string; name: string }[] = [
+  { id: "DFF", ticker: "FED", name: "Fed funds rate" },
+  { id: "DGS10", ticker: "10Y", name: "10-year Treasury" },
+  { id: "MORTGAGE30US", ticker: "30Y MTG", name: "30-year mortgage" },
 ];
-
-interface LiveQuote {
-  symbol: string;
-  price: number;
-  change: number;
-  changePct: number;
-}
 
 interface WorldSnapshot {
   state: StateInfo;
@@ -88,160 +84,6 @@ const SEASON_NOTE = {
   fall: "Cooler air and changing leaves",
   winter: "Short days and colder weather",
 } as const;
-
-interface MailMessage {
-  id: string;
-  from: string;
-  subject: string;
-  preview: string;
-  body: string;
-  date: string;
-  unread: boolean;
-}
-
-/** Static placeholder inbox; no backend yet, so this never changes at runtime. */
-const MAIL: MailMessage[] = [
-  {
-    id: "statement",
-    from: "First National Bank",
-    subject: "Your monthly statement is ready",
-    preview: "View your balances, deposits, and any fees from this cycle.",
-    body: "Your account statement for this cycle is ready to view. Balances, deposits, withdrawals, and any fees are itemized on the Bank app.",
-    date: "Today",
-    unread: true,
-  },
-  {
-    id: "payroll",
-    from: "Payroll · Acme Corp",
-    subject: "Direct deposit confirmed",
-    preview: "Your paycheck has been deposited to your checking account.",
-    body: "Your paycheck for this pay period has been deposited to your checking account. Check the Bank app for the running total.",
-    date: "Today",
-    unread: true,
-  },
-  {
-    id: "emergency-fund",
-    from: "Larp City",
-    subject: "Goal reached: 3-month emergency fund",
-    preview: "Nice work — your emergency fund now covers 3 months of expenses.",
-    body: "You've built up enough savings to cover 3 months of living expenses. That's a big cushion against a layoff or surprise bill — keep it up.",
-    date: "Yesterday",
-    unread: true,
-  },
-  {
-    id: "rewards",
-    from: "Card Rewards",
-    subject: "You earned 2,400 points this cycle",
-    preview: "Redeem points for cash back, travel, or statement credit.",
-    body: "You earned 2,400 reward points on this cycle's spending. Points can be redeemed for cash back, travel, or a statement credit from the Card Shop.",
-    date: "2 days ago",
-    unread: false,
-  },
-  {
-    id: "rent",
-    from: "Landlord",
-    subject: "Rent due in 5 days",
-    preview: "Your monthly rent payment is due on the 1st.",
-    body: "This is a reminder that rent is due on the 1st of the month. Late payments may include a fee, so plan your standing orders accordingly.",
-    date: "3 days ago",
-    unread: false,
-  },
-  {
-    id: "tax",
-    from: "IRS",
-    subject: "Reminder: estimated tax payment due",
-    preview: "Quarterly estimated taxes are due soon if you have 1099 income.",
-    body: "If you have freelance or investment income this quarter, your estimated tax payment is due soon. Set aside funds so it doesn't hit your emergency fund.",
-    date: "1 week ago",
-    unread: false,
-  },
-];
-
-type NewsCategory = "Markets" | "Economy" | "Money" | "Local";
-
-interface NewsArticle {
-  id: string;
-  category: NewsCategory;
-  headline: string;
-  dek: string;
-  body: string;
-  source: string;
-  date: string;
-}
-
-/** Static placeholder wire; no backend yet, so this never changes at runtime. */
-const NEWS: NewsArticle[] = [
-  {
-    id: "fed-hold",
-    category: "Economy",
-    headline: "Fed holds rates steady, signals patience on cuts",
-    dek: "Policymakers say they want more data before easing further.",
-    body: "The Federal Reserve left its benchmark rate unchanged this week, with officials saying they want to see a few more months of data before considering another cut. Mortgage and card rates are likely to hold near current levels in the meantime — check the Stocks app for the latest 30-year fixed and Fed funds readings.",
-    source: "Wire Service",
-    date: "Today",
-  },
-  {
-    id: "sp-climb",
-    category: "Markets",
-    headline: "S&P 500 climbs into the afternoon on tech strength",
-    dek: "Broad gains led by large-cap tech; small caps lag.",
-    body: "Major indexes advanced Thursday afternoon as large-cap tech names led the way. Small-cap stocks lagged behind the broader rally. Check the Stocks app for a live look at the S&P 500, Nasdaq, and Dow.",
-    source: "Market Desk",
-    date: "Today",
-  },
-  {
-    id: "layoffs",
-    category: "Economy",
-    headline: "Layoffs tick up across tech and media",
-    dek: "Analysts say an emergency fund is the best defense against a surprise job loss.",
-    body: "A fresh round of layoffs hit tech and media companies this week, continuing a slow drift upward in job cuts. Financial planners point to the same advice every cycle: a cash cushion of three to six months of expenses makes a layoff a setback instead of a crisis. Your emergency fund balance is one tap away in the Bank app.",
-    source: "Wire Service",
-    date: "Yesterday",
-  },
-  {
-    id: "efund-explainer",
-    category: "Money",
-    headline: "How much should you actually keep in an emergency fund?",
-    dek: "The old \"three to six months\" rule, explained.",
-    body: "The classic rule of thumb is three to six months of essential expenses in cash you can reach without penalty. Renters and dual-income households can often lean toward the shorter end; homeowners, single-income households, or anyone with irregular pay should lean longer. The right number is the one that lets you sleep at night during a rough stretch.",
-    source: "Money Desk",
-    date: "Yesterday",
-  },
-  {
-    id: "card-rewards",
-    category: "Money",
-    headline: "Card issuers roll out richer cash-back categories",
-    dek: "New quarterly bonus categories are live — worth a look before you spend.",
-    body: "Several major card issuers refreshed their rotating bonus categories this quarter, with some offering elevated cash back on groceries and streaming. Compare official card offers any time in the Credit Desk's Card Shop.",
-    source: "Money Desk",
-    date: "2 days ago",
-  },
-  {
-    id: "housing-costs",
-    category: "Local",
-    headline: "Housing costs keep climbing across Sun Belt metros",
-    dek: "Rent and cost-of-living gaps between states keep widening.",
-    body: "Rent growth in fast-growing Sun Belt metros continues to outpace the national average, widening the cost-of-living gap between states. Check the Map app to see how your city's cost of living compares to the rest of the country.",
-    source: "Local Desk",
-    date: "3 days ago",
-  },
-  {
-    id: "rate-cut-outlook",
-    category: "Economy",
-    headline: "Economists split on timing of next rate move",
-    dek: "Forecasters diverge on whether cuts resume this year.",
-    body: "A survey of economists shows a wide range of views on when the Fed will move next, with estimates ranging from later this year to well into next. The uncertainty is a reminder to keep debt strategy flexible rather than betting on a single rate path.",
-    source: "Wire Service",
-    date: "1 week ago",
-  },
-];
-
-const NEWS_TAG_CLASS: Record<NewsCategory, string> = {
-  Markets: "news-tag-markets",
-  Economy: "news-tag-economy",
-  Money: "news-tag-money",
-  Local: "news-tag-local",
-};
 
 const OPEN_KEY = "larp.phone.open";
 
@@ -300,6 +142,16 @@ export interface PhoneDeps {
   firstDay?: () => number;
   /** Where the player is and the city's weather, for the Map and Weather apps. */
   getWorld: () => WorldSnapshot;
+  /** The Money desk changed something the save must keep (a payment, a trade, its feed); quiet only updates the copy. */
+  changed: (desk: DeskState, o?: { quiet?: boolean }) => void;
+  /** What the Money desk last reported, so it comes back when the desk opens. */
+  deskState: () => DeskState | null;
+  /** The Mail inbox (sim/mail). */
+  mail: Inbox;
+  /** A letter was read: the save must keep it read. */
+  mailChanged?: () => void;
+  /** Erases this life and starts over with the intake; rejects when the server can't be reached. */
+  newLife: () => Promise<void>;
 }
 
 /**
@@ -324,13 +176,19 @@ export interface MoneyHost {
   recorder: () => RunRecorder | null;
   /** Calls `fn` with the day the city went back to, after each rewind. */
   onRewind: (fn: (day: number) => void) => void;
+  /** The desk calls this after anything the player does, with its feed and statement, so the city saves.
+   *  quiet: only keep the city's copy current (a day's paychecks and bills); the city's next save carries it. */
+  changed: (desk: DeskState, o?: { quiet?: boolean }) => void;
+  /** The desk's feed and statement from the save, to restore on load. */
+  deskState: () => DeskState | null;
+  /** The desk's "Start over": closes the desk and opens the Calendar's year view with "Start a new life" armed. */
+  newLife: () => void;
 }
 
 export class Phone {
   private readonly el: HTMLElement;
   private readonly overlay: HTMLElement;
   private readonly deps: PhoneDeps;
-  private live: LiveQuote[] = [];
   /** Game day the Stocks list was drawn for; sponsor prices move with the city clock. */
   private stockDay = Number.NEGATIVE_INFINITY;
   private toastTimer = 0;
@@ -340,6 +198,12 @@ export class Phone {
   private readonly showListeners: (() => void)[] = [];
   private readonly rewindListeners: ((day: number) => void)[] = [];
   private readonly calendar: CalendarApp;
+  /** The letter shown open in Mail. */
+  private openMail: string | null = null;
+  private readonly news: NewsApp;
+  private readonly bank: BankApp;
+  /** The view show() last drew, so rewound() knows whether News or Bank is on screen. */
+  private currentView: "home" | AppDef["id"] = "home";
 
   constructor(deps: PhoneDeps) {
     this.deps = deps;
@@ -364,6 +228,14 @@ export class Phone {
       onShow: (fn) => this.showListeners.push(fn),
       recorder: () => this.deps.recorder ?? null,
       onRewind: (fn) => this.rewindListeners.push(fn),
+      changed: (desk, o) => this.deps.changed(desk, o),
+      deskState: () => this.deps.deskState(),
+      newLife: () => {
+        this.closeDesk();
+        this.setOpen(true);
+        this.show("calendar");
+        this.calendar.armNewLife();
+      },
     };
     (window as unknown as { larpMoney?: MoneyHost }).larpMoney = host;
     this.calendar = new CalendarApp(this.q('[data-view="calendar"]'), {
@@ -373,7 +245,16 @@ export class Phone {
       rewindTo: (day) => deps.rewindTo?.(day),
       skipTo: (day) => deps.skipTo?.(day),
       onHome: () => this.show("home"),
+      newLife: () => deps.newLife(),
     });
+    this.news = new NewsApp({
+      target: this.q("[data-news]"),
+      day: () => deps.clock.day,
+      date: () => deps.clock.date,
+      recorder: deps.recorder,
+      fetchNews: (body) => apiFetch<{ stories: Story[] }>("/news", { method: "POST", body: JSON.stringify(body) }),
+    });
+    this.bank = new BankApp({ target: this.q("[data-bank]"), fetchStatement: () => apiFetch<BankStatement>("/bank/player") });
 
     this.setOpen(readOpen(), false);
     this.el.addEventListener("click", (ev) => this.onClick(ev));
@@ -385,16 +266,12 @@ export class Phone {
     });
 
     this.renderStocks();
+    this.renderMail();
     this.renderStatus();
     setInterval(() => this.renderStatus(), 1000);
-    void this.loadLive();
   }
 
   private markup(): string {
-    const home = WATCHLIST[0];
-    const l = latest(home.id);
-    const pts = MARKET.series[home.id].points.slice(-60).map((p) => p[1]);
-    const up = pts[pts.length - 1] >= pts[0];
     return `
       <div class="phone-body">
         <div class="phone-screen">
@@ -410,25 +287,19 @@ export class Phone {
           <section class="view view-home" data-view="home">
             <div class="home-clock"><div class="hc-day" data-dow></div><div class="hc-date" data-date></div></div>
             <button class="widget" data-app="stocks" aria-label="Open Stocks">
-              <div class="w-top"><span class="w-name">${home.ticker}</span><span class="w-chg ${up ? "up" : "down"}">${l.changePct >= 0 ? "+" : "−"}${Math.abs(l.changePct * 100).toFixed(2)}%</span></div>
-              <div class="w-value">${fmtIndex(l.value)}</div>
-              ${sparkline(pts, up).replace('width="56" height="22"', 'width="100%" height="34" preserveAspectRatio="none"')}
-              <div class="w-foot">Stocks · as of ${new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+              <div class="w-top"><span class="w-name">LTM</span><span class="w-chg" data-w-chg></span></div>
+              <div class="w-value" data-w-value></div>
+              <div data-w-spark style="display: contents"></div>
+              <div class="w-foot">Larp Total Market · in game</div>
             </button>
             <div class="app-grid">
-              ${APPS.map((a) => {
-                const unread = a.id === "mail" ? MAIL.filter((m) => m.unread).length : 0;
-                const badge = !a.ready
-                  ? `<span class="app-badge">Soon</span>`
-                  : a.id === "mail"
-                    ? `<span class="app-badge app-badge-unread"${unread > 0 ? "" : " hidden"}>${unread}</span>`
-                    : "";
-                return `<button class="app${a.ready ? "" : " soon"}" data-app="${a.id}" aria-label="${a.name}${a.ready ? "" : " (coming soon)"}">
+              ${APPS.map(
+                (a) => `<button class="app${a.ready ? "" : " soon"}" data-app="${a.id}" aria-label="${a.name}${a.ready ? "" : " (coming soon)"}">
                   <span class="app-icon">${a.icon}</span>
                   <span class="app-name">${a.name}</span>
-                  ${badge}
-                </button>`;
-              }).join("")}
+                  ${a.ready ? `<span class="app-badge count" data-badge="${a.id}" hidden></span>` : `<span class="app-badge">Soon</span>`}
+                </button>`,
+              ).join("")}
             </div>
             <div class="toast" data-toast hidden></div>
           </section>
@@ -479,39 +350,31 @@ export class Phone {
             <div class="weather-date" data-weather-date></div>
           </section>
 
-          <section class="view view-news" data-view="news" hidden>
-            <header class="phone-app-head">
-              <button class="st-back" data-home aria-label="Back to home">‹</button>
-              <div><div class="st-title">News</div><div class="st-sub">Markets &amp; money</div></div>
-            </header>
-            <ul class="news-list" data-news-list></ul>
-          </section>
-
-          <section class="view view-news-detail" data-view="news-detail" hidden>
-            <header class="phone-app-head">
-              <button class="st-back" data-back="news" aria-label="Back to News">‹</button>
-              <div><div class="st-title">News</div><div class="st-sub">Article</div></div>
-            </header>
-            <div class="news-detail" data-news-detail></div>
-          </section>
-
-          <section class="view view-mail" data-view="mail" hidden>
-            <header class="phone-app-head">
-              <button class="st-back" data-home aria-label="Back to home">‹</button>
-              <div><div class="st-title">Mail</div><div class="st-sub" data-mail-sub></div></div>
-            </header>
-            <ul class="mail-list" data-mail-list></ul>
-          </section>
-
-          <section class="view view-mail-detail" data-view="mail-detail" hidden>
-            <header class="phone-app-head">
-              <button class="st-back" data-back="mail" aria-label="Back to Mail">‹</button>
-              <div><div class="st-title">Mail</div><div class="st-sub">Message</div></div>
-            </header>
-            <div class="mail-detail" data-mail-detail></div>
-          </section>
-
           <section class="view view-calendar" data-view="calendar" hidden></section>
+
+          <section class="view view-app view-mail" data-view="mail" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">Mail</div><div class="st-sub">Letters about your money</div></div>
+            </header>
+            <ul class="app-scroll mail-list" data-mail-list></ul>
+          </section>
+
+          <section class="view view-app view-news" data-view="news" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">The Ledger</div><div class="st-sub">Larp City's newspaper</div></div>
+            </header>
+            <div class="app-scroll news-body" data-news></div>
+          </section>
+
+          <section class="view view-app view-bank" data-view="bank" hidden>
+            <header class="phone-app-head">
+              <button class="st-back" data-home aria-label="Back to home">‹</button>
+              <div><div class="st-title">Bank</div><div class="st-sub">Capital One Nessie statement</div></div>
+            </header>
+            <div class="app-scroll bank-body" data-bank></div>
+          </section>
 
           <button class="home-bar" data-home aria-label="Go home"></button>
         </div>
@@ -530,9 +393,14 @@ export class Phone {
     if (remember) saveOpen(open);
   }
 
-  private show(view: "home" | AppDef["id"] | "mail-detail" | "news-detail") {
+  private show(view: "home" | AppDef["id"]) {
+    this.currentView = view;
     this.el.querySelectorAll<HTMLElement>("[data-view]").forEach((v) => (v.hidden = v.dataset.view !== view));
     if (view === "calendar") this.calendar.show();
+    else this.calendar.hide();
+    // An answer still on its way to an app the player left isn't drawn into it.
+    if (view !== "news") this.news.leave();
+    if (view !== "bank") this.bank.leave();
   }
 
   private toast(text: string) {
@@ -552,20 +420,20 @@ export class Phone {
     if (!btn) return;
     if (btn.dataset.toggle !== undefined) return this.setOpen(!this.el.classList.contains("open"));
     if (btn.dataset.home !== undefined) return this.show("home");
-    if (btn.dataset.back !== undefined) return this.show(btn.dataset.back as "mail" | "news");
     if (btn.dataset.desk !== undefined) return this.openDesk();
     if (btn.dataset.stock) return this.openDesk(btn.dataset.stock);
-    if (btn.dataset.mailOpen !== undefined) return this.openMail(btn.dataset.mailOpen);
-    if (btn.dataset.newsOpen !== undefined) return this.openNews(btn.dataset.newsOpen);
     if (btn.dataset.openMap !== undefined) return this.deps.openMap?.();
+    if (btn.dataset.mailId) return this.toggleMail(btn.dataset.mailId);
+    if (btn.dataset.newsRetry !== undefined) return void this.news.load();
     const id = btn.dataset.app as AppDef["id"] | undefined;
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;
     if (!app.ready) return this.toast(`${app.name} is coming soon`);
     if (id === "goals") return this.deps.openFastForward?.();
-    if (id === "mail") this.renderMail();
-    if (id === "news") this.renderNews();
     this.show(id);
+    if (id === "mail") this.renderMail();
+    if (id === "news") void this.news.load();
+    if (id === "bank") void this.bank.load();
   }
 
   /**
@@ -589,83 +457,45 @@ export class Phone {
     this.parked = [];
     for (const fn of this.rewindListeners) fn(day);
     this.calendar.rewound(day);
+    // The inbox already dropped the letters after `day` (main.ts); the Ledger's days changed too,
+    // and the bank statement is being posted again from here.
+    this.news.rewound();
+    this.bank.leave();
+    // A News or Bank view left on screen through the rewind is showing stale, or still-loading, content: reload it.
+    if (this.currentView === "news") void this.news.load();
+    if (this.currentView === "bank") void this.bank.load();
+    this.renderMail();
     if (decisions.length) this.showDecision(decisions);
   }
 
-  private openNews(id: string) {
-    const article = NEWS.find((a) => a.id === id);
-    if (!article) return;
-    this.q("[data-news-detail]").innerHTML = `
-      <div class="news-detail-head">
-        <span class="news-tag ${NEWS_TAG_CLASS[article.category]}">${article.category}</span>
-        <span class="news-detail-meta">${article.source} · ${article.date}</span>
-      </div>
-      <div class="news-detail-headline">${article.headline}</div>
-      <p class="news-detail-body">${article.body}</p>
-    `;
-    this.show("news-detail");
+  private dateOf(day: number): Date {
+    const d = new Date(this.deps.clock.start);
+    d.setDate(d.getDate() + day);
+    return d;
   }
 
-  private renderNews() {
-    this.q("[data-news-list]").innerHTML = NEWS.map(
-      (a) => `<li>
-        <button class="news-row" data-news-open="${a.id}">
-          <span class="news-tag ${NEWS_TAG_CLASS[a.category]}">${a.category}</span>
-          <span class="news-row-headline">${a.headline}</span>
-          <span class="news-row-dek">${a.dek}</span>
-          <span class="news-row-meta">${a.source} · ${a.date}</span>
-        </button>
-      </li>`,
-    ).join("");
+  /** Opens a letter (marking it read) or closes the open one. */
+  private toggleMail(id: string) {
+    this.openMail = this.openMail === id ? null : id;
+    const unread = this.deps.mail.items.some((m) => m.id === id && !m.read);
+    this.deps.mail.markRead(id);
+    if (unread) this.deps.mailChanged?.();
+    this.renderMail();
   }
 
-  private openMail(id: string) {
-    const msg = MAIL.find((m) => m.id === id);
-    if (!msg) return;
-    msg.unread = false;
-    this.q("[data-mail-detail]").innerHTML = `
-      <div class="mail-detail-head">
-        <div class="mail-avatar">${msg.from[0]}</div>
-        <div class="mail-detail-meta">
-          <strong>${msg.from}</strong>
-          <span>${msg.date}</span>
-        </div>
-      </div>
-      <div class="mail-detail-subject">${msg.subject}</div>
-      <p class="mail-detail-body">${msg.body}</p>
-    `;
-    this.renderMailBadge();
-    this.show("mail-detail");
-  }
-
-  private renderMailBadge() {
-    const unread = MAIL.filter((m) => m.unread).length;
-    const badge = this.el.querySelector<HTMLElement>('[data-app="mail"] .app-badge');
-    if (!badge) return;
-    if (unread > 0) {
-      badge.textContent = String(unread);
-      badge.hidden = false;
-    } else {
-      badge.hidden = true;
-    }
-  }
-
-  private renderMail() {
-    this.q("[data-mail-list]").innerHTML = MAIL.map(
-      (m) => `<li>
-        <button class="mail-row${m.unread ? " unread" : ""}" data-mail-open="${m.id}">
-          <span class="mail-avatar">${m.from[0]}</span>
-          <span class="mail-row-body">
-            <span class="mail-row-top"><strong>${m.from}</strong><span class="mail-row-date">${m.date}</span></span>
-            <span class="mail-row-subject">${m.subject}</span>
-            <span class="mail-row-preview">${m.preview}</span>
-          </span>
-          ${m.unread ? `<span class="mail-dot" aria-hidden="true"></span>` : ""}
-        </button>
-      </li>`,
-    ).join("");
-    const unread = MAIL.filter((m) => m.unread).length;
-    this.q("[data-mail-sub]").textContent = unread > 0 ? `${unread} unread` : "All caught up";
+  /** Redraws the inbox and the unread badge; main.ts calls it when new mail arrives. */
+  renderMail() {
+    const { mail } = this.deps;
+    if (this.openMail && !mail.items.some((m) => m.id === this.openMail)) this.openMail = null;
+    const list = this.q("[data-mail-list]");
+    const scroll = list.scrollTop;
+    list.innerHTML = mailHtml(mail.items, this.openMail, (d) => this.dateOf(d));
+    list.scrollTop = scroll;
+    const badge = this.q("[data-badge=mail]");
+    const n = mail.unread();
+    badge.textContent = n > 99 ? "99+" : String(n);
+    badge.hidden = n === 0;
+    this.q("[data-app=mail]").ariaLabel = n ? `Mail, ${n} unread` : "Mail";
   }
 
   /** Opens the Money window, on a stock's page when `stock` is given (the desk reads #stock=ID). */
@@ -713,8 +543,8 @@ export class Phone {
     if (clock.day !== this.stockDay) this.renderStocks();
   }
 
-  /** The HackRice sponsors on the city player's market: today's close, the move since the last trading day, and about six weeks of closes. */
-  private sponsorRows(): string[] {
+  /** An instrument on the city player's market: today's close, the move since the last trading day, and about six weeks of closes. */
+  private quote(id: InstrumentId): { px: number; chg: number; pts: number[]; tone: "up" | "down" | "flat" } {
     const market = this.deps.player.market;
     const day = this.deps.clock.day;
     const trading = (d: number) => ![0, 6].includes(market.dateOf(d).getDay());
@@ -722,11 +552,15 @@ export class Phone {
     while (!trading(today)) today--;
     let prev = today - 1;
     while (!trading(prev)) prev--;
-    return INSTRUMENTS.filter((i) => i.sponsor).map((i) => {
-      const px = market.price(i.id, today);
-      const chg = px / market.price(i.id, prev) - 1;
-      const pts = market.series(i.id, day - 42, day).filter((p) => trading(p.day)).map((p) => p.value);
-      const tone = Math.abs(chg) < 1e-6 ? "flat" : chg > 0 ? "up" : "down";
+    const px = market.price(id, today);
+    const chg = px / market.price(id, prev) - 1;
+    const pts = market.series(id, day - 42, day).filter((p) => trading(p.day)).map((p) => p.value);
+    return { px, chg, pts, tone: Math.abs(chg) < 1e-6 ? "flat" : chg > 0 ? "up" : "down" };
+  }
+
+  private instrumentRows(list: readonly Instrument[]): string[] {
+    return list.map((i) => {
+      const { px, chg, pts, tone } = this.quote(i.id);
       return `<button class="st-row link" data-stock="${i.id}" aria-label="${i.name}: open in Money"><div class="st-name"><b>${i.id}</b><span>${i.name}${i.listed === false ? " · private" : ""}</span></div>${sparkline(pts, pts[pts.length - 1] >= pts[0])}<div class="st-right"><span class="st-px">$${fmtIndex(px)}</span><span class="st-pill ${tone}">${chg >= 0 ? "+" : "−"}${Math.abs(chg * 100).toFixed(2)}%</span></div></button>`;
     });
   }
@@ -735,39 +569,32 @@ export class Phone {
     this.stockDay = this.deps.clock.day;
     const item = (row: string) => `<li class="st-item">${row}</li>`;
     const sec = (title: string, note: string) => `<li class="st-sec"><span>${title}</span><span>${note}</span></li>`;
-    const live = this.live.map((q) => {
-      const up = q.change >= 0;
-      return `<div class="st-row"><div class="st-name"><b>${q.symbol}</b><span>Live · Alpha Vantage</span></div><span class="spark-slot"></span><div class="st-right"><span class="st-px">${fmtIndex(q.price)}</span><span class="st-pill ${up ? "up" : "down"}">${up ? "+" : "−"}${Math.abs(q.changePct * 100).toFixed(2)}%</span></div></div>`;
-    });
-    const fred = WATCHLIST.map((w) => {
-      const l = latest(w.id);
-      const pct = MARKET.series[w.id].unit === "percent";
-      const pts = MARKET.series[w.id].points.slice(-60).map((p) => p[1]);
+    const rates = RATES.map((r) => {
+      const l = latest(r.id);
+      const pts = MARKET.series[r.id].points.slice(-60).map((p) => p[1]);
       const up = l.change >= 0;
-      const value = pct ? `${l.value.toFixed(2)}%` : fmtIndex(l.value);
-      const chg = pct ? `${up ? "+" : "−"}${Math.abs(l.change * 100).toFixed(0)} bp` : `${up ? "+" : "−"}${Math.abs(l.changePct * 100).toFixed(2)}%`;
-      return `<div class="st-row"><div class="st-name"><b>${w.ticker}</b><span>${w.name}</span></div>${sparkline(pts, pts[pts.length - 1] >= pts[0])}<div class="st-right"><span class="st-px">${value}</span><span class="st-pill ${up ? "up" : "down"}">${chg}</span></div></div>`;
+      return `<div class="st-row"><div class="st-name"><b>${r.ticker}</b><span>${r.name}</span></div>${sparkline(pts, pts[pts.length - 1] >= pts[0])}<div class="st-right"><span class="st-px">${l.value.toFixed(2)}%</span><span class="st-pill ${up ? "up" : "down"}">${up ? "+" : "−"}${Math.abs(l.change * 100).toFixed(0)} bp</span></div></div>`;
     });
-    const asOf = new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const asOf = new Date(`${MARKET.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     this.q("[data-st-list]").innerHTML = [
+      sec("Funds and stocks", "In game"),
+      ...this.instrumentRows(INSTRUMENTS.filter((i) => !i.sponsor)).map(item),
       // "In game" (not "Game prices") so the full title fits on the phone's 192px row.
       sec("HackRice sponsors", "In game"),
-      ...this.sponsorRows().map(item),
-      sec("Markets", `${this.live.length ? "Live and " : ""}FRED, ${asOf}`),
-      ...[...live, ...fred].map(item),
+      ...this.instrumentRows(INSTRUMENTS.filter((i) => i.sponsor)).map(item),
+      sec("Real rates", `FRED, ${asOf}`),
+      ...rates.map(item),
     ].join("");
     this.q("[data-st-sub]").textContent = `Larp City, ${this.deps.clock.date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
-  }
 
-  private async loadLive() {
-    try {
-      const res = await fetch("/api/market/quotes?symbols=SPY,QQQ,DIA,IWM");
-      if (!res.ok) return;
-      const j = (await res.json()) as { quotes?: LiveQuote[] };
-      this.live = (j.quotes ?? []).filter((q) => Number.isFinite(q.price) && q.price > 0);
-      if (this.live.length) this.renderStocks();
-    } catch {
-      // No dev server proxy or no key: the FRED snapshot is enough.
-    }
+    const ltm = this.quote("LTM");
+    const chg = this.q("[data-w-chg]");
+    chg.textContent = `${ltm.chg >= 0 ? "+" : "−"}${Math.abs(ltm.chg * 100).toFixed(2)}%`;
+    chg.className = `w-chg ${ltm.chg >= 0 ? "up" : "down"}`;
+    this.q("[data-w-value]").textContent = `$${fmtIndex(ltm.px)}`;
+    this.q("[data-w-spark]").innerHTML = sparkline(ltm.pts, ltm.pts[ltm.pts.length - 1] >= ltm.pts[0]).replace(
+      'width="56" height="22"',
+      'width="100%" height="34" preserveAspectRatio="none"',
+    );
   }
 }

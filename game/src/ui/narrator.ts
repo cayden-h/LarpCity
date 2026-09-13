@@ -74,7 +74,7 @@ export class Narrator {
   private readonly owl = new Owl(118);
   private readonly gate = new CueGate();
   private readonly lastLine = new Map<Cue, string>();
-  private queue: Cue[] = [];
+  private queue: { cue: Cue; line?: string }[] = [];
   private busy = false;
   private muted = readMuted();
   private ctx: AudioContext | null = null;
@@ -120,22 +120,31 @@ export class Narrator {
   /** Speaks a line for `cue` if the timing rules allow it now. */
   cue(cue: Cue): void {
     if (!this.gate.allow(cue, performance.now())) return;
-    this.queue.push(cue);
-    this.queue.sort((a, b) => CUES[b].priority - CUES[a].priority);
+    this.enqueue({ cue });
+  }
+
+  /** Speaks `line` (not from the pre-voiced pack) with `as`'s reaction and mood; the server voices it. */
+  speak(line: string, as: Cue): void {
+    this.enqueue({ cue: as, line });
+  }
+
+  private enqueue(item: { cue: Cue; line?: string }): void {
+    this.queue.push(item);
+    this.queue.sort((a, b) => CUES[b.cue].priority - CUES[a.cue].priority);
     this.queue.length = Math.min(this.queue.length, QUEUE_MAX);
     if (!this.busy) void this.next();
   }
 
   private async next(): Promise<void> {
-    const cue = this.queue.shift();
-    if (!cue) {
+    const item = this.queue.shift();
+    if (!item) {
       this.busy = false;
       return;
     }
     this.busy = true;
-    const line = pickLine(cue, this.lastLine.get(cue));
-    this.lastLine.set(cue, line);
-    await this.say(line, cue);
+    const line = item.line ?? pickLine(item.cue, this.lastLine.get(item.cue));
+    if (!item.line) this.lastLine.set(item.cue, line);
+    await this.say(line, item.cue);
     void this.next();
   }
 

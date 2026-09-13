@@ -15,6 +15,7 @@ import { voiceRouter, voiceWebhookRouter } from "./routes/voice.js";
 import { aiRouter } from "./routes/ai.js";
 import { coachRouter } from "./routes/coach.js";
 import { snapshotRouter } from "./routes/snapshot.js";
+import { saveRouter } from "./routes/save.js";
 import { sessionMiddleware } from "./session.js";
 
 export function createApp(): Express {
@@ -42,6 +43,7 @@ export function createApp(): Express {
   app.use("/api", aiRouter);
   app.use("/api/coach", coachRouter);
   app.use("/api", snapshotRouter);
+  app.use("/api", saveRouter);
 
   app.use(errorHandler);
   return app;

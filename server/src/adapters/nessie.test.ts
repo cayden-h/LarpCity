@@ -59,6 +59,20 @@ test("DELETE with an empty body resolves", async () => {
   assert.equal(await client(fn).deleteAccount("a1"), undefined);
 });
 
+test("a hung request times out instead of hanging forever, and maps to a 504", async () => {
+  const hang = (async (input: string | URL | Request, init: RequestInit = {}) => {
+    return new Promise<Response>((_, reject) => {
+      init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+    });
+  }) as typeof fetch;
+  const c = new Nessie({ baseUrl: "https://api.nessieisreal.com/", apiKey: KEY, fetchFn: hang, retries: 0, timeoutMs: 10 });
+  await assert.rejects(c.getAccount("a1"), (e: NessieError) => {
+    assert.equal(e.status, 504);
+    assert.ok(!e.message.includes(KEY), e.message);
+    return true;
+  });
+});
+
 test("reads retry server errors, but a POST that may have landed is never retried", async () => {
   let n = 0;
   const flaky = fakeFetch(() => (++n < 3 ? { status: 503, body: "busy" } : { status: 200, body: [] }));

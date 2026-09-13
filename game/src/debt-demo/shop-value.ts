@@ -1,7 +1,17 @@
 // What a real card is worth on the player's spending over one year. Kept free
 // of DOM and CSS imports so tests/shop.test.ts can run it under Node.
 
-import type { CuratedCard, EarnCategory, SpendCategory } from "../sim/money/index.ts";
+import type { CardOffer, CuratedCard, EarnCategory, SpendCategory } from "../sim/money/index.ts";
+
+/** A curated card's welcome offer in the money engine's terms, for bonus eligibility; undefined when it has none. */
+export function cardOffer(card: CuratedCard): CardOffer | undefined {
+  if (!card.welcomeOffer) return undefined;
+  return {
+    cardId: card.slug, name: card.name, issuerKey: card.terms.issuerKey ?? "", currency: "USD", annualFee: card.annualFee,
+    firstYearFeeWaived: card.firstYearFeeWaived, baseEarnPct: 0, bonusAmount: card.welcomeOffer.valueUsd,
+    bonusValueUsd: card.welcomeOffer.valueUsd, bonusSpend: card.welcomeOffer.spend, bonusDays: card.welcomeOffer.months * 30, tccpProductId: card.tccpId,
+  };
+}
 
 export const SPEND_LABEL: Record<SpendCategory, string> = { groceries: "Groceries", dining: "Dining", gas: "Gas", travel: "Travel", entertainment: "Entertainment", other: "Everything else" };
 export const SPEND_ORDER: SpendCategory[] = ["groceries", "dining", "gas", "travel", "entertainment", "other"];
