@@ -25,6 +25,35 @@ class Storefronts(unittest.TestCase):
                          ("fa-wells-fargo.png", "fs-wells-fargo.png", "bl-wells-fargo.png"))
         self.assertTrue(opts["atm"])
 
+class Houses(unittest.TestCase):
+    def test_sixteen_house_models_have_every_facing(self):
+        houses = catalog.HOUSES
+        self.assertEqual(len(houses), 64)
+        self.assertEqual(len({e['id'] for e in houses}), 64)
+        groups = {}
+        for entry in houses:
+            groups.setdefault(entry['id'].rsplit('-', 1)[0], []).append(entry)
+            self.assertTrue(entry['walls'])
+            self.assertFalse(entry['unique'])
+            self.assertEqual(entry['zones'], ['residential'])
+        self.assertEqual(len(groups), 16)
+        for entries in groups.values():
+            self.assertEqual({e['facing'] for e in entries}, {'n', 'e', 's', 'w'})
+            self.assertEqual(len({e['seed'] for e in entries}), 1)
+
+    def test_property_boards_have_sale_and_rental_facings(self):
+        boards = catalog.CATALOG['common/property']
+        self.assertEqual(len(boards), 8)
+        self.assertEqual({e['id'] for e in boards}, {f'{label}-{f}' for label in ('sale', 'rent') for f in 'nesw'})
+        self.assertTrue(all(e['entry_kind'] == 'prop' and not e['fill'] for e in boards))
+
+    def test_six_home_tiers_have_every_facing(self):
+        homes = catalog.CATALOG['common/home']
+        self.assertEqual(len(homes), 24)
+        for tier in range(6):
+            self.assertEqual({e['facing'] for e in homes if e['tier'] == tier}, {'n', 'e', 's', 'w'})
+        self.assertTrue(all(e['entry_kind'] == 'home' for e in homes))
+
 
 if __name__ == "__main__":
     unittest.main()

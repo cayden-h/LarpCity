@@ -13,13 +13,15 @@ KINDS = {"glass_tower": "glass", "brick_loft": "loft", "concrete_office": "offic
 
 
 def _e(kind, w, d, floors, seed, zones, sign=None, brand=None, opts=None, unique=None, sid=None,
-       entry_kind=None, landmark=None, prop=None, side=None, fill=True, crown=False, pad=0):
+       entry_kind=None, landmark=None, prop=None, side=None, fill=True, crown=False, pad=0,
+       facing=None, style=None, walls=False, tier=None):
     if sid is None:
         sid = f"{KINDS[kind]}-{w}x{d}-f{floors}-" + (brand or str(seed))
     return {
         "id": sid, "kind": kind, "w": w, "d": d, "floors": floors, "seed": seed, "zones": zones, "sign": sign,
         "brand": brand, "unique": (brand is not None) if unique is None else unique, "opts": opts or {},
         "entry_kind": entry_kind, "landmark": landmark, "prop": prop, "side": side, "fill": fill, "crown": crown, "pad": pad,
+        "facing": facing, "style": style, "walls": walls, "tier": tier,
     }
 
 
@@ -104,3 +106,51 @@ CATALOG = {
         _e("brick_loft", 1, 2, 4, 17, MIXED),
     ],
 }
+
+
+RESIDENTIAL = ["residential"]
+FACINGS = ("s", "e", "n", "w")
+
+
+def _house(kind, style, variant, w, d, floors, seed, **opts):
+    """One house model in all four facings; the game tints its walls from the city palette."""
+    return [_e(kind, w, d, floors, seed, RESIDENTIAL, sid=f"{style}-{variant}-{w}x{d}-{f}", opts={"variant": variant, **opts},
+               unique=False, facing=f, style=style, walls=True) for f in FACINGS]
+
+
+# 16 models: every style has a 2-floor model, so lots under a landmark's sightline cap still get a house.
+HOUSES = [
+    *_house("victorian", "victorian", "italianate", 1, 1, 2, 101),
+    *_house("victorian", "victorian", "stick", 1, 1, 3, 102, garage=True),
+    *_house("victorian", "victorian", "queen_anne", 1, 1, 3, 103),
+    *_house("edwardian", "edwardian", "single", 1, 1, 2, 111),
+    *_house("edwardian", "edwardian", "double", 1, 1, 3, 112),
+    *_house("stucco_row", "stucco", 0, 1, 1, 2, 121),
+    *_house("stucco_row", "stucco", 1, 1, 1, 2, 122),
+    *_house("stucco_row", "stucco", 2, 1, 1, 2, 123),
+    *_house("stucco_row", "stucco", 3, 1, 1, 2, 124),
+    *_house("suburban", "suburban", "ranch", 1, 1, 1, 131),
+    *_house("suburban", "suburban", "split", 1, 1, 2, 132),
+    *_house("suburban", "suburban", "colonial", 1, 1, 2, 133),
+    *_house("suburban", "suburban", "craftsman", 1, 1, 1, 134),
+    *_house("walkup", "walkup", 0, 1, 1, 4, 141),
+    *_house("walkup", "walkup", 1, 1, 1, 3, 142),
+    *_house("walkup", "walkup", 2, 2, 1, 4, 143),
+]
+
+CATALOG["san-francisco"].extend(HOUSES)
+
+# The player's home tiers, shared by every city (public/sprites/common/home/).
+HOME_KINDS = ["home_tent", "home_studio", "home_bungalow", "home_townhouse", "home_colonial", "home_villa"]
+HOME_FLOORS = [1, 4, 1, 3, 2, 2]
+CATALOG["common/home"] = [
+    _e(kind, 1, 1, HOME_FLOORS[t], 200 + t, ["home"], sid=f"home-{t}-{f}", entry_kind="home", tier=t, facing=f, unique=False)
+    for t, kind in enumerate(HOME_KINDS) for f in FACINGS
+]
+
+
+CATALOG["common/property"] = [
+    _e("property_sign", 1, 1, 0, 300, [], sid=f"{label.lower()}-{f}", entry_kind="prop", fill=False,
+       facing=f, unique=False, opts={"label": label})
+    for label in ("SALE", "RENT") for f in FACINGS
+]

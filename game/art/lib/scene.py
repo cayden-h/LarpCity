@@ -268,3 +268,40 @@ def set_ids() -> None:
         o.data.materials.clear()
         o.data.materials.append(mat)
     print(f"[art] id pass: {len(objs)} objects", flush=True)
+
+
+TURNS = {"s": 0, "e": 90, "n": 180, "w": 270}
+
+
+def turn(w: int, d: int, facing: str) -> tuple:
+    """Turn everything built so far about the lot center so its front (built on -Y, facing "s") faces `facing`.
+    The camera and sun stay put, so shadows match the rest of the city. Returns the footprint after the turn."""
+    fw, fd = (w, d) if facing in ("s", "n") else (d, w)
+    sc = bpy.context.scene
+    pivot = bpy.data.objects.new("pivot", None)
+    sc.collection.objects.link(pivot)
+    pivot.location = (w / 2, -d / 2, 0)
+    bpy.context.view_layer.update()
+    inv = pivot.matrix_world.inverted()
+    for o in sc.objects:
+        if o.type in ("MESH", "FONT", "CURVE"):
+            o.parent = pivot
+            o.matrix_parent_inverse = inv
+    pivot.rotation_euler = (0, 0, math.radians(TURNS[facing]))
+    pivot.location = (fw / 2, -fd / 2, 0)
+    bpy.context.view_layer.update()
+    return fw, fd
+
+
+def set_walls(prefix: str = "paint") -> None:
+    """Walls pass: the day render with every material not named prefix* held out (transparent, still hiding
+    what is behind it) and no shadow catcher, so only the painted surfaces remain, lit as by day."""
+    for m in bpy.data.materials:
+        if m.name.startswith(prefix) or not m.node_tree:
+            continue
+        nt = m.node_tree
+        out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
+        nt.links.new(nt.nodes.new("ShaderNodeHoldout").outputs[0], out.inputs["Surface"])
+    for o in bpy.context.scene.objects:
+        if o.get("shadow_catcher"):
+            o.hide_render = True

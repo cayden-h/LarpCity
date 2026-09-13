@@ -22,6 +22,9 @@ sys.path.insert(0, str(HERE))
 from lib import pixel as P  # noqa: E402
 
 DAY_COLORS, NIGHT_COLORS = 40, 16
+# Runtime paint multiplies these intensities by the selected wall color.
+# Keep the overlay independent of the city palette and the warm/cool lighting hue.
+WALL_PALETTE = [(v, v, v) for v in (32, 64, 96, 128, 160, 192, 224, 255)]
 # Of the day colors, this many are cut from sign and lit-glass pixels alone (P.build_day_palette), so brand reds,
 # golds, and oranges, and the shop windows' warm glow, survive next to the glass towers' many blues.
 SIGN_COLORS = 12
@@ -119,6 +122,13 @@ def pixelize_one(src: RawSprite, day_pal, night_pal) -> dict[str, np.ndarray]:
     if "crown" in src.entry["raw"]:
         # the crown is a white mask the game tints and animates itself, so it is shrunk but not quantized
         layers["crown"] = P.downsample(src.layer4("crown"))
+    if "walls" in src.entry["raw"]:
+        neutral = src.layer4("walls").copy()
+        luminance = np.rint(neutral[..., :3].astype(np.float32) @ np.array([0.299, 0.587, 0.114]))
+        neutral[..., :3] = luminance.astype(np.uint8)[..., None]
+        walls = P.quantize(P.downsample(P.flatten(neutral, src.ids4)), WALL_PALETTE)
+        walls[src.lines1 | (layers["day"][..., 3] != 255)] = 0
+        layers["walls"] = walls
     return layers
 
 
