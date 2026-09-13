@@ -38,6 +38,10 @@ export class Hud {
       </section>`;
     this.q<HTMLButtonElement>("[data-home]").addEventListener("click", () => actions.chooseHome());
     this.q<HTMLButtonElement>("[data-home-focus]").addEventListener("click", () => actions.focusHome());
+    // The ID card and the happiness meter stand on the home card, whose height grows with the
+    // save chip, so they follow its real height (--home-h in pixel-theme.css and happiness.css).
+    const home = this.q(".home");
+    new ResizeObserver(() => document.documentElement.style.setProperty("--home-h", `${home.offsetHeight}px`)).observe(home);
   }
 
   render(homeTier: number | null): void {
