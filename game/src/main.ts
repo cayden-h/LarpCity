@@ -15,7 +15,7 @@ import { prerenderCityThumbnails } from "./engine/thumbnails";
 import type { StateInfo } from "./engine/types";
 import { cueForEvents, welcomeBackLine } from "./narration/lines";
 import { PlayerLife, STARTER_PORTFOLIO } from "./sim/life";
-import { answersFromProfile, DEFAULT_GOALS, lifeFromIntake, profileFromIntake } from "./sim/life/intake";
+import { answersFromProfile, defaultAnswers, lifeFromIntake, profileFromIntake } from "./sim/life/intake";
 import { Inbox, type DebtLookup } from "./sim/mail/inbox";
 import { MarketPath } from "./sim/market";
 import { BankSync } from "./sim/mirror";
@@ -34,7 +34,6 @@ import { openSlots } from "./ui/slots";
 import type { DeskState, GameSave } from "./sim/save/types";
 import { Hud } from "./ui/hud";
 import { mountHappinessMeter } from "./ui/happiness";
-import { runIntake } from "./ui/intake";
 import { Narrator } from "./ui/narrator";
 import { runTitle } from "./ui/title";
 import { TourGuide } from "./ui/tour";
@@ -170,20 +169,15 @@ if (saved && restored) {
   // The saved state itself (same abbr, so the rent doesn't change), not the city picked inside it.
   player.place = resumed!.home;
 } else {
-  let profile = path === "fromProfile" ? (me?.profile ?? null) : null;
-  if (!profile) {
-    // The title screen and Sammy's Learn walkthrough, always over San Francisco.
-    await runTitle({ backdrop: `${import.meta.env.BASE_URL}cities/san-francisco/plates/day.jpg`, narrator });
-    const r = await runIntake({ backdrop: `${import.meta.env.BASE_URL}cities/${state.cityId}/plates/day.jpg`, state: state.abbr });
-    const p = profileFromIntake(r.answers, r.source, state.abbr);
-    profile = { ...p, displayName: null };
-    // Played without saving, the real profile on the server must stay as it is.
-    if (saving) void saves.putProfile(p).catch(() => undefined);
-  }
-  const answers = answersFromProfile(profile);
-  player = answers
-    ? lifeFromIntake(answers, { place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO })
-    : new PlayerLife({ place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO, goals: DEFAULT_GOALS });
+  const profile = path === "fromProfile" ? (me?.profile ?? null) : null;
+  // A new life: the title screen and Sammy's Learn walkthrough (always over San Francisco), then the
+  // one choice, who's moving in. The profile it leaves stores no numbers: every new life is the default start.
+  const avatar = profile ? "male" : await runTitle({ backdrop: `${import.meta.env.BASE_URL}cities/san-francisco/plates/day.jpg`, narrator });
+  // Played without saving, the real profile on the server must stay as it is.
+  if (!profile && saving) void saves.putProfile(profileFromIntake(null, "skipped", state.abbr)).catch(() => undefined);
+  // An older profile with stated numbers still builds that life.
+  const answers = profile ? answersFromProfile(profile) : null;
+  player = lifeFromIntake(answers ?? defaultAnswers(state, avatar), { place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO });
 }
 
 // The named NPCs' money lives on the same market (src/data/npcs.ts), and the
