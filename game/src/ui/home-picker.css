@@ -1,0 +1,103 @@
+/* Scoped to the picker so the Money desk and other phone apps keep their skin. */
+.home-picker {
+  --hp-ink: #16334b;
+  box-sizing: border-box;
+  width: min(1120px, calc(100vw - 40px));
+  max-width: none;
+  max-height: calc(100dvh - 40px);
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  color: var(--hp-ink);
+  background: #fff7dd;
+  border: 4px solid #101a23;
+  border-radius: 0;
+  box-shadow: 6px 6px 0 #101a23, inset 0 0 0 3px #fff;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 16px;
+  line-height: 1.4;
+}
+.home-picker *, .home-picker *::before, .home-picker *::after { box-sizing: border-box; }
+.home-picker::backdrop { background: #071d35bc; }
+.home-picker button, .home-picker input { font: inherit; }
+.home-picker button { cursor: pointer; }
+.home-picker button:disabled { cursor: default; }
+.home-picker :focus-visible { outline: 3px solid #096abe; outline-offset: 3px; }
+.home-picker .hp-close:focus-visible { outline-color: #ffdb39; }
+.hp-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 24px; background: linear-gradient(#229cf1, #0869b8); color: #fff8df; border-bottom: 4px solid #101a23; box-shadow: inset 0 3px #a4eaff; }
+.hp-eyebrow { font-size: 12px; letter-spacing: 1.5px; }
+.hp-header h2 { font-size: clamp(24px, 3vw, 34px); line-height: 1.1; margin: 5px 0 0; }
+.hp-close { flex: none; width: 44px; height: 44px; color: #16334b; background: #ffdb39; border: 3px solid #101a23; box-shadow: 3px 3px #101a23; font-size: 28px !important; line-height: 1; }
+.hp-intro { margin: 0; padding: 16px 24px; border-bottom: 2px solid #dccb9c; }
+.hp-intro span { white-space: nowrap; color: #145636; }
+.hp-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
+.hp-options { padding: 24px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.hp-option { min-width: 0; display: flex; align-items: stretch; flex-direction: column; position: relative; text-align: left; border: 3px solid #b3a57d; padding: 10px; background: #fffdf2; color: #16334b; box-shadow: 3px 3px #d3c49c; }
+.hp-option:hover { border-color: #096abe; }
+.hp-option[aria-pressed='true'] { border-color: #096abe; background: #eaf6ff; box-shadow: 4px 4px #096abe; }
+.hp-option strong { font-size: 20px; line-height: 1.15; margin-top: 10px; }
+.hp-badge { min-height: 24px; align-self: flex-start; padding: 2px 5px; font-size: 12px; background: #eae3ce; }
+.hp-current .hp-badge { background: #d4edd0; color: #174c2c; }
+.hp-preview { display: grid; place-items: center; height: 132px; margin-top: 8px; background: linear-gradient(#cee7f0 72%, #b7d598 72%); border: 2px solid #8daaaa; overflow: hidden; }
+.hp-preview img { width: 100%; height: 128px; object-fit: contain; image-rendering: pixelated; }
+.hp-neighborhood { font-size: 13px; margin: 6px 0 12px; color: #4c5c62; }
+.hp-card-price { margin-top: auto; font-size: 17px; }
+.hp-card-price small { font-size: 12px; }
+.hp-card-tenure { font-size: 12px; margin-top: 3px; color: #4c5c62; }
+.hp-detail { min-width: 0; padding: 24px; border-left: 2px solid #dccb9c; background: #fffbee; }
+.hp-detail h3 { font-size: 28px; line-height: 1.1; margin: 6px 0; }
+.hp-location { margin: 0 0 12px; color: #4c5c62; }
+.hp-lot-note { margin-bottom: 14px; font-size: 13px; }
+.hp-lot-note summary { cursor: pointer; }
+.hp-monthly { border: 3px solid #16334b; box-shadow: 3px 3px #dccb9c; padding: 14px; background: #ffdf62; display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 10px; margin: 16px 0 22px; }
+.hp-monthly strong { font-size: clamp(26px, 3vw, 34px); line-height: 1; }
+.hp-monthly span { font-size: 13px; }
+.hp-down { margin: 0 0 20px; padding: 0; border: 0; display: flex; gap: 10px; }
+.hp-down legend { margin-bottom: 8px; }
+.hp-down label { flex: 1; position: relative; }
+.hp-down input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.hp-down span { display: block; text-align: center; border: 2px solid #b3a57d; background: #fff; padding: 10px 5px; }
+.hp-down input:checked + span { border-color: #096abe; background: #d9eeff; box-shadow: inset 0 -3px #096abe; }
+.hp-down input:focus-visible + span { outline: 3px solid #096abe; outline-offset: 3px; }
+.hp-detail h4 { margin: 20px 0 8px; font-size: 17px; }
+.hp-costs { margin: 0; font-size: 14px; }
+.hp-costs > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; padding: 6px 0; border-bottom: 1px solid #e9dfc2; }
+.hp-costs dt { overflow-wrap: anywhere; }
+.hp-costs dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.hp-costs .hp-total { border-top: 2px solid #16334b; border-bottom: 0; margin-top: 4px; font-size: 15px; }
+.hp-note { font-size: 12px; line-height: 1.5; color: #4c5c62; margin: 10px 0 16px; }
+.hp-notice, .hp-locks { padding: 12px; border: 2px solid #b8a366; background: #f5edcf; font-size: 14px; }
+.hp-locks { background: #fff0dd; border-color: #ae652b; margin-top: 20px; }
+.hp-locks h4 { margin: 0 0 6px; }
+.hp-locks ul { margin: 0; padding-left: 19px; }
+.hp-locks li + li { margin-top: 8px; }
+.hp-odds { display: flex; flex-wrap: wrap; gap: 8px; font-size: 14px; }
+.hp-odds span { padding: 1px 6px; border: 1px solid #b3a57d; text-transform: capitalize; }
+.hp-confirm { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; margin: 20px 0 14px; cursor: pointer; padding: 12px; background: #e9f2e2; border: 2px solid #87a877; }
+.hp-confirm input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: #096abe; }
+.hp-move { width: 100%; min-height: 48px; margin-top: 12px; padding: 10px 16px; background: #ffdb39; color: #16334b; border: 3px solid #101a23; box-shadow: 3px 3px #101a23; font-size: 19px !important; }
+.hp-move:disabled { background: #e5dfce; color: #596163; border-color: #96978b; box-shadow: none; }
+.hp-move:not(:disabled):hover, .hp-close:hover { background: #ffe877; }
+.hp-status:empty { display: none; }
+.hp-status { padding: 12px; border: 2px solid #ae652b; margin-top: 14px; }
+.hp-footer { padding: 16px 24px; border-top: 2px solid #dccb9c; font-size: 12px; color: #4c5c62; }
+/* Loaded by the HUD too: its home name is now a real keyboard-accessible control. */
+.home-row .home-name.home-choose { flex: 1; min-height: 44px; padding: 4px; border: 0; background: transparent; font-family: inherit; cursor: pointer; text-align: left; }
+.home-row .home-choose:hover { text-decoration: underline; text-underline-offset: 4px; }
+.home-row .home-choose:focus-visible { outline: 3px solid #096abe; outline-offset: 1px; }
+@media (max-width: 740px) {
+  .home-picker { width: calc(100vw - 20px); max-height: calc(100dvh - 20px); }
+  .hp-header { padding: 16px; }
+  .hp-intro { padding: 12px 16px; font-size: 14px; }
+  .hp-layout { grid-template-columns: 1fr; }
+  .hp-options { padding: 16px; gap: 12px; }
+  .hp-detail { border-left: 0; border-top: 2px solid #dccb9c; padding: 20px 16px; }
+  .hp-preview { height: 108px; }
+  .hp-preview img { height: 104px; }
+  .hp-option strong { font-size: 18px; }
+  .hp-card-price { font-size: 15px; }
+  .hp-footer { padding: 14px 16px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hp-option { transition: background-color 100ms, border-color 100ms; }
+}

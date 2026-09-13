@@ -150,6 +150,7 @@ export function expandWorld(source: CityDef, seed: number): World {
     ...source,
     layout: g.map((row) => row.join("")),
     roads,
+    homes: source.homes?.map((h) => ({ ...h, x: h.x + Mx, y: h.y + My })),
     core: { x: Mx, y: My, w: cw, h: ch },
     landmarks,
     zones,

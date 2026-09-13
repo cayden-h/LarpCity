@@ -82,6 +82,8 @@ export interface Budget {
   k401Cost: number;
   match: number;
   rent: number;
+  /** Property tax, homeowners insurance, and PMI; mortgage payments are in minimums. */
+  housingBills: number;
   living: number;
   minimums: number;
   extra: number;
@@ -98,13 +100,16 @@ export function budget(life: PlayerLife, o: StandingOrders): Budget {
   const living = life.baseLiving * LIFESTYLE_FACTOR[o.lifestyle];
   const minimums = life.minimums();
   const takeHome = life.monthlyTakeHome;
-  const surplus = takeHome - k401Cost - life.rent - living - minimums - o.extraMonthly - o.depositMonthly;
+  const bills = life.housingBills();
+  const housingBills = round2(bills.taxAndInsurance + bills.pmi);
+  const surplus = takeHome - k401Cost - life.rent - housingBills - living - minimums - o.extraMonthly - o.depositMonthly;
   return {
     takeHome: round2(takeHome),
     k401: round2(k401),
     k401Cost: round2(k401Cost),
     match: round2(match),
     rent: life.rent,
+    housingBills,
     living: round2(living),
     minimums,
     extra: o.extraMonthly,

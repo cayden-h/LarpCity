@@ -21,6 +21,8 @@ export interface Projection {
   payoffs: { id: string; name: string; month: number }[];
   /** Total balance at the end of each month, starting with month 0. */
   series: number[];
+  /** Optional per-debt balances on the same monthly projection, for housing LTV. */
+  debtSeries?: Record<string, number[]>;
   /** True if the balance never reaches 0 within the horizon. */
   stuck: boolean;
 }
@@ -40,12 +42,13 @@ interface Row {
  * snowball or avalanche, `extra` plus every freed-up payment goes to the
  * target debt.
  */
-export function project(debts: Debt[], strategy: Strategy, extra: number, maxMonths = 720): Projection {
+export function project(debts: Debt[], strategy: Strategy, extra: number, maxMonths = 720, includeDebtSeries = false): Projection {
   const rows: Row[] = debts
     .filter((d) => d.status !== "paid" && d.status !== "discharged" && d.balance + d.accrued > 0)
     .map((d) => ({ id: d.id, name: d.name, kind: d.kind, balance: d.balance + d.accrued, apr: d.aprAnnual, payment: d.scheduledPayment ?? 0 }));
   const payoffs: Projection["payoffs"] = [];
   const series = [rows.reduce((s, r) => s + r.balance, 0)];
+  const debtSeries = includeDebtSeries ? Object.fromEntries(rows.map(r => [r.id, [r.balance]])) : undefined;
   let interest = 0;
   let freed = 0;
   let month = 0;
@@ -85,9 +88,10 @@ export function project(debts: Debt[], strategy: Strategy, extra: number, maxMon
       }
     }
     series.push(rows.reduce((s, r) => s + r.balance, 0));
+    if (debtSeries) for (const r of rows) debtSeries[r.id].push(r.balance);
   }
   const stuck = rows.some((r) => r.balance > 0.005);
-  return { strategy, months: month, interest, payoffs, series, stuck };
+  return { strategy, months: month, interest, payoffs, series, stuck, ...(debtSeries ? { debtSeries } : {}) };
 }
 
 /** All three strategies on the same debts, for the ghost lines and the recap. */

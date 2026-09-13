@@ -37,6 +37,7 @@ const baseView = (): GoalView => ({
   emergency: 0,
   brokerage: 0,
   retirement: 0,
+  homeValue: 0,
   debt: 0,
   minimums: 0,
   monthlyExpenses: 2_000,
@@ -148,12 +149,15 @@ test("an unreachable goal stops at the age cap", () => {
   assert.ok(r.ageAtEnd >= 32 && r.ageAtEnd < 32.01, `age ${r.ageAtEnd}`);
 });
 
-test("a 40-year fast-forward runs well under a second", () => {
+test("a 40-year fast-forward uses under a second of CPU", () => {
   const life = newLife();
   applyOrders(life, recommendedOrders(life));
-  const t0 = performance.now();
+  // Other test files and Blender renders compete for wall time in this worktree.
+  // CPU time measures this simulation's work without charging it for being descheduled.
+  const t0 = process.cpuUsage();
   const r = runSkip(life, { goal: never, fromDay: 0, startDate: START, capAge: life.age + 40 });
-  const ms = performance.now() - t0;
+  const cpu = process.cpuUsage(t0);
+  const ms = (cpu.user + cpu.system) / 1000;
   assert.ok(r.daysRun > 14_000);
   assert.ok(ms < 1_000, `${ms.toFixed(0)} ms`);
 });

@@ -52,6 +52,8 @@ export interface GoalView {
   brokerage: number;
   /** 401(k) and Roth IRA; not spendable on a house. */
   retirement: number;
+  /** Owned home asset value; its mortgage is already included in debt. Not spendable cash. */
+  homeValue: number;
   debt: number;
   minimums: number;
   /** Rent, living costs, and minimum payments. */

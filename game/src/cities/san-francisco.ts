@@ -87,13 +87,21 @@ export const sanFrancisco: CityDef = {
   plates: "san-francisco",
   layout: core.layout,
   roads: core.roads,
+  // Core coordinates; expandWorld translates these with the widened roads.
+  homes: [
+    { tier: 0, x: 18, y: 18, where: "Golden Gate Park" },
+    { tier: 1, x: 20, y: 13, where: "Midtown walk-up" },
+    { tier: 2, x: 11, y: 25, where: "The Sunset" },
+    { tier: 3, x: 29, y: 24, where: "Alamo Square" },
+    { tier: 5, x: 2, y: 15, where: "Marin headlands" },
+  ],
   zones: [
     { x: 29, y: 11, r: 6, kind: "downtown" },
     { x: 20, y: 14, r: 4, kind: "midtown" },
     { x: 28, y: 20, r: 4, kind: "midtown" },
-    { x: 13, y: 26, r: 7, kind: "residential" },
-    { x: 24, y: 26, r: 5, kind: "residential" },
-    { x: 1.5, y: 12, r: 4, kind: "residential" },
+    { x: 13, y: 26, r: 7, kind: "residential", houses: ["stucco"] },
+    { x: 24, y: 26, r: 5, kind: "residential", houses: ["victorian", "edwardian"] },
+    { x: 1.5, y: 12, r: 4, kind: "residential", houses: ["suburban"] },
   ],
   palette: {
     // Victorian pastels: pink, mint, butter yellow, sky blue, white, peach, lavender.

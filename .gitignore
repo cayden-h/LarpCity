@@ -40,3 +40,6 @@ game/plates-src/
 
 # Raw 4x Blender layers; art/pixelize.py turns them into game/public/sprites/
 game/art/.raw/
+
+# Contact sheets from art/contact.py are local review output
+game/art/_contact-*.png

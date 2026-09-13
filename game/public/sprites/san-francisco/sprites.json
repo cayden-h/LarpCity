@@ -735,6 +735,1222 @@
    "topZ": 94,
    "day": "loft-1x2-f4-17.png",
    "night": "loft-1x2-f4-17.night.png"
+  },
+  {
+   "id": "victorian-italianate-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 71,
+   "topZ": 63,
+   "day": "victorian-italianate-1x1-s.png",
+   "night": "victorian-italianate-1x1-s.night.png",
+   "walls": "victorian-italianate-1x1-s.walls.png",
+   "facing": "s",
+   "style": "victorian"
+  },
+  {
+   "id": "victorian-italianate-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 71,
+   "topZ": 63,
+   "day": "victorian-italianate-1x1-e.png",
+   "night": "victorian-italianate-1x1-e.night.png",
+   "walls": "victorian-italianate-1x1-e.walls.png",
+   "facing": "e",
+   "style": "victorian"
+  },
+  {
+   "id": "victorian-italianate-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 71,
+   "topZ": 63,
+   "day": "victorian-italianate-1x1-n.png",
+   "night": "victorian-italianate-1x1-n.night.png",
+   "walls": "victorian-italianate-1x1-n.walls.png",
+   "facing": "n",
+   "style": "victorian"
+  },
+  {
+   "id": "victorian-italianate-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 71,
+   "topZ": 63,
+   "day": "victorian-italianate-1x1-w.png",
+   "night": "victorian-italianate-1x1-w.night.png",
+   "walls": "victorian-italianate-1x1-w.walls.png",
+   "facing": "w",
+   "style": "victorian"
+  },
+  {
+   "id": "victorian-stick-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 112,
+   "topZ": 104,
+   "day": "victorian-stick-1x1-s.png",
+   "night": "victorian-stick-1x1-s.night.png",
+   "walls": "victorian-stick-1x1-s.walls.png",
+   "facing": "s",
+   "style": "victorian"
+  },
+  {
+   "id": "victorian-stick-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 112,
+   "topZ": 104,
+   "day": "victorian-stick-1x1-e.png",
+   "night": "victorian-stick-1x1-e.night.png",
+   "walls": "victorian-stick-1x1-e.walls.png",
+   "facing": "e",
+   "style": "victorian"
+  },
+  {
+   "id": "victorian-stick-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 112,
+   "topZ": 104,
+   "day": "victorian-stick-1x1-n.png",
+   "night": "victorian-stick-1x1-n.night.png",
+   "walls": "victorian-stick-1x1-n.walls.png",
+   "facing": "n",
+   "style": "victorian"
+  },
+  {
+   "id": "victorian-stick-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 112,
+   "topZ": 104,
+   "day": "victorian-stick-1x1-w.png",
+   "night": "victorian-stick-1x1-w.night.png",
+   "walls": "victorian-stick-1x1-w.walls.png",
+   "facing": "w",
+   "style": "victorian"
+  },
+  {
+   "id": "victorian-queen_anne-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 122,
+   "topZ": 114,
+   "day": "victorian-queen_anne-1x1-s.png",
+   "night": "victorian-queen_anne-1x1-s.night.png",
+   "walls": "victorian-queen_anne-1x1-s.walls.png",
+   "facing": "s",
+   "style": "victorian"
+  },
+  {
+   "id": "victorian-queen_anne-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 122,
+   "topZ": 114,
+   "day": "victorian-queen_anne-1x1-e.png",
+   "night": "victorian-queen_anne-1x1-e.night.png",
+   "walls": "victorian-queen_anne-1x1-e.walls.png",
+   "facing": "e",
+   "style": "victorian"
+  },
+  {
+   "id": "victorian-queen_anne-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 122,
+   "topZ": 114,
+   "day": "victorian-queen_anne-1x1-n.png",
+   "night": "victorian-queen_anne-1x1-n.night.png",
+   "walls": "victorian-queen_anne-1x1-n.walls.png",
+   "facing": "n",
+   "style": "victorian"
+  },
+  {
+   "id": "victorian-queen_anne-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 122,
+   "topZ": 114,
+   "day": "victorian-queen_anne-1x1-w.png",
+   "night": "victorian-queen_anne-1x1-w.night.png",
+   "walls": "victorian-queen_anne-1x1-w.walls.png",
+   "facing": "w",
+   "style": "victorian"
+  },
+  {
+   "id": "edwardian-single-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 67,
+   "topZ": 59,
+   "day": "edwardian-single-1x1-s.png",
+   "night": "edwardian-single-1x1-s.night.png",
+   "walls": "edwardian-single-1x1-s.walls.png",
+   "facing": "s",
+   "style": "edwardian"
+  },
+  {
+   "id": "edwardian-single-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 67,
+   "topZ": 59,
+   "day": "edwardian-single-1x1-e.png",
+   "night": "edwardian-single-1x1-e.night.png",
+   "walls": "edwardian-single-1x1-e.walls.png",
+   "facing": "e",
+   "style": "edwardian"
+  },
+  {
+   "id": "edwardian-single-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 67,
+   "topZ": 59,
+   "day": "edwardian-single-1x1-n.png",
+   "night": "edwardian-single-1x1-n.night.png",
+   "walls": "edwardian-single-1x1-n.walls.png",
+   "facing": "n",
+   "style": "edwardian"
+  },
+  {
+   "id": "edwardian-single-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 67,
+   "topZ": 59,
+   "day": "edwardian-single-1x1-w.png",
+   "night": "edwardian-single-1x1-w.night.png",
+   "walls": "edwardian-single-1x1-w.walls.png",
+   "facing": "w",
+   "style": "edwardian"
+  },
+  {
+   "id": "edwardian-double-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 87,
+   "topZ": 79,
+   "day": "edwardian-double-1x1-s.png",
+   "night": "edwardian-double-1x1-s.night.png",
+   "walls": "edwardian-double-1x1-s.walls.png",
+   "facing": "s",
+   "style": "edwardian"
+  },
+  {
+   "id": "edwardian-double-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 87,
+   "topZ": 79,
+   "day": "edwardian-double-1x1-e.png",
+   "night": "edwardian-double-1x1-e.night.png",
+   "walls": "edwardian-double-1x1-e.walls.png",
+   "facing": "e",
+   "style": "edwardian"
+  },
+  {
+   "id": "edwardian-double-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 87,
+   "topZ": 79,
+   "day": "edwardian-double-1x1-n.png",
+   "night": "edwardian-double-1x1-n.night.png",
+   "walls": "edwardian-double-1x1-n.walls.png",
+   "facing": "n",
+   "style": "edwardian"
+  },
+  {
+   "id": "edwardian-double-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 87,
+   "topZ": 79,
+   "day": "edwardian-double-1x1-w.png",
+   "night": "edwardian-double-1x1-w.night.png",
+   "walls": "edwardian-double-1x1-w.walls.png",
+   "facing": "w",
+   "style": "edwardian"
+  },
+  {
+   "id": "stucco-0-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 65,
+   "topZ": 57,
+   "day": "stucco-0-1x1-s.png",
+   "night": "stucco-0-1x1-s.night.png",
+   "walls": "stucco-0-1x1-s.walls.png",
+   "facing": "s",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-0-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 65,
+   "topZ": 57,
+   "day": "stucco-0-1x1-e.png",
+   "night": "stucco-0-1x1-e.night.png",
+   "walls": "stucco-0-1x1-e.walls.png",
+   "facing": "e",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-0-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 65,
+   "topZ": 57,
+   "day": "stucco-0-1x1-n.png",
+   "night": "stucco-0-1x1-n.night.png",
+   "walls": "stucco-0-1x1-n.walls.png",
+   "facing": "n",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-0-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 65,
+   "topZ": 57,
+   "day": "stucco-0-1x1-w.png",
+   "night": "stucco-0-1x1-w.night.png",
+   "walls": "stucco-0-1x1-w.walls.png",
+   "facing": "w",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-1-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 56,
+   "topZ": 48,
+   "day": "stucco-1-1x1-s.png",
+   "night": "stucco-1-1x1-s.night.png",
+   "walls": "stucco-1-1x1-s.walls.png",
+   "facing": "s",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-1-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 56,
+   "topZ": 48,
+   "day": "stucco-1-1x1-e.png",
+   "night": "stucco-1-1x1-e.night.png",
+   "walls": "stucco-1-1x1-e.walls.png",
+   "facing": "e",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-1-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 56,
+   "topZ": 48,
+   "day": "stucco-1-1x1-n.png",
+   "night": "stucco-1-1x1-n.night.png",
+   "walls": "stucco-1-1x1-n.walls.png",
+   "facing": "n",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-1-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 56,
+   "topZ": 48,
+   "day": "stucco-1-1x1-w.png",
+   "night": "stucco-1-1x1-w.night.png",
+   "walls": "stucco-1-1x1-w.walls.png",
+   "facing": "w",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-2-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 66,
+   "topZ": 58,
+   "day": "stucco-2-1x1-s.png",
+   "night": "stucco-2-1x1-s.night.png",
+   "walls": "stucco-2-1x1-s.walls.png",
+   "facing": "s",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-2-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 66,
+   "topZ": 58,
+   "day": "stucco-2-1x1-e.png",
+   "night": "stucco-2-1x1-e.night.png",
+   "walls": "stucco-2-1x1-e.walls.png",
+   "facing": "e",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-2-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 66,
+   "topZ": 58,
+   "day": "stucco-2-1x1-n.png",
+   "night": "stucco-2-1x1-n.night.png",
+   "walls": "stucco-2-1x1-n.walls.png",
+   "facing": "n",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-2-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 66,
+   "topZ": 58,
+   "day": "stucco-2-1x1-w.png",
+   "night": "stucco-2-1x1-w.night.png",
+   "walls": "stucco-2-1x1-w.walls.png",
+   "facing": "w",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-3-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 57,
+   "topZ": 49,
+   "day": "stucco-3-1x1-s.png",
+   "night": "stucco-3-1x1-s.night.png",
+   "walls": "stucco-3-1x1-s.walls.png",
+   "facing": "s",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-3-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 57,
+   "topZ": 49,
+   "day": "stucco-3-1x1-e.png",
+   "night": "stucco-3-1x1-e.night.png",
+   "walls": "stucco-3-1x1-e.walls.png",
+   "facing": "e",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-3-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 57,
+   "topZ": 49,
+   "day": "stucco-3-1x1-n.png",
+   "night": "stucco-3-1x1-n.night.png",
+   "walls": "stucco-3-1x1-n.walls.png",
+   "facing": "n",
+   "style": "stucco"
+  },
+  {
+   "id": "stucco-3-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 57,
+   "topZ": 49,
+   "day": "stucco-3-1x1-w.png",
+   "night": "stucco-3-1x1-w.night.png",
+   "walls": "stucco-3-1x1-w.walls.png",
+   "facing": "w",
+   "style": "stucco"
+  },
+  {
+   "id": "suburban-ranch-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 44,
+   "topZ": 36,
+   "day": "suburban-ranch-1x1-s.png",
+   "night": "suburban-ranch-1x1-s.night.png",
+   "walls": "suburban-ranch-1x1-s.walls.png",
+   "facing": "s",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-ranch-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 44,
+   "topZ": 36,
+   "day": "suburban-ranch-1x1-e.png",
+   "night": "suburban-ranch-1x1-e.night.png",
+   "walls": "suburban-ranch-1x1-e.walls.png",
+   "facing": "e",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-ranch-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 44,
+   "topZ": 36,
+   "day": "suburban-ranch-1x1-n.png",
+   "night": "suburban-ranch-1x1-n.night.png",
+   "walls": "suburban-ranch-1x1-n.walls.png",
+   "facing": "n",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-ranch-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 44,
+   "topZ": 36,
+   "day": "suburban-ranch-1x1-w.png",
+   "night": "suburban-ranch-1x1-w.night.png",
+   "walls": "suburban-ranch-1x1-w.walls.png",
+   "facing": "w",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-split-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 62,
+   "topZ": 54,
+   "day": "suburban-split-1x1-s.png",
+   "night": "suburban-split-1x1-s.night.png",
+   "walls": "suburban-split-1x1-s.walls.png",
+   "facing": "s",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-split-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 62,
+   "topZ": 54,
+   "day": "suburban-split-1x1-e.png",
+   "night": "suburban-split-1x1-e.night.png",
+   "walls": "suburban-split-1x1-e.walls.png",
+   "facing": "e",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-split-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 62,
+   "topZ": 54,
+   "day": "suburban-split-1x1-n.png",
+   "night": "suburban-split-1x1-n.night.png",
+   "walls": "suburban-split-1x1-n.walls.png",
+   "facing": "n",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-split-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 62,
+   "topZ": 54,
+   "day": "suburban-split-1x1-w.png",
+   "night": "suburban-split-1x1-w.night.png",
+   "walls": "suburban-split-1x1-w.walls.png",
+   "facing": "w",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-colonial-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 70,
+   "topZ": 62,
+   "day": "suburban-colonial-1x1-s.png",
+   "night": "suburban-colonial-1x1-s.night.png",
+   "walls": "suburban-colonial-1x1-s.walls.png",
+   "facing": "s",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-colonial-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 70,
+   "topZ": 62,
+   "day": "suburban-colonial-1x1-e.png",
+   "night": "suburban-colonial-1x1-e.night.png",
+   "walls": "suburban-colonial-1x1-e.walls.png",
+   "facing": "e",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-colonial-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 70,
+   "topZ": 62,
+   "day": "suburban-colonial-1x1-n.png",
+   "night": "suburban-colonial-1x1-n.night.png",
+   "walls": "suburban-colonial-1x1-n.walls.png",
+   "facing": "n",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-colonial-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 70,
+   "topZ": 62,
+   "day": "suburban-colonial-1x1-w.png",
+   "night": "suburban-colonial-1x1-w.night.png",
+   "walls": "suburban-colonial-1x1-w.walls.png",
+   "facing": "w",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-craftsman-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 48,
+   "topZ": 40,
+   "day": "suburban-craftsman-1x1-s.png",
+   "night": "suburban-craftsman-1x1-s.night.png",
+   "walls": "suburban-craftsman-1x1-s.walls.png",
+   "facing": "s",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-craftsman-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 48,
+   "topZ": 40,
+   "day": "suburban-craftsman-1x1-e.png",
+   "night": "suburban-craftsman-1x1-e.night.png",
+   "walls": "suburban-craftsman-1x1-e.walls.png",
+   "facing": "e",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-craftsman-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 48,
+   "topZ": 40,
+   "day": "suburban-craftsman-1x1-n.png",
+   "night": "suburban-craftsman-1x1-n.night.png",
+   "walls": "suburban-craftsman-1x1-n.walls.png",
+   "facing": "n",
+   "style": "suburban"
+  },
+  {
+   "id": "suburban-craftsman-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 48,
+   "topZ": 40,
+   "day": "suburban-craftsman-1x1-w.png",
+   "night": "suburban-craftsman-1x1-w.night.png",
+   "walls": "suburban-craftsman-1x1-w.walls.png",
+   "facing": "w",
+   "style": "suburban"
+  },
+  {
+   "id": "walkup-0-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 110,
+   "topZ": 102,
+   "day": "walkup-0-1x1-s.png",
+   "night": "walkup-0-1x1-s.night.png",
+   "walls": "walkup-0-1x1-s.walls.png",
+   "facing": "s",
+   "style": "walkup"
+  },
+  {
+   "id": "walkup-0-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 110,
+   "topZ": 102,
+   "day": "walkup-0-1x1-e.png",
+   "night": "walkup-0-1x1-e.night.png",
+   "walls": "walkup-0-1x1-e.walls.png",
+   "facing": "e",
+   "style": "walkup"
+  },
+  {
+   "id": "walkup-0-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 110,
+   "topZ": 102,
+   "day": "walkup-0-1x1-n.png",
+   "night": "walkup-0-1x1-n.night.png",
+   "walls": "walkup-0-1x1-n.walls.png",
+   "facing": "n",
+   "style": "walkup"
+  },
+  {
+   "id": "walkup-0-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 110,
+   "topZ": 102,
+   "day": "walkup-0-1x1-w.png",
+   "night": "walkup-0-1x1-w.night.png",
+   "walls": "walkup-0-1x1-w.walls.png",
+   "facing": "w",
+   "style": "walkup"
+  },
+  {
+   "id": "walkup-1-1x1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 90,
+   "topZ": 82,
+   "day": "walkup-1-1x1-s.png",
+   "night": "walkup-1-1x1-s.night.png",
+   "walls": "walkup-1-1x1-s.walls.png",
+   "facing": "s",
+   "style": "walkup"
+  },
+  {
+   "id": "walkup-1-1x1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 90,
+   "topZ": 82,
+   "day": "walkup-1-1x1-e.png",
+   "night": "walkup-1-1x1-e.night.png",
+   "walls": "walkup-1-1x1-e.walls.png",
+   "facing": "e",
+   "style": "walkup"
+  },
+  {
+   "id": "walkup-1-1x1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 90,
+   "topZ": 82,
+   "day": "walkup-1-1x1-n.png",
+   "night": "walkup-1-1x1-n.night.png",
+   "walls": "walkup-1-1x1-n.walls.png",
+   "facing": "n",
+   "style": "walkup"
+  },
+  {
+   "id": "walkup-1-1x1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 90,
+   "topZ": 82,
+   "day": "walkup-1-1x1-w.png",
+   "night": "walkup-1-1x1-w.night.png",
+   "walls": "walkup-1-1x1-w.walls.png",
+   "facing": "w",
+   "style": "walkup"
+  },
+  {
+   "id": "walkup-2-2x1-s",
+   "w": 2,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 110,
+   "topZ": 102,
+   "day": "walkup-2-2x1-s.png",
+   "night": "walkup-2-2x1-s.night.png",
+   "walls": "walkup-2-2x1-s.walls.png",
+   "facing": "s",
+   "style": "walkup"
+  },
+  {
+   "id": "walkup-2-2x1-e",
+   "w": 1,
+   "d": 2,
+   "floors": 4,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 72,
+   "ay": 110,
+   "topZ": 102,
+   "day": "walkup-2-2x1-e.png",
+   "night": "walkup-2-2x1-e.night.png",
+   "walls": "walkup-2-2x1-e.walls.png",
+   "facing": "e",
+   "style": "walkup"
+  },
+  {
+   "id": "walkup-2-2x1-n",
+   "w": 2,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 110,
+   "topZ": 102,
+   "day": "walkup-2-2x1-n.png",
+   "night": "walkup-2-2x1-n.night.png",
+   "walls": "walkup-2-2x1-n.walls.png",
+   "facing": "n",
+   "style": "walkup"
+  },
+  {
+   "id": "walkup-2-2x1-w",
+   "w": 1,
+   "d": 2,
+   "floors": 4,
+   "zones": [
+    "residential"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 72,
+   "ay": 110,
+   "topZ": 102,
+   "day": "walkup-2-2x1-w.png",
+   "night": "walkup-2-2x1-w.night.png",
+   "walls": "walkup-2-2x1-w.walls.png",
+   "facing": "w",
+   "style": "walkup"
   }
  ]
 }

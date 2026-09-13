@@ -15,6 +15,7 @@ import { CURATED } from "../data/cards-curated.ts";
 import { MARKET } from "../data/market.ts";
 import { STATES } from "../data/states.ts";
 import { PlayerLife, STARTER_PORTFOLIO, seriesOn, type LifeEvent, type LifeSnapshot } from "../sim/life/index.ts";
+import type { HomeEvent } from "../sim/life/homes.ts";
 import { INSTRUMENTS, MarketPath, instrument, type InstrumentId } from "../sim/market/index.ts";
 import { fetchRecoveryLesson } from "../net/recap.ts";
 import { RunRecorder } from "../sim/record/index.ts";
@@ -49,6 +50,8 @@ type BankTxn = DeskBankTxn;
 interface Decision {
   title: string;
   body: string;
+  /** Housing recovery never resumes time as a side effect of choosing an option. */
+  keepPaused?: boolean;
   options: { label: string; lesson: string; good?: boolean; act: () => void }[];
 }
 interface ChartSpec {
@@ -182,6 +185,8 @@ function makeSaver(g: GameSave, r: RestoredGame, baseRev: number): SaveManager {
 const runRecorder = () => (host ? host.recorder() : recorder);
 const feed: FeedItem[] = [];
 let decision: Decision | null = null;
+const pendingHomeLosses: HomeEvent[] = [];
+const handledHomeLosses = new Set<string>();
 let resumeSpeed = 1;
 let tab: Tab = "home";
 let range: Range = "1M";
@@ -296,10 +301,16 @@ function onLifeEvents(events: LifeEvent[]) {
       case "bill": {
         const short = e.amount - e.paid;
         log(e.day, `${e.name}${short > 0.5 ? `, short by ${usd(short)}` : ""}`, short > 0.5 ? "down" : "flat", -e.paid);
-        const rent = e.name === "Rent";
-        bankLog({ day: e.day, name: rent ? "Rent" : "Groceries, gas, and bills", category: rent ? "Housing" : "Living costs", icon: rent ? "🏠" : "🛒", amount: -e.paid, kind: "out" });
+        const housing = e.name === "Rent" || e.name === "Property tax and insurance" || e.name === "Mortgage insurance (PMI)";
+        bankLog({ day: e.day, name: e.name, category: housing ? "Housing" : "Living costs", icon: housing ? "🏠" : "🛒", amount: -e.paid, kind: "out" });
         break;
       }
+      case "home":
+        if (isHousingLoss(e)) {
+          if (reportingRewind) log(e.day, homeLossDescription(e), "down");
+          else queueHomeLoss(e);
+        }
+        break;
       case "savings_interest":
         log(e.day, "Savings interest", "up", e.amount);
         bankLog({ day: e.day, name: "Interest paid", category: "Savings interest", icon: "💰", amount: e.amount, kind: "in" });
@@ -365,6 +376,7 @@ function onLifeEvents(events: LifeEvent[]) {
         break;
     }
   }
+  if (!reportingRewind) showNextHomeLoss();
   // Inside the city, keep its copy of the feed current; the city's next save (each game month) carries it.
   if (host && events.length && !reportingRewind) host.changed(deskState(), { quiet: true });
   scheduleRender();
@@ -408,10 +420,68 @@ function openDecision(dec: Decision) {
 }
 
 function closeDecision() {
+  const keepPaused = decision?.keepPaused;
   decision = null;
+  showNextHomeLoss();
   // Inside the city, time stays paused until the player presses play, as the Money window says.
-  if (!host) clock.speed = resumeSpeed;
+  if (!host && !keepPaused && !decision) clock.speed = resumeSpeed;
   render();
+}
+
+function isHousingLoss(event: LifeEvent): event is HomeEvent {
+  return event.type === "home" && event.to === 0
+    && (event.reason === "eviction" || event.reason === "foreclosure" || event.reason === "bankruptcy");
+}
+
+function homeLossDescription(event: HomeEvent): string {
+  if (event.reason === "eviction") return "Eviction after two consecutive short rent payments moved you to the tent.";
+  if (event.reason === "foreclosure") return "Foreclosure after 120 days of missed mortgage payments moved you to the tent.";
+  return "Bankruptcy moved you to the tent.";
+}
+
+/** Live events and the phone's parked queue can deliver the same loss. Record and present it once. */
+function queueHomeLoss(event: HomeEvent) {
+  const key = `${event.day}:${event.reason}`;
+  if (handledHomeLosses.has(key)) return;
+  handledHomeLosses.add(key);
+  pendingHomeLosses.push(event);
+  log(event.day, homeLossDescription(event), "down");
+}
+
+function showNextHomeLoss() {
+  if (decision || !pendingHomeLosses.length) return;
+  askHomeLoss(pendingHomeLosses.shift()!);
+}
+
+function askHomeLoss(event: HomeEvent | null, notice = "") {
+  const quote = life.quoteHome(1, clock.day);
+  const needsHome = life.home.tenure === "none";
+  const options: Decision["options"] = [];
+  if (needsHome && quote.ok) options.push({
+    label: `Rent the studio for ${usd(quote.monthlyPayment)}/month`,
+    lesson: `Confirm ${usd(quote.cashNeeded)} upfront and ${usd(quote.rent)} monthly rent. Time will stay paused.`,
+    good: true,
+    act: () => {
+      // The quote may change while another desk action is completing. Show new terms before charging anything.
+      const fresh = life.quoteHome(1, clock.day);
+      if (!fresh.ok || JSON.stringify(fresh) !== JSON.stringify(quote)) {
+        askHomeLoss(event, "Your rental quote changed. Review the current terms before confirming.");
+        return;
+      }
+      const result = life.chooseHome(1, clock.day);
+      if (!result.ok) { askHomeLoss(event, result.error); return; }
+      log(clock.day, `Rented the studio for ${usd(result.quote.rent)} a month`, "flat");
+    },
+  });
+  options.push({ label: "Review my cash", lesson: "Check your budget before choosing a home. Time will stay paused.", good: true, act: () => go("cash") });
+  openDecision({
+    title: "Housing loss: plan your recovery",
+    body: `${event ? homeLossDescription(event) : "You are currently living in the tent."} ${notice} ${needsHome
+      ? `The tent has no rent. A studio costs ${usd(quote.rent)} a month and ${usd(quote.cashNeeded)} upfront.${quote.ok ? "" : ` ${quote.reasons.join(" ")}`}`
+      : "You have already found another home."} You can review your cash before deciding.`,
+    keepPaused: true,
+    options,
+  });
 }
 
 /** Most important first: bankruptcy, then a payment the player can't cover, then a crash. */
@@ -425,8 +495,11 @@ const DECISION_RANK: Partial<Record<LifeEvent["type"], number>> = { bankruptcy_e
 function showParkedDecisions() {
   if (!host) return;
   const parked = host.takeDecisions().sort((a, b) => (DECISION_RANK[a.type] ?? 9) - (DECISION_RANK[b.type] ?? 9));
+  for (const event of parked) if (isHousingLoss(event)) queueHomeLoss(event);
+  showNextHomeLoss();
   const deferred: LifeEvent[] = [];
   for (const e of parked) {
+    if (isHousingLoss(e)) continue;
     if (decision) {
       // A decision is already open; wait for the desk's next show instead of losing this one.
       deferred.push(e);
@@ -695,13 +768,41 @@ const footHtml = () =>
 
 /** One suggested move, the Tally pattern: tell the player what to do instead of showing a table. */
 let moveAct: (() => void) | null = null;
+
+/** The same ownership bills as the daily simulation; the mortgage has its own due date. */
+function monthlyHousingBills(): { name: string; amount: number }[] {
+  const bills = life.housingBills();
+  return [
+    { name: "Rent", amount: life.rent },
+    { name: "Property tax and insurance", amount: bills.taxAndInsurance },
+    { name: "Mortgage insurance (PMI)", amount: bills.pmi },
+  ].filter(bill => bill.amount > 0);
+}
+
+function housingReserve(): number {
+  const mortgage = life.book.debts.find(d => d.id === life.home.mortgageId && isOpen(d));
+  const payment = mortgage ? Math.min(mortgage.scheduledPayment ?? 0, owed(mortgage)) : 0;
+  const total = monthlyHousingBills().reduce((sum, bill) => sum + bill.amount, payment);
+  // Reserve the full payment even when amortization carries a fraction of a cent.
+  return Math.max(0, Math.ceil(total * 100 - 1e-6) / 100);
+}
+
+function cashAfterHousing(): number {
+  return Math.max(0, Math.floor((life.cash() - housingReserve()) * 100 + 1e-6) / 100);
+}
+
 function nextMove(): string {
   moveAct = null;
+  if (life.home.tenure === "none") {
+    const loss = [...life.log].reverse().find(isHousingLoss) ?? null;
+    moveAct = () => askHomeLoss(loss);
+    return nextCard("Find a home", "Review the studio's rent and your cash before leaving the tent.", { label: "Review studio rental", act: "move" });
+  }
   const open = life.book.debts.filter(isOpen);
-  const spare = Math.max(0, Math.floor(life.cash() - life.rent));
+  const spare = Math.floor(cashAfterHousing());
   const late = open.find((d) => d.pastDue > 0 && d.status !== "collections");
   if (late) {
-    const amt = Math.floor(Math.min(late.pastDue, life.cash()));
+    const amt = Math.floor(Math.min(late.pastDue, late.id === life.home.mortgageId ? life.cash() : spare));
     moveAct = () => pay(late.id, amt);
     return nextCard(`Catch up on the ${late.name}`, `${usd(late.pastDue)} is past due. Paying before it's 30 days late keeps it off your credit report.`, { label: `Pay ${usd(amt, 0)}`, act: "move", disabled: amt < 1 });
   }
@@ -712,16 +813,16 @@ function nextMove(): string {
     moveAct = () => pay(card.id, amt);
     return nextCard(
       `Pay down the ${card.name}`,
-      `It costs ${rate(aprNow(card))} a year and it's ${pctOf(util, 0)} maxed, which drags your score down. You can put ${usd(amt, 0)} toward it and still keep a month of rent.`,
+      `It costs ${rate(aprNow(card))} a year and it's ${pctOf(util, 0)} maxed, which drags your score down. You can put ${usd(amt, 0)} toward it and still keep a month of housing costs.`,
       { label: `Pay ${usd(amt, 0)}`, act: "move" },
     );
   }
-  const month = life.rent + life.living;
+  const month = housingReserve() + life.living;
   const ef = life.ledger.get("emergency").balance;
   if (ef < month && spare >= 100) {
     const amt = Math.floor(Math.min(500, spare, month - ef));
     moveAct = () => fundEmergency(amt);
-    return nextCard("Start an emergency fund", `One month of rent and bills is ${usd(month)}. Money set aside keeps a surprise bill off your credit card.`, { label: `Move ${usd(amt, 0)}`, act: "move" });
+    return nextCard("Start an emergency fund", `One month of housing and living costs is ${usd(month)}. Money set aside keeps a surprise bill off your credit card.`, { label: `Move ${usd(amt, 0)}`, act: "move" });
   }
   if (!life.recurring.length) {
     moveAct = () => {
@@ -749,7 +850,7 @@ function homePage(): Page {
     main: `${heroHtml("Net worth")}${rangesHtml()}
       ${nextMove()}
       <div class="section"><h2>Your money</h2><span>Tap a row for details</span></div>
-      ${row({ title: "Cash", sub: `Checking, savings, and emergency fund · rent ${usd(life.rent)}/mo`, spark: sparkOf(cash), pill: usd(life.cash()), tone: t(cash), go: "cash" })}
+      ${row({ title: "Cash", sub: `Checking, savings, and emergency fund · housing ${usd(housingReserve())}/mo`, spark: sparkOf(cash), pill: usd(life.cash()), tone: t(cash), go: "cash" })}
       ${row({ title: "Investing", sub: invested > 0 ? `${life.positions().length} holding${life.positions().length === 1 ? "" : "s"}${life.recurring.length ? " · auto-invest on" : ""}` : "Nothing invested yet", spark: sparkOf(inv), pill: usd(invested), tone: invested > 0 ? t(inv) : "flat", go: "investing" })}
       ${row({ title: "Debt", sub: life.totalDebt() > 0.5 ? `Debt-free ${freeDate()}` : "You're debt-free", spark: sparkOf(debt, false), pill: usd(life.totalDebt()), tone: t(debt, false), go: "debt" })}
       ${row({ title: "Credit score", sub: `${life.scoreBand()}`, spark: sparkOf(score), pill: String(life.book.profile.score), tone: t(score), go: "credit" })}
@@ -795,7 +896,7 @@ function cashPage(): Page {
         <button class="cta plain" data-go="debt">Pay a card or loan</button>
       </div>
       ${xferOpen ? transferHtml() : ""}
-      ${nextCard(`Direct deposit of about ${usd(payAmt, 0)} on ${monthDay(dateOf(next))}`, `${life.employed ? "Your paycheck lands" : "Unemployment benefits land"} in checking. Rent of ${usd(life.rent)} comes out on the 1st and living costs of ${usd(life.living)} on the 15th.`)}
+      ${nextCard(`Direct deposit of about ${usd(payAmt, 0)} on ${monthDay(dateOf(next))}`, `${life.employed ? "Your paycheck lands" : "Unemployment benefits land"} in checking. Monthly housing costs are ${usd(housingReserve())}; housing bills come out on the 1st and any mortgage on its due date. Living costs of ${usd(life.living)} come out on the 15th.`)}
       <div class="section"><h2>Accounts</h2><span>Interest earned ${usd(earned(false), 2)} this month · ${usd(earned(true), 2)} this year</span></div>
       ${accountRow("checking", "Checking", "Available to spend · paychecks land here")}
       ${accountRow("savings", "High-yield savings", "Interest is paid on the 1st of each month")}
@@ -1186,9 +1287,8 @@ function cardsPage(): Page {
   const paidSoFar = Math.min(stmt, card.statementPaid ?? 0);
   const left = Math.max(0, stmt - paidSoFar);
   const due = nextDue(card);
-  // Like Home's suggested move, never spend next month's rent on the card.
-  // The tiny nudge keeps float error ($3,886.74 − $1,435 = 2451.7399…) from shaving a cent.
-  const spare = Math.max(0, Math.floor((life.cash() - life.rent) * 100 + 1e-6) / 100);
+  // Home and Cards preserve the same month of rent or ownership costs.
+  const spare = cashAfterHousing();
   const payAmt = Math.min(left, spare, bal);
   return {
     side: false,
@@ -1203,7 +1303,7 @@ function cardsPage(): Page {
         ? (() => {
             moveAct = () => pay(card.id, payAmt);
             const partly = paidSoFar > 0.5 ? `${usd(paidSoFar)} paid so far, ${usd(left)} left. ` : "";
-            const short = payAmt + 0.005 < left ? ` You can put ${usd(payAmt)} toward it now and still keep a month of rent.` : "";
+            const short = payAmt + 0.005 < left ? ` You can put ${usd(payAmt)} toward it now and still keep a month of housing costs.` : "";
             return nextCard(
               `Statement ${usd(stmt)}${due ? ` due ${monthDay(due)}` : ""}`,
               `${partly}Pay it in full by the due date and you owe no interest. Paying only the ${usd(card.minimumDue ?? 0)} minimum costs about ${usd((left * aprNow(card)) / 12)} in interest next month.${short}`,
@@ -1280,7 +1380,7 @@ function upcoming(): string {
   for (let d = clock.day + 1; d <= clock.day + 30; d++) {
     const dom = dateOf(d).getDate();
     if (dom === 1 || dom === 15) items.push({ day: d, title: "Paycheck", amt: payAmt, tone: "up" });
-    if (dom === 1) items.push({ day: d, title: "Rent", amt: life.rent, tone: "flat" });
+    if (dom === 1) for (const bill of monthlyHousingBills()) items.push({ day: d, title: bill.name, amt: bill.amount, tone: "flat" });
     if (dom === 15) items.push({ day: d, title: "Living costs", amt: life.living, tone: "flat" });
   }
   for (const d of life.book.debts) {
@@ -1574,8 +1674,10 @@ app.addEventListener("click", (ev) => {
   const ds = el.dataset;
   if (ds.sr !== undefined) return runHit(searchHits(search.q)[Number(ds.sr)]);
   if (ds.option !== undefined && decision) {
-    decision.options[Number(ds.option)].act();
-    closeDecision();
+    const current = decision;
+    current.options[Number(ds.option)].act();
+    // A changed recovery quote replaces this decision and needs a fresh confirmation.
+    if (decision === current) closeDecision();
     saveDesk();
     return;
   }
@@ -1877,6 +1979,8 @@ if (noLife) {
     if (crash && crash.day >= day) crash = null;
     if (recovery && recovery.day >= day) recovery = recap = null;
     decision = null;
+    pendingHomeLosses.length = 0;
+    handledHomeLosses.clear();
     reportingRewind = true;
     onLifeEvents(life.log.filter((e) => e.day === day));
     reportingRewind = false;

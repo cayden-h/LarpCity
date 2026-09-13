@@ -1,0 +1,461 @@
+{
+ "scale": 1,
+ "sprites": [
+  {
+   "id": "home-0-s",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 22,
+   "topZ": 24,
+   "day": "home-0-s.png",
+   "night": "home-0-s.night.png",
+   "kind": "home",
+   "facing": "s",
+   "tier": 0
+  },
+  {
+   "id": "home-0-e",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 22,
+   "topZ": 24,
+   "day": "home-0-e.png",
+   "night": "home-0-e.night.png",
+   "kind": "home",
+   "facing": "e",
+   "tier": 0
+  },
+  {
+   "id": "home-0-n",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 22,
+   "topZ": 24,
+   "day": "home-0-n.png",
+   "night": "home-0-n.night.png",
+   "kind": "home",
+   "facing": "n",
+   "tier": 0
+  },
+  {
+   "id": "home-0-w",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 22,
+   "topZ": 24,
+   "day": "home-0-w.png",
+   "night": "home-0-w.night.png",
+   "kind": "home",
+   "facing": "w",
+   "tier": 0
+  },
+  {
+   "id": "home-1-s",
+   "w": 1,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 111,
+   "topZ": 103,
+   "day": "home-1-s.png",
+   "night": "home-1-s.night.png",
+   "kind": "home",
+   "facing": "s",
+   "tier": 1
+  },
+  {
+   "id": "home-1-e",
+   "w": 1,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 111,
+   "topZ": 103,
+   "day": "home-1-e.png",
+   "night": "home-1-e.night.png",
+   "kind": "home",
+   "facing": "e",
+   "tier": 1
+  },
+  {
+   "id": "home-1-n",
+   "w": 1,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 111,
+   "topZ": 103,
+   "day": "home-1-n.png",
+   "night": "home-1-n.night.png",
+   "kind": "home",
+   "facing": "n",
+   "tier": 1
+  },
+  {
+   "id": "home-1-w",
+   "w": 1,
+   "d": 1,
+   "floors": 4,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 111,
+   "topZ": 103,
+   "day": "home-1-w.png",
+   "night": "home-1-w.night.png",
+   "kind": "home",
+   "facing": "w",
+   "tier": 1
+  },
+  {
+   "id": "home-2-s",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 48,
+   "topZ": 40,
+   "day": "home-2-s.png",
+   "night": "home-2-s.night.png",
+   "kind": "home",
+   "facing": "s",
+   "tier": 2
+  },
+  {
+   "id": "home-2-e",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 48,
+   "topZ": 40,
+   "day": "home-2-e.png",
+   "night": "home-2-e.night.png",
+   "kind": "home",
+   "facing": "e",
+   "tier": 2
+  },
+  {
+   "id": "home-2-n",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 48,
+   "topZ": 40,
+   "day": "home-2-n.png",
+   "night": "home-2-n.night.png",
+   "kind": "home",
+   "facing": "n",
+   "tier": 2
+  },
+  {
+   "id": "home-2-w",
+   "w": 1,
+   "d": 1,
+   "floors": 1,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 48,
+   "topZ": 40,
+   "day": "home-2-w.png",
+   "night": "home-2-w.night.png",
+   "kind": "home",
+   "facing": "w",
+   "tier": 2
+  },
+  {
+   "id": "home-3-s",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 106,
+   "topZ": 98,
+   "day": "home-3-s.png",
+   "night": "home-3-s.night.png",
+   "kind": "home",
+   "facing": "s",
+   "tier": 3
+  },
+  {
+   "id": "home-3-e",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 106,
+   "topZ": 98,
+   "day": "home-3-e.png",
+   "night": "home-3-e.night.png",
+   "kind": "home",
+   "facing": "e",
+   "tier": 3
+  },
+  {
+   "id": "home-3-n",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 106,
+   "topZ": 98,
+   "day": "home-3-n.png",
+   "night": "home-3-n.night.png",
+   "kind": "home",
+   "facing": "n",
+   "tier": 3
+  },
+  {
+   "id": "home-3-w",
+   "w": 1,
+   "d": 1,
+   "floors": 3,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 106,
+   "topZ": 98,
+   "day": "home-3-w.png",
+   "night": "home-3-w.night.png",
+   "kind": "home",
+   "facing": "w",
+   "tier": 3
+  },
+  {
+   "id": "home-4-s",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 70,
+   "topZ": 62,
+   "day": "home-4-s.png",
+   "night": "home-4-s.night.png",
+   "kind": "home",
+   "facing": "s",
+   "tier": 4
+  },
+  {
+   "id": "home-4-e",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 70,
+   "topZ": 62,
+   "day": "home-4-e.png",
+   "night": "home-4-e.night.png",
+   "kind": "home",
+   "facing": "e",
+   "tier": 4
+  },
+  {
+   "id": "home-4-n",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 70,
+   "topZ": 62,
+   "day": "home-4-n.png",
+   "night": "home-4-n.night.png",
+   "kind": "home",
+   "facing": "n",
+   "tier": 4
+  },
+  {
+   "id": "home-4-w",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 70,
+   "topZ": 62,
+   "day": "home-4-w.png",
+   "night": "home-4-w.night.png",
+   "kind": "home",
+   "facing": "w",
+   "tier": 4
+  },
+  {
+   "id": "home-5-s",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 64,
+   "topZ": 56,
+   "day": "home-5-s.png",
+   "night": "home-5-s.night.png",
+   "kind": "home",
+   "facing": "s",
+   "tier": 5
+  },
+  {
+   "id": "home-5-e",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 64,
+   "topZ": 56,
+   "day": "home-5-e.png",
+   "night": "home-5-e.night.png",
+   "kind": "home",
+   "facing": "e",
+   "tier": 5
+  },
+  {
+   "id": "home-5-n",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 64,
+   "topZ": 56,
+   "day": "home-5-n.png",
+   "night": "home-5-n.night.png",
+   "kind": "home",
+   "facing": "n",
+   "tier": 5
+  },
+  {
+   "id": "home-5-w",
+   "w": 1,
+   "d": 1,
+   "floors": 2,
+   "zones": [
+    "home"
+   ],
+   "unique": false,
+   "brand": null,
+   "ax": 40,
+   "ay": 64,
+   "topZ": 56,
+   "day": "home-5-w.png",
+   "night": "home-5-w.night.png",
+   "kind": "home",
+   "facing": "w",
+   "tier": 5
+  }
+ ]
+}

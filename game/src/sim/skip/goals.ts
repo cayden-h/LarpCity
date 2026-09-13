@@ -68,7 +68,7 @@ export function houseMath(v: GoalView, downPct: number): HouseMath {
 }
 
 export function netWorthOf(v: GoalView): number {
-  return v.cash + v.emergency + v.brokerage + v.retirement - v.debt;
+  return v.cash + v.emergency + v.brokerage + v.retirement + v.homeValue - v.debt;
 }
 
 /** The emergency fund plus cash beyond this month's bills: what could carry the player through a lost paycheck. */
@@ -101,6 +101,7 @@ export function viewOf(life: PlayerLife): GoalView {
     emergency: 0,
     brokerage: 0,
     retirement: 0,
+    homeValue: life.home.value,
     debt: life.totalDebt(),
     minimums: life.minimums(),
     monthlyExpenses: life.monthlyExpenses(),

@@ -4,10 +4,11 @@
 
 import { project } from "../debt/index.ts";
 import { K401_LIMIT, K401_TAX_SAVING, MATCH_RATE, MATCH_UP_TO, type PlayerLife } from "../life/player.ts";
+import { homeMortgage, housingBills } from "../life/homes.ts";
 import { CrashWatch } from "./crash.ts";
 import type { Future } from "./futures.ts";
-import { homePrice, isMet } from "./goals.ts";
-import { LIFESTYLE_FACTOR, type Goal, type StandingOrders } from "./types.ts";
+import { homePrice, isMet, netWorthOf } from "./goals.ts";
+import { LIFESTYLE_FACTOR, type Goal, type GoalView, type StandingOrders } from "./types.ts";
 
 export interface Preview {
   /** Months from today to the age cap (or to the end of the futures). */
@@ -50,14 +51,26 @@ export function runPreview(life: PlayerLife, orders: StandingOrders, goal: Goal,
   const match = k401 > 0 ? Math.min(orders.k401Pct, MATCH_UP_TO) * MATCH_RATE * gross : 0;
   const income = life.monthlyTakeHome - k401 * (1 - K401_TAX_SAVING);
   const rent = life.rent;
+  const home = life.home;
+  const ownerBills = life.housingBills();
   const living = life.baseLiving * LIFESTYLE_FACTOR[orders.lifestyle];
   const minimums = life.minimums();
   const price = homePrice(life.place);
   const goalTiming = goal.kind === "marriage" ? "relationship_unsupported" : goal.kind === "status" ? "income_static" : "modeled";
 
   // Debt follows the payoff projection; the total payment stays level until the last debt is gone.
-  const plan = project(life.book.debts, orders.debtStrategy, orders.extraMonthly);
+  const plan = project(life.book.debts, orders.debtStrategy, orders.extraMonthly, Math.max(720, horizon), home.tenure === "own");
   const debtMonths = plan.stuck ? Number.POSITIVE_INFINITY : plan.months;
+  // Track the mortgage within the complete payoff plan, so other debts and the
+  // strategy's extra payments affect amortization without becoming home equity.
+  const mortgage = homeMortgage(home, life.book);
+  const mortgageBalances = mortgage ? plan.debtSeries?.[mortgage.id] : undefined;
+  const housingCosts = Array.from({ length: horizon + 1 }, (_, mo) => {
+    if (mo === 0 || !mortgage || !mortgageBalances) return ownerBills.taxAndInsurance + ownerBills.pmi;
+    const balance = mortgageBalances[Math.min(mo, mortgageBalances.length - 1)];
+    const bills = housingBills(home, { ...life.book, debts: [{ ...mortgage, balance, accrued: 0 }] });
+    return bills.taxAndInsurance + bills.pmi;
+  });
   const debtAt = (mo: number) => plan.series[Math.min(mo, plan.series.length - 1)] ?? 0;
 
   const start = { cash: 0, emergency: 0, brokerage: 0, retirement: 0 };
@@ -84,8 +97,9 @@ export function runPreview(life: PlayerLife, orders: StandingOrders, goal: Goal,
     for (let mo = 0; mo <= horizon; mo++) {
       const inDebt = mo < debtMonths;
       const service = inDebt ? minimums + orders.extraMonthly : 0;
+      const housing = housingCosts[mo];
       if (mo > 0 && !out) {
-        cash += income - rent - living - service;
+        cash += income - rent - housingCosts[mo - 1] - living - service;
         retirement += k401 + match;
         if (cash < 0) {
           const fromEmergency = Math.min(emergency, -cash);
@@ -99,8 +113,8 @@ export function runPreview(life: PlayerLife, orders: StandingOrders, goal: Goal,
             broke++;
           }
         } else {
-          let spare = cash - (rent + living + service);
-          const topUp = Math.min(Math.max(0, spare), Math.max(0, orders.emergencyMonths * (rent + living + (inDebt ? minimums : 0)) - emergency));
+          let spare = cash - (rent + housing + living + service);
+          const topUp = Math.min(Math.max(0, spare), Math.max(0, orders.emergencyMonths * (rent + housing + living + (inDebt ? minimums : 0)) - emergency));
           emergency += topUp;
           cash -= topUp;
           spare -= topUp;
@@ -117,23 +131,22 @@ export function runPreview(life: PlayerLife, orders: StandingOrders, goal: Goal,
         watch.update(f.stock[k + 1], orders.crashRule);
       }
       const debt = debtAt(mo);
-      worth[i * cols + mo] = cash + emergency + brokerage + retirement - debt;
-      if (reachedAt < 0 && !out) {
-        const view = {
-          cash,
-          emergency,
-          brokerage,
-          retirement,
-          debt,
-          minimums: inDebt ? minimums : 0,
-          monthlyExpenses: rent + living + (inDebt ? minimums : 0),
-          monthlyGross: gross,
-          homePrice: price,
-          relationship: life.relationship,
-          grossAnnual: life.grossAnnual,
-        };
-        if (isMet(goal, view)) reachedAt = mo;
-      }
+      const view: GoalView = {
+        cash,
+        emergency,
+        brokerage,
+        retirement,
+        homeValue: home.value,
+        debt,
+        minimums: inDebt ? minimums : 0,
+        monthlyExpenses: rent + housing + living + (inDebt ? minimums : 0),
+        monthlyGross: gross,
+        homePrice: price,
+        relationship: life.relationship,
+        grossAnnual: life.grossAnnual,
+      };
+      worth[i * cols + mo] = netWorthOf(view);
+      if (reachedAt < 0 && !out && isMet(goal, view)) reachedAt = mo;
     }
     if (reachedAt >= 0) reachMonths.push(reachedAt);
   }

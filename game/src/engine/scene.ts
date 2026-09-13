@@ -10,6 +10,7 @@ import { mix } from "./color";
 import { CityGrid } from "./grid";
 import { Ground } from "./ground";
 import { HeroHome } from "./hero";
+import { planHomeLots, type HomeLot } from "./home-lots";
 import { depthOf, footprintRect, HALF_H, HALF_W, iso } from "./iso";
 import { People, type Mood, type NpcInfo, type ResidentSeed } from "./people";
 import { plant, populate, zoneAt, type Placed, type Plant } from "./populate";
@@ -17,7 +18,7 @@ import { rngFor } from "./rng";
 import { buildRoadProps, type RoadProps } from "./roads/draw";
 import { buildGraph, type RoadNet } from "./roads/graph";
 import { buildPlaces, demand } from "./roads/trips";
-import { placeShelters } from "./sprite-pick";
+import { facingOf, placeShelters } from "./sprite-pick";
 import { buildSprite, type SpriteSet } from "./sprites";
 import { Traffic } from "./traffic";
 import type { CityDef, EconomyMood, LandmarkFactory, LandmarkInstance, WeatherKind } from "./types";
@@ -51,7 +52,11 @@ const MAX_ZOOM = 3;
 
 export class CityScene {
   readonly root = new Container();
-  readonly hero: HeroHome | null = null;
+  readonly homeLots: HomeLot[];
+  private readonly homeViews: HeroHome[] = [];
+  private activeHomeTier = 1;
+  get hero(): HeroHome | null { return this.homeViews.find(h => h.tier === this.activeHomeTier) ?? null; }
+  onHomePick: ((tier: number) => void) | null = null;
   /** The expanded city (core plus generated outskirts). */
   readonly city: CityDef;
   /** Called when the player clicks an NPC (or empty ground, with null). */
@@ -99,6 +104,8 @@ export class CityScene {
     sprites: SpriteSet | null = null,
     seed = 7,
     residents: ResidentSeed[] = [],
+    homes: SpriteSet | null = null,
+    propertySigns: SpriteSet | null = null,
   ) {
     this.app = app;
     this.clock = clock;
@@ -108,7 +115,9 @@ export class CityScene {
     this.region = world.region;
     this.cam = { ...world.center };
     this.grid = new CityGrid(this.city.layout);
-    // Keep a yard in front of the player's home so nothing hides it.
+    this.homeLots = planHomeLots(this.grid, this.city);
+    for (const lot of this.homeLots) this.grid.set(lot.x, lot.y, "h");
+    // Keep a yard in front of every home so nothing hides it.
     for (const { x, y, c } of this.grid.cells())
       if (c === "h")
         for (const [dx, dy] of [[1, 0], [0, 1], [1, 1]])
@@ -161,16 +170,22 @@ export class CityScene {
       this.landmarks.push(inst);
     }
 
-    for (const { x, y, c } of this.grid.cells())
-      if (c === "h") {
-        this.hero = new HeroHome(x, y, seed);
-        this.objects.addChild(this.hero.view);
-        break;
-      }
+    for (const { x, y, tier } of this.homeLots) {
+      const home = new HeroHome(x, y, seed, homes, facingOf((i, j) => this.grid.isRoad(i, j), x, y), tier, propertySigns);
+      home.setOccupied(tier === this.activeHomeTier);
+      this.homeViews.push(home);
+      this.objects.addChild(home.view);
+    }
 
     this.unsubscribe = clock.onDay((day) => this.onDay(day));
     this.rollWeather(clock.day);
     this.bindInput();
+  }
+
+  setHomeTier(tier: number, focus = false): void {
+    this.activeHomeTier = tier;
+    for (const home of this.homeViews) home.setOccupied(home.tier === tier);
+    if (focus) this.focusHome();
   }
 
   /** Muni bus shelters beside the busy streets; drawn, tinted, and lit like buildings. */
@@ -293,7 +308,11 @@ export class CityScene {
       const r = canvas.getBoundingClientRect();
       const sx = e.clientX - r.left, sy = e.clientY - r.top;
       const wx = (sx - this.world.x) / this.zoom, wy = (sy - this.world.y) / this.zoom;
-      this.onPick?.(this.people.pickAt(wx, wy, this.mood()), sx, sy);
+      const npc = this.people.pickAt(wx, wy, this.mood());
+      if (npc && this.onPick) { this.onPick(npc, sx, sy); return; }
+      const home = [...this.homeViews].sort((a, b) => b.view.zIndex - a.view.zIndex).find(h => h.containsWorldPoint(wx, wy));
+      if (home && this.onHomePick) { this.onHomePick(home.tier); return; }
+      this.onPick?.(null, sx, sy);
     };
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -444,7 +463,7 @@ export class CityScene {
       for (const b of this.buildings) (b.built.view.children[0] as Container).tint = tint;
       for (const p of this.plants) p.view.tint = tint;
       for (const l of this.landmarks) for (const t of l.tintables) t.tint = tint;
-      if (this.hero) for (const t of this.hero.tintables) t.tint = tint;
+      for (const home of this.homeViews) for (const t of home.tintables) t.tint = tint;
       for (const t of this.roadProps.tintables) t.tint = tint;
     }
     const lit = night * (this.economy === "bear" ? 0.55 : 1) * (this.pandemicDays > 0 ? 0.7 : 1);
@@ -453,7 +472,7 @@ export class CityScene {
       for (const blink of b.built.blinkers) blink.alpha = (Math.sin(this.time * 3 + i) > 0.2 ? 1 : 0.15) * Math.max(0.35, night);
     });
     for (const l of this.landmarks) l.update?.(dt);
-    this.hero?.update(dt, night);
+    for (const home of this.homeViews) home.update(dt, night);
 
     // Traffic and foot traffic follow the economy, events, weather, and the hour.
     let cars = this.city.traffic * (this.economy === "bear" ? 0.45 : this.economy === "boom" ? 1.25 : 1);

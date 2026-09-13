@@ -1,12 +1,13 @@
 // The always-visible DOM HUD keeps the player's home controls, who they are,
 // and a chip when saving stops. Location, calendar, and weather live in the phone apps.
 
+import "./home-picker.css";
 import { pixelIcon } from "./pixel-icons";
 import { HOME_TIERS } from "../engine/hero";
 import type { SaveStatus } from "../sim/save/manager";
 
 export interface HudActions {
-  tier(delta: number): void;
+  chooseHome(): void;
   focusHome(): void;
 }
 
@@ -20,16 +21,12 @@ export class Hud {
       <section class="card home">
         <div class="label">${pixelIcon("home")} Your home <span class="hud-who" data-who></span></div>
         <div class="home-row">
-          <button class="round" data-tier-step="-1" title="Net worth down">−</button>
-          <div class="home-name" data-home></div>
-          <button class="round" data-tier-step="1" title="Net worth up">+</button>
-          <button class="round find" data-home-focus title="Find my home">${pixelIcon("pin")}</button>
+          <button type="button" class="home-name home-choose" data-home aria-haspopup="dialog" title="Choose a home"></button>
+          <button class="round find" data-home-focus type="button" title="Find my home" aria-label="Find my home">${pixelIcon("pin")}</button>
         </div>
         <div class="hud-chip" data-save-chip hidden></div>
       </section>`;
-    this.el.querySelectorAll<HTMLButtonElement>("[data-tier-step]").forEach((b) =>
-      b.addEventListener("click", () => actions.tier(Number(b.dataset.tierStep))),
-    );
+    this.q<HTMLButtonElement>("[data-home]").addEventListener("click", () => actions.chooseHome());
     this.q<HTMLButtonElement>("[data-home-focus]").addEventListener("click", () => actions.focusHome());
   }
 

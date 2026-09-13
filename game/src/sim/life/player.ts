@@ -33,6 +33,9 @@ import type { TaxReturn } from "../tax/types.ts";
 import { withholdingForPaycheck } from "../tax/withholding.ts";
 import { installment } from "../debt/factory.ts";
 import { cashRateOn } from "./rates.ts";
+import { openLoan, recordApplication } from "../money/applications.ts";
+import { homeMortgage, homeSaleProceeds, housingBills, medianRent, quoteHome, rentalHome, studioRent, validateHome,
+  FORECLOSURE_DAYS, US_MEDIAN_RENT, type HomeChoiceOptions, type HomeChoiceResult, type HomeEvent, type HomeQuote, type HomeState } from "./homes.ts";
 import { Twins, type TwinsSave } from "./twins.ts";
 import { rngFor } from "../../engine/rng.ts";
 import { PULSE_TABLE } from "../wellbeing/pulses.ts";
@@ -47,8 +50,7 @@ export interface Place {
   rpp: { all: number; goods: number; housing: number };
 }
 
-/** ACS 2024 national median gross rent (research/data/states-sample.json). */
-export const US_MEDIAN_RENT = 1_487;
+export { US_MEDIAN_RENT } from "./homes.ts";
 /**
  * National monthly living costs besides rent, from the same sample file:
  * thrifty groceries ($76/week), average electric bill ($142), gas (9.23 gal/week
@@ -75,6 +77,7 @@ const ACCOUNT_NAMES = { emergency: "Emergency fund", k401: "401(k)" } as const;
 
 export type LifeEvent =
   | DebtEvent
+  | HomeEvent
   | { type: "paycheck"; day: number; takeHome: number; garnished: number; unemployed: boolean; retirement?: number; federalWithheld: number; stateWithheld: number }
   | { type: "bill"; day: number; name: string; amount: number; paid: number }
   | { type: "spend"; day: number; category: string; amount: number }
@@ -133,7 +136,7 @@ export interface LifeOptions {
   job?: string;
   /** One-way commute in minutes; defaults to the SOEP-inspired design approximation. */
   commuteMinutes?: number;
-  /** Monthly rent the player stated in onboarding; after a move it scales with the new state's housing costs. */
+  /** Monthly rent stated in onboarding; a home choice or move replaces this starting lease. */
   rent?: number;
   book?: DebtBook;
   accounts?: Account[];
@@ -163,6 +166,8 @@ export type TradeResult ={ ok: true; event: LifeEvent } | { ok: false; error: st
 
 /** A life as plain JSON, for the saved game (sim/save). Listeners are not saved: whoever restores the life re-attaches them. */
 export interface LifeSave {
+  /** Optional for saves made before housing choices existed. */
+  home?: HomeState;
   place: Place;
   employed: boolean;
   age: number;
@@ -256,9 +261,6 @@ const FRESH_ON_COPY = new Set(["history", "log", "listeners"]);
 /** Smallest trade the brokerage accepts, like most apps' $1 fractional minimum. */
 export const MIN_TRADE = 1;
 
-/** Home tiers match engine/hero.ts HOME_TIERS: tent, studio, small house, townhouse, large house, villa. */
-export const HOME_TIER_NET_WORTH = [25_000, 100_000, 250_000, 1_000_000] as const;
-
 export class PlayerLife {
   readonly ledger: Ledger;
   readonly market: MarketPath;
@@ -304,8 +306,9 @@ export class PlayerLife {
   readonly twins: Twins;
   private readonly startDay: number;
   private readonly startAge: number;
-  /** The stated rent and the housing price parity it was stated at; null means the state's median rent. */
-  private readonly rentAnchor: { amount: number; housing: number } | null;
+  /** The current lease's rent anchor; null preserves the state's median for a legacy rental. */
+  private rentAnchor: { amount: number; housing: number } | null;
+  private housing: HomeState;
   private readonly cashRate: (date: Date) => number;
   private readonly listeners: ((events: LifeEvent[], life: PlayerLife) => void)[] = [];
   private readonly crash: CrashWatch;
@@ -387,6 +390,12 @@ export class PlayerLife {
       this.job = s.job;
       this.employed = s.employed;
       this.rentAnchor = s.rentAnchor;
+      if (s.home === undefined) {
+        const rent = this.rentAnchor ? this.rentAnchor.amount * this.place.rpp.housing / this.rentAnchor.housing : medianRent(this.place);
+        this.housing = rentalHome(rent > medianRent(this.place) ? 3 : 1, this.book.profile.bankruptcy?.day ?? null);
+        if (this.book.profile.bankruptcy) this.housing = { ...this.housing, tier: 0, tenure: "none" };
+      } else this.housing = s.home;
+      validateHome(this.housing, this.book);
       this.orders = s.orders;
       this.recurring = s.recurring;
       this.ledger = Ledger.fromSave(s.ledger);
@@ -436,6 +445,7 @@ export class PlayerLife {
     this.job = o.job ?? "";
     this.commuteMinutes = o.commuteMinutes ?? 23;
     this.rentAnchor = o.rent === undefined ? null : { amount: o.rent, housing: o.place.rpp.housing };
+    this.housing = rentalHome(o.rent !== undefined && o.rent > medianRent(o.place) ? 3 : 1);
     // The engine's bankruptcy test compares minimums with the book's take-home, so keep them in sync.
     this.book.monthlyTakeHome = this.monthlyTakeHome;
     this.ledger = new Ledger(o.accounts ?? defaultAccounts(o.day));
@@ -474,6 +484,7 @@ export class PlayerLife {
       startDay: this.startDay,
       startAge: this.startAge,
       rentAnchor: this.rentAnchor,
+      home: this.housing,
       crash: this.crash.toSave(),
       crashCash: this.crashCash,
       lastFirst: this.lastFirst,
@@ -542,6 +553,7 @@ export class PlayerLife {
 
   /** Monthly rent for the current state: the stated rent (rescaled after a move), or the state's median. */
   get rent(): number {
+    if (this.housing.tenure !== "rent") return 0;
     if (this.rentAnchor) return Math.round((this.rentAnchor.amount * this.place.rpp.housing) / this.rentAnchor.housing);
     return Math.round((US_MEDIAN_RENT * this.place.rpp.housing) / 100);
   }
@@ -635,7 +647,7 @@ export class PlayerLife {
   }
 
   netWorth(): number {
-    return round2(this.cash() + this.investments() - this.totalDebt());
+    return round2(this.cash() + this.investments() + this.housing.value - this.totalDebt());
   }
 
   /** Monthly minimum payments across open debts. */
@@ -647,7 +659,8 @@ export class PlayerLife {
 
   /** Rent, living costs, and minimum payments: what an emergency fund month has to cover. */
   monthlyExpenses(): number {
-    return round2(this.rent + this.living + this.minimums());
+    const bills = this.housingBills();
+    return round2(this.rent + this.living + this.minimums() + bills.taxAndInsurance + bills.pmi);
   }
 
   /** Debt-to-income: minimum payments over take-home pay. */
@@ -659,14 +672,93 @@ export class PlayerLife {
     return compareStrategies(this.book.debts, this.book.extraMonthly)[this.book.strategy];
   }
 
-  /** The home the city should show: a tent after bankruptcy or collections, then by net worth. */
-  homeTier(): number {
-    const broke = this.book.profile.bankruptcy !== undefined || this.book.debts.some((d) => d.status === "collections");
-    if (broke) return 0;
-    const nw = this.netWorth();
-    let tier = 1;
-    for (const floor of HOME_TIER_NET_WORTH) if (nw >= floor) tier++;
-    return tier;
+  /** The chosen home, independent of investment returns and unrelated collections. */
+  homeTier(): number { return this.housing.tier; }
+
+  /** A detached view: callers choose a home through chooseHome, never by mutating this state. */
+  get home(): HomeState { return { ...this.housing }; }
+
+  housingBills(): { taxAndInsurance: number; pmi: number } { return housingBills(this.housing, this.book); }
+
+  quoteHome(tier: number, day = this.today, options: HomeChoiceOptions = {}): HomeQuote {
+    return quoteHome(this, tier, day, options, this.cashRate(this.market.dateOf(Number.isSafeInteger(day) ? day : this.today)));
+  }
+
+  /** Re-quotes at confirmation; a denied choice has no financial or notification side effects. */
+  chooseHome(tier: number, day = this.today, options: HomeChoiceOptions = {}): HomeChoiceResult {
+    const quote = this.quoteHome(tier, day, options);
+    if (!quote.ok) return { ok: false, quote, error: quote.reasons.join(" ") };
+    const from = this.housing.tier;
+    // Qualification is deterministic: the game's score floor and DTI ceiling gate
+    // the purchase. The actual loan API supplies its rate, payment, and approval.
+    const saleProceeds = this.sellHome(day);
+    const bankruptcyDay = this.housing.bankruptcyDay;
+    if (quote.tenure === "own") {
+      const application = { ...quote.application!, hardInquiry: true };
+      recordApplication(this.book, this.applications, application, day, {});
+      const { debt } = openLoan(this.book, application, day, `${quote.name} mortgage`);
+      // openLoan's day-based id can collide after a same-day upgrade or a desk loan.
+      debt.id = this.uniqueHousingDebtId(`home-mortgage-${day}`, debt);
+      this.housingWallet().withdraw(quote.cashNeeded, "Home purchase");
+      this.housing = { ...rentalHome(1, bankruptcyDay), tier: tier as HomeState["tier"], tenure: "own",
+        value: quote.price, mortgageId: debt.id, downPct: quote.downPct };
+      this.rentAnchor = null;
+    } else {
+      this.housing = rentalHome(1, bankruptcyDay);
+      this.rentAnchor = { amount: quote.rent, housing: this.place.rpp.housing };
+    }
+    const event = this.homeEvent(from, day, "choice", saleProceeds, quote.cashNeeded);
+    this.record(day);
+    this.emit([event]);
+    return { ok: true, quote, event };
+  }
+
+  private housingWallet() {
+    return this.ledger.wallet([...this.ledger.accounts.values()].filter(a => a.kind === "checking" || a.kind === "savings").map(a => a.id));
+  }
+
+  private uniqueHousingDebtId(base: string, except?: object): string {
+    let id = base;
+    for (let i = 1; this.book.debts.some(d => d !== except && d.id === id); i++) id = `${base}-${i}`;
+    return id;
+  }
+
+  /** Sale equity goes to checking; a forced underwater sale keeps its deficiency as unsecured debt. */
+  private sellHome(day: number): number {
+    if (this.housing.tenure !== "own") return 0;
+    const proceeds = homeSaleProceeds(this.housing, this.book);
+    const mortgage = homeMortgage(this.housing, this.book);
+    if (mortgage && isOpen(mortgage)) {
+      this.book.interestPaid += mortgage.accrued;
+      mortgage.balance = 0;
+      mortgage.accrued = 0;
+      mortgage.pastDue = 0;
+      mortgage.pastDueSince = null;
+      mortgage.ladderStep = 0;
+      mortgage.status = "paid";
+    }
+    if (proceeds >= 0) this.ledger.get("checking").balance = round2(this.ledger.get("checking").balance + proceeds);
+    else {
+      const paid = this.housingWallet().withdraw(-proceeds, "Home sale shortfall");
+      const deficiency = round2(-proceeds - paid);
+      if (deficiency > 0) this.book.debts.push(installment({ id: this.uniqueHousingDebtId(`home-deficiency-${day}`),
+        kind: "personal", name: "Home sale shortfall", balance: deficiency, apr: mortgage?.aprAnnual ?? 0,
+        months: 60, day }));
+    }
+    return proceeds;
+  }
+
+  private homeEvent(from: HomeState["tier"], day: number, reason: HomeEvent["reason"], saleProceeds = 0, cashSpent = 0): HomeEvent {
+    return { type: "home", day, from, to: this.housing.tier, tenure: this.housing.tenure, reason,
+      value: this.housing.value, rent: this.rent, saleProceeds, cashSpent, mortgageId: this.housing.mortgageId };
+  }
+
+  private loseHome(day: number, reason: "eviction" | "foreclosure" | "bankruptcy"): HomeEvent {
+    const from = this.housing.tier;
+    const saleProceeds = this.sellHome(day);
+    this.housing = { ...rentalHome(1, this.book.profile.bankruptcy?.day ?? this.housing.bankruptcyDay), tier: 0, tenure: "none" };
+    this.rentAnchor = null;
+    return this.homeEvent(from, day, reason, saleProceeds);
   }
 
   scoreBand(): string {
@@ -783,11 +875,35 @@ export class PlayerLife {
         federalWithheld: withheld.federalIncomeTax, stateWithheld: withheld.stateIncomeTax,
       });
     }
-    // Rent on the 1st and living costs on the 15th come before debt payments.
-    const bill = dom === 1 ? { name: "Rent", amount: this.rent } : dom === 15 ? { name: "Living costs", amount: this.living } : null;
-    if (bill) events.push({ type: "bill", day, name: bill.name, amount: bill.amount, paid: wallet.withdraw(bill.amount, bill.name) });
+    // Housing and living bills come before the debt payment waterfall.
+    if (this.book.profile.bankruptcy && this.housing.bankruptcyDay !== this.book.profile.bankruptcy.day) {
+      events.push(this.loseHome(day, "bankruptcy"));
+    }
+    if (dom === 1 && this.housing.tenure === "rent") {
+      const month = date.getFullYear() * 12 + date.getMonth();
+      if (this.housing.lastRentMonth !== month) {
+        const amount = this.rent;
+        const paid = wallet.withdraw(amount, "Rent");
+        events.push({ type: "bill", day, name: "Rent", amount, paid });
+        const consecutive = this.housing.lastRentMonth === month - 1;
+        this.housing.missedRentMonths = paid + 0.005 < amount ? (consecutive ? this.housing.missedRentMonths : 0) + 1 : 0;
+        this.housing.lastRentMonth = month;
+        if (this.housing.missedRentMonths >= 2) events.push(this.loseHome(day, "eviction"));
+      }
+    }
+    if (dom === 1 && this.housing.tenure === "own") {
+      const bills = this.housingBills();
+      for (const [name, amount] of [["Property tax and insurance", bills.taxAndInsurance], ["Mortgage insurance (PMI)", bills.pmi]] as const) {
+        if (amount > 0) events.push({ type: "bill", day, name, amount, paid: wallet.withdraw(amount, name) });
+      }
+    }
+    if (dom === 15) events.push({ type: "bill", day, name: "Living costs", amount: this.living, paid: wallet.withdraw(this.living, "Living costs") });
 
     events.push(...tickDay(this.book, { day, date, env: { cashRateAnnual: this.cashRate(date) }, wallet }));
+
+    const mortgage = homeMortgage(this.housing, this.book);
+    if (this.housing.tenure === "own" && mortgage && isOpen(mortgage) && mortgage.pastDueSince !== null
+      && day - mortgage.pastDueSince >= FORECLOSURE_DAYS) events.push(this.loseHome(day, "foreclosure"));
 
     // The plan's emergency fund fills before anything is invested.
     if (dom === 15 && this.orders) this.topUpEmergency();
@@ -864,15 +980,22 @@ export class PlayerLife {
 
   /** Events that pause time for a decision in the desk. */
   needsDecision(events: LifeEvent[]): boolean {
-    return events.some((e) => e.type === "cannot_cover" || e.type === "bankruptcy_eligible" || e.type === "bear_market");
+    return events.some((e) => e.type === "cannot_cover" || e.type === "bankruptcy_eligible" || e.type === "bear_market" || (e.type === "home" && e.to === 0));
   }
 
   setPlace(place: Place, day: number): LifeEvent {
     const from = this.place.abbr;
+    const oldTier = this.housing.tier;
+    const changed = from !== place.abbr;
+    const saleProceeds = changed ? this.sellHome(day) : 0;
     this.place = place;
+    if (changed) {
+      this.housing = rentalHome(1, this.housing.bankruptcyDay);
+      this.rentAnchor = { amount: studioRent(place), housing: place.rpp.housing };
+    }
     const e: LifeEvent = { type: "moved", day, from, to: place.abbr, rent: this.rent, living: this.living };
     this.record(day);
-    this.emit([e]);
+    this.emit(changed ? [e, this.homeEvent(oldTier, day, "move", saleProceeds)] : [e]);
     return e;
   }
 
@@ -898,14 +1021,17 @@ export class PlayerLife {
 
   /** Files through the debt engine and records the researched wellbeing shock exactly once. */
   fileBankruptcy(chapter: 7 | 13, day: number): BankruptcyResult {
+    // Dispose of collateral first so any deficiency participates in bankruptcy.
+    const homeEvent = this.loseHome(day, "bankruptcy");
     const result = fileBankruptcy(this.book, chapter, day);
+    this.housing.bankruptcyDay = day;
     if (!this.bankruptcyPulseDays.has(day)) {
       this.bankruptcyPulseDays.add(day);
       this.addPulse(PULSE_TABLE.bankruptcy.p0, PULSE_TABLE.bankruptcy.halfLifeDays, day);
     }
     const event: LifeEvent = { type: "bankruptcy_filed", day, chapter };
     this.record(day);
-    this.emit([event]);
+    this.emit([homeEvent, event]);
     return result;
   }
 
@@ -1228,7 +1354,7 @@ export class PlayerLife {
       cash,
       investments,
       debt,
-      netWorth: round2(cash + investments - debt),
+      netWorth: round2(cash + investments + this.housing.value - debt),
       score: this.book.profile.score,
       wellbeing: wellbeing(this, day).W,
       brokerage,

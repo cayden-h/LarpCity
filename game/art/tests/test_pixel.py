@@ -356,6 +356,39 @@ class Palette(unittest.TestCase):
         none = np.zeros((4, 4), bool)
         self.assertEqual(P.build_day_palette([a], [none], 8, 3), P.build_palette([a], 8))
 
+    def test_sparse_vegetation_survives_city_palette_and_quantization(self):
+        # Tiny lawn/hedge patches must survive even when towers dominate the city's pixels.
+        rng = np.random.default_rng(9)
+        a = img(256, 256, (0, 0, 0, 255))
+        a[..., 0] = rng.integers(20, 100, a.shape[:2])
+        a[..., 1] = rng.integers(70, 140, a.shape[:2])
+        a[..., 2] = rng.integers(150, 240, a.shape[:2])
+        greens = [(65, 118, 44), (113, 161, 85), (158, 224, 118)]
+        for i, color in enumerate(greens):
+            a[0, i] = (*color, 255)
+        signs = np.zeros(a.shape[:2], bool)
+        signs[1, 0] = True
+        a[1, 0] = (215, 30, 40, 255)
+        palette = P.build_day_palette([a], [signs], 40, 12)
+        result = P.quantize(a, palette)
+        self.assertEqual([tuple(c) for c in result[0, :3, :3]], greens)
+        self.assertIn((215, 30, 40), palette)
+        self.assertLessEqual(len(palette), 40)
+        self.assertEqual(len(palette), len(set(palette)))
+        self.assertEqual(palette[-1], P.INK)
+        self.assertEqual(palette, P.build_day_palette([a], [signs], 40, 12))
+
+    def test_vegetation_reservation_ignores_transparent_and_sign_pixels(self):
+        a = img(4, 4, (160, 150, 140, 255))
+        a[0, 0] = (10, 240, 20, 0)
+        a[0, 1] = (30, 160, 50, 255)
+        signs = np.zeros(a.shape[:2], bool)
+        signs[0, 1] = True
+        palette = P.build_day_palette([a], [signs], 40, 12)
+        self.assertNotIn((10, 240, 20), palette)
+        self.assertIn((30, 160, 50), palette)
+        self.assertEqual(palette.count((30, 160, 50)), 1)
+
     def test_n_must_be_at_least_one_without_ink(self):
         a = img(4, 4, (0, 0, 0, 255))
         with self.assertRaises(ValueError):

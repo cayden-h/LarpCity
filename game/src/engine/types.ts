@@ -104,12 +104,17 @@ export interface BackdropDef {
 
 export type ZoneKind = "downtown" | "midtown" | "residential" | "industrial" | "campus";
 
+/** House families on residential lots (art/lib/houses.py). */
+export type HouseStyle = "victorian" | "edwardian" | "stucco" | "suburban" | "walkup";
+
 /** Buildings on lots take the style of the nearest zone (distance / radius). */
 export interface Zone {
   x: number;
   y: number;
   r: number;
   kind: ZoneKind;
+  /** House families for a residential zone; Victorian and Edwardian when missing. */
+  houses?: HouseStyle[];
 }
 
 export interface LandmarkPlacement {
@@ -162,6 +167,8 @@ export interface CityDef {
   climate: Climate[];
   snowInWinter: boolean;
   landmarks: LandmarkPlacement[];
+  /** Player home lots by tier; world expansion translates their tile coordinates. */
+  homes?: { tier: number; x: number; y: number; where?: string }[];
   vehicles: { kind: VehicleKind; weight: number }[];
   boats: { kind: BoatKind; weight: number }[];
   /** How many cars in a normal economy. */

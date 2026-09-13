@@ -113,6 +113,42 @@ class Pixelize(unittest.TestCase):
         for name in ("box-a.night.png", "box-b.night.png", "box-b.crown.png"):
             self.assertLessEqual(set(np.unique(P.load(self.out / name)[..., 3]).tolist()), {0, 255})
 
+    def test_walls_preserve_body_outline_and_never_cover_shadow(self):
+        raw = self.art / ".raw" / CITY
+        entry = self.entries[0]
+        entry["walls"] = "box-a.walls.png"
+        entry["raw"]["walls"] = "box-a.walls.raw.png"
+        walls = P.load(raw / entry["raw"]["day"])
+        # Include deliberately stray raw pixels; the pass must clip to the opaque body.
+        walls[0:4 * S, 0:4 * S] = (200, 160, 120, 255)
+        P.save(walls, raw / entry["raw"]["walls"])
+        (raw / "raw.json").write_text(json.dumps({"scale": S, "sprites": self.entries}))
+        self.run_main()
+        day = P.load(self.out / entry["day"])
+        wall = P.load(self.out / entry["walls"])
+        self.assertTrue((wall[..., 3] > 0).any())
+        self.assertFalse(((wall[..., 3] > 0) & (day[..., 3] != 255)).any())
+        self.assertLessEqual(set(np.unique(wall[..., 3])), {0, 255})
+        rgb = wall[wall[..., 3] == 255, :3]
+        self.assertTrue((rgb[:, 0] == rgb[:, 1]).all())
+        self.assertTrue((rgb[:, 1] == rgb[:, 2]).all())
+        self.assertGreater(len(np.unique(rgb[:, 0])), 1, "wall shading must survive")
+        src = pixelize.RawSprite(raw, entry)
+        pal = json.loads((self.art / "palettes" / f"{CITY}.json").read_text())["day"]
+        src.outlined(pal)
+        self.assertFalse((wall[src.lines1, 3] > 0).any())
+
+    def test_wall_shades_do_not_depend_on_colored_city_palette(self):
+        raw = self.art / ".raw" / CITY
+        entry = self.entries[0]
+        entry["raw"]["walls"] = "neutral-wall.raw.png"
+        P.save(P.load(raw / entry["raw"]["day"]), raw / entry["raw"]["walls"])
+        palettes = [[(250, 80, 40), P.INK], [(20, 80, 240), P.INK]]
+        outputs = [pixelize.pixelize_one(pixelize.RawSprite(raw, entry), pal, [(0, 0, 0)])["walls"]
+                   for pal in palettes]
+        np.testing.assert_array_equal(outputs[0], outputs[1])
+        self.assertTrue((outputs[0][..., 3] > 0).any())
+
     def test_manifest_is_the_raw_entries_minus_raw(self):
         self.run_main()
         m = self.manifest()

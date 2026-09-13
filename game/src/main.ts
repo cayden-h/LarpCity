@@ -1,6 +1,7 @@
 import "./style.css";
 import { Application, CullerPlugin, extensions } from "pixi.js";
 import { BankClient } from "./api/bank";
+import { HomePicker } from "./ui/home-picker";
 import { cityFor, LANDMARKS, stateForPin } from "./cities";
 import { BACKGROUND_NPCS } from "./data/background-npcs";
 import { NPCS } from "./data/npcs";
@@ -44,6 +45,8 @@ extensions.add(CullerPlugin);
 const app = new Application();
 await app.init({
   resizeTo: window,
+  // Culled sprites do not refresh cached transforms; camera moves must update them before culling.
+  culler: { updateTransform: true },
   antialias: true,
   background: "#5d9e46",
   resolution: Math.min(2, window.devicePixelRatio || 1),
@@ -198,9 +201,13 @@ function syncHomeTier() {
   if (tier !== shownTier) {
     if (shownTier !== -1) narrator.cue(tier > shownTier ? "home_up" : "home_down");
     shownTier = tier;
-    scene?.hero?.setTier(tier);
   }
+  scene?.setHomeTier(tier);
 }
+// Desk decisions can change housing while the calendar is paused.
+player.onEvents(events => {
+  if (events.some(event => event.type === "home")) syncHomeTier();
+});
 clock.onDay((day) => {
   const events = player.onDay(day, clock.date);
   if (player.needsDecision(events)) {
@@ -224,32 +231,42 @@ clock.onDay((day) => {
   if (clock.date.getDate() === 1) saver.request();
 });
 
-async function open(next: StateInfo): Promise<void> {
-  const tier = scene?.hero?.tier;
+const [homeSprites, propertySigns] = await Promise.all([loadSpriteSet("common/home"), loadSpriteSet("common/property")]);
+
+// Each request invalidates earlier loads before they can mount a scene or attach input listeners.
+let cityLoadRevision = 0;
+
+/** Display a city without moving the player's finances (also used after restoring a checkpoint). */
+async function displayCity(next: StateInfo): Promise<void> {
+  const revision = ++cityLoadRevision;
   scene?.destroy();
-  // `loadSpriteSet` below awaits a network fetch, and the ticker keeps firing
-  // during that gap; without this, `scene` still pointed at the destroyed
-  // scene, so `scene?.update(dt)` kept calling into it every frame and threw
-  // inside a destroyed Graphics context — which broke the render loop for
-  // the rest of the session until a full page reload.
+  // The ticker keeps firing while sprites load; never leave it pointing at a destroyed scene.
   scene = null;
-  if (next.abbr !== state.abbr) {
+  state = next;
+  residents = buildResidents();
+  const cityResidents = residents;
+  const city = cityFor(next);
+  // Keep saves consistent even if they flush before this city's network request finishes.
+  const home = STATES.find((s) => s.abbr === next.abbr);
+  history.replaceState(null, "", `#${home && home.cityId !== next.cityId ? next.cityId : next.abbr}`);
+  npcCard.hide();
+  const sprites = await loadSpriteSet(city.id);
+  if (revision !== cityLoadRevision) return;
+  scene = new CityScene(app, city, clock, LANDMARKS, sprites, undefined, cityResidents, homeSprites, propertySigns);
+  scene.setHomeTier(player.homeTier());
+  scene.onPick = (npc, sx, sy) => npcCard.show(npc, sx, sy);
+  scene.onHomePick = tier => showHomePicker(tier);
+  app.stage.addChild(scene.root);
+  scene.resize(app.screen.width, app.screen.height);
+}
+
+async function open(next: StateInfo): Promise<void> {
+  if (next.abbr !== player.place.abbr) {
     player.setPlace(next, clock.day);
     narrator.cue("moved");
     saver.request();
   }
-  state = next;
-  residents = buildResidents();
-  const city = cityFor(next);
-  const sprites = await loadSpriteSet(city.id);
-  scene = new CityScene(app, city, clock, LANDMARKS, sprites, undefined, residents);
-  if (tier !== undefined) scene.hero?.setTier(tier);
-  scene.onPick = (npc, sx, sy) => npcCard.show(npc, sx, sy);
-  app.stage.addChild(scene.root);
-  scene.resize(app.screen.width, app.screen.height);
-  npcCard.hide();
-  const home = STATES.find((s) => s.abbr === next.abbr);
-  history.replaceState(null, "", `#${home && home.cityId !== next.cityId ? next.cityId : next.abbr}`);
+  await displayCity(next);
 }
 
 const npcCard = new NpcCard(document.getElementById("npc")!, bankClient);
@@ -284,6 +301,11 @@ function rewindTo(day: number): void {
   clock.speed = 0;
   timeline.rewindTo(day);
   clock.jumpTo(day);
+  if (state.abbr !== player.place.abbr) {
+    const restoredState = STATES.find(s => s.abbr === player.place.abbr);
+    // Restore presentation directly; rewinding must never initiate a financial move.
+    if (restoredState) void displayCity(restoredState);
+  }
   town.rewind(day);
   mail.rewind(day);
   bank.rewind(day);
@@ -299,8 +321,24 @@ function rewindTo(day: number): void {
   phone.rewound(day, player.log.filter((e) => e.day === day && player.needsDecision([e])));
 }
 
+function showHomePicker(tier?: number): void {
+  // Calendar skips use their own interval and must stop before the modal pauses time.
+  stopSkip();
+  homePicker.show(tier);
+}
+
+const homePicker = new HomePicker({
+  life: () => player,
+  clock: () => clock,
+  lots: () => scene?.homeLots ?? [],
+  onChosen: tier => {
+    syncHomeTier();
+    scene?.setHomeTier(tier, true);
+    saver.request();
+  },
+});
 const hud = new Hud(document.getElementById("hud")!, {
-  tier: (delta) => scene?.hero?.setTier(scene.hero.tier + delta),
+  chooseHome: () => showHomePicker(),
   focusHome: () => scene?.focusHome(),
 });
 
