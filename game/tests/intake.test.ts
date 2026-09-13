@@ -302,6 +302,49 @@ test("a fresh lifeFromIntake life has a $500/mo, 72-month auto loan alongside th
   assert.equal(car?.termMonths, 72);
 });
 
+test("a full P1 intake (avatar, insurance, card, standing orders, and expense tiers all at once) lands on the life exactly as answered", () => {
+  const fullAnswers: IntakeAnswers = {
+    ...NURSE,
+    avatar: "female",
+    insurancePlanId: "gold",
+    selectedCardId: BEGINNER_CARD_SLUGS[2],
+    emergencyMonths: 3,
+    k401Pct: MATCH_UP_TO,
+    rothPct: 0.02,
+    expenseTiers: { food: "high", houseBills: "high", fitness: "high", gas: "high", carMaintenance: "high" },
+  };
+  const life = lifeFromIntake(fullAnswers, { place: TX, day: 0, market: new MarketPath() });
+
+  // Fixed defaults every fresh intake-built life gets, regardless of what was answered.
+  assert.equal(life.age, 22);
+  assert.equal(life.book.profile.score, CREDIT_SCORE_START);
+
+  // Every field the player actually chose round-trips onto the life.
+  assert.equal(life.avatar, "female");
+  assert.equal(life.insurancePlanId, "gold");
+  assert.equal(life.selectedCardId, BEGINNER_CARD_SLUGS[2]);
+  assert.ok(life.orders);
+  assert.equal(life.orders?.emergencyMonths, 3);
+  assert.equal(life.orders?.k401Pct, MATCH_UP_TO);
+  assert.equal(life.orders?.rothPct, 0.02);
+  assert.deepEqual(life.expenseTiers, fullAnswers.expenseTiers);
+
+  // The fixed onboarding auto loan is always present, alongside the card/personal-loan split.
+  const car = life.book.debts.find((d) => d.kind === "auto");
+  assert.ok(car, "expected an auto debt");
+  assert.equal(car?.scheduledPayment, 500);
+  assert.equal(car?.termMonths, 72);
+  assert.equal(Math.round(life.totalDebt()), Math.round(20_000 + CAR_LOAN_BALANCE));
+
+  // All-high expense tiers cost strictly more per month than all-low.
+  const lowLife = lifeFromIntake(
+    { ...fullAnswers, expenseTiers: { food: "low", houseBills: "low", fitness: "low", gas: "low", carMaintenance: "low" } },
+    { place: TX, day: 0, market: new MarketPath() },
+  );
+  assert.ok(life.living > lowLife.living, `expected high-tier living (${life.living}) to exceed low-tier living (${lowLife.living})`);
+  assert.ok(life.monthlyExpenses() > lowLife.monthlyExpenses());
+});
+
 test("a fresh lifeFromIntake life bills $200/mo car insurance on the 5th", () => {
   const life = lifeFor({ job: "", salary: 0, rent: 0, debt: 0, savings: 5_000 });
   // Sept 11 + 24 days is Oct 5: car insurance day.
