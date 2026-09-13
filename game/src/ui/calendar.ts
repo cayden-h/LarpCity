@@ -56,6 +56,7 @@ export class CalendarApp {
   private readonly root: HTMLElement;
   private readonly body: HTMLElement;
   private readonly toastEl: HTMLElement;
+  private readonly liveEl: HTMLElement;
   private readonly deps: CalendarDeps;
   private mode: "month" | "year" = "month";
   private year: number;
@@ -79,9 +80,11 @@ export class CalendarApp {
     const d = deps.clock.date;
     this.year = d.getFullYear();
     this.month = d.getMonth();
-    root.innerHTML = `<div class="cal-body" data-cal-body></div><div class="cal-toast" data-cal-toast role="status" hidden></div>`;
+    // The live region stays put across redraws (a new one isn't announced), so screen readers hear "Start a new life" arm.
+    root.innerHTML = `<div class="cal-body" data-cal-body></div><div class="cal-toast" data-cal-toast role="status" hidden></div><span class="cal-live" data-cal-live aria-live="polite"></span>`;
     this.body = root.querySelector("[data-cal-body]")!;
     this.toastEl = root.querySelector("[data-cal-toast]")!;
+    this.liveEl = root.querySelector("[data-cal-live]")!;
     root.addEventListener("click", (ev) => this.onClick(ev));
     root.addEventListener("keydown", (ev) => {
       if (ev.key === "Escape" && this.selected !== null) {
@@ -93,6 +96,7 @@ export class CalendarApp {
 
   /** Opens on the current month. */
   show(): void {
+    this.disarm();
     this.goToMonthOf(this.deps.clock.day);
     this.mode = "month";
     this.selected = null;
@@ -107,12 +111,18 @@ export class CalendarApp {
 
   /** After a rewind: the month of the day the player went back to, with a note that time is paused. */
   rewound(day: number): void {
+    this.disarm();
     this.goToMonthOf(day);
     this.mode = "month";
     this.selected = null;
     this.render();
     const d = this.dateOf(day);
     this.toast(`Back to ${weekday(d)}, ${short(d)}. Press play when you're ready.`);
+  }
+
+  /** The phone showed another app: an armed "Start a new life" doesn't wait for the player to come back. */
+  hide(): void {
+    this.disarm();
   }
 
   /** The Money desk's "Start over": the year view with "Start a new life" already armed, so one more tap erases. */
@@ -400,6 +410,7 @@ export class CalendarApp {
       return this.render();
     }
     if (data.calMonth !== undefined) {
+      this.disarm();
       this.month = Number(data.calMonth);
       this.mode = "month";
       return this.render();
@@ -416,9 +427,19 @@ export class CalendarApp {
     clearTimeout(this.eraseTimer);
     this.eraseTimer = window.setTimeout(() => {
       this.erase = "idle";
+      this.liveEl.textContent = "";
       this.render();
     }, NEW_LIFE_ARM_MS);
+    this.liveEl.textContent = "Tap Start a new life again to erase this life.";
     this.render();
+  }
+
+  /** Leaving the year view drops an armed "Start a new life" (an erase in progress carries on). */
+  private disarm(): void {
+    if (this.erase !== "armed") return;
+    clearTimeout(this.eraseTimer);
+    this.erase = "idle";
+    this.liveEl.textContent = "";
   }
 
   private onNewLife(): void {
@@ -426,9 +447,11 @@ export class CalendarApp {
     if (this.erase === "idle") return this.arm();
     clearTimeout(this.eraseTimer);
     this.erase = "erasing";
+    this.liveEl.textContent = "Erasing this life…";
     this.render();
     this.deps.newLife().catch(() => {
       this.erase = "idle";
+      this.liveEl.textContent = "";
       this.render();
       this.toast("Can't reach the server. This life is still here.");
     });

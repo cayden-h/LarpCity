@@ -708,6 +708,9 @@
 }
 .bank-acct header span { color: #44697c; font-size: 12px; }
 .bank-acct header strong { grid-column: 1 / -1; font-size: 22px; }
+/* The credit card's balance is what's owed (ui/phone-apps.ts bankHtml). */
+.bank-acct header strong.down { color: #c0392b; }
+.bank-acct header strong.up { color: #138a3a; }
 .bank-acct ul { margin: 4px 0 0; padding: 0; list-style: none; }
 .bank-acct li {
   display: flex;

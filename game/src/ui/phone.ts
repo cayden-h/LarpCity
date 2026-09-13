@@ -12,7 +12,7 @@
 
 import "./phone.css";
 import { CalendarApp } from "./calendar";
-import { bankHtml, mailHtml, newsHtml, type BankStatement, type NewsView, type Story } from "./phone-apps";
+import { BankApp, mailHtml, NewsApp, type BankStatement, type Story } from "./phone-apps";
 import { pixelIcon } from "./pixel-icons";
 import type { Clock } from "../engine/clock";
 import { apiFetch } from "../net/api";
@@ -148,6 +148,8 @@ export interface PhoneDeps {
   deskState: () => DeskState | null;
   /** The Mail inbox (sim/mail). */
   mail: Inbox;
+  /** A letter was read: the save must keep it read. */
+  mailChanged?: () => void;
   /** Erases this life and starts over with the intake; rejects when the server can't be reached. */
   newLife: () => Promise<void>;
 }
@@ -198,8 +200,8 @@ export class Phone {
   private readonly calendar: CalendarApp;
   /** The letter shown open in Mail. */
   private openMail: string | null = null;
-  /** The Ledger by the range it covers ("from-to"), so reopening News doesn't ask the server again. */
-  private readonly newsCache = new Map<string, NewsView>();
+  private readonly news: NewsApp;
+  private readonly bank: BankApp;
 
   constructor(deps: PhoneDeps) {
     this.deps = deps;
@@ -243,6 +245,14 @@ export class Phone {
       onHome: () => this.show("home"),
       newLife: () => deps.newLife(),
     });
+    this.news = new NewsApp({
+      target: this.q("[data-news]"),
+      day: () => deps.clock.day,
+      date: () => deps.clock.date,
+      recorder: deps.recorder,
+      fetchNews: (body) => apiFetch<{ stories: Story[] }>("/news", { method: "POST", body: JSON.stringify(body) }),
+    });
+    this.bank = new BankApp({ target: this.q("[data-bank]"), fetchStatement: () => apiFetch<BankStatement>("/bank/player") });
 
     this.setOpen(readOpen(), false);
     this.el.addEventListener("click", (ev) => this.onClick(ev));
@@ -384,6 +394,10 @@ export class Phone {
   private show(view: "home" | AppDef["id"]) {
     this.el.querySelectorAll<HTMLElement>("[data-view]").forEach((v) => (v.hidden = v.dataset.view !== view));
     if (view === "calendar") this.calendar.show();
+    else this.calendar.hide();
+    // An answer still on its way to an app the player left isn't drawn into it.
+    if (view !== "news") this.news.leave();
+    if (view !== "bank") this.bank.leave();
   }
 
   private toast(text: string) {
@@ -407,7 +421,7 @@ export class Phone {
     if (btn.dataset.stock) return this.openDesk(btn.dataset.stock);
     if (btn.dataset.openMap !== undefined) return this.deps.openMap?.();
     if (btn.dataset.mailId) return this.toggleMail(btn.dataset.mailId);
-    if (btn.dataset.newsRetry !== undefined) return void this.loadNews();
+    if (btn.dataset.newsRetry !== undefined) return void this.news.load();
     const id = btn.dataset.app as AppDef["id"] | undefined;
     if (!id) return;
     const app = APPS.find((a) => a.id === id)!;
@@ -415,8 +429,8 @@ export class Phone {
     if (id === "goals") return this.deps.openFastForward?.();
     this.show(id);
     if (id === "mail") this.renderMail();
-    if (id === "news") void this.loadNews();
-    if (id === "bank") void this.loadBank();
+    if (id === "news") void this.news.load();
+    if (id === "bank") void this.bank.load();
   }
 
   /**
@@ -440,8 +454,10 @@ export class Phone {
     this.parked = [];
     for (const fn of this.rewindListeners) fn(day);
     this.calendar.rewound(day);
-    // The inbox already dropped the letters after `day` (main.ts); the Ledger's days changed too.
-    this.newsCache.clear();
+    // The inbox already dropped the letters after `day` (main.ts); the Ledger's days changed too,
+    // and the bank statement is being posted again from here.
+    this.news.rewound();
+    this.bank.leave();
     this.renderMail();
     if (decisions.length) this.showDecision(decisions);
   }
@@ -455,7 +471,9 @@ export class Phone {
   /** Opens a letter (marking it read) or closes the open one. */
   private toggleMail(id: string) {
     this.openMail = this.openMail === id ? null : id;
+    const unread = this.deps.mail.items.some((m) => m.id === id && !m.read);
     this.deps.mail.markRead(id);
+    if (unread) this.deps.mailChanged?.();
     this.renderMail();
   }
 
@@ -472,55 +490,6 @@ export class Phone {
     badge.textContent = n > 99 ? "99+" : String(n);
     badge.hidden = n === 0;
     this.q("[data-app=mail]").ariaLabel = n ? `Mail, ${n} unread` : "Mail";
-  }
-
-  /**
-   * The Ledger covers the last whole game month; in the first month, the days
-   * played so far. The run's unsent days go to the server first, and a rewind's
-   * fork has to answer before there is a run to print from.
-   */
-  private async loadNews() {
-    const { clock, recorder } = this.deps;
-    const d = clock.date;
-    const firstOfMonth = clock.day - (d.getDate() - 1);
-    const whole = firstOfMonth > 0;
-    // Day 0 is mid-month, so the game's first whole month can start partway through.
-    const daysLastMonth = new Date(d.getFullYear(), d.getMonth(), 0).getDate();
-    const from = whole ? Math.max(0, firstOfMonth - daysLastMonth) : 0;
-    const to = whole ? firstOfMonth - 1 : clock.day;
-    const month = whole ? new Date(d.getFullYear(), d.getMonth() - 1, 1) : d;
-    const label = month.toLocaleDateString("en-US", { month: "long", year: "numeric" }) + (whole ? "" : ", so far");
-    const key = `${from}-${to}`;
-    const el = this.q("[data-news]");
-    const cached = this.newsCache.get(key);
-    if (cached) return void (el.innerHTML = newsHtml(cached));
-    el.innerHTML = newsHtml({ status: "loading" });
-    let view: NewsView = { status: "off" };
-    if (recorder) {
-      try {
-        await recorder.idle();
-        await recorder.tick(true);
-        const runId = recorder.runId;
-        if (runId) {
-          const r = await apiFetch<{ stories: Story[] }>("/news", { method: "POST", body: JSON.stringify({ runId, from, to }) });
-          view = { status: "ready", label, stories: r.stories };
-          this.newsCache.set(key, view);
-        }
-      } catch {
-        // Leave it "off"; "Try again" (or the next open) asks again.
-      }
-    }
-    el.innerHTML = newsHtml(view);
-  }
-
-  private async loadBank() {
-    const el = this.q("[data-bank]");
-    el.innerHTML = bankHtml("loading");
-    try {
-      el.innerHTML = bankHtml(await apiFetch<BankStatement>("/bank/player"));
-    } catch {
-      el.innerHTML = bankHtml("off");
-    }
   }
 
   /** Opens the Money window, on a stock's page when `stock` is given (the desk reads #stock=ID). */
