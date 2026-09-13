@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { findLandmark, pickSprite, placeShelters, spriteOrigin, type SpriteEntry, type SpriteManifest } from "../src/engine/sprite-pick.ts";
+import { facingOf, findHome, findLandmark, pickSprite, placeShelters, spriteOrigin, type SpriteEntry, type SpriteManifest } from "../src/engine/sprite-pick.ts";
 
 const entry = (id: string, w: number, d: number, floors: number, zones: string[], unique = false): SpriteEntry => ({
   id, w, d, floors, zones, unique, brand: unique ? id : null, ax: 72, ay: 400, topZ: 330, day: `${id}.png`, night: `${id}.night.png`,
@@ -108,4 +108,57 @@ test("the sightline cap applies to heroes too", () => {
 test("the sprite's anchor pixel sits on the tile's top corner", () => {
   const e = manifest.sprites[0];
   assert.deepEqual(spriteOrigin(e, 3, 1), { x: (3 - 1) * 32 - 72, y: (3 + 1) * 16 - 400 });
+});
+
+const roadAt = (cells: [number, number][]) => (x: number, y: number) => cells.some(([a, b]) => a === x && b === y);
+
+test("a house faces the road beside it, preferring the sides the camera sees", () => {
+  assert.equal(facingOf(roadAt([[5, 6]]), 5, 5), "s");
+  assert.equal(facingOf(roadAt([[6, 5]]), 5, 5), "e");
+  assert.equal(facingOf(roadAt([[5, 4]]), 5, 5), "n");
+  assert.equal(facingOf(roadAt([[4, 5]]), 5, 5), "w");
+  assert.equal(facingOf(roadAt([[5, 4], [6, 5]]), 5, 5), "e"); // a corner lot: the camera side wins
+  assert.equal(facingOf(roadAt([[5, 8]]), 5, 5), "s"); // the nearest road, three tiles away
+  assert.equal(facingOf(roadAt([[5, 3], [8, 5]]), 5, 5), "n"); // n at 2 beats e at 3
+  assert.equal(facingOf(roadAt([[7, 5]]), 5, 5, 2, 1), "e"); // a 2x1 lot's east side is x + 2
+  assert.equal(facingOf(roadAt([]), 5, 5), "s"); // no road nearby
+});
+
+const house = (id: string, facing: "n" | "e" | "s" | "w", style: "victorian" | "stucco", floors = 2): SpriteEntry => ({
+  ...entry(id, 1, 1, floors, ["residential"]), facing, style, walls: `${id}.walls.png`,
+});
+const houses: SpriteManifest = {
+  scale: 1,
+  sprites: [house("vic-s", "s", "victorian"), house("vic-e", "e", "victorian"), house("stucco-s", "s", "stucco"), entry("loft", 1, 1, 3, ["residential"])],
+};
+
+test("a house lot gets a house of its style that faces its road", () => {
+  const lot = { zone: "residential", w: 1, d: 1, maxFloors: 4, cap: Infinity, heroSpot: false, facing: "e" as const, style: "victorian" as const };
+  assert.equal(pickSprite(houses, lot, new Set(), always(0))?.id, "vic-e");
+  assert.equal(pickSprite(houses, { ...lot, facing: "s", style: "stucco" }, new Set(), always(0))?.id, "stucco-s");
+  assert.equal(pickSprite(houses, { ...lot, facing: "w" }, new Set(), always(0))?.id, "loft");
+});
+
+test("a lot with no house style never gets a house", () => {
+  const lot = { zone: "residential", w: 1, d: 1, maxFloors: 4, cap: Infinity, heroSpot: false };
+  assert.equal(pickSprite(houses, lot, new Set(), always(0))?.id, "loft");
+});
+
+test("a home tier is found by tier and facing, and is never placed on a lot", () => {
+  const home = (tier: number, facing: "n" | "e" | "s" | "w"): SpriteEntry => ({ ...entry(`home-${tier}-${facing}`, 1, 1, 1, ["home"]), kind: "home", tier, facing });
+  const m: SpriteManifest = { scale: 1, sprites: [home(0, "s"), home(2, "s"), home(2, "e")] };
+  assert.equal(findHome(m, 2, "e")?.id, "home-2-e");
+  assert.equal(findHome(m, 0, "e"), null);
+  assert.equal(pickSprite(m, { zone: "home", w: 1, d: 1, maxFloors: 9, cap: Infinity, heroSpot: true }, new Set(), always(0)), null);
+});
+
+test("house fallback respects legacy height, footprint, facing, and used heroes", () => {
+  const lot = { zone: "residential", w: 1, d: 1, maxFloors: 4, cap: 4, heroSpot: true, facing: "s" as const, style: "victorian" as const };
+  const legacy = entry("legacy", 1, 1, 2, ["residential"]);
+  const m = { scale: 1, sprites: [legacy, house("too-tall", "s", "victorian", 5)] };
+  assert.equal(pickSprite(m, lot, new Set(), always(0))?.id, "legacy");
+  assert.equal(pickSprite({ ...m, sprites: [...m.sprites, house("matching", "s", "victorian")] }, lot, new Set(), always(0.99))?.id, "matching");
+  for (const bad of [{ ...legacy, floors: 5 }, { ...legacy, w: 2 }, { ...legacy, facing: "n" as const }, { ...legacy, unique: true }]) {
+    assert.equal(pickSprite({ scale: 1, sprites: [bad] }, lot, new Set(["legacy"]), always(0)), null);
+  }
 });
