@@ -1,8 +1,7 @@
 """Signs: billboards (rooftop and freeway monopole), storefront fascias, blade
-signs, lobby logo walls, monuments, painted murals, bus shelters, and 3D
-letters. Every image goes on a face with exactly the image's aspect ratio, so
+signs, facade panels, lobby logo walls, monuments, painted murals, and bus
+shelters. Every image goes on a face with exactly the image's aspect ratio, so
 art drawn inside its safe area can never run off the sign."""
-import math
 from pathlib import Path
 
 import bpy
@@ -11,9 +10,19 @@ from . import materials as M
 from .geo import box, cylinder, face_quad, quad
 from .iso import px
 
-FONT = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
 ADS = Path(__file__).resolve().parent.parent / "ads"
-BULLETIN = 14 / 48  # height / width of a 14 x 48 ft bulletin
+# Board height / width. A real 14 x 48 ft bulletin (14/48 = 0.29) draws a strip too shallow to hold a legible
+# wordmark at 1x once it's downsized to a rooftop prop; 0.5 keeps the board landscape but tall enough that its
+# art (make_ads.py's BB_ASPECT, kept equal to 1 / BULLETIN) can fill it with one big brand mark and still read
+# at a handful of pixels tall.
+BULLETIN = 0.5
+# Board width as a fraction of the lot span it stands across: as wide as the lot allows while clearing the
+# roof parapet on both sides.
+BULLETIN_W_FRAC = 0.94
+# How far (Blender units) each kind of sign face stands off the wall it is on, so it never z-fights what lies under
+# it: paint and the clock sit just off bare stone, a panel clears the facade's pattern, and a fascia clears its
+# raceway, which stands 0.012 proud of the wall.
+FACE_OFFSET = {"mural": 0.003, "clock": 0.004, "panel": 0.006, "fascia": 0.014}
 
 
 def srgb(c):
@@ -67,7 +76,7 @@ def _board(f, image_name, bw, z0, steel, lamp, tag):
 def bulletin(image_name, w, d, z, face="-Y"):
     """A steel rooftop bulletin standing across the roof, facing one visible facade."""
     span = w if face == "-Y" else d
-    bw = min(span, 2) * 0.86
+    bw = min(span, 2) * BULLETIN_W_FRAC
     f = Frame(face, w / 2, -d / 2)
     steel, lamp = _steel(), _lamp()
     lift = px(9)
@@ -77,7 +86,7 @@ def bulletin(image_name, w, d, z, face="-Y"):
     return _board(f, image_name, bw, z + lift, steel, lamp, "bb")
 
 
-def monopole(image_a, image_b, height_px=46, bw=1.1):
+def monopole(image_a, image_b, height_px=46, bw=1.6):
     """A freeway V: two bulletins on one pole at the lot's front corner, one facing each way."""
     steel, lamp = _steel(), _lamp()
     h = px(height_px)
@@ -90,19 +99,38 @@ def monopole(image_a, image_b, height_px=46, bw=1.1):
     return max(top_a, top_b)
 
 
-def fascia(image_name, face, w, d, z0, max_h, strength=1.6):
-    """A storefront sign band (8:1 art) centered on a facade over a dark raceway that spans the whole front."""
+def _aspect(image_name):
+    """An ad image's width / height, read from the file, so a sign face always matches its art."""
+    w, h = bpy.data.images.load(str(ADS / image_name), check_existing=True).size
+    return w / h
+
+
+def fascia(image_name, face, w, d, z0, max_h, strength=1.6, u_min=0.0):
+    """A storefront sign band over a dark raceway that spans the whole front: as wide as fits (92% of the facade
+    from u_min on) at most max_h tall, with the art's own aspect, centered on that stretch. u_min keeps the art clear
+    of something in front of the facade's start (a blade sign), which would otherwise hide its first letters."""
     span = w if face == "-Y" else d
-    width = min(span * 0.92, max_h * 8)
-    h = width / 8
-    u0 = (span - width) / 2
+    aspect = _aspect(image_name)
+    room = span - u_min
+    width = min(room * 0.92, max_h * aspect)
+    h = width / aspect
+    u0 = u_min + (room - width) / 2
     raceway = M.flat("raceway", (0.06, 0.06, 0.07, 1), rough=0.5)
     if face == "-Y":
         box("raceway-y", 0, -d - 0.012, z0 - 0.004, w, -d + 0.01, z0 + h + 0.004, raceway)
     else:
         box("raceway-x", w - 0.01, -d, z0 - 0.004, w + 0.012, 0, z0 + h + 0.004, raceway)
-    face_quad(f"fascia{face}", face, w, d, u0, u0 + width, z0, z0 + h, M.image(f"fa-{image_name}", ADS / image_name, strength=strength), off=0.014)
+    face_quad(f"fascia{face}", face, w, d, u0, u0 + width, z0, z0 + h, M.image(f"fa-{image_name}", ADS / image_name, strength=strength), off=FACE_OFFSET["fascia"])
     return z0 + h
+
+
+def panel(image_name, face, w, d, z0, h, strength=1.0):
+    """A flat sign board on a facade, h tall with the art's aspect, centered along the face."""
+    span = w if face == "-Y" else d
+    width = h * _aspect(image_name)
+    u0 = (span - width) / 2
+    return face_quad(f"panel{face}", face, w, d, u0, u0 + width, z0, z0 + h,
+                     M.image(f"pa-{image_name}", ADS / image_name, strength=strength), off=FACE_OFFSET["panel"])
 
 
 def blade(image_name, bx, d, z0, depth=0.26, strength=1.8):
@@ -119,9 +147,11 @@ def blade(image_name, bx, d, z0, depth=0.26, strength=1.8):
 
 
 def logo_wall(image_name, x0, x1, y, z0, strength=1.3):
-    """A lit logo wall (2:1 art) facing -Y at depth y, seen through lobby glass."""
+    """A lit logo wall (2:1 art) facing -Y at depth y, seen through two layers of lobby glass and a recessed
+    plaza, which by day leaves it starved of light; day_glow keeps the mark bright and legible in daylight too."""
     h = (x1 - x0) / 2
-    quad("logo-wall", [(x0, y, z0), (x1, y, z0), (x1, y, z0 + h), (x0, y, z0 + h)], M.image(f"lw-{image_name}", ADS / image_name, strength=strength))
+    quad("logo-wall", [(x0, y, z0), (x1, y, z0), (x1, y, z0 + h), (x0, y, z0 + h)],
+         M.image(f"lw-{image_name}", ADS / image_name, strength=strength, day_glow=1.6))
     return z0 + h
 
 
@@ -137,9 +167,10 @@ def monument(image_name, x0, y_front, width=0.46):
 
 
 def mural(image_name, face, w, d, u0, u1, z0, aspect):
-    """Paint on a brick wall: transparent art whose height is (u1 - u0) / aspect, with the brick relief showing through."""
+    """Paint on a wall: transparent art whose height is (u1 - u0) / aspect. Flat paint, with no brick relief:
+    sign regions keep their detail in the pixel pass, so relief would come out as speckle."""
     z1 = z0 + (u1 - u0) / aspect
-    face_quad(f"mural{face}", face, w, d, u0, u1, z0, z1, M.image(f"mu-{image_name}", ADS / image_name, glow=False, alpha=True, rough=0.9, brick="Bricks075A"), off=0.003)
+    face_quad(f"mural{face}", face, w, d, u0, u1, z0, z1, M.image(f"mu-{image_name}", ADS / image_name, glow=False, alpha=True, rough=0.9), off=FACE_OFFSET["mural"])
     return z1
 
 
@@ -168,26 +199,6 @@ def shelter(image_name, side):
         box("panel", 0.98 - pw, -0.83, 0, 0.98, -0.8, z0 + ph + 0.012, metal)
         quad("ad", [(0.98 - pw, -0.832, z0), (0.98, -0.832, z0), (0.98, -0.832, z0 + ph), (0.98 - pw, -0.832, z0 + ph)], art)
     return roof_z + px(1.5)
-
-
-def letters(text, color, glow, x0, x1, y, z, height_px, strength=8.0, max_scale=1.0):
-    """3D letters standing on a roof edge, facing -Y, scaled down if needed to fit between x0 and x1.
-    Returns the scale used, so a second line can match it."""
-    cu = bpy.data.curves.new("letters", "FONT")
-    cu.body = text
-    cu.font = bpy.data.fonts.load(FONT, check_existing=True)
-    cu.size = px(height_px) * 1.35  # cap height is about 0.72 of the font size
-    cu.extrude = 0.012
-    cu.align_x = "CENTER"
-    ob = bpy.data.objects.new("letters", cu)
-    bpy.context.scene.collection.objects.link(ob)
-    ob.data.materials.append(M.flat("letters", srgb(color), rough=0.6, glow=srgb(glow), strength=strength))
-    ob.rotation_euler = (math.pi / 2, 0, 0)
-    ob.location = ((x0 + x1) / 2, y, z)
-    bpy.context.view_layer.update()
-    s = min(max_scale, (x1 - x0) * 0.96 / ob.dimensions.x)
-    ob.scale = (s, s, s)
-    return s
 
 
 def place(sign, w, d, z):

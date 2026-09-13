@@ -37,3 +37,6 @@ game/plates-src/
 # Brainstorming and mockup scratch from agent tools
 .superpowers/
 .lavish/
+
+# Raw 4x Blender layers; art/pixelize.py turns them into game/public/sprites/
+game/art/.raw/

@@ -100,23 +100,43 @@ From the browser console, `larp.visit("CO")` opens a state and `larp.step(5)` si
 
 ## Building sprites (Blender)
 
-Cities with a sprite set draw their buildings from pre-rendered Blender sprites instead of the procedural builder (`src/engine/bricks.ts`, still used for lots no sprite fits and for cities without sprites).
-San Francisco is the first city with a set ([design](../docs/superpowers/specs/2026-09-12-realistic-sprites-design.md)).
+Cities with a sprite set draw their buildings from pre-rendered pixel-art sprites instead of the procedural builder (`src/engine/bricks.ts`, still used for lots no sprite fits and for cities without sprites).
+San Francisco has 43 sprites ([design and approved look](../docs/superpowers/specs/2026-09-12-blender-houses-design.md)).
+Run these commands from `game/`, with Blender and the repository's Python dependencies installed:
 
 ```sh
-brew install --cask blender   # once; the scripts run it headless
-npm run art:sf                # textures, ad art, render, registration check
-blender -b -P art/build.py -- --city san-francisco --only glass-2x2-f16-salesforce   # rerender one sprite
+brew install --cask blender                         # macOS; runs headless
+python3 art/make_ads.py                             # regenerate sign art
+blender -b -P art/build.py -- --city san-francisco   # raw 4x layers, art/.raw/san-francisco/
+python3 art/pixelize.py san-francisco                # final 1x sprites, using the kept palette
+python3 art/check_register.py san-francisco          # registration, alpha, and palette checks
+python3 art/contact.py san-francisco                 # paged 1x and 4x review sheets
+python3 -m unittest discover -s art/tests            # pixel pipeline unit and integration tests
+npm run art:sf                                     # sign art, render, pixelize, registration check
 ```
 
-- `art/catalog.py`: which sprites a city gets (archetype, footprint, floors, zones, and brand signage); branded entries are placed once per city, first.
-- `art/lib/`: the camera matched to the game's 2:1 projection (`iso.py`, `scene.py`), materials with a day/night switch, the archetypes (glass tower, brick loft, concrete office), and signs (3D channel letters, rooftop billboard).
-- Signage follows how SF actually looks (research in the [spec](../docs/superpowers/specs/2026-09-12-realistic-sprites-design.md)): no brand names on tower tops (SF bans rooftop signs downtown), brands at street level (the Capital One Café, Jeni's, a Wells Fargo branch, lobby logo walls and monuments for Google, Uber, Meta, OpenAI, Goldman Sachs), AI-style billboards on old SoMa lofts and freeway V boards, painted murals and the Levi's ghost sign, backlit Muni shelters, the Salesforce Tower's LED crown, and the Ferry Building's red "PORT OF SAN FRANCISCO" letters.
-- `art/make_ads.py` draws all sign and ad art into `art/ads/` (review sheet: `art/ads/_contact.png`). Every text element is fitted to its box and the script fails if anything leaves the sign's safe area; Blender maps each image onto a face with exactly its aspect ratio, so art never runs off a sign.
-- `art/fetch_textures.sh` downloads CC0 photo textures from [ambientCG](https://ambientcg.com) into `art/textures/`.
-- Output: `public/sprites/<city>/`, a day PNG and a night PNG per sprite (the night pass is black except what glows, drawn with additive blending) plus `sprites.json` (footprint, anchor pixel, height).
-- `art/check_register.py` fails if a sprite is off its tile diamond by more than one game pixel.
-- `src/engine/sprite-pick.ts` chooses a sprite per lot (tested in `tests/sprites.test.ts`); `src/engine/sprites.ts` loads the set and returns the same `Built` shape as the brick builder.
+- `art/catalog.py` defines archetypes, footprints, floors, zones, and brand signage; branded entries are placed once per city, first.
+- `art/lib/` contains the camera matched to the game's 2:1 projection, the archetypes, signs, and flat pixel materials with a day/night switch.
+  Brick joints and stone courses use procedural patterns aligned to the 1x pixel grid; no photo textures or texture-download step are needed.
+- `art/build.py` writes day, night, and exact face-id layers at 4x, plus optional crown masks and `raw.json`, into the gitignored `art/.raw/<city>/` directory.
+  A warm key light lights the left face and shades the right, with a bounded cast shadow behind the building.
+- `art/pixelize.py` splits off shadows, flattens each id region to at most three tones, shrinks by majority color with sign-stroke preservation, quantizes without dithering, and draws ink outlines.
+  Shadows are restored as one flat translucent tone without an outline.
+  The city palette in `art/palettes/<city>.json` is kept across rerenders; `--new-palette` rebuilds it for the whole set and cannot be combined with `--only`.
+  SF uses 40 day colors, including 12 reserved for signs and lit shop glass, and 16 night colors.
+- To rerender one sprite after a full local render, pass the same id to both commands, for example `blender -b -P art/build.py -- --city san-francisco --only loft-1x1-f3-14`, then `python3 art/pixelize.py san-francisco --only loft-1x1-f3-14`.
+  `build.py --missing` resumes missing raw layers; pixelize reports missing or stale outputs.
+- Signage follows how SF actually looks (research in the [spec](../docs/superpowers/specs/2026-09-12-realistic-sprites-design.md)): no brand names on tower tops (SF bans rooftop signs downtown), brands at street level (the Capital One Café, Jeni's, a Wells Fargo branch, lobby logo walls and monuments for Google, Uber, Meta, OpenAI, Goldman Sachs), AI-style billboards on old SoMa lofts and freeway V boards, painted murals and the Levi's ghost sign, backlit Muni shelters, the Salesforce Tower's LED crown, and the Ferry Building's red "PORT OF SAN FRANCISCO" name on its frieze.
+- `art/make_ads.py` draws sign and ad art into `art/ads/` using the game's own bold Pixelify Sans (`public/fonts/pixelify-sans-bold.ttf`, with its OFL license alongside it) and flat paint wear.
+  Every text element is fitted to its box, and the script fails if anything leaves the sign's safe area.
+  Blender maps each image onto a face with its aspect ratio preserved.
+  The sponsor pass uses larger readable panels and simpler lettering for small sign surfaces.
+- Output in `public/sprites/<city>/` is a day PNG and an additive night PNG per sprite, optional crown masks, and `sprites.json` with `scale: 1`, footprints, anchors, and heights.
+- `art/check_register.py` checks day pixels against the city palette, allows only the fixed cast-shadow translucency, and enforces registration within one game pixel for full-lot buildings.
+- `art/contact.py` writes numbered `art/_contact-<city>-<page>.png` review sheets at 1x and 4x; an optional id prefix filters the set.
+  These local review sheets are not committed.
+- `src/engine/sprite-pick.ts` chooses a sprite per lot (tested in `tests/sprites.test.ts`); `src/engine/sprites.ts` loads the set and returns the brick builder's `Built` shape.
+  Nearest magnification keeps enlarged pixels crisp, while linear minification reduces shimmer when zoomed out.
 
 ## Plate images (states-map thumbnails)
 

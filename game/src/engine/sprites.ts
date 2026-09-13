@@ -21,6 +21,12 @@ export async function loadSpriteSet(cityId: string): Promise<SpriteSet | null> {
     const manifest = (await res.json()) as SpriteManifest;
     const files = manifest.sprites.flatMap((s) => (s.crown ? [s.day, s.night, s.crown] : [s.day, s.night]));
     const loaded: Record<string, Texture> = await Assets.load(files.map((f) => base + f));
+    // Pixel art: square pixels when zoomed in; smooth when zoomed out, so small sprites don't shimmer while panning.
+    for (const t of Object.values(loaded)) {
+      t.source.style.magFilter = "nearest";
+      t.source.style.minFilter = "linear";
+      t.source.style.update();
+    }
     return { manifest, textures: new Map(files.map((f) => [f, loaded[base + f]])) };
   } catch (err) {
     console.warn(`[larp] no sprites for ${cityId}`, err);

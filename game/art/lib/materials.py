@@ -1,11 +1,16 @@
 """Materials. Every material mixes its day surface with a night surface through
 a Value node named "is_night": black at night, or emission (node "emit") where
-it glows. Clear glass turns transparent at night so lit lobbies show through."""
-from pathlib import Path
+it glows. Clear glass turns transparent at night so lit lobbies show through.
 
+Walls are pixel materials: flat colors whose patterns (courses, brick joints) are laid out on the sprite's
+1x pixel grid, so the 4x render's majority downsample turns them into exact one-pixel lines."""
 import bpy
 
-TEX = Path(__file__).resolve().parent.parent / "textures"
+from .iso import HALF_H, HALF_W, Z_PX_PER_BU
+
+# Material colors are linear, but the render is viewed in sRGB, where the pixel pass measures brightness: a
+# pattern line meant to be dark x as bright on screen is dark ** SRGB_GAMMA as bright in linear.
+SRGB_GAMMA = 2.2
 WARM_A, WARM_B = (1.0, 0.62, 0.28, 1), (1.0, 0.82, 0.55, 1)
 
 
@@ -71,32 +76,6 @@ def _finish(nt, out, day_shader, glow=None, strength=0.0, gradient=None, night=N
     return mix.outputs[0]
 
 
-def _photo(nt, tex_id, tile_bu):
-    """Box-projected photo texture maps in world space; returns a function kind -> color socket."""
-    coord = nt.nodes.new("ShaderNodeTexCoord")
-    mapping = nt.nodes.new("ShaderNodeMapping")
-    mapping.inputs["Scale"].default_value = (1 / tile_bu,) * 3
-    nt.links.new(coord.outputs["Object"], mapping.inputs["Vector"])
-
-    def img(kind):
-        n = nt.nodes.new("ShaderNodeTexImage")
-        n.image = bpy.data.images.load(str(TEX / tex_id / f"{tex_id}_1K-JPG_{kind}.jpg"), check_existing=True)
-        if kind != "Color":
-            n.image.colorspace_settings.name = "Non-Color"
-        n.projection = "BOX"
-        n.projection_blend = 0.15
-        nt.links.new(mapping.outputs["Vector"], n.inputs["Vector"])
-        return n.outputs["Color"]
-
-    return img
-
-
-def _normal(nt, photo, bsdf):
-    nrm = nt.nodes.new("ShaderNodeNormalMap")
-    nt.links.new(photo("NormalGL"), nrm.inputs["Color"])
-    nt.links.new(nrm.outputs["Normal"], bsdf.inputs["Normal"])
-
-
 def flat(name, color, rough=0.6, metal=0.0, glow=None, strength=0.0):
     m, nt, out = _base(name)
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
@@ -107,24 +86,90 @@ def flat(name, color, rough=0.6, metal=0.0, glow=None, strength=0.0):
     return m
 
 
-def pbr(name, tex_id, tile_bu=1.0, tint=(1, 1, 1, 1)):
-    """Photo texture, box-projected in world space; tile_bu is how many Blender units one texture repeat covers."""
+def _grid(nt):
+    """The shading point's 1x screen pixel, from its world-space position (the Geometry node's), so the pattern stays
+    on the screen grid whatever the object's transform, a rotated parent (a facing turn) included; the normal is
+    world space too. Returns (column, row along the face's courses) as integer-valued sockets. A world point lands
+    at screen ((x + y) * HALF_W, (x - y) * HALF_H - z * Z_PX_PER_BU) game px from tile (0, 0)'s top corner, and
+    the framing puts that corner on a pixel corner, so floor() of it is the 1x pixel, the same for every raw
+    pixel of a 4 x 4 block. Along a left (-Y) face a course climbs half a pixel per column, along a right (+X)
+    face it drops half a pixel, so the course row is row -+ floor(column / 2): 2:1 pixel-art lines."""
+    geometry = nt.nodes.new("ShaderNodeNewGeometry")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(geometry.outputs["Position"], sep.inputs[0])
+    x, y, z = sep.outputs[0], sep.outputs[1], sep.outputs[2]
+    col = _math(nt, "FLOOR", _math(nt, "MULTIPLY", _math(nt, "ADD", x, y), HALF_W))
+    row = _math(nt, "FLOOR", _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", _math(nt, "SUBTRACT", x, y), HALF_H),
+                                   _math(nt, "MULTIPLY", z, Z_PX_PER_BU)))
+    normal = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(geometry.outputs["Normal"], normal.inputs[0])
+    # the id pass's rule for a right face: the normal leans more toward +X than toward -Y
+    right = _math(nt, "GREATER_THAN", normal.outputs[0], _math(nt, "MULTIPLY", normal.outputs[1], -1.0))
+    sign = _math(nt, "MULTIPLY_ADD", right, 2.0, -1.0)  # +1 on a right face, -1 on a left one
+    half = _math(nt, "FLOOR", _math(nt, "MULTIPLY", col, 0.5))
+    return col, _math(nt, "MULTIPLY_ADD", half, sign, row)
+
+
+def _every(nt, v, period):
+    """1 where the integer-valued v is a multiple of period, else 0."""
+    return _math(nt, "LESS_THAN", _math(nt, "FLOORED_MODULO", v, period), 0.5)
+
+
+def _patterned(name, color, line, dark, rough):
+    """color, with a line color dark times as bright on screen wherever the socket line is 1."""
     m, nt, out = _base(name)
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    photo = _photo(nt, tex_id, tile_bu)
-    nt.links.new(_mix_rgb(nt, 1.0, photo("Color"), tint, "MULTIPLY"), bsdf.inputs["Base Color"])
-    nt.links.new(photo("Roughness"), bsdf.inputs["Roughness"])
-    _normal(nt, photo, bsdf)
+    bsdf.inputs["Roughness"].default_value = rough
+    # no specular: its even white sheen lifts line and wall alike and washes out the line's contrast
+    bsdf.inputs["Specular IOR Level"].default_value = 0.0
+    shade = tuple(c * dark ** SRGB_GAMMA for c in color[:3]) + (1,)
+    nt.links.new(_mix_rgb(nt, line(nt), color, shade), bsdf.inputs["Base Color"])
     _finish(nt, out, bsdf.outputs[0])
     return m
 
 
-def windows(name, cell_u, cell_z, lit_share, tint=(0.08, 0.14, 0.2, 1), frame_frac=0.0, frame_color=(0.62, 0.64, 0.66, 1), strength=0.9, center=None):
+def lined(name, color, period_px=3, dark=0.75, rough=0.7):
+    """A flat color with a darker line every period_px screen pixels of height: siding, shingle and tile rows,
+    stone courses. The line is exactly one 1x pixel tall and follows the face in 2:1 steps. dark is the line's
+    brightness on screen relative to the wall; it stays under lib/pixel.py DARK (0.82), so the pixel pass keeps
+    the line as the face's shade tone."""
+    return _patterned(name, color, lambda nt: _every(nt, _grid(nt)[1], period_px), dark, rough)
+
+
+# Running-bond brick at 1x: a mortar course every BRICK_COURSE px of height and a head joint every BRICK_LEN px
+# along the course, shifted half a brick every other course. Three px (a mortar line and two px of brick) is
+# the smallest course that still reads as brick rather than stripes; eight px keeps bricks long like the real ones.
+BRICK_COURSE, BRICK_LEN = 3, 8
+
+
+def brick(name, color, dark=0.62, rough=0.85):
+    """Running-bond brick on the 1x grid (see BRICK_COURSE). Its mortar is darker than a lined course: the
+    head joints leave less wall between them, so a mortar line needs a wider margin under lib/pixel.py DARK."""
+    def line(nt):
+        col, row = _grid(nt)
+        course = _math(nt, "FLOOR", _math(nt, "DIVIDE", row, BRICK_COURSE))
+        shift = _math(nt, "MULTIPLY", _math(nt, "FLOORED_MODULO", course, 2), BRICK_LEN // 2)
+        head = _every(nt, _math(nt, "ADD", col, shift), BRICK_LEN)
+        return _math(nt, "MAXIMUM", _every(nt, row, BRICK_COURSE), head)
+    return _patterned(name, color, line, dark, rough)
+
+
+def paint(name, color=(0.8, 0.8, 0.78, 1), period_px=3):
+    """A painted surface (siding with period_px courses, or smooth stucco with period_px=0).
+    The name must start with "paint": the walls pass keeps only these, and the game tints them."""
+    assert name.startswith("paint"), name
+    return lined(name, color, period_px) if period_px else flat(name, color, rough=0.8)
+
+
+def windows(name, cell_u, cell_z, lit_share, tint=(0.08, 0.14, 0.2, 1), frame_frac=0.0, frame_color=(0.62, 0.64, 0.66, 1), strength=1.6, center=None, day_glow=0.0):
     """Glass that reflects the sky by day. Cells are cell_u wide along either
     visible facade (u = x - y) and cell_z tall; at night a random lit_share of
     cells glows warm. frame_frac of each cell edge is a metal mullion.
-    center = (cx, cy, r): a rounded tower, where u runs around the tower instead."""
+    center = (cx, cy, r): a rounded tower, where u runs around the tower instead.
+    day_glow: the lit cells also glow warm by day at this strength (a lit shop interior seen through its window).
+    The cells ride with the mesh (object space), unlike _grid's pixel patterns, which must sit on the screen grid."""
     m, nt, out = _base(name)
+    m["glass"] = True  # the pixel pass drops sky reflections (large light patches) on glass only
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.inputs["Metallic"].default_value = 0.6
     bsdf.inputs["Roughness"].default_value = 0.08
@@ -158,13 +203,30 @@ def windows(name, cell_u, cell_z, lit_share, tint=(0.08, 0.14, 0.2, 1), frame_fr
     wall = _math(nt, "LESS_THAN", _math(nt, "ABSOLUTE", normal.outputs[2]), 0.5)
     lit = _math(nt, "MULTIPLY", lit, wall)
     warm = _mix_rgb(nt, noise.outputs["Value"], WARM_A, WARM_B)
-    _finish(nt, out, bsdf.outputs[0], _mix_rgb(nt, lit, (0, 0, 0, 1), warm), strength)
+    glow = _mix_rgb(nt, lit, (0, 0, 0, 1), warm)
+    day = bsdf.outputs[0]
+    if day_glow:
+        m["lit"] = True  # the id pass flags it, so the pixel pass reserves palette colors for its glow (lib/pixel.py is_lit)
+        # not named "emit": set_mask and set_night only touch the night emission
+        em = nt.nodes.new("ShaderNodeEmission")
+        nt.links.new(glow, em.inputs["Color"])
+        em.inputs["Strength"].default_value = day_glow
+        add = nt.nodes.new("ShaderNodeAddShader")
+        nt.links.new(day, add.inputs[0])
+        nt.links.new(em.outputs[0], add.inputs[1])
+        day = add.outputs[0]
+    _finish(nt, out, day, glow, strength)
     return m
 
 
-def clear_glass(name, tint=(0.86, 0.92, 0.95, 1)):
-    """See-through glass (lobbies, shelters). Transparent in the night pass, so what glows behind it shows."""
+def clear_glass(name, tint=(0.86, 0.92, 0.95, 1), see_through=False):
+    """See-through glass (lobbies, shelters). Transparent in the night pass, so what glows behind it shows.
+    see_through: for glass with something behind it worth keeping legible (a lobby's logo wall) — the id pass
+    renders it as an actual hole instead of its own opaque "glass" id, so what it fronts keeps its own id and
+    the pixel pass's sign-preserving stroke rule, rather than being hidden behind a flat glass tone and washed
+    out. Everywhere else (nothing meaningful behind the pane) it stays a normal glass id."""
     m, nt, out = _base(name)
+    m["see_through" if see_through else "glass"] = True
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.inputs["Base Color"].default_value = tint
     bsdf.inputs["Roughness"].default_value = 0.03
@@ -177,11 +239,13 @@ def clear_glass(name, tint=(0.86, 0.92, 0.95, 1)):
     return m
 
 
-def image(name, path, strength=1.2, glow=True, alpha=False, rough=0.5, top_lit=False, brick=None):
+def image(name, path, strength=1.2, glow=True, alpha=False, rough=0.5, top_lit=False, day_glow=0.0):
     """An image on a UV-mapped face (ad, sign, mural). Glows with its own colors at night unless glow=False.
     alpha: transparent where the image is. top_lit: brighter at the top, like a billboard under floodlights.
-    brick: a photo texture id whose relief shows through (paint on a brick wall)."""
+    day_glow: also lit by day at this emission strength, for a sign recessed behind glass (a lobby logo wall)
+    that would otherwise read as a dark smear under the scene's ambient light."""
     m, nt, out = _base(name)
+    m["sign"] = True  # the pixel pass keeps sign detail and draws no inner lines across it
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.inputs["Roughness"].default_value = rough
     tex = nt.nodes.new("ShaderNodeTexImage")
@@ -189,16 +253,24 @@ def image(name, path, strength=1.2, glow=True, alpha=False, rough=0.5, top_lit=F
     tex.extension = "CLIP"
     tex.interpolation = "Cubic"
     nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
-    if brick:
-        _normal(nt, _photo(nt, brick, 0.5), bsdf)
     gradient = None
     if top_lit:
         uv = nt.nodes.new("ShaderNodeSeparateXYZ")
         nt.links.new(nt.nodes.new("ShaderNodeTexCoord").outputs["UV"], uv.inputs[0])
         gradient = _math(nt, "MULTIPLY_ADD", uv.outputs[1], 0.7, 0.3)
-    shader = _finish(nt, out, bsdf.outputs[0], tex.outputs["Color"] if glow else None, strength if glow else 0.0,
+    day = bsdf.outputs[0]
+    if day_glow:
+        em = nt.nodes.new("ShaderNodeEmission")
+        nt.links.new(tex.outputs["Color"], em.inputs["Color"])
+        em.inputs["Strength"].default_value = day_glow
+        add = nt.nodes.new("ShaderNodeAddShader")
+        nt.links.new(day, add.inputs[0])
+        nt.links.new(em.outputs[0], add.inputs[1])
+        day = add.outputs[0]
+    shader = _finish(nt, out, day, tex.outputs["Color"] if glow else None, strength if glow else 0.0,
                      gradient=gradient, link=not alpha)
     if alpha:
+        m["sign_alpha"] = tex.image.name  # the id pass is a sign only where the image is painted
         clear = nt.nodes.new("ShaderNodeBsdfTransparent")
         mix = nt.nodes.new("ShaderNodeMixShader")
         nt.links.new(tex.outputs["Alpha"], mix.inputs["Fac"])

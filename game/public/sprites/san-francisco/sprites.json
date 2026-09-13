@@ -1,5 +1,5 @@
 {
- "scale": 2,
+ "scale": 1,
  "sprites": [
   {
    "id": "salesforce-tower",
@@ -32,8 +32,8 @@
    "unique": false,
    "brand": null,
    "ax": 40,
-   "ay": 216,
-   "topZ": 208,
+   "ay": 232,
+   "topZ": 224,
    "day": "ferry-building.png",
    "night": "ferry-building.night.png",
    "kind": "landmark",
@@ -179,8 +179,8 @@
    "unique": true,
    "brand": "elevenlabs",
    "ax": 40,
-   "ay": 123,
-   "topZ": 115,
+   "ay": 140,
+   "topZ": 132,
    "day": "loft-2x1-f4-elevenlabs.png",
    "night": "loft-2x1-f4-elevenlabs.night.png"
   },
@@ -195,8 +195,8 @@
    "unique": true,
    "brand": "capital-one",
    "ax": 40,
-   "ay": 103,
-   "topZ": 95,
+   "ay": 120,
+   "topZ": 112,
    "day": "loft-2x1-f3-capital-one.png",
    "night": "loft-2x1-f3-capital-one.night.png"
   },
@@ -211,8 +211,8 @@
    "unique": true,
    "brand": "persona",
    "ax": 72,
-   "ay": 123,
-   "topZ": 115,
+   "ay": 140,
+   "topZ": 132,
    "day": "loft-1x2-f4-persona.png",
    "night": "loft-1x2-f4-persona.night.png"
   },
@@ -227,8 +227,8 @@
    "unique": true,
    "brand": "nordvpn",
    "ax": 40,
-   "ay": 93,
-   "topZ": 85,
+   "ay": 101,
+   "topZ": 93,
    "day": "loft-1x1-f3-nordvpn.png",
    "night": "loft-1x1-f3-nordvpn.night.png"
   },
@@ -243,8 +243,8 @@
    "unique": true,
    "brand": "anthropic",
    "ax": 40,
-   "ay": 143,
-   "topZ": 135,
+   "ay": 160,
+   "topZ": 152,
    "day": "loft-2x1-f5-anthropic.png",
    "night": "loft-2x1-f5-anthropic.night.png"
   },
@@ -259,8 +259,8 @@
    "unique": true,
    "brand": "lovable-openai",
    "ax": 60,
-   "ay": 68,
-   "topZ": 60,
+   "ay": 87,
+   "topZ": 79,
    "day": "pole-1x1-f1-lovable-openai.png",
    "night": "pole-1x1-f1-lovable-openai.night.png",
    "fill": false
@@ -276,8 +276,8 @@
    "unique": true,
    "brand": "anthropic-elevenlabs",
    "ax": 60,
-   "ay": 68,
-   "topZ": 60,
+   "ay": 87,
+   "topZ": 79,
    "day": "pole-1x1-f1-anthropic-elevenlabs.png",
    "night": "pole-1x1-f1-anthropic-elevenlabs.night.png",
    "fill": false
