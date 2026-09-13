@@ -166,6 +166,35 @@ def monument(image_name, x0, y_front, width=0.46):
     return base + h + 0.02
 
 
+def wall_board(image_name, w, d, top):
+    """A lit 2:1 board flat on the right (+X) wall, as wide as the wall allows (up to 2 tiles), its top 8 px under
+    the building's top, in a steel frame with two gooseneck lamps over it."""
+    bw = min(d, 2) * 0.86
+    bh = bw * BULLETIN
+    z1 = top - px(8)
+    z0 = z1 - bh
+    u0 = (d - bw) / 2  # along the face from its front corner (y = -d), so the board spans y = u0 - d .. u0 + bw - d
+    v0 = u0 - d
+    steel, lamp = _steel(), _lamp()
+    box("wb-frame", w - 0.005, v0 - 0.02, z0 - 0.02, w + 0.02, v0 + bw + 0.02, z1 + 0.02, M.flat("frame", (0.85, 0.86, 0.86, 1), rough=0.6))
+    face_quad("wall-board", "+X", w, d, u0, u0 + bw, z0, z1,
+              M.image(f"wb-{image_name}", ADS / image_name, strength=1.5, top_lit=True, rough=0.6), off=0.022)
+    for k in (0.25, 0.75):
+        y = v0 + k * bw
+        box(f"gooseneck{k}", w, y - 0.01, z1 + px(0.4), w + 0.1, y + 0.01, z1 + px(1.2), steel)
+        box(f"wb-lamp{k}", w + 0.07, y - 0.03, z1 + px(0.2), w + 0.12, y + 0.03, z1 + px(1.4), lamp)
+    return z1 + px(1.4)
+
+
+# An HQ's name band is 12 game px tall, so 8 px capitals fit with a pixel of field above and below.
+BAND_PX = 12
+
+
+def name_band(image_name, face, w, d, z0):
+    """A lit name band spanning 92% of a face (the art's aspect fits it: catalog.BAND_ASPECT) over a dark raceway."""
+    return fascia(image_name, face, w, d, z0, px(BAND_PX), strength=1.6)
+
+
 def mural(image_name, face, w, d, u0, u1, z0, aspect):
     """Paint on a wall: transparent art whose height is (u1 - u0) / aspect. Flat paint, with no brick relief:
     sign regions keep their detail in the pixel pass, so relief would come out as speckle."""

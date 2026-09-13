@@ -100,26 +100,31 @@ def glass_tower(w, d, floors, seed, lit=0.35):
     return _roof(rng, w, d, top, M.flat("roofslab", SLAB, rough=0.8), metal, metal)
 
 
-def brick_loft(w, d, floors, seed, lit=0.55, mural=None):
-    """A masonry loft. mural = {"image", "aspect"} paints the right (+X) face, which is then a blank party wall."""
+def brick_loft(w, d, floors, seed, lit=0.55, mural=None, wall_board=None):
+    """A masonry loft. mural = {"image", "aspect"} paints the right (+X) face, and wall_board (an image) hangs a lit
+    board on it; either way that face is a blank party wall."""
     rng = random.Random(seed)
     top = body_top(floors)
     box("body", 0, -d, 0, w, 0, top, _brick(rng))
     stone = M.flat("stone", (0.78, 0.74, 0.66, 1), rough=0.85)
     glass = M.windows("win", 0.5, FZ, lit, (0.05, 0.07, 0.09, 1))
-    _punched(w, d, 0, floors, glass, stone, faces=("-Y",) if mural else ("-Y", "+X"))
+    _punched(w, d, 0, floors, glass, stone, faces=("-Y",) if mural or wall_board else ("-Y", "+X"))
     if mural:
         span, height = d * 0.84, top - PLINTH - px(6)
         width = min(span, height * mural["aspect"])
         u0 = (d - width) / 2
         z0 = PLINTH + (height - width / mural["aspect"]) / 2 + px(2)
         signs.mural(mural["image"], "+X", w, d, u0, u0 + width, z0, mural["aspect"])
+    if wall_board:
+        signs.wall_board(wall_board, w, d, top)
     box("cornice", -0.02, -d - 0.02, top - px(3), w + 0.02, 0.02, top, stone)
     tar = _tar()
     return _roof(rng, w, d, top, tar, stone, _hvac())
 
 
-def concrete_office(w, d, floors, seed, lit=0.6):
+def concrete_office(w, d, floors, seed, lit=0.6, wall_board=None):
+    """A banded concrete office. wall_board (an image) hangs a lit board on a blank concrete party wall on the right
+    (+X) face, over the upper floors' bands."""
     rng = random.Random(seed)
     top = body_top(floors)
     conc = M.flat("concrete", CONCRETE, rough=0.8)
@@ -131,6 +136,9 @@ def concrete_office(w, d, floors, seed, lit=0.6):
     # The canopy reaches the lot line but not past it, so the sprite stays on its tiles.
     box("canopy", -e, -d - e, PLINTH + FZ * 0.88, w + e, e, PLINTH + FZ, conc)
     box("crown", -e, -d - e, top - px(5), w + e, e, top, conc)
+    if wall_board:
+        box("party-wall", w - 0.005, -d + 0.02, PLINTH + FZ, w + e + 0.003, -0.02, top - px(5), conc)
+        signs.wall_board(wall_board, w, d, top - px(5))
     return _roof(rng, w, d, top, M.flat("roofslab", DARK_SLAB, rough=0.8), conc, _hvac())
 
 
@@ -143,7 +151,8 @@ FACADES = {
 
 def storefront(w, d, floors, seed, facade="brick", fascia=None, fascia_side=None, blade=None, atm=False, lit=0.5):
     """A street-corner shop: warm lit shop windows on both faces, a sign band over them, a blade sign, upper-floor
-    windows. fascia is the front (-Y) band's art; fascia_side, if given, the side (+X) band's, else the same. All the
+    windows. fascia is the 8:1 band art for a 2-tile face, fascia_side the 4:1 art for a 1-tile face (else fascia is
+    used for both), so each face gets the band that fits its span. All the
     signs must be one brand's (catalog.shop names them from one; the kind prefix, fa-, fs-, or bl-, is all that differs)."""
     brands = {name.split("-", 1)[1] for name in (fascia, fascia_side, blade) if name}
     if len(brands) > 1:
@@ -164,8 +173,9 @@ def storefront(w, d, floors, seed, facade="brick", fascia=None, fascia_side=None
     if fascia:
         # the blade juts toward the viewer, so on screen it hangs down over the front band from the corner to its own
         # x; the band's art starts past it
-        signs.fascia(fascia, "-Y", w, d, band_z, band_h, u_min=BLADE_DEPTH + BLADE_INSET if blade else 0.0)
-        signs.fascia(fascia_side or fascia, "+X", w, d, band_z, band_h)
+        art = {2: fascia, 1: fascia_side or fascia}
+        signs.fascia(art[min(w, 2)], "-Y", w, d, band_z, band_h, u_min=BLADE_DEPTH + BLADE_INSET if blade else 0.0)
+        signs.fascia(art[min(d, 2)], "+X", w, d, band_z, band_h)
     if atm:
         red = M.flat("atm", signs.srgb((0.843, 0.118, 0.157)), rough=0.4)
         box("atm", w - 0.004, -d + 0.1, PLINTH + FZ * 0.08, w + 0.016, -d + 0.26, PLINTH + FZ * 0.62, red)
@@ -180,9 +190,10 @@ def storefront(w, d, floors, seed, facade="brick", fascia=None, fascia_side=None
     return _roof(rng, w, d, top, _tar(), stone, _hvac())
 
 
-def hq_lobby(w, d, floors, seed, logo=None, monument=None, lit=0.4):
-    """A glass office tower whose upper floors overhang a double-height glass lobby. A lit logo
-    wall stands inside the lobby; an optional monument sign sits in the recess in front."""
+def hq_lobby(w, d, floors, seed, logo=None, monument=None, band_y=None, band_x=None, lit=0.4):
+    """A glass office tower whose upper floors overhang a double-height glass lobby. Lit name bands (band_y, band_x:
+    art for the left and right faces) run along the overhang just above the lobby, a lit logo wall stands inside the
+    lobby, and an optional monument sign sits in the recess in front. No brand ever goes on the tower's top."""
     rng = random.Random(seed)
     top = body_top(floors)
     lobby = PLINTH + 2 * FZ
@@ -192,6 +203,10 @@ def hq_lobby(w, d, floors, seed, logo=None, monument=None, lit=0.4):
     box("plaza", 0, -d, 0, w, 0, px(1), stone)
     soffit = M.flat("soffit", (0.82, 0.8, 0.76, 1), rough=0.7, glow=(1.0, 0.9, 0.75, 1), strength=0.6)
     box("soffit", 0, -d, lobby - px(1.5), w, 0, lobby, soffit)
+    if band_y:
+        signs.name_band(band_y, "-Y", w, d, lobby + px(1))
+    if band_x:
+        signs.name_band(band_x, "+X", w, d, lobby + px(1))
     recess = 0.22
     glass = M.clear_glass("lobby-glass", see_through=True)
     box("lobby-y", 0.06, -d + recess - 0.012, px(1), w - 0.06, -d + recess, lobby - px(1.5), glass)

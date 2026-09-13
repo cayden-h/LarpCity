@@ -7,6 +7,7 @@ bounding box, and Sign.finish() raises if anything leaves the safe rect.
 
 Run from game/:  python3 art/make_ads.py
 """
+import json
 import math
 from contextlib import contextmanager
 from functools import lru_cache
@@ -145,6 +146,7 @@ class Placed:
 
 class Sign:
     outputs = []  # (name, path)
+    caps_by_name = {}  # name: the smallest text's capital height / image height, written to ads/_caps.json
 
     def __init__(self, name, w, h, bg):
         self.name, self.w, self.h, self.bg = name, w, h, bg
@@ -154,6 +156,7 @@ class Sign:
         self.im = Image.new("RGBA", (w * SS, h * SS), (0, 0, 0, 0) if bg is None else rgba(bg))
         self.scratch = ImageDraw.Draw(Image.new("L", (1, 1)))
         self.boxes = []
+        self.caps = []  # each text's capital height as a share of the image height (the readability test)
 
     @property
     def safe(self):
@@ -201,6 +204,8 @@ class Sign:
     def draw_text(self, pl, fill, stroke_fill=None, offset=(0, 0)):
         """Paint a Placed text. fill is a color, or one color per character (single line)."""
         x, y = pl.xy[0] + offset[0] * SS, pl.xy[1] + offset[1] * SS
+        _, top, _, bottom = pl.font.getbbox("H")
+        self.caps.append((bottom - top) / (self.h * SS))
         if stroke_fill and pl.stroke:
             with self.paint(stroke_fill, pl.text + " (stroke)") as p:
                 p.d.text((x, y), pl.text, fill=255, stroke_fill=255, **pl.kw(True))
@@ -251,6 +256,8 @@ class Sign:
         path = OUT / f"{self.name}.png"
         out.save(path)
         Sign.outputs.append((self.name, path))
+        if self.caps:
+            Sign.caps_by_name[self.name] = min(self.caps)
         print(f"ok {self.name} {self.w}x{self.h}")
 
 
@@ -723,6 +730,302 @@ def mu_levis_ghost():
     s.finish()
 
 
+# ---------------------------------------------------------------- roster marks
+# Simple drawn shapes for the roster's marks (brands.py "mark": (shape, *colors)), each (draw(s, box, *colors), aspect)
+# with aspect = width / height. They are chunky on purpose: a mark is at least 8 game px, so thin strokes would vanish.
+
+def _in(box, pts):
+    """Unit-square points (0..1) into box."""
+    x0, y0, x1, y1 = box
+    return [(x0 + u * (x1 - x0), y0 + v * (y1 - y0)) for u, v in pts]
+
+
+def mark_stripes(s, box, c):
+    """Three tiger stripes: tapered bars leaning right."""
+    with s.paint(c, "stripes") as p:
+        for i in range(3):
+            u = i * 0.34
+            p.polygon(_in(box, [(u, 0), (u + 0.22, 0), (u + 0.42, 1), (u + 0.26, 1)]))
+
+
+def mark_chevrons(s, box, c, c2):
+    """Two stacked V chevrons, the top one in the second color."""
+    for i, color in enumerate((c2, c)):
+        v = i * 0.46
+        with s.paint(color, f"chevron {i}") as p:
+            p.polygon(_in(box, [(0, v), (0.26, v), (0.5, v + 0.36), (0.74, v), (1, v), (0.5, v + 0.54)]))
+
+
+def mark_bars(s, box, c, c2):
+    """Three slanted bars stacked, alternating colors."""
+    for i, color in enumerate((c2, c, c2)):
+        v = i * 0.37
+        with s.paint(color, f"bar {i}") as p:
+            p.polygon(_in(box, [(0.18, v), (1, v), (0.82, v + 0.26), (0, v + 0.26)]))
+
+
+def mark_sparkle(s, box, c, c2):
+    """A four-point sparkle, with a small one in the second color."""
+    def star(box_, color, label):
+        k = 0.14
+        with s.paint(color, label) as p:
+            p.polygon(_in(box_, [(0.5, 0), (0.5 + k, 0.5 - k), (1, 0.5), (0.5 + k, 0.5 + k), (0.5, 1),
+                                 (0.5 - k, 0.5 + k), (0, 0.5), (0.5 - k, 0.5 - k)]))
+    x0, y0, x1, y1 = box
+    w = x1 - x0
+    star((x0, y0 + 0.2 * w, x1 - 0.2 * w, y1), c, "sparkle")
+    star((x1 - 0.36 * w, y0, x1, y0 + 0.36 * w), c2, "small sparkle")
+
+
+def mark_board(s, box, c, c2):
+    """A pinned board: a thick rounded frame with a pin on top."""
+    x0, y0, x1, y1 = box
+    h = y1 - y0
+    with s.paint(c, "board") as p:
+        p.rect((x0, y0 + 0.22 * h, x1, y1), r=0.1 * h)
+        p.rect((x0 + 0.16 * h, y0 + 0.38 * h, x1 - 0.16 * h, y1 - 0.16 * h), 0)
+    with s.paint(c2, "pin") as p:
+        cx = (x0 + x1) / 2
+        p.ellipse((cx - 0.17 * h, y0, cx + 0.17 * h, y0 + 0.34 * h))
+
+
+def mark_membrane(s, box, c, c2):
+    """A peaked membrane: a mountain with its lit left facet in the second color."""
+    with s.paint(c, "membrane") as p:
+        p.polygon(_in(box, [(0, 1), (0.3, 0.45), (0.55, 0), (1, 1)]))
+    with s.paint(c2, "membrane facet") as p:
+        p.polygon(_in(box, [(0, 1), (0.3, 0.45), (0.55, 0), (0.45, 1)]))
+
+
+def mark_eye(s, box, c):
+    """A ring with a dot: an eye."""
+    x0, y0, x1, y1 = box
+    with s.paint(c, "eye") as p:
+        p.ring(box, (x1 - x0) * 0.16)
+        p.ellipse(inner(box, 0.34, 0.34))
+
+
+def mark_feather(s, box, c):
+    """A feather: a leaf leaning right with a notch cut into its lower edge."""
+    with s.paint(c, "feather") as p:
+        p.polygon(_in(box, [(0.05, 1), (0.2, 0.55), (0.55, 0.12), (0.95, 0), (0.85, 0.4), (0.5, 0.78), (0.22, 0.86)]))
+        p.polygon(_in(box, [(0.42, 0.62), (0.7, 0.44), (0.66, 0.54)]), 0)
+
+
+def mark_tartan(s, box, c):
+    """A tartan square: a thick frame split into four by a cross."""
+    x0, y0, x1, y1 = box
+    t = (x1 - x0) * 0.16
+    with s.paint(c, "tartan") as p:
+        p.rect(box)
+        for u in (0, 1):
+            for v in (0, 1):
+                cx0 = x0 + t + u * ((x1 - x0 - t) / 2)
+                cy0 = y0 + t + v * ((y1 - y0 - t) / 2)
+                p.rect((cx0, cy0, cx0 + (x1 - x0 - 3 * t) / 2, cy0 + (y1 - y0 - 3 * t) / 2), 0)
+
+
+def mark_loop(s, box, c):
+    """A loop arch: a thick teardrop outline with its point at the bottom."""
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    sw = w * 0.2
+    pts = []
+    for i in range(121):
+        t = 2 * math.pi * i / 120
+        # t = 0 is the point (at the bottom); the round end is at the top
+        pts.append((x0 + w / 2 + (w - sw) / 2 * math.sin(t) * abs(math.sin(t / 2)) ** 0.6,
+                    y0 + sw / 2 + (h - sw) * (math.cos(t) + 1) / 2))
+    with s.paint(c, "loop") as p:
+        p.line(pts, sw)
+
+
+def mark_box(s, box, c):
+    """An open box of four diamonds (two up, two down)."""
+    def diamond(cx, cy, label):
+        with s.paint(c, label) as p:
+            p.polygon(_in(box, [(cx, cy - 0.2), (cx + 0.25, cy), (cx, cy + 0.2), (cx - 0.25, cy)]))
+    for i, (cx, cy) in enumerate(((0.25, 0.2), (0.75, 0.2), (0.25, 0.62), (0.75, 0.62))):
+        diamond(cx, cy, f"diamond {i}")
+    with s.paint(c, "diamond base") as p:
+        p.polygon(_in(box, [(0.5, 0.62), (0.75, 0.8), (0.5, 1), (0.25, 0.8)]))
+
+
+def mark_dash(s, box, c):
+    """A dash: a thick hook opening left, like a stylized D."""
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    sw = h * 0.24
+    r = (h - sw) / 2
+    cx, cy = x1 - sw / 2 - r, y0 + h / 2
+    pts = [(x0 + sw / 2, y0 + sw / 2), (cx, y0 + sw / 2)]
+    pts += [(cx + r * math.sin(math.pi * i / 24), cy - r * math.cos(math.pi * i / 24)) for i in range(25)]
+    pts += [(x0 + 0.34 * w, y1 - sw / 2)]
+    with s.paint(c, "dash") as p:
+        p.line(pts, sw)
+
+
+def mark_bottle(s, box, c):
+    """A bottle: rounded body, shoulders, neck, and cap."""
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    with s.paint(c, "bottle") as p:
+        p.rect((x0, y0 + 0.36 * h, x1, y1), r=0.2 * w)
+        p.polygon([(x0, y0 + 0.46 * h), (x0 + 0.3 * w, y0 + 0.24 * h), (x1 - 0.3 * w, y0 + 0.24 * h), (x1, y0 + 0.46 * h)])
+        p.rect((x0 + 0.3 * w, y0 + 0.08 * h, x1 - 0.3 * w, y0 + 0.3 * h))
+        p.rect((x0 + 0.24 * w, y0, x1 - 0.24 * w, y0 + 0.1 * h))
+
+
+MARKS = {
+    "elevenlabs": (mark_elevenlabs, ELEVEN_ASPECT),
+    "persona": (mark_persona, PERSONA_ASPECT),
+    "nord": (mark_nord, 1.0),
+    "heart": (mark_heart, HEART_ASPECT),
+    "meta": (mark_meta, META_ASPECT),
+    "swoosh": (swoosh, 2.0),
+    "stripes": (mark_stripes, 1.0),
+    "chevrons": (mark_chevrons, 1.1),
+    "bars": (mark_bars, 1.25),
+    "sparkle": (mark_sparkle, 1.0),
+    "board": (mark_board, 1.25),
+    "membrane": (mark_membrane, 1.2),
+    "eye": (mark_eye, 1.0),
+    "feather": (mark_feather, 0.9),
+    "tartan": (mark_tartan, 1.0),
+    "loop": (mark_loop, 0.85),
+    "box": (mark_box, 1.0),
+    "dash": (mark_dash, 1.3),
+    "bottle": (mark_bottle, 0.42),
+}
+# "underline" is not a side mark: a bar in its color under the wordmark (Visa's gold bar, GoDaddy's teal).
+UNDERLINE = "underline"
+
+
+def roster_mark(b):
+    """(draw(s, box), aspect) for a brand's side mark, or None."""
+    if not b["mark"] or b["mark"][0] == UNDERLINE:
+        return None
+    fn, aspect = MARKS[b["mark"][0]]
+    return (lambda s, box: fn(s, box, *b["mark"][1:])), aspect
+
+
+# ---------------------------------------------------------------- roster layouts
+# Shared layouts for every roster brand without a hand-drawn sign (brands.py "custom"). Each fills its surface's
+# safe area with the brand's mark and wordmark only, no tagline, so the lettering is as tall as the surface allows.
+
+def brand_lockup(b, word=None, text_h=0.62, mark_h=0.9):
+    """draw(s, box, align) for a brand's mark and wordmark side by side, its wordmark with an underline bar, or its
+    wordmark alone."""
+    word = word or b["word"]
+    m = roster_mark(b)
+    if m:
+        return lambda s, box, align="center": lockup(s, box, m[0], m[1], word, PIXEL, b["ink"], mark_h=mark_h,
+                                                      text_h=text_h, gap=0.22, align=align)
+    if b["mark"] and b["mark"][0] == UNDERLINE:
+        def draw(s, box, align="center"):
+            x0, y0, x1, y1 = box
+            H = y1 - y0
+            tb = s.text(word, PIXEL, (x0, y0 + H * (1 - text_h) / 2 - 0.08 * H, x1, y1 - H * (1 - text_h) / 2 - 0.08 * H),
+                        b["ink"], align=align)
+            with s.paint(b["mark"][1], "underline") as p:
+                p.rect((tb[0], tb[3] + 0.06 * H, tb[2], tb[3] + 0.16 * H))
+        return draw
+    return lambda s, box, align="center": wordmark(word, PIXEL, b["ink"], text_h=text_h + 0.08)(s, box, align=align)
+
+
+def fitted_word(b, limit=9):
+    """The wordmark, or its short form when the wordmark is too long for a small surface."""
+    return b["word"] if len(b["word"]) <= limit else b["short"]
+
+
+def draw_roster(name, b, surface, span=None):
+    """Draw one roster sign file (name without .png) for brand b."""
+    if surface == "bb":  # bulletins, wall boards, and V boards share the 2:1 art
+        billboard(name, b["field"], brand_lockup(b, fitted_word(b, 10), text_h=0.8))
+    elif surface == "sh":
+        m = roster_mark(b)
+        s = Sign(name, 600, 900, b["field"])
+        if m:
+            stacked(m[0], m[1], b["short"], PIXEL, b["ink"])(s, s.safe)
+        else:
+            s.text(b["short"], PIXEL, s.safe, b["ink"], align="center")
+        s.finish()
+    elif surface == "fa":  # the 8:1 band on a 2-tile face
+        fascia(name, b["field"], lambda s, safe: brand_lockup(b, fitted_word(b, 12), text_h=0.92, mark_h=0.95)(s, safe))
+    elif surface == "fs":  # the 4:1 band on a 1-tile face: a short name, or the mark where a name would not read
+        m = roster_mark(b)
+        word = b["short"]
+        if len(word) <= 6 and "\n" not in word or not m:
+            fascia(name, b["field"], lambda s, safe: s.text(word.replace("\n", " "), PIXEL, safe, b["ink"], align="center"),
+                   aspect=4)
+        else:
+            fascia(name, b["field"], lambda s, safe: m[0](s, _centered_box(inner(safe, 0.0, 0.04), m[1])), aspect=4)
+    elif surface == "bl":  # the 2:3 blade: the mark over a short name, or a big monogram
+        s = Sign(name, 300, 450, b["field"])
+        x0, y0, x1, y1 = s.safe
+        m = roster_mark(b)
+        if m:
+            m[0](s, _centered_box((x0 + 20, y0 + 16, x1 - 20, y0 + 250), m[1]))
+            s.text(b["short"], PIXEL, (x0 + 8, 280, x1 - 8, y1 - 10), b["ink"], align="center", spacing=0.05)
+        else:
+            s.text(b["short"] if len(b["short"]) <= 3 else b["short"][0], PIXEL, inner(s.safe, 0.08, 0.1), b["ink"],
+                   align="center")
+        s.finish()
+    elif surface == "nb":  # the name band over an HQ lobby, 3:1 on a 1-tile face, 6:1 on a 2-tile face
+        aspect = {1: 3, 2: 6}[span]
+        word = b["short"] if span == 1 else fitted_word(b)
+        draw = brand_lockup(b, word, text_h=0.9, mark_h=0.95) if span == 2 else wordmark(word, PIXEL, b["ink"], text_h=0.92)
+        fascia(name, b["field"], lambda s, safe: draw(s, safe, align="center"), aspect=aspect)
+    elif surface == "lw":
+        centered(name, 800, 400, b["field"], lambda s, box: brand_lockup(b, fitted_word(b))(s, inner(box, 0.08, 0.22)))
+    elif surface == "mo":
+        centered(name, 600, 200, "#E8E5DE", lambda s, box: brand_lockup(b, fitted_word(b), text_h=0.8)(s, inner(box, 0.06, 0.1)))
+    elif surface == "mu":
+        mural_panel(name, b) if not b.get("tagline") else mural_ghost(name, b)
+    else:
+        raise ValueError(f"{name}: no roster layout for {surface}")
+
+
+def _centered_box(box, aspect):
+    """The largest box of this width / height centered in box."""
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    if w / h > aspect:
+        cw = h * aspect
+        return (x0 + (w - cw) / 2, y0, x0 + (w + cw) / 2, y1)
+    ch = w / aspect
+    return (x0, y0 + (h - ch) / 2, x1, y0 + (h + ch) / 2)
+
+
+def mural_panel(name, b):
+    """A bright painted panel on a loft wall: the wordmark (and its underline or mark above it) on the brand's field."""
+    s = Sign(name, 1000, 1000, None)
+    with s.paint(b["field"], "panel") as p:
+        p.rect((60, 60, 940, 940), r=40)
+    m = roster_mark(b)
+    if m:
+        m[0](s, _centered_box((200, 130, 800, 500), m[1]))
+        s.text(b["short"], PIXEL, (110, 560, 890, 860), b["ink"], align="center")
+    else:
+        brand_lockup(b, b["short"], text_h=0.7)(s, (110, 200, 890, 800))
+    s.finish()
+
+
+def mural_ghost(name, b):
+    """A faded painted ghost sign, like the Levi's one: a thin border, the name, a rule, and the tagline."""
+    s = Sign(name, 1000, 700, None)
+    cream = b["ink"]
+    with s.paint(cream, "border") as p:
+        p.rect((60, 44, 940, 656), r=10)
+        p.rect((74, 58, 926, 642), 0, r=6)
+    s.text(b["word"], PIXEL, (120, 110, 880, 430), cream, align="center")
+    with s.paint(cream, "rule") as p:
+        p.rect((240, 470, 760, 480))
+    s.text(b["tagline"], PIXEL, (140, 515, 860, 600), cream, align="center")
+    s.weather(0.55, 0.80)
+    s.finish()
+
+
 # ---------------------------------------------------------------- contact sheet
 
 def contact_sheet():
@@ -747,58 +1050,95 @@ def contact_sheet():
 
 # ---------------------------------------------------------------- main
 
+# The first brands' signs, drawn by hand and approved on 2026-09-12 (brands.py "custom" names them). Every other sign
+# file the catalog names is drawn from its brand's roster entry by draw_roster().
+CUSTOM = {
+    # bulletins: brand mark and wordmark only, no tagline (see billboard() above)
+    "bb-elevenlabs": lambda: billboard("bb-elevenlabs", "white", logo_elevenlabs("black")),
+    "bb-persona": lambda: billboard("bb-persona", "black", logo_persona("#7379FD", "white")),
+    "bb-nordvpn": lambda: billboard("bb-nordvpn", "#4687FF", logo_nord("white", "#4687FF", "white")),
+    "bb-capital-one": lambda: billboard("bb-capital-one", "#004879",
+                                        lambda s, box, align="center": capital_one_lockup(s, box, align=align)),
+    "bb-lovable": bb_lovable,
+    "bb-anthropic": bb_anthropic,
+    "bb-openai": lambda: billboard("bb-openai", "black", wordmark("OpenAI", HELV_BOLD, "white", text_h=0.6)),
+    # bus shelters: brand mark stacked over its wordmark, no tagline
+    "sh-persona": lambda: shelter("sh-persona", "white", lambda s, b: mark_persona(s, b, "#7379FD"), PERSONA_ASPECT,
+                                  "persona", "black"),
+    "sh-nordvpn": lambda: shelter("sh-nordvpn", "#4687FF", lambda s, b: mark_nord(s, b, "white", "#4687FF"), 1.0,
+                                  "NordVPN", "white"),
+    "sh-elevenlabs": lambda: shelter("sh-elevenlabs", "white", lambda s, b: mark_elevenlabs(s, b, "black"),
+                                     ELEVEN_ASPECT, "ElevenLabs", "black"),
+    # storefront fascias and blades
+    "fa-capital-one-cafe": lambda: fascia("fa-capital-one-cafe", "#004879", fa_capital_one),
+    "fa-jenis": lambda: fascia("fa-jenis", "#2F2F30", fa_jenis),
+    "fa-wells-fargo": lambda: fascia("fa-wells-fargo", "#D71E28", fa_wells),
+    "fs-capital-one-cafe": lambda: fascia("fs-capital-one-cafe", "#004879", fs_capital_one, aspect=4),
+    "fs-jenis": lambda: fascia("fs-jenis", "#2F2F30", fs_jenis, aspect=4),
+    "fs-wells-fargo": lambda: fascia("fs-wells-fargo", "#D71E28", fs_wells, aspect=4),
+    "bl-capital-one-cafe": bl_capital_one,
+    "bl-jenis": bl_jenis,
+    "bl-wells-fargo": bl_wells,
+    # landmark signs
+    "fe-port-of-sf": fe_port_of_sf,
+    # lobby logo walls, monuments, and Google's name band in its four colors
+    "lw-uber": lambda: centered("lw-uber", 800, 400, "white",
+                                lambda s, b: s.text("Uber", HELV_BOLD, inner(b, 0.24, 0.25), "black", align="center")),
+    "lw-google": lambda: centered("lw-google", 800, 400, "white", lambda s, b: google_word(s, inner(b, 0.16, 0.22))),
+    "lw-meta": lambda: centered("lw-meta", 800, 400, "white", lambda s, b: logo_meta()(s, inner(b, 0.1, 0.3))),
+    "lw-openai": lambda: centered("lw-openai", 800, 400, "black",
+                                  lambda s, b: s.text("OpenAI", HELV_BOLD, inner(b, 0.2, 0.3), "white", align="center")),
+    "mo-google": lambda: centered("mo-google", 600, 200, "#E8E5DE", lambda s, b: google_word(s, inner(b, 0.12, 0.1))),
+    "mo-meta": lambda: centered("mo-meta", 600, 200, "#E8E5DE", lambda s, b: logo_meta()(s, inner(b, 0.06, 0.18))),
+    "mo-goldman-sachs": lambda: centered("mo-goldman-sachs", 600, 200, "#7399C6", mo_goldman),
+    "nb-google-2": lambda: fascia("nb-google-2", "white", lambda s, safe: google_word(s, safe), aspect=6),
+    # murals
+    "mu-mlh": mu_mlh,
+    "mu-notability": mu_notability,
+    "mu-bobatalks": mu_bobatalks,
+    "mu-levis-ghost": mu_levis_ghost,
+}
+
+
+def roster_owner(stem, brands):
+    """(brand, surface, span) for a sign file stem such as "fa-schwab", "nb-airbnb-1", or "mu-levis-ghost"."""
+    surface, rest = stem.split("-", 1)
+    span = None
+    if surface == "nb":
+        rest, span = rest.rsplit("-", 1)
+        span = int(span)
+    by_art = {}
+    for b in brands:
+        by_art[b["id"]] = b
+        for p in b["places"]:
+            if p.get("art"):
+                by_art[p["art"]] = b
+    if rest not in by_art:
+        raise ValueError(f"{stem}: no roster brand for {rest!r}")
+    return by_art[rest], surface, span
+
+
 def main():
+    import catalog
+    from brands import BRANDS
+
     OUT.mkdir(exist_ok=True)
     for old in OUT.glob("*.png"):
         old.unlink()
+    wanted = [n.removesuffix(".png") for n in catalog.SIGN_FILES]
+    claimed = {c for b in BRANDS for c in b["custom"]} | {"fe-port-of-sf"}
+    if claimed != set(CUSTOM):
+        raise ValueError(f"brands.py custom and make_ads.CUSTOM disagree: {sorted(claimed ^ set(CUSTOM))}")
+    for stem in wanted:
+        if stem in CUSTOM:
+            CUSTOM[stem]()
+        else:
+            draw_roster(stem, *roster_owner(stem, BRANDS))
+    unused = set(CUSTOM) - set(wanted)
+    if unused:
+        raise ValueError(f"hand-drawn signs no catalog entry uses: {sorted(unused)}")
 
-    # bulletins: brand mark and wordmark only, no tagline (see billboard() above)
-    billboard("bb-elevenlabs", "white", logo_elevenlabs("black"))
-    billboard("bb-persona", "black", logo_persona("#7379FD", "white"))
-    billboard("bb-nordvpn", "#4687FF", logo_nord("white", "#4687FF", "white"))
-    billboard("bb-capital-one", "#004879", lambda s, box, align="center": capital_one_lockup(s, box, align=align))
-    bb_lovable()
-    bb_anthropic()
-    billboard("bb-openai", "black", wordmark("OpenAI", HELV_BOLD, "white", text_h=0.6))
-
-    # bus shelters: brand mark stacked over its wordmark, no tagline
-    shelter("sh-persona", "white", lambda s, b: mark_persona(s, b, "#7379FD"), PERSONA_ASPECT, "persona", "black")
-    shelter("sh-nordvpn", "#4687FF", lambda s, b: mark_nord(s, b, "white", "#4687FF"), 1.0, "NordVPN", "white")
-    shelter("sh-elevenlabs", "white", lambda s, b: mark_elevenlabs(s, b, "black"), ELEVEN_ASPECT, "ElevenLabs", "black")
-
-    # storefront fascias and blades
-    fascia("fa-capital-one-cafe", "#004879", fa_capital_one)
-    fascia("fa-jenis", "#2F2F30", fa_jenis)
-    fascia("fa-wells-fargo", "#D71E28", fa_wells)
-    fascia("fs-capital-one-cafe", "#004879", fs_capital_one, aspect=4)
-    fascia("fs-jenis", "#2F2F30", fs_jenis, aspect=4)
-    fascia("fs-wells-fargo", "#D71E28", fs_wells, aspect=4)
-    bl_capital_one()
-    bl_jenis()
-    bl_wells()
-
-    # landmark signs
-    fe_port_of_sf()
-
-    # lobby logo walls
-    centered("lw-uber", 800, 400, "white",
-             lambda s, b: s.text("Uber", HELV_BOLD, inner(b, 0.24, 0.25), "black", align="center"))
-    centered("lw-google", 800, 400, "white", lambda s, b: google_word(s, inner(b, 0.16, 0.22)))
-    centered("lw-meta", 800, 400, "white", lambda s, b: logo_meta()(s, inner(b, 0.1, 0.3)))
-    centered("lw-openai", 800, 400, "black",
-             lambda s, b: s.text("OpenAI", HELV_BOLD, inner(b, 0.2, 0.3), "white", align="center"))
-
-    # monuments
-    centered("mo-google", 600, 200, "#E8E5DE", lambda s, b: google_word(s, inner(b, 0.12, 0.1)))
-    centered("mo-meta", 600, 200, "#E8E5DE", lambda s, b: logo_meta()(s, inner(b, 0.06, 0.18)))
-    centered("mo-goldman", 600, 200, "#7399C6", mo_goldman)
-
-    # murals
-    mu_mlh()
-    mu_notability()
-    mu_bobatalks()
-    mu_levis_ghost()
-
+    (OUT / "_caps.json").write_text(json.dumps(Sign.caps_by_name, indent=1, sort_keys=True))
     contact_sheet()
 
 

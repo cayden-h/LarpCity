@@ -72,7 +72,7 @@ Rain: no change to the sprites; the check is that wet-weather tint keeps the con
 The earlier rule (SF bans rooftop signs downtown, so towers carry no brand names) stays as written: no brand ever goes on a tower's top or crown.
 Downtown brands live at street level and at the second floor (name bands, lobbies, storefronts, monuments), and on wall boards on low buildings; big boards stay in SoMa and on the freeway.
 The skyline still reads as branded because the name bands are big and lit, and downtown's low buildings carry wall boards.
-Breaking the rule (for example lit crown letters on two or three towers for HackRice sponsors) is an open question for you; the spec does not do it unless you say so.
+Decided 2026-09-13: the rule stays; no crown letters, not even for sponsors.
 
 ## Palette (flag)
 

@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { facingOf, findHome, findLandmark, pickSprite, placeShelters, spriteOrigin, type SpriteEntry, type SpriteManifest } from "../src/engine/sprite-pick.ts";
+import { facingOf, findHome, findLandmark, pickSprite, placeShelters, placeVBoards, spriteOrigin, type SpriteEntry, type SpriteManifest } from "../src/engine/sprite-pick.ts";
 
 const entry = (id: string, w: number, d: number, floors: number, zones: string[], unique = false): SpriteEntry => ({
   id, w, d, floors, zones, unique, brand: unique ? id : null, ax: 72, ay: 400, topZ: 330, day: `${id}.png`, night: `${id}.night.png`,
@@ -90,6 +90,20 @@ test("no shelter sprites, no shelters; none outside city streets", () => {
   let a = 1;
   const rng = () => ((a = (a * 16807) % 2147483647) / 2147483647);
   assert.deepEqual(placeShelters(manifest, { w: 20, h: 12, at: street, zone: () => "industrial", blocked: () => false }, rng), []);
+});
+
+test("V boards stand once each beside the highway, nearest the target first, spread apart", () => {
+  const vb = (id: string) => ({ ...entry(id, 1, 1, 1, ["midtown"]), kind: "prop" as const, prop: "vboard" as const });
+  const m = { ...manifest, sprites: [...manifest.sprites, vb("v-a"), vb("v-b")] };
+  const highway = Array.from({ length: 30 }, (_, x) => ({ x, y: 5 }));
+  let a = 3;
+  const rng = () => ((a = (a * 16807) % 2147483647) / 2147483647);
+  const site = { w: 30, h: 12, open: (_x: number, y: number) => y !== 5, highway, target: { x: 25, y: 1 } };
+  const placed = placeVBoards(m, site, rng);
+  assert.deepEqual(placed.map((p) => p.entry.id), ["v-a", "v-b"]);
+  for (const p of placed) assert.ok(Math.abs(p.y - 5) === 1 && p.x >= 18, `${p.x},${p.y}`);
+  assert.ok(Math.hypot(placed[0].x - placed[1].x, placed[0].y - placed[1].y) >= 6);
+  assert.deepEqual(placeVBoards(manifest, site, rng), []);
 });
 
 test("generic sprites respect the zone's height and the footprint", () => {

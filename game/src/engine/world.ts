@@ -154,6 +154,7 @@ export function expandWorld(source: CityDef, seed: number): World {
     core: { x: Mx, y: My, w: cw, h: ch },
     landmarks,
     zones,
+    areas: source.areas?.map((a) => ({ ...a, x: a.x + Mx, y: a.y + My })),
     traffic: Math.round(source.traffic * 2.4),
   };
   return { city, center: { x: cc, y: cc }, region: { cx: cc, cy: cc, ru: RU, rv: RV } };

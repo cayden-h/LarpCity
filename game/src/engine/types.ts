@@ -148,6 +148,14 @@ export interface LandmarkInstance {
 /** A landmark builds its own display objects and returns an optional tick. */
 export type LandmarkFactory = (place: LandmarkPlacement, ctx: LandmarkContext) => LandmarkInstance;
 
+/** A named circle of tiles, such as SoMa or the Embarcadero. */
+export interface Area {
+  id: string;
+  x: number;
+  y: number;
+  r: number;
+}
+
 export interface CityDef {
   id: string;
   name: string;
@@ -161,6 +169,8 @@ export interface CityDef {
   /** The hand-made core's rectangle in world tiles; set by the world builder. */
   core?: { x: number; y: number; w: number; h: number };
   zones: Zone[];
+  /** Named neighborhoods a branded building prefers (art/brands.py "area"); world expansion translates them. */
+  areas?: Area[];
   palette: CityPalette;
   backdrop: BackdropDef;
   /** 12 months, January first. */

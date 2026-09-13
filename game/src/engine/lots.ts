@@ -56,7 +56,7 @@ function legacyLots(grid: CityGrid, city: CityDef, seed: number, manifest: Sprit
   const rng = rngFor(seed, city.id, "populate");
   const used = new Set<string>();
   const taken = new Set<string>();
-  const plans: LotPlan[] = [];
+  const plans: LotPlan[] = manifest ? brandLots(grid, city, seed, manifest, taken, used) : [];
   for (let y = 0; y < grid.h; y++) for (let x = 0; x < grid.w; x++) {
     if (grid.at(x, y) !== "b" || taken.has(`${x},${y}`)) continue;
     const zone = zoneAt(city, x, y);
@@ -137,6 +137,46 @@ export function planLots(grid: CityGrid, city: CityDef, seed: number, manifest: 
       cap, maxFloors: Math.max(spec.floors + 3, TALLEST_HOUSE), heroSpot: nearZoneCore(city, "residential", x + w / 2, y + d / 2) }, used, rng) : null;
     for (let j = y; j < y + d; j++) for (let i = x; i < x + w; i++) taken.add(`${i},${j}`);
     out.push({ x, y, w, d, spec, entry, tint: original.tint });
+  }
+  return out;
+}
+
+/**
+ * Every branded building first, in catalog order, each on the best free lot
+ * of its footprint in one of its zones under the sightline cap: inside its
+ * area (CityDef.areas), else in its zone's core, else anywhere in the zone,
+ * ties broken by the seeded RNG. So every brand appears whenever its
+ * footprint fits somewhere in its zones, however the generic lots are cut.
+ */
+function brandLots(grid: CityGrid, city: CityDef, seed: number, manifest: SpriteManifest, taken: Set<string>, used: Set<string>): LotPlan[] {
+  const rng = rngFor(seed, city.id, "brands");
+  const out: LotPlan[] = [];
+  const free = (x: number, y: number, w: number, d: number) => {
+    for (let j = y; j < y + d; j++) for (let i = x; i < x + w; i++)
+      if (grid.at(i, j) !== "b" || taken.has(`${i},${j}`)) return false;
+    return true;
+  };
+  for (const e of manifest.sprites) {
+    if (!e.unique || (e.kind && e.kind !== "building")) continue;
+    const area = e.area ? city.areas?.find((a) => a.id === e.area) : undefined;
+    let best: { x: number; y: number; zone: ZoneKind } | null = null;
+    let bestKey = Infinity;
+    for (let y = 0; y + e.d <= grid.h; y++) for (let x = 0; x + e.w <= grid.w; x++) {
+      if (!free(x, y, e.w, e.d)) continue;
+      const zone = zoneAt(city, x, y);
+      if (!e.zones.includes(zone) || e.floors > sightlineCap(city, grid, x, y, e.w, e.d)) continue;
+      const cx = x + e.w / 2, cy = y + e.d / 2;
+      const tier = area && Math.hypot(cx - area.x, cy - area.y) <= area.r ? 0 : nearZoneCore(city, zone, cx, cy) ? 1 : 2;
+      const key = tier + rng() * 0.999;
+      if (key < bestKey) [bestKey, best] = [key, { x, y, zone }];
+    }
+    if (!best) continue;
+    const { x, y, zone } = best;
+    for (let j = y; j < y + e.d; j++) for (let i = x; i < x + e.w; i++) taken.add(`${i},${j}`);
+    used.add(e.id);
+    const spec = styleFor(zone, city, rng, x, y, e.w, e.d, seed);
+    spec.floors = e.floors;
+    out.push({ x, y, w: e.w, d: e.d, spec, entry: e, tint: pick(rngFor(seed, city.id, `walls:${x},${y}`), city.palette.walls) });
   }
   return out;
 }
