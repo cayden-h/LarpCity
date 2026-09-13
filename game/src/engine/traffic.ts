@@ -7,7 +7,7 @@ import { Container, Graphics, GraphicsContext } from "pixi.js";
 import { shade } from "./color";
 import type { CityGrid } from "./grid";
 import { WATER_Z } from "./ground";
-import { iso } from "./iso";
+import { depthOf, iso } from "./iso";
 import type { Pose } from "./roads/geometry";
 import type { RoadNet } from "./roads/graph";
 import { elevation, facingOf, lerpPose } from "./roads/pose";
@@ -155,7 +155,9 @@ export class Traffic {
       4;
     const p = iso(pose.x, pose.y, z);
     v.view.position.set(p.x, p.y);
-    v.view.zIndex = (pose.x + pose.y) * 100 + 40 + (z > 0 ? 45 : 0);
+    // A highway car under an overpass sorts below the deck (drawn at its tile's depth + 60).
+    const tx = Math.floor(pose.x), ty = Math.floor(pose.y);
+    v.view.zIndex = underpass && this.grid.at(tx, ty) === "O" ? depthOf(tx, ty, 50) : (pose.x + pose.y) * 100 + 40 + (z > 0 ? 45 : 0);
     const facing = facingOf(pose.h);
     if (facing !== v.facing) {
       v.facing = facing;
