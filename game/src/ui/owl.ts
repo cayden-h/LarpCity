@@ -86,20 +86,23 @@ function loadOwl(): Promise<Manifest> {
   return manifest;
 }
 
-/** Each strip's image, decoded once and shared by every owl, so no owl shows a strip before it has loaded. */
-const decoding = new Map<string, Promise<void>>();
-const decoded = new Set<string>();
-function decodeStrip(file: string): Promise<void> {
-  let p = decoding.get(file);
+/**
+ * Each strip's image, loaded once and shared by every owl, so no owl shows a strip before it has
+ * arrived. It waits for `load`, not `decode()`: Chrome holds a decode back while the tab is hidden,
+ * which would keep Sammy invisible in a game opened in a background tab.
+ */
+const loading = new Map<string, Promise<void>>();
+const loaded = new Set<string>();
+function loadStrip(file: string): Promise<void> {
+  let p = loading.get(file);
   if (!p) {
     const img = new Image();
-    img.src = BASE + file;
     // A strip that fails to load still counts as done, so the owl shows (as it would have) rather than hiding forever.
-    p = img.decode().then(
-      () => void decoded.add(file),
-      () => void decoded.add(file),
-    );
-    decoding.set(file, p);
+    p = new Promise<void>((done) => {
+      img.onload = img.onerror = () => done();
+      img.src = BASE + file;
+    }).then(() => void loaded.add(file));
+    loading.set(file, p);
   }
   return p;
 }
@@ -108,7 +111,7 @@ function decodeStrip(file: string): Promise<void> {
 export function preloadOwl(anims: OwlAnim[]): void {
   void loadOwl()
     .then((m) => {
-      for (const a of anims) void decodeStrip(m.animations[a].file);
+      for (const a of anims) void loadStrip(m.animations[a].file);
     })
     .catch(() => undefined);
 }
@@ -323,9 +326,9 @@ export class Owl {
     if (!m) return;
     const strip = m.animations[anim];
     // A strip still downloading would leave the box empty: keep the last frame (or stay hidden) until it has loaded.
-    if (!decoded.has(strip.file)) {
+    if (!loaded.has(strip.file)) {
       this.wanted = { anim, frame };
-      void decodeStrip(strip.file).then(() => {
+      void loadStrip(strip.file).then(() => {
         const w = this.wanted;
         if (w?.anim !== anim) return;
         this.wanted = null;
