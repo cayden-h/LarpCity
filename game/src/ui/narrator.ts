@@ -252,12 +252,12 @@ export class Narrator {
   }
 
   /** Hands Sammy to a tour: the line in progress stops, and cues wait until endTour(). */
-  beginTour(handlers: TourHandlers): void {
+  beginTour(handlers: TourHandlers, o: { owl?: number } = {}): void {
     this.tour = handlers;
     this.epoch++;
     this.stopVoice();
     document.documentElement.classList.remove("nr-on");
-    this.owl.setSize(innerWidth < 600 ? TOUR_OWL.narrow : TOUR_OWL.wide);
+    this.owl.setSize(o.owl ?? (innerWidth < 600 ? TOUR_OWL.narrow : TOUR_OWL.wide));
     this.el.classList.add("tour");
     // The same check the owl's motions use, so a reduced-motion player's Sammy steps rather than glides.
     this.el.classList.toggle("reduced", matchMedia("(prefers-reduced-motion: reduce)").matches);

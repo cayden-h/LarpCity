@@ -36,6 +36,7 @@ import { Hud } from "./ui/hud";
 import { mountHappinessMeter } from "./ui/happiness";
 import { runIntake } from "./ui/intake";
 import { Narrator } from "./ui/narrator";
+import { runTitle } from "./ui/title";
 import { TourGuide } from "./ui/tour";
 import type { TourRecord } from "./narration/tour";
 import { NpcCard } from "./ui/npccard";
@@ -161,6 +162,8 @@ if (params.has("intake") || params.has("demo") || (saved && params.has("seed")))
 // It is restored from the save, or built from the profile; with no profile, the owl's voice
 // interview (or the typed form) asks first and the answers become the profile.
 let player: PlayerLife;
+// The owl narrates the big moments from here on (narration/lines.ts); a new life's title screen borrows him first.
+const narrator = new Narrator();
 if (saved && restored) {
   clock.jumpTo(saved.day);
   player = restored.life;
@@ -169,6 +172,8 @@ if (saved && restored) {
 } else {
   let profile = path === "fromProfile" ? (me?.profile ?? null) : null;
   if (!profile) {
+    // The title screen and Sammy's Learn walkthrough, always over San Francisco.
+    await runTitle({ backdrop: `${import.meta.env.BASE_URL}cities/san-francisco/plates/day.jpg`, narrator });
     const r = await runIntake({ backdrop: `${import.meta.env.BASE_URL}cities/${state.cityId}/plates/day.jpg`, state: state.abbr });
     const p = profileFromIntake(r.answers, r.source, state.abbr);
     profile = { ...p, displayName: null };
@@ -180,9 +185,6 @@ if (saved && restored) {
     ? lifeFromIntake(answers, { place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO })
     : new PlayerLife({ place: state, day: clock.day, market, holdings: STARTER_PORTFOLIO, goals: DEFAULT_GOALS });
 }
-
-// The owl narrates the big moments from here on (narration/lines.ts).
-const narrator = new Narrator();
 
 // The named NPCs' money lives on the same market (src/data/npcs.ts), and the
 // bank mirror posts the player's and theirs to Capital One Nessie through the
