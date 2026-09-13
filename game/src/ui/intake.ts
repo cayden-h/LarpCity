@@ -12,7 +12,7 @@ import type { Goal } from "../sim/skip/types";
 import { BEGINNER_CARDS } from "../data/cards-beginner";
 import { cardArt } from "../debt-demo/shop.ts";
 import { buildGoals } from "./goal-picker";
-import { AVATAR_EMOJI } from "./hud";
+import { avatarSpriteUrl } from "./hud";
 import { NARRATOR_NAME } from "../narration/lines";
 import { Owl, preloadOwl } from "./owl";
 import "./intake.css";
@@ -169,7 +169,7 @@ class Setup {
               .map(
                 (a) => `
               <button type="button" class="btn in-big in-avatar-card${pick(this.avatar === a)}" data-avatar="${a}" ${pressed(this.avatar === a)}>
-                <span class="in-avatar-icon" aria-hidden="true">${AVATAR_EMOJI[a]}</span>
+                <img class="in-avatar-icon" src="${avatarSpriteUrl(a, 1)}" alt="" />
                 <span>${a === "male" ? "Man" : "Woman"}</span>
               </button>`,
               )

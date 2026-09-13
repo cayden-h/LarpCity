@@ -266,7 +266,7 @@ clock.onDay((day) => {
   // The first crash offers the stocks tour, if the player never took it (it waits for the decision).
   if (events.some((e) => e.type === "bear_market")) guide.trigger("crash");
   syncHomeTier();
-  hud.setPlayer(player.name, player.age, player.avatar);
+  hud.setPlayer(player.name, player.age, player.avatar, player.avatarFace);
   happiness.update(day);
   town.onDay(day);
   void bank.tick(day);
@@ -372,7 +372,7 @@ const hud = new Hud(document.getElementById("hud")!, {
   chooseHome: () => showHomePicker(),
   focusHome: () => scene?.focusHome(),
 });
-hud.setPlayer(player.name, player.age, player.avatar);
+hud.setPlayer(player.name, player.age, player.avatar, player.avatarFace);
 
 const happiness = mountHappinessMeter(document.getElementById("happiness")!, { life: player });
 

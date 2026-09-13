@@ -86,7 +86,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .id-card { left: 116px; bottom: calc(36px + var(--home-h, 114px)); min-width: 0; width: 220px; padding: 8px 10px; }
 .id-card .label { line-height: 1; margin: -2px 0 6px; font-size: 14px; }
 .id-card-row { display: flex; align-items: center; gap: 10px; }
-.id-card-avatar { font-size: 30px; line-height: 1; }
+.id-card-avatar { width: 36px; height: 36px; image-rendering: pixelated; flex: none; }
 .id-card-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .id-card-name { color: var(--ink); font-size: 17px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .id-card-age { color: var(--ink); font-size: 13px; opacity: 0.85; }
