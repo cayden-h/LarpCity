@@ -110,6 +110,33 @@ test("statement for an entity that was never opened is a 404", async () => {
   await assert.rejects(mirror.statement(SESSION_A, "npc-maya"), (e: MirrorError) => e.status === 404);
 });
 
+test("concurrent first opens for different entities share one customer load and don't clobber each other", async () => {
+  const { fake, mirror } = setup();
+  await Promise.all([
+    mirror.open(SESSION_A, "player", { run: "r1", opening: OPENING }),
+    mirror.open(SESSION_A, "npc-maya", { run: "r1", opening: OPENING }),
+    mirror.open(SESSION_A, "npc-leo", { run: "r1", opening: OPENING }),
+  ]);
+  assert.equal(fake.customers.length, 3, "each entity got its own customer on the first open");
+
+  // A same-process reopen must find all three by name, not recreate any of them.
+  await Promise.all([
+    mirror.open(SESSION_A, "player", { run: "r2", opening: OPENING }),
+    mirror.open(SESSION_A, "npc-maya", { run: "r2", opening: OPENING }),
+    mirror.open(SESSION_A, "npc-leo", { run: "r2", opening: OPENING }),
+  ]);
+  assert.equal(fake.customers.length, 3, "reopening the same entities never creates duplicate customers");
+});
+
+test("two sessions opening the same NPC for the first time at once still create only one customer", async () => {
+  const { fake, mirror } = setup();
+  await Promise.all([
+    mirror.open(SESSION_A, "npc-maya", { run: "r1", opening: OPENING }),
+    mirror.open(SESSION_B, "npc-maya", { run: "r1", opening: OPENING }),
+  ]);
+  assert.equal(fake.customers.length, 1, "one Maya customer, not two");
+});
+
 test("request bodies are validated before anything reaches Nessie", () => {
   assert.ok(openBody.safeParse({ run: "20260912-abc", name: "Maya", opening: OPENING }).success);
   assert.ok(!openBody.safeParse({ run: "has space", opening: OPENING }).success);

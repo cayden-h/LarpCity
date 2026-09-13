@@ -97,7 +97,8 @@ export class MirrorService {
   private readonly tag: string;
   private readonly live = new Map<string, Live>();
   private readonly chains = new Map<string, Promise<unknown>>();
-  private customers: Map<string, Customer> | null = null;
+  private customers: Promise<Map<string, Customer>> | null = null;
+  private readonly customerCreates = new Map<string, Promise<Customer>>();
 
   constructor(nessie: NessieLike, tag: string) {
     this.nessie = nessie;
@@ -208,23 +209,44 @@ export class MirrorService {
   }
 
   private async customer(session: string, entity: string, name: string | undefined): Promise<Customer> {
-    const map = await this.customerMap();
     const last = this.customerName(session, entity);
+    const map = await this.customerMap();
     const existing = map.get(last);
     if (existing) return existing;
-    if (entity !== "player") {
-      const npcs = [...map.keys()].filter((k) => k.startsWith(`${this.tag}-npc-`)).length;
-      if (npcs >= MAX_NPC_CUSTOMERS) throw new MirrorError(429, `At most ${MAX_NPC_CUSTOMERS} NPC customers (Nessie customers can't be deleted).`);
+    // Two sessions can both miss the map for the same (usually NPC) name at once; serialize the
+    // find-or-create per name so only one of them creates it and the other awaits that creation.
+    const pending = this.customerCreates.get(last);
+    if (pending) return pending;
+    const create = (async () => {
+      const freshMap = await this.customerMap();
+      const already = freshMap.get(last);
+      if (already) return already;
+      if (entity !== "player") {
+        const npcs = [...freshMap.keys()].filter((k) => k.startsWith(`${this.tag}-npc-`)).length;
+        if (npcs >= MAX_NPC_CUSTOMERS) throw new MirrorError(429, `At most ${MAX_NPC_CUSTOMERS} NPC customers (Nessie customers can't be deleted).`);
+      }
+      const first = name ?? (entity === "player" ? "Player" : entity.slice(4, 5).toUpperCase() + entity.slice(5));
+      const created = await this.nessie.createCustomer({ first_name: first, last_name: last, address: HOUSTON });
+      freshMap.set(last, created);
+      return created;
+    })();
+    this.customerCreates.set(last, create);
+    try {
+      return await create;
+    } finally {
+      this.customerCreates.delete(last);
     }
-    const first = name ?? (entity === "player" ? "Player" : entity.slice(4, 5).toUpperCase() + entity.slice(5));
-    const created = await this.nessie.createCustomer({ first_name: first, last_name: last, address: HOUSTON });
-    map.set(last, created);
-    return created;
   }
 
-  private async customerMap(): Promise<Map<string, Customer>> {
-    if (!this.customers) this.customers = new Map((await this.nessie.listCustomers()).map((c) => [c.last_name, c]));
-    return this.customers;
+  /** Concurrent first opens share one load of Nessie's customer list; a failed load is retried. */
+  private customerMap(): Promise<Map<string, Customer>> {
+    return (this.customers ??= this.nessie.listCustomers().then(
+      (list) => new Map(list.map((c) => [c.last_name, c])),
+      (err) => {
+        this.customers = null;
+        throw err;
+      },
+    ));
   }
 
   /** NPC customers are shared by every session; a player's is its session's own. */
