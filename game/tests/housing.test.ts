@@ -529,3 +529,28 @@ for (const extra of [0, 500]) test(`preview PMI cancels at mortgage 80 percent L
   assert.equal(housingCost(cancelMonth + 2), 315.88);
   assert.deepEqual(life.toSave(), before);
 });
+
+test('a 22-year-old SF starter can afford the studio and gets clear reasons for every locked purchase', async () => {
+  const { STATES } = await import('../src/data/states.ts');
+  const ca = STATES.find(s => s.abbr === 'CA')!;
+  const SF: Place = { abbr: 'CA', name: ca.name, rpp: ca.rpp };
+  const { creditCard } = await import('../src/sim/debt/factory.ts');
+  const salary = 45_000;
+  const book = newBook({ debts: [
+    creditCard({ id: 'card', name: 'Card', balance: 25_000, limit: 30_000, apr: 0.24, day: 0 }),
+    installment({ id: 'car', kind: 'auto', name: 'Car loan', balance: 24_000, apr: 0.09, months: 60, day: 0, payment: 500 }),
+  ], agi: salary, monthlyTakeHome: salary / 15, day: 0 });
+  book.profile.score = 600;
+  const life = new PlayerLife({ place: SF, day: 0, book, grossAnnual: salary, market: new MarketPath(3, START), cashRate: () => 0.04,
+    accounts: defaultAccounts(0).map(a => ({ ...a, apy: 0, balance: a.id === 'savings' ? 4_000 : 0 })) });
+  const studio = life.quoteHome(1, 0);
+  assert.ok(studio.ok, studio.reasons.join(' '));
+  assert.ok(studio.cashNeeded <= 4_000);
+  for (const tier of [2, 3, 4, 5]) {
+    const q = life.quoteHome(tier, 0);
+    assert.equal(q.ok, false);
+    assert.ok(q.reasons.some(r => r.includes('620+') && r.includes('600')), q.reasons.join(' '));
+    assert.ok(q.reasons.some(r => r.includes('debt-to-income') && r.includes('43%')), q.reasons.join(' '));
+    assert.ok(q.reasons.some(r => r.includes('needs $')), q.reasons.join(' '));
+  }
+});
