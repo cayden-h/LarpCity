@@ -1,8 +1,8 @@
 {
  "voice": "narrator",
  "lines": {
-  "So this is Larp City. Rent is due on the first. [slow] Every first. The Narrator checked.": {
-   "file": "ec10b8809b6b2f1d.mp3",
+  "So this is Larp City. Rent is due on the first. [slow] Every first. Sammy checked.": {
+   "file": "fec0fe4ce579139f.mp3",
    "words": [
     {
      "word": "So",
@@ -10,7 +10,7 @@
     },
     {
      "word": "this",
-     "start": 0.192
+     "start": 0.128
     },
     {
      "word": "is",
@@ -22,51 +22,47 @@
     },
     {
      "word": "City.",
-     "start": 0.88
+     "start": 0.8
     },
     {
      "word": "Rent",
-     "start": 1.44
+     "start": 1.6
     },
     {
      "word": "is",
-     "start": 2.16
+     "start": 1.973
     },
     {
      "word": "due",
-     "start": 2.44
+     "start": 2.12
     },
     {
      "word": "on",
-     "start": 2.853
+     "start": 2.267
     },
     {
      "word": "the",
-     "start": 2.98
+     "start": 2.34
     },
     {
      "word": "first.",
-     "start": 3.16
+     "start": 2.493
     },
     {
      "word": "Every",
-     "start": 5.329
+     "start": 4.289
     },
     {
      "word": "first.",
-     "start": 5.56
+     "start": 4.52
     },
     {
-     "word": "The",
-     "start": 6.44
-    },
-    {
-     "word": "Narrator",
-     "start": 7.088
+     "word": "Sammy",
+     "start": 5.867
     },
     {
      "word": "checked.",
-     "start": 7.57
+     "start": 6.45
     }
    ]
   },
@@ -79,27 +75,27 @@
     },
     {
      "word": "so",
-     "start": 0.133
+     "start": 0.187
     },
     {
      "word": "the",
-     "start": 0.26
+     "start": 0.44
     },
     {
      "word": "new",
-     "start": 0.38
+     "start": 0.62
     },
     {
      "word": "arrival",
-     "start": 0.61
+     "start": 0.85
     },
     {
      "word": "moved",
-     "start": 1.027
+     "start": 1.267
     },
     {
      "word": "in,",
-     "start": 1.467
+     "start": 1.68
     },
     {
      "word": "with",
@@ -111,52 +107,52 @@
     },
     {
      "word": "plans",
-     "start": 2.76
+     "start": 2.747
     },
     {
      "word": "and",
-     "start": 3.48
+     "start": 3.38
     },
     {
      "word": "a",
-     "start": 3.88
+     "start": 3.72
     },
     {
      "word": "budget",
-     "start": 3.977
+     "start": 3.817
     },
     {
      "word": "that",
-     "start": 4.352
+     "start": 4.192
     },
     {
      "word": "was,",
-     "start": 4.56
+     "start": 4.42
     },
     {
      "word": "honestly,",
-     "start": 5.378
+     "start": 5.253
     },
     {
      "word": "more",
-     "start": 6.608
+     "start": 5.904
     },
     {
      "word": "of",
-     "start": 6.853
+     "start": 6.533
     },
     {
      "word": "a",
-     "start": 7.12
+     "start": 6.68
     },
     {
      "word": "vibe.",
-     "start": 7.344
+     "start": 6.848
     }
    ]
   },
-  "Welcome to Larp City. The Narrator will be keeping an eye on your money. [whispers] Both eyes, actually.": {
-   "file": "15b86070796463ca.mp3",
+  "Welcome to Larp City. I'm Sammy, and I'll be keeping an eye on your money. [whispers] Both eyes, actually.": {
+   "file": "6d12926dae8a77c5.mp3",
    "words": [
     {
      "word": "Welcome",
@@ -164,72 +160,76 @@
     },
     {
      "word": "to",
-     "start": 0.267
+     "start": 0.373
     },
     {
      "word": "Larp",
-     "start": 0.36
+     "start": 0.52
     },
     {
      "word": "City.",
-     "start": 0.72
+     "start": 0.88
     },
     {
-     "word": "The",
-     "start": 1.44
+     "word": "I'm",
+     "start": 1.64
     },
     {
-     "word": "Narrator",
-     "start": 1.728
+     "word": "Sammy,",
+     "start": 2.16
     },
     {
-     "word": "will",
-     "start": 2.192
-    },
-    {
-     "word": "be",
-     "start": 2.347
-    },
-    {
-     "word": "keeping",
-     "start": 2.44
-    },
-    {
-     "word": "an",
-     "start": 2.773
-    },
-    {
-     "word": "eye",
+     "word": "and",
      "start": 2.92
     },
     {
+     "word": "I'll",
+     "start": 3.08
+    },
+    {
+     "word": "be",
+     "start": 3.173
+    },
+    {
+     "word": "keeping",
+     "start": 3.25
+    },
+    {
+     "word": "an",
+     "start": 3.627
+    },
+    {
+     "word": "eye",
+     "start": 3.74
+    },
+    {
      "word": "on",
-     "start": 3.067
+     "start": 3.947
     },
     {
      "word": "your",
-     "start": 3.168
+     "start": 4.032
     },
     {
      "word": "money.",
-     "start": 3.413
+     "start": 4.24
     },
     {
      "word": "Both",
-     "start": 4.757
+     "start": 5.792
     },
     {
      "word": "eyes,",
-     "start": 4.88
+     "start": 5.92
     },
     {
      "word": "actually.",
-     "start": 5.467
+     "start": 6.551
     }
    ]
   },
-  "A debt, paid off. Honestly? Kind of impressive. [whispers] The Narrator is telling everyone.": {
-   "file": "735383f20248a6dd.mp3",
+  "A debt, paid off. Honestly? Kind of impressive. [whispers] Sammy is telling everyone.": {
+   "file": "abd24a886cc7ab61.mp3",
    "words": [
     {
      "word": "A",
@@ -237,56 +237,52 @@
     },
     {
      "word": "debt,",
-     "start": 0.144
+     "start": 0.16
     },
     {
      "word": "paid",
-     "start": 0.608
+     "start": 0.736
     },
     {
      "word": "off.",
-     "start": 1.2
+     "start": 1.52
     },
     {
      "word": "Honestly?",
-     "start": 1.653
+     "start": 1.964
     },
     {
      "word": "Kind",
-     "start": 2.944
+     "start": 3.2
     },
     {
      "word": "of",
-     "start": 3.547
+     "start": 3.867
     },
     {
      "word": "impressive.",
-     "start": 3.658
+     "start": 3.971
     },
     {
-     "word": "The",
-     "start": 5.505
-    },
-    {
-     "word": "Narrator",
-     "start": 5.568
+     "word": "Sammy",
+     "start": 6.013
     },
     {
      "word": "is",
-     "start": 5.973
+     "start": 6.107
     },
     {
      "word": "telling",
-     "start": 6.12
+     "start": 6.21
     },
     {
      "word": "everyone.",
-     "start": 6.462
+     "start": 6.622
     }
    ]
   },
-  "Paid in full. The bank is sad about it. The Narrator is not. So yeah, good day.": {
-   "file": "089ecebdf0ca984c.mp3",
+  "Paid in full. The bank is sad about it. Sammy is not. So yeah, good day.": {
+   "file": "57a96f83ee6cb5af.mp3",
    "words": [
     {
      "word": "Paid",
@@ -294,72 +290,68 @@
     },
     {
      "word": "in",
-     "start": 0.373
+     "start": 0.267
     },
     {
      "word": "full.",
-     "start": 0.592
+     "start": 0.416
     },
     {
      "word": "The",
-     "start": 1.59
+     "start": 1.04
     },
     {
      "word": "bank",
-     "start": 1.968
+     "start": 1.568
     },
     {
      "word": "is",
-     "start": 2.213
+     "start": 1.813
     },
     {
      "word": "sad",
-     "start": 2.38
+     "start": 1.96
     },
     {
      "word": "about",
-     "start": 2.613
+     "start": 2.133
     },
     {
      "word": "it.",
-     "start": 2.933
+     "start": 2.453
     },
     {
-     "word": "The",
-     "start": 3.5
-    },
-    {
-     "word": "Narrator",
-     "start": 3.968
+     "word": "Sammy",
+     "start": 2.853
     },
     {
      "word": "is",
-     "start": 4.427
+     "start": 3.573
     },
     {
      "word": "not.",
-     "start": 4.58
+     "start": 3.76
     },
     {
      "word": "So",
-     "start": 5.36
+     "start": 4.4
     },
     {
      "word": "yeah,",
-     "start": 5.648
+     "start": 5.088
     },
     {
      "word": "good",
-     "start": 6.272
+     "start": 5.536
     },
     {
      "word": "day.",
-     "start": 6.46
+     "start": 6.32
     }
    ]
   },
-  "One less debt. [laughs] The player did a little dance. The Narrator pretended not to see it.": {
-   "file": "e72bfa4b3da53e58.mp3",
+  "One less debt. [laughs] The player did a little dance. Sammy pretended not to see it.": {
+   "file": "db89fcce5b88b795.mp3",
    "words": [
     {
      "word": "One",
@@ -367,63 +359,59 @@
     },
     {
      "word": "less",
-     "start": 0.128
+     "start": 0.224
     },
     {
      "word": "debt.",
-     "start": 0.384
+     "start": 0.56
     },
     {
      "word": "The",
-     "start": 1.74
+     "start": 2.22
     },
     {
      "word": "player",
-     "start": 2.206
+     "start": 2.914
     },
     {
      "word": "did",
-     "start": 2.52
+     "start": 3.16
     },
     {
      "word": "a",
-     "start": 2.68
+     "start": 3.32
     },
     {
      "word": "little",
-     "start": 2.743
+     "start": 3.394
     },
     {
      "word": "dance.",
-     "start": 2.987
+     "start": 3.707
     },
     {
-     "word": "The",
-     "start": 3.86
-    },
-    {
-     "word": "Narrator",
-     "start": 4.432
+     "word": "Sammy",
+     "start": 4.893
     },
     {
      "word": "pretended",
-     "start": 4.76
+     "start": 5.408
     },
     {
      "word": "not",
-     "start": 5.18
+     "start": 5.88
     },
     {
      "word": "to",
-     "start": 5.413
+     "start": 6.027
     },
     {
      "word": "see",
-     "start": 5.56
+     "start": 6.14
     },
     {
      "word": "it.",
-     "start": 5.733
+     "start": 6.4
     }
    ]
   },
@@ -432,75 +420,75 @@
    "words": [
     {
      "word": "A",
-     "start": 0.6
+     "start": 0.587
     },
     {
      "word": "payment",
-     "start": 0.78
+     "start": 0.7
     },
     {
      "word": "was",
-     "start": 1.26
+     "start": 1.16
     },
     {
      "word": "missed.",
-     "start": 1.509
+     "start": 1.349
     },
     {
      "word": "The",
-     "start": 2.42
+     "start": 2.04
     },
     {
      "word": "late",
-     "start": 2.768
+     "start": 2.672
     },
     {
      "word": "fee",
-     "start": 3.04
+     "start": 2.88
     },
     {
      "word": "showed",
-     "start": 3.314
+     "start": 3.166
     },
     {
      "word": "up",
-     "start": 3.547
+     "start": 3.467
     },
     {
      "word": "right",
-     "start": 3.64
+     "start": 3.56
     },
     {
      "word": "on",
-     "start": 3.867
+     "start": 3.787
     },
     {
      "word": "time,",
-     "start": 4
+     "start": 3.904
     },
     {
      "word": "though.",
-     "start": 4.457
+     "start": 4.274
     },
     {
      "word": "So",
-     "start": 5.013
+     "start": 4.853
     },
     {
      "word": "at",
-     "start": 5.627
+     "start": 5.467
     },
     {
      "word": "least",
-     "start": 5.733
+     "start": 5.56
     },
     {
      "word": "someone's",
-     "start": 6.04
+     "start": 5.81
     },
     {
      "word": "punctual.",
-     "start": 6.453
+     "start": 6.293
     }
    ]
   },
@@ -517,48 +505,48 @@
     },
     {
      "word": "date",
-     "start": 0.304
+     "start": 0.32
     },
     {
      "word": "came",
-     "start": 0.608
+     "start": 0.768
     },
     {
      "word": "and",
-     "start": 0.82
+     "start": 1.3
     },
     {
      "word": "went.",
-     "start": 0.944
+     "start": 1.44
     },
     {
      "word": "The",
-     "start": 1.46
-    },
-    {
-     "word": "payment",
      "start": 2.06
     },
     {
+     "word": "payment",
+     "start": 2.8
+    },
+    {
      "word": "did",
-     "start": 2.56
+     "start": 3.46
     },
     {
      "word": "not.",
-     "start": 2.9
+     "start": 3.86
     },
     {
      "word": "Bold",
-     "start": 4.555
+     "start": 5.573
     },
     {
      "word": "strategy.",
-     "start": 4.711
+     "start": 5.769
     }
    ]
   },
-  "A bill went unpaid. The Narrator is not mad. [slow] Just writing it down. In pen.": {
-   "file": "49a0d493b76148a5.mp3",
+  "A bill went unpaid. Sammy is not mad. [slow] Just writing it down. In pen.": {
+   "file": "2a28d3af4ea32e96.mp3",
    "words": [
     {
      "word": "A",
@@ -566,59 +554,55 @@
     },
     {
      "word": "bill",
-     "start": 0.16
+     "start": 0.144
     },
     {
      "word": "went",
-     "start": 0.592
+     "start": 0.448
     },
     {
      "word": "unpaid.",
-     "start": 1.143
+     "start": 0.754
     },
     {
-     "word": "The",
-     "start": 2.14
-    },
-    {
-     "word": "Narrator",
-     "start": 3.088
+     "word": "Sammy",
+     "start": 1.72
     },
     {
      "word": "is",
-     "start": 3.573
+     "start": 2.773
     },
     {
      "word": "not",
-     "start": 3.74
+     "start": 2.92
     },
     {
      "word": "mad.",
-     "start": 4.04
+     "start": 3.18
     },
     {
      "word": "Just",
-     "start": 5.717
+     "start": 4.997
     },
     {
      "word": "writing",
-     "start": 5.8
+     "start": 5.08
     },
     {
      "word": "it",
-     "start": 6.107
+     "start": 5.387
     },
     {
      "word": "down.",
-     "start": 6.256
+     "start": 5.536
     },
     {
      "word": "In",
-     "start": 7.44
+     "start": 6.56
     },
     {
      "word": "pen.",
-     "start": 7.96
+     "start": 7
     }
    ]
   },
@@ -639,56 +623,56 @@
     },
     {
      "word": "to",
-     "start": 1.093
+     "start": 1.067
     },
     {
      "word": "collections.",
-     "start": 1.273
+     "start": 1.193
     },
     {
      "word": "They",
-     "start": 3.936
+     "start": 3.989
     },
     {
      "word": "will",
-     "start": 4.032
+     "start": 4.176
     },
     {
      "word": "call.",
-     "start": 4.256
+     "start": 4.336
     },
     {
      "word": "A",
-     "start": 5.04
+     "start": 5.32
     },
     {
      "word": "lot.",
-     "start": 5.46
+     "start": 5.62
     },
     {
      "word": "Like,",
-     "start": 6
+     "start": 6.192
     },
     {
      "word": "a",
-     "start": 7.08
+     "start": 7.36
     },
     {
      "word": "lot",
-     "start": 7.5
+     "start": 7.74
     },
     {
      "word": "a",
-     "start": 7.76
+     "start": 7.96
     },
     {
      "word": "lot.",
-     "start": 7.92
+     "start": 8.08
     }
    ]
   },
-  "Collections has joined the story. The Narrator would like it on record that there were warnings. Several. In writing.": {
-   "file": "85576c8836ddcaba.mp3",
+  "Collections has joined the story. Sammy would like it on record that there were warnings. Several. In writing.": {
+   "file": "f4a8b4eb4ca76bdf.mp3",
    "words": [
     {
      "word": "Collections",
@@ -696,75 +680,71 @@
     },
     {
      "word": "has",
-     "start": 0.86
+     "start": 0.76
     },
     {
      "word": "joined",
-     "start": 1.326
+     "start": 1.166
     },
     {
      "word": "the",
-     "start": 1.62
+     "start": 1.46
     },
     {
      "word": "story.",
-     "start": 1.773
+     "start": 1.613
     },
     {
-     "word": "The",
-     "start": 2.54
-    },
-    {
-     "word": "Narrator",
-     "start": 3.232
+     "word": "Sammy",
+     "start": 2.32
     },
     {
      "word": "would",
-     "start": 3.613
+     "start": 3.147
     },
     {
      "word": "like",
-     "start": 3.728
+     "start": 3.328
     },
     {
      "word": "it",
-     "start": 3.947
+     "start": 3.547
     },
     {
      "word": "on",
-     "start": 4.053
+     "start": 3.653
     },
     {
      "word": "record",
-     "start": 4.229
+     "start": 3.829
     },
     {
      "word": "that",
-     "start": 4.768
+     "start": 4.368
     },
     {
      "word": "there",
-     "start": 5.293
+     "start": 4.907
     },
     {
      "word": "were",
-     "start": 5.408
+     "start": 5.056
     },
     {
      "word": "warnings.",
-     "start": 5.68
+     "start": 5.2
     },
     {
      "word": "Several.",
-     "start": 6.6
+     "start": 6.03
     },
     {
      "word": "In",
-     "start": 7.813
+     "start": 7.333
     },
     {
      "word": "writing.",
-     "start": 8.47
+     "start": 7.67
     }
    ]
   },
@@ -785,83 +765,83 @@
     },
     {
      "word": "story",
-     "start": 0.72
+     "start": 0.733
     },
     {
      "word": "gets",
-     "start": 1.184
+     "start": 1.264
     },
     {
      "word": "hard.",
-     "start": 1.552
+     "start": 1.616
     },
     {
      "word": "The",
-     "start": 2.3
+     "start": 2.24
     },
     {
      "word": "money",
-     "start": 3.253
+     "start": 2.773
     },
     {
      "word": "ran",
-     "start": 3.58
+     "start": 3.1
     },
     {
      "word": "out.",
-     "start": 3.82
+     "start": 3.36
     },
     {
      "word": "This",
-     "start": 4.272
+     "start": 4.176
     },
     {
      "word": "happens",
-     "start": 5.09
+     "start": 4.6
     },
     {
      "word": "to",
-     "start": 5.467
+     "start": 4.933
     },
     {
      "word": "real",
-     "start": 5.568
+     "start": 5.088
     },
     {
      "word": "people,",
-     "start": 5.829
+     "start": 5.349
     },
     {
      "word": "and",
-     "start": 6.68
+     "start": 6.16
     },
     {
      "word": "it",
-     "start": 6.827
+     "start": 6.427
     },
     {
      "word": "is",
-     "start": 6.933
+     "start": 6.533
     },
     {
      "word": "a",
-     "start": 7.12
+     "start": 6.68
     },
     {
      "word": "chapter,",
-     "start": 7.25
+     "start": 6.79
     },
     {
      "word": "not",
-     "start": 8.14
+     "start": 7.82
     },
     {
      "word": "the",
-     "start": 8.36
+     "start": 8.02
     },
     {
      "word": "ending.",
-     "start": 8.549
+     "start": 8.171
     }
    ]
   },
@@ -890,79 +870,79 @@
     },
     {
      "word": "so",
-     "start": 1.84
+     "start": 1.92
     },
     {
      "word": "bankruptcy",
-     "start": 2.051
+     "start": 2.145
     },
     {
      "word": "is",
-     "start": 2.613
+     "start": 2.827
     },
     {
      "word": "on",
-     "start": 2.773
+     "start": 2.933
     },
     {
      "word": "the",
-     "start": 2.95
+     "start": 3.06
     },
     {
      "word": "table.",
-     "start": 3.207
+     "start": 3.2
     },
     {
      "word": "It",
-     "start": 4.862
+     "start": 5.022
     },
     {
      "word": "is",
-     "start": 4.933
+     "start": 5.093
     },
     {
      "word": "a",
-     "start": 5.08
+     "start": 5.24
     },
     {
      "word": "hard",
-     "start": 5.184
+     "start": 5.344
     },
     {
      "word": "call,",
-     "start": 5.52
+     "start": 5.696
     },
     {
      "word": "and",
-     "start": 6.42
+     "start": 6.68
     },
     {
      "word": "plenty",
-     "start": 6.526
+     "start": 6.834
     },
     {
      "word": "of",
-     "start": 6.827
+     "start": 7.093
     },
     {
      "word": "people",
-     "start": 6.937
+     "start": 7.246
     },
     {
      "word": "come",
-     "start": 7.312
+     "start": 7.552
     },
     {
      "word": "back",
-     "start": 7.488
+     "start": 7.728
     },
     {
      "word": "from",
-     "start": 7.712
+     "start": 7.952
     },
     {
      "word": "it.",
-     "start": 7.92
+     "start": 8.133
     }
    ]
   },
@@ -991,52 +971,52 @@
     },
     {
      "word": "Somewhere,",
-     "start": 1.36
+     "start": 1.62
     },
     {
      "word": "a",
-     "start": 2.68
+     "start": 2.76
     },
     {
      "word": "lender",
-     "start": 2.777
+     "start": 2.869
     },
     {
      "word": "just",
-     "start": 3.168
+     "start": 3.328
     },
     {
      "word": "smiled",
-     "start": 3.451
+     "start": 3.6
     },
     {
      "word": "for",
-     "start": 4.02
-    },
-    {
-     "word": "the",
      "start": 4.12
     },
     {
+     "word": "the",
+     "start": 4.26
+    },
+    {
      "word": "first",
-     "start": 4.293
+     "start": 4.373
     },
     {
      "word": "time",
-     "start": 4.624
+     "start": 4.704
     },
     {
      "word": "in",
-     "start": 4.907
+     "start": 5.013
     },
     {
      "word": "years.",
-     "start": 5.08
+     "start": 5.227
     }
    ]
   },
-  "Better credit score. The Narrator raised an eyebrow. [whispers] Approvingly. Very approvingly.": {
-   "file": "cc88f9d91f385982.mp3",
+  "Better credit score. Sammy raised an eyebrow. [whispers] Approvingly. Very approvingly.": {
+   "file": "59e1bdb21a786fc7.mp3",
    "words": [
     {
      "word": "Better",
@@ -1044,31 +1024,27 @@
     },
     {
      "word": "credit",
-     "start": 0.217
+     "start": 0.206
     },
     {
      "word": "score.",
-     "start": 0.627
+     "start": 0.547
     },
     {
-     "word": "The",
-     "start": 1.26
-    },
-    {
-     "word": "Narrator",
-     "start": 1.984
+     "word": "Sammy",
+     "start": 1.16
     },
     {
      "word": "raised",
-     "start": 2.446
+     "start": 2.206
     },
     {
      "word": "an",
-     "start": 2.747
+     "start": 2.533
     },
     {
      "word": "eyebrow.",
-     "start": 2.87
+     "start": 2.71
     },
     {
      "word": "Approvingly.",
@@ -1076,16 +1052,16 @@
     },
     {
      "word": "Very",
-     "start": 5.76
+     "start": 5.936
     },
     {
      "word": "approvingly.",
-     "start": 6.312
+     "start": 6.544
     }
    ]
   },
-  "The credit score dropped. The Narrator has decided not to comment. [sighs] Loudly.": {
-   "file": "7579c9bc56d7d7bf.mp3",
+  "The credit score dropped. Sammy has decided not to comment. [sighs] Loudly.": {
+   "file": "d45e85f7350f1fb6.mp3",
    "words": [
     {
      "word": "The",
@@ -1097,43 +1073,39 @@
     },
     {
      "word": "score",
-     "start": 0.453
+     "start": 0.467
     },
     {
      "word": "dropped.",
-     "start": 0.79
+     "start": 0.85
     },
     {
-     "word": "The",
-     "start": 1.88
-    },
-    {
-     "word": "Narrator",
-     "start": 2.288
+     "word": "Sammy",
+     "start": 1.44
     },
     {
      "word": "has",
-     "start": 2.7
+     "start": 2.28
     },
     {
      "word": "decided",
-     "start": 2.94
+     "start": 2.45
     },
     {
      "word": "not",
-     "start": 3.44
+     "start": 2.86
     },
     {
      "word": "to",
-     "start": 3.707
+     "start": 3.093
     },
     {
      "word": "comment.",
-     "start": 3.83
+     "start": 3.25
     },
     {
      "word": "Loudly.",
-     "start": 6.08
+     "start": 5.568
     }
    ]
   },
@@ -1146,59 +1118,59 @@
     },
     {
      "word": "went",
-     "start": 0.448
+     "start": 0.368
     },
     {
      "word": "the",
-     "start": 0.66
+     "start": 0.58
     },
     {
      "word": "credit",
-     "start": 0.766
+     "start": 0.697
     },
     {
      "word": "score.",
-     "start": 1.133
+     "start": 1.107
     },
     {
      "word": "Quietly.",
-     "start": 2.207
+     "start": 1.68
     },
     {
      "word": "The",
-     "start": 3.1
+     "start": 2.94
     },
     {
      "word": "way",
-     "start": 3.56
+     "start": 3.4
     },
     {
      "word": "bad",
-     "start": 3.78
+     "start": 3.62
     },
     {
      "word": "news",
-     "start": 4.144
+     "start": 4
     },
     {
      "word": "kind",
-     "start": 4.448
+     "start": 4.352
     },
     {
      "word": "of",
-     "start": 4.667
+     "start": 4.533
     },
     {
      "word": "just",
-     "start": 4.768
+     "start": 4.672
     },
     {
      "word": "shows",
-     "start": 5.013
+     "start": 4.96
     },
     {
      "word": "up.",
-     "start": 5.36
+     "start": 5.867
     }
    ]
   },
@@ -1211,7 +1183,7 @@
     },
     {
      "word": "new",
-     "start": 0.15
+     "start": 0.12
     },
     {
      "word": "home.",
@@ -1219,43 +1191,43 @@
     },
     {
      "word": "Bigger,",
-     "start": 1.08
+     "start": 1.2
     },
     {
      "word": "brighter,",
-     "start": 2.133
+     "start": 1.973
     },
     {
      "word": "and",
-     "start": 3.08
+     "start": 2.92
     },
     {
      "word": "honestly",
-     "start": 3.262
+     "start": 3.093
     },
     {
      "word": "way",
-     "start": 3.94
+     "start": 3.64
     },
     {
      "word": "more",
-     "start": 4.544
+     "start": 4.048
     },
     {
      "word": "cupboards",
-     "start": 4.86
+     "start": 4.32
     },
     {
      "word": "than",
-     "start": 5.312
+     "start": 4.752
     },
     {
      "word": "anyone",
-     "start": 5.497
+     "start": 4.949
     },
     {
      "word": "needs.",
-     "start": 5.947
+     "start": 5.453
     }
    ]
   },
@@ -1268,64 +1240,64 @@
     },
     {
      "word": "player",
-     "start": 0.126
+     "start": 0.137
     },
     {
      "word": "moved",
-     "start": 0.453
+     "start": 0.573
     },
     {
      "word": "up",
-     "start": 0.773
+     "start": 1.093
     },
     {
      "word": "in",
-     "start": 0.907
+     "start": 1.227
     },
     {
      "word": "the",
-     "start": 0.98
+     "start": 1.3
     },
     {
      "word": "world.",
-     "start": 1.107
+     "start": 1.44
     },
     {
      "word": "The",
-     "start": 2.623
+     "start": 2.823
     },
     {
      "word": "couch,",
-     "start": 2.843
+     "start": 2.936
     },
     {
      "word": "sadly,",
-     "start": 3.203
+     "start": 3.336
     },
     {
      "word": "did",
-     "start": 3.903
+     "start": 3.723
     },
     {
      "word": "not",
-     "start": 4.363
+     "start": 3.903
     },
     {
      "word": "get",
-     "start": 4.543
+     "start": 4.123
     },
     {
      "word": "the",
-     "start": 4.743
+     "start": 4.263
     },
     {
      "word": "memo.",
-     "start": 4.899
+     "start": 4.419
     }
    ]
   },
-  "The player downsized. The Narrator prefers the word cozy. So, cozy.": {
-   "file": "a88f9b6413ab7260.mp3",
+  "The player downsized. Sammy prefers the word cozy. So, cozy.": {
+   "file": "e76fe12db07dc964.mp3",
    "words": [
     {
      "word": "The",
@@ -1333,48 +1305,44 @@
     },
     {
      "word": "player",
-     "start": 0.126
+     "start": 0.114
     },
     {
      "word": "downsized.",
-     "start": 0.48
+     "start": 0.413
     },
     {
-     "word": "The",
-     "start": 1.54
-    },
-    {
-     "word": "Narrator",
-     "start": 2.128
+     "word": "Sammy",
+     "start": 1.887
     },
     {
      "word": "prefers",
-     "start": 2.54
+     "start": 2.37
     },
     {
      "word": "the",
-     "start": 2.98
+     "start": 2.76
     },
     {
      "word": "word",
-     "start": 3.152
+     "start": 2.976
     },
     {
      "word": "cozy.",
-     "start": 3.84
+     "start": 3.552
     },
     {
      "word": "So,",
-     "start": 5.253
+     "start": 5.227
     },
     {
      "word": "cozy.",
-     "start": 6.336
+     "start": 6.016
     }
    ]
   },
-  "A smaller place now. [sighs] Fewer rooms to clean, the Narrator pointed out. Helpfully.": {
-   "file": "ee1492a46e854337.mp3",
+  "A smaller place now. [sighs] Fewer rooms to clean, Sammy pointed out. Helpfully.": {
+   "file": "8f90dfb860196faf.mp3",
    "words": [
     {
      "word": "A",
@@ -1382,56 +1350,52 @@
     },
     {
      "word": "smaller",
-     "start": 0.12
+     "start": 0.13
     },
     {
      "word": "place",
-     "start": 0.453
+     "start": 0.533
     },
     {
      "word": "now.",
-     "start": 0.8
+     "start": 0.88
     },
     {
      "word": "Fewer",
-     "start": 3
+     "start": 2.8
     },
     {
      "word": "rooms",
-     "start": 3.253
+     "start": 3.013
     },
     {
      "word": "to",
-     "start": 3.547
+     "start": 3.333
     },
     {
      "word": "clean,",
-     "start": 3.68
+     "start": 3.507
     },
     {
-     "word": "the",
-     "start": 4.42
-    },
-    {
-     "word": "Narrator",
-     "start": 4.528
+     "word": "Sammy",
+     "start": 4.147
     },
     {
      "word": "pointed",
-     "start": 5
+     "start": 4.52
     },
     {
      "word": "out.",
-     "start": 5.34
+     "start": 4.86
     },
     {
      "word": "Helpfully.",
-     "start": 5.84
+     "start": 5.376
     }
    ]
   },
-  "A new state, a new rent, same player. The Narrator hopes at least one of those is an upgrade.": {
-   "file": "f0e53f3f3404faa2.mp3",
+  "A new state, a new rent, same player. Sammy hopes at least one of those is an upgrade.": {
+   "file": "c5d3184f59cdbac8.mp3",
    "words": [
     {
      "word": "A",
@@ -1439,7 +1403,7 @@
     },
     {
      "word": "new",
-     "start": 0.12
+     "start": 0.15
     },
     {
      "word": "state,",
@@ -1447,67 +1411,63 @@
     },
     {
      "word": "a",
-     "start": 1.24
+     "start": 1.08
     },
     {
      "word": "new",
-     "start": 1.34
+     "start": 1.18
     },
     {
      "word": "rent,",
-     "start": 1.6
+     "start": 1.44
     },
     {
      "word": "same",
-     "start": 2.56
+     "start": 2.32
     },
     {
      "word": "player.",
-     "start": 2.96
+     "start": 2.709
     },
     {
-     "word": "The",
-     "start": 3.74
-    },
-    {
-     "word": "Narrator",
-     "start": 4.448
+     "word": "Sammy",
+     "start": 3.387
     },
     {
      "word": "hopes",
-     "start": 4.92
+     "start": 4.36
     },
     {
      "word": "at",
-     "start": 5.147
+     "start": 4.587
     },
     {
      "word": "least",
-     "start": 5.267
+     "start": 4.68
     },
     {
      "word": "one",
-     "start": 5.64
+     "start": 4.94
     },
     {
      "word": "of",
-     "start": 5.787
+     "start": 5.147
     },
     {
      "word": "those",
-     "start": 5.92
+     "start": 5.24
     },
     {
      "word": "is",
-     "start": 6.533
+     "start": 5.493
     },
     {
      "word": "an",
-     "start": 7.013
+     "start": 5.627
     },
     {
      "word": "upgrade.",
-     "start": 7.2
+     "start": 5.76
     }
    ]
   },
@@ -1520,75 +1480,75 @@
     },
     {
      "word": "so",
-     "start": 0.213
+     "start": 0.267
     },
     {
      "word": "the",
-     "start": 0.36
+     "start": 0.62
     },
     {
      "word": "player",
-     "start": 0.526
+     "start": 1.097
     },
     {
      "word": "packed",
-     "start": 0.834
+     "start": 1.474
     },
     {
      "word": "up",
-     "start": 1.093
+     "start": 1.733
     },
     {
      "word": "their",
-     "start": 1.227
+     "start": 1.867
     },
     {
      "word": "whole",
-     "start": 1.4
+     "start": 2.053
     },
     {
      "word": "life",
-     "start": 1.712
+     "start": 2.4
     },
     {
      "word": "and",
-     "start": 2.28
+     "start": 2.86
     },
     {
      "word": "moved.",
-     "start": 2.733
+     "start": 3.387
     },
     {
      "word": "The",
-     "start": 3.48
+     "start": 4.32
     },
     {
      "word": "bills,",
-     "start": 4.16
+     "start": 4.64
     },
     {
      "word": "loyal",
-     "start": 5.093
+     "start": 5.493
     },
     {
      "word": "to",
-     "start": 5.413
+     "start": 5.813
     },
     {
      "word": "the",
-     "start": 5.54
+     "start": 5.94
     },
     {
      "word": "end,",
-     "start": 5.7
+     "start": 6.1
     },
     {
      "word": "came",
-     "start": 6.576
+     "start": 6.8
     },
     {
      "word": "too.",
-     "start": 7.06
+     "start": 7.22
     }
    ]
   },
@@ -1601,44 +1561,44 @@
     },
     {
      "word": "market",
-     "start": 0.137
+     "start": 0.149
     },
     {
      "word": "fell.",
-     "start": 0.576
+     "start": 0.656
     },
     {
      "word": "Portfolios",
-     "start": 2.256
+     "start": 2.416
     },
     {
      "word": "everywhere",
-     "start": 2.953
+     "start": 2.938
     },
     {
      "word": "observed",
-     "start": 3.787
+     "start": 3.636
     },
     {
      "word": "a",
-     "start": 4.72
+     "start": 4.64
     },
     {
      "word": "moment",
-     "start": 4.869
+     "start": 4.789
     },
     {
      "word": "of",
-     "start": 5.307
+     "start": 5.227
     },
     {
      "word": "silence.",
-     "start": 5.47
+     "start": 5.39
     }
    ]
   },
-  "Stocks tumbled. Selling in a panic is also a decision, the Narrator notes. Usually the wrong one.": {
-   "file": "f80f0fd49b730cd2.mp3",
+  "Stocks tumbled. Selling in a panic is also a decision, Sammy notes. Usually the wrong one.": {
+   "file": "673f4e58fda2329b.mp3",
    "words": [
     {
      "word": "Stocks",
@@ -1646,67 +1606,63 @@
     },
     {
      "word": "tumbled.",
-     "start": 0.76
+     "start": 0.56
     },
     {
      "word": "Selling",
-     "start": 2.16
+     "start": 1.91
     },
     {
      "word": "in",
-     "start": 2.747
+     "start": 2.427
     },
     {
      "word": "a",
-     "start": 2.84
+     "start": 2.52
     },
     {
      "word": "panic",
-     "start": 2.933
+     "start": 2.64
     },
     {
      "word": "is",
-     "start": 3.387
+     "start": 3.173
     },
     {
      "word": "also",
-     "start": 3.84
+     "start": 3.536
     },
     {
      "word": "a",
-     "start": 4.2
+     "start": 3.96
     },
     {
      "word": "decision,",
-     "start": 4.302
+     "start": 4.053
     },
     {
-     "word": "the",
-     "start": 5.06
-    },
-    {
-     "word": "Narrator",
-     "start": 5.168
+     "word": "Sammy",
+     "start": 4.627
     },
     {
      "word": "notes.",
-     "start": 5.68
+     "start": 5.013
     },
     {
      "word": "Usually",
-     "start": 6.53
+     "start": 5.47
     },
     {
      "word": "the",
-     "start": 6.9
+     "start": 6.36
     },
     {
      "word": "wrong",
-     "start": 7.013
+     "start": 6.773
     },
     {
      "word": "one.",
-     "start": 7.36
+     "start": 7.14
     }
    ]
   },
@@ -1719,60 +1675,60 @@
     },
     {
      "word": "market",
-     "start": 0.126
+     "start": 0.137
     },
     {
      "word": "soared",
-     "start": 0.48
+     "start": 0.56
     },
     {
      "word": "and",
-     "start": 1.1
+     "start": 1.18
     },
     {
      "word": "everyone",
-     "start": 1.564
+     "start": 1.662
     },
     {
      "word": "felt",
-     "start": 1.984
+     "start": 2.224
     },
     {
      "word": "like",
-     "start": 2.272
+     "start": 2.512
     },
     {
      "word": "a",
-     "start": 2.44
+     "start": 2.68
     },
     {
      "word": "genius.",
-     "start": 2.583
+     "start": 2.846
     },
     {
      "word": "Not",
-     "start": 4.69
+     "start": 4.93
     },
     {
      "word": "everyone",
-     "start": 4.782
+     "start": 5.013
     },
     {
      "word": "was",
-     "start": 5.34
+     "start": 5.48
     },
     {
      "word": "a",
-     "start": 5.52
+     "start": 5.64
     },
     {
      "word": "genius.",
-     "start": 5.634
+     "start": 5.794
     }
    ]
   },
-  "Stocks are up. The Narrator suspects this will be remembered as skill. [laughs] It was mostly timing.": {
-   "file": "5633c5e6872fdea5.mp3",
+  "Stocks are up. Sammy suspects this will be remembered as skill. [laughs] It was mostly timing.": {
+   "file": "d7f18c18ea519a62.mp3",
    "words": [
     {
      "word": "Stocks",
@@ -1780,19 +1736,15 @@
     },
     {
      "word": "are",
-     "start": 0.42
+     "start": 0.44
     },
     {
      "word": "up.",
-     "start": 0.56
+     "start": 0.64
     },
     {
-     "word": "The",
-     "start": 0.98
-    },
-    {
-     "word": "Narrator",
-     "start": 1.568
+     "word": "Sammy",
+     "start": 1.053
     },
     {
      "word": "suspects",
@@ -1804,44 +1756,44 @@
     },
     {
      "word": "will",
-     "start": 2.592
+     "start": 2.576
     },
     {
      "word": "be",
-     "start": 2.747
+     "start": 2.693
     },
     {
      "word": "remembered",
-     "start": 2.844
+     "start": 2.836
     },
     {
      "word": "as",
-     "start": 3.467
+     "start": 3.333
     },
     {
      "word": "skill.",
-     "start": 3.933
+     "start": 3.787
     },
     {
      "word": "It",
-     "start": 5.52
+     "start": 6.027
     },
     {
      "word": "was",
-     "start": 5.88
+     "start": 6.42
     },
     {
      "word": "mostly",
-     "start": 6.046
+     "start": 6.537
     },
     {
      "word": "timing.",
-     "start": 6.411
+     "start": 6.96
     }
    ]
   },
-  "Disaster hit the city. [slow] This, the Narrator notes, is exactly what emergency funds are for. Exactly this.": {
-   "file": "38044cbfcc8c25cd.mp3",
+  "Disaster hit the city. [slow] This, Sammy notes, is exactly what emergency funds are for. Exactly this.": {
+   "file": "82b04912272dea1a.mp3",
    "words": [
     {
      "word": "Disaster",
@@ -1849,27 +1801,23 @@
     },
     {
      "word": "hit",
-     "start": 0.7
+     "start": 0.86
     },
     {
      "word": "the",
-     "start": 0.9
+     "start": 1.32
     },
     {
      "word": "city.",
-     "start": 1.04
+     "start": 1.52
     },
     {
      "word": "This,",
-     "start": 2.875
+     "start": 3.296
     },
     {
-     "word": "the",
-     "start": 3.46
-    },
-    {
-     "word": "Narrator",
-     "start": 3.552
+     "word": "Sammy",
+     "start": 3.653
     },
     {
      "word": "notes,",
@@ -1877,39 +1825,39 @@
     },
     {
      "word": "is",
-     "start": 4.853
+     "start": 4.773
     },
     {
      "word": "exactly",
-     "start": 5.05
+     "start": 4.96
     },
     {
      "word": "what",
-     "start": 5.712
+     "start": 5.552
     },
     {
      "word": "emergency",
-     "start": 5.912
+     "start": 5.744
     },
     {
      "word": "funds",
-     "start": 6.64
+     "start": 6.373
     },
     {
      "word": "are",
-     "start": 7.1
+     "start": 6.68
     },
     {
      "word": "for.",
-     "start": 7.4
+     "start": 6.9
     },
     {
      "word": "Exactly",
-     "start": 8.1
+     "start": 7.92
     },
     {
      "word": "this.",
-     "start": 9.456
+     "start": 8.56
     }
    ]
   },
@@ -1926,47 +1874,47 @@
     },
     {
      "word": "turned",
-     "start": 0.366
+     "start": 0.377
     },
     {
      "word": "on",
-     "start": 0.693
+     "start": 0.907
     },
     {
      "word": "Larp",
-     "start": 0.84
+     "start": 1.36
     },
     {
      "word": "City.",
-     "start": 1.216
+     "start": 1.84
     },
     {
      "word": "Suddenly,",
-     "start": 2.267
+     "start": 2.427
     },
     {
      "word": "insurance",
-     "start": 3.424
+     "start": 3.736
     },
     {
      "word": "didn't",
-     "start": 4.032
+     "start": 4.272
     },
     {
      "word": "seem",
-     "start": 4.288
+     "start": 4.528
     },
     {
      "word": "so",
-     "start": 4.56
+     "start": 4.8
     },
     {
      "word": "boring,",
-     "start": 4.789
+     "start": 5.04
     },
     {
      "word": "right?",
-     "start": 5.333
+     "start": 5.64
     }
    ]
   },
@@ -1979,47 +1927,47 @@
     },
     {
      "word": "rushed",
-     "start": 0.48
+     "start": 0.469
     },
     {
      "word": "forward.",
-     "start": 1.02
+     "start": 0.94
     },
     {
      "word": "The",
-     "start": 1.7
+     "start": 1.81
     },
     {
      "word": "player",
-     "start": 2.286
+     "start": 2.137
     },
     {
      "word": "blinked",
-     "start": 2.62
+     "start": 2.54
     },
     {
      "word": "and",
-     "start": 3.12
+     "start": 3.06
     },
     {
      "word": "years",
-     "start": 3.44
+     "start": 3.453
     },
     {
      "word": "went",
-     "start": 3.872
+     "start": 3.968
     },
     {
      "word": "by.",
-     "start": 4.16
+     "start": 4.32
     },
     {
      "word": "Money,",
-     "start": 5.133
+     "start": 5.247
     },
     {
      "word": "as",
-     "start": 5.733
+     "start": 5.787
     },
     {
      "word": "always,",
@@ -2027,15 +1975,15 @@
     },
     {
      "word": "had",
-     "start": 6.74
+     "start": 6.68
     },
     {
      "word": "been",
-     "start": 6.848
+     "start": 6.832
     },
     {
      "word": "busy.",
-     "start": 7.136
+     "start": 7.056
     }
    ]
   },
@@ -2056,51 +2004,2943 @@
     },
     {
      "word": "years",
-     "start": 0.453
+     "start": 0.467
     },
     {
      "word": "kind",
-     "start": 0.752
+     "start": 0.848
     },
     {
      "word": "of",
-     "start": 0.907
+     "start": 1.067
     },
     {
      "word": "just",
-     "start": 1.008
+     "start": 1.168
     },
     {
      "word": "happened.",
-     "start": 1.253
+     "start": 1.413
     },
     {
      "word": "Slowly",
-     "start": 2.208
+     "start": 2.112
     },
     {
      "word": "at",
-     "start": 2.693
+     "start": 2.987
     },
     {
      "word": "first,",
-     "start": 2.88
+     "start": 3.133
     },
     {
      "word": "then",
-     "start": 3.712
+     "start": 4.272
     },
     {
      "word": "all",
-     "start": 3.9
+     "start": 4.44
     },
     {
      "word": "at",
-     "start": 4.107
+     "start": 4.613
     },
     {
      "word": "once.",
-     "start": 4.256
+     "start": 4.816
+    }
+   ]
+  },
+  "Tax season. Your return is ready in the Taxes app, and it's due April 15. [slow] Sammy has circled the date. Twice.": {
+   "file": "6bcc46fc9bab3cf8.mp3",
+   "words": [
+    {
+     "word": "Tax",
+     "start": 0
+    },
+    {
+     "word": "season.",
+     "start": 0.32
+    },
+    {
+     "word": "Your",
+     "start": 1.024
+    },
+    {
+     "word": "return",
+     "start": 1.657
+    },
+    {
+     "word": "is",
+     "start": 2.053
+    },
+    {
+     "word": "ready",
+     "start": 2.2
+    },
+    {
+     "word": "in",
+     "start": 2.427
+    },
+    {
+     "word": "the",
+     "start": 2.5
+    },
+    {
+     "word": "Taxes",
+     "start": 2.627
+    },
+    {
+     "word": "app,",
+     "start": 3.04
+    },
+    {
+     "word": "and",
+     "start": 3.62
+    },
+    {
+     "word": "it's",
+     "start": 3.733
+    },
+    {
+     "word": "due",
+     "start": 4
+    },
+    {
+     "word": "April",
+     "start": 4.347
+    },
+    {
+     "word": "15.",
+     "start": 5.04
+    },
+    {
+     "word": "Sammy",
+     "start": 6.635
+    },
+    {
+     "word": "has",
+     "start": 6.842
+    },
+    {
+     "word": "circled",
+     "start": 7.01
+    },
+    {
+     "word": "the",
+     "start": 7.382
+    },
+    {
+     "word": "date.",
+     "start": 7.506
+    },
+    {
+     "word": "Twice.",
+     "start": 8.462
+    }
+   ]
+  },
+  "The tax return is ready. See the little File badge on the Taxes app? April 15 is the deadline. [whispers] The IRS is not known for its sense of humor.": {
+   "file": "35ad33c8e876a3d7.mp3",
+   "words": [
+    {
+     "word": "The",
+     "start": 0
+    },
+    {
+     "word": "tax",
+     "start": 0.14
+    },
+    {
+     "word": "return",
+     "start": 0.366
+    },
+    {
+     "word": "is",
+     "start": 0.693
+    },
+    {
+     "word": "ready.",
+     "start": 0.853
+    },
+    {
+     "word": "See",
+     "start": 1.38
+    },
+    {
+     "word": "the",
+     "start": 1.94
+    },
+    {
+     "word": "little",
+     "start": 2.034
+    },
+    {
+     "word": "File",
+     "start": 2.336
+    },
+    {
+     "word": "badge",
+     "start": 2.8
+    },
+    {
+     "word": "on",
+     "start": 3.227
+    },
+    {
+     "word": "the",
+     "start": 3.3
+    },
+    {
+     "word": "Taxes",
+     "start": 3.44
+    },
+    {
+     "word": "app?",
+     "start": 3.92
+    },
+    {
+     "word": "April",
+     "start": 4.427
+    },
+    {
+     "word": "15",
+     "start": 5.12
+    },
+    {
+     "word": "is",
+     "start": 5.84
+    },
+    {
+     "word": "the",
+     "start": 6.18
+    },
+    {
+     "word": "deadline.",
+     "start": 6.32
+    },
+    {
+     "word": "The",
+     "start": 8.065
+    },
+    {
+     "word": "IRS",
+     "start": 8.22
+    },
+    {
+     "word": "is",
+     "start": 8.693
+    },
+    {
+     "word": "not",
+     "start": 8.86
+    },
+    {
+     "word": "known",
+     "start": 9.093
+    },
+    {
+     "word": "for",
+     "start": 9.4
+    },
+    {
+     "word": "its",
+     "start": 9.56
+    },
+    {
+     "word": "sense",
+     "start": 9.72
+    },
+    {
+     "word": "of",
+     "start": 9.947
+    },
+    {
+     "word": "humor.",
+     "start": 10.08
+    }
+   ]
+  },
+  "This is where your investments live. Want the two-minute tour? [whispers] It's mostly me pointing at things.": {
+   "file": "8b7a84ada8f5fcfe.mp3",
+   "words": [
+    {
+     "word": "This",
+     "start": 0
+    },
+    {
+     "word": "is",
+     "start": 0.213
+    },
+    {
+     "word": "where",
+     "start": 0.347
+    },
+    {
+     "word": "your",
+     "start": 0.512
+    },
+    {
+     "word": "investments",
+     "start": 0.687
+    },
+    {
+     "word": "live.",
+     "start": 1.296
+    },
+    {
+     "word": "Want",
+     "start": 2.064
+    },
+    {
+     "word": "the",
+     "start": 2.36
+    },
+    {
+     "word": "two-minute",
+     "start": 2.5
+    },
+    {
+     "word": "tour?",
+     "start": 2.96
+    },
+    {
+     "word": "It's",
+     "start": 4.147
+    },
+    {
+     "word": "mostly",
+     "start": 4.297
+    },
+    {
+     "word": "me",
+     "start": 4.693
+    },
+    {
+     "word": "pointing",
+     "start": 4.871
+    },
+    {
+     "word": "at",
+     "start": 5.467
+    },
+    {
+     "word": "things.",
+     "start": 5.623
+    }
+   ]
+  },
+  "Your phone's Stocks app. A fund owns hundreds of companies at once. A single stock is just one company, so it swings much harder.": {
+   "file": "be8988a1958d6724.mp3",
+   "words": [
+    {
+     "word": "Your",
+     "start": 0
+    },
+    {
+     "word": "phone's",
+     "start": 0.227
+    },
+    {
+     "word": "Stocks",
+     "start": 0.731
+    },
+    {
+     "word": "app.",
+     "start": 1.38
+    },
+    {
+     "word": "A",
+     "start": 2.28
+    },
+    {
+     "word": "fund",
+     "start": 2.896
+    },
+    {
+     "word": "owns",
+     "start": 3.392
+    },
+    {
+     "word": "hundreds",
+     "start": 3.884
+    },
+    {
+     "word": "of",
+     "start": 4.267
+    },
+    {
+     "word": "companies",
+     "start": 4.36
+    },
+    {
+     "word": "at",
+     "start": 4.773
+    },
+    {
+     "word": "once.",
+     "start": 4.976
+    },
+    {
+     "word": "A",
+     "start": 5.78
+    },
+    {
+     "word": "single",
+     "start": 5.954
+    },
+    {
+     "word": "stock",
+     "start": 6.253
+    },
+    {
+     "word": "is",
+     "start": 6.827
+    },
+    {
+     "word": "just",
+     "start": 7.088
+    },
+    {
+     "word": "one",
+     "start": 7.34
+    },
+    {
+     "word": "company,",
+     "start": 7.58
+    },
+    {
+     "word": "so",
+     "start": 8.373
+    },
+    {
+     "word": "it",
+     "start": 8.507
+    },
+    {
+     "word": "swings",
+     "start": 8.629
+    },
+    {
+     "word": "much",
+     "start": 9.104
+    },
+    {
+     "word": "harder.",
+     "start": 9.417
+    }
+   ]
+  },
+  "These are the HackRice sponsors. Real companies, but in here their prices are simulated. [whispers] So, no hot tips. Sorry.": {
+   "file": "44742bc65d69006a.mp3",
+   "words": [
+    {
+     "word": "These",
+     "start": 0
+    },
+    {
+     "word": "are",
+     "start": 0.36
+    },
+    {
+     "word": "the",
+     "start": 0.52
+    },
+    {
+     "word": "HackRice",
+     "start": 0.72
+    },
+    {
+     "word": "sponsors.",
+     "start": 1.369
+    },
+    {
+     "word": "Real",
+     "start": 2.416
+    },
+    {
+     "word": "companies,",
+     "start": 2.864
+    },
+    {
+     "word": "but",
+     "start": 3.88
+    },
+    {
+     "word": "in",
+     "start": 4.027
+    },
+    {
+     "word": "here",
+     "start": 4.16
+    },
+    {
+     "word": "their",
+     "start": 4.573
+    },
+    {
+     "word": "prices",
+     "start": 5.097
+    },
+    {
+     "word": "are",
+     "start": 5.48
+    },
+    {
+     "word": "simulated.",
+     "start": 5.664
+    },
+    {
+     "word": "So,",
+     "start": 7.173
+    },
+    {
+     "word": "no",
+     "start": 7.68
+    },
+    {
+     "word": "hot",
+     "start": 8.06
+    },
+    {
+     "word": "tips.",
+     "start": 8.336
+    },
+    {
+     "word": "Sorry.",
+     "start": 9.42
+    }
+   ]
+  },
+  "And these interest rates are real, from the Federal Reserve's own data. The game doesn't make these up.": {
+   "file": "02931946df14105d.mp3",
+   "words": [
+    {
+     "word": "And",
+     "start": 0
+    },
+    {
+     "word": "these",
+     "start": 0.12
+    },
+    {
+     "word": "interest",
+     "start": 0.356
+    },
+    {
+     "word": "rates",
+     "start": 0.707
+    },
+    {
+     "word": "are",
+     "start": 1.18
+    },
+    {
+     "word": "real,",
+     "start": 1.712
+    },
+    {
+     "word": "from",
+     "start": 2.672
+    },
+    {
+     "word": "the",
+     "start": 2.82
+    },
+    {
+     "word": "Federal",
+     "start": 2.92
+    },
+    {
+     "word": "Reserve's",
+     "start": 3.27
+    },
+    {
+     "word": "own",
+     "start": 3.92
+    },
+    {
+     "word": "data.",
+     "start": 4.272
+    },
+    {
+     "word": "The",
+     "start": 4.96
+    },
+    {
+     "word": "game",
+     "start": 5.504
+    },
+    {
+     "word": "doesn't",
+     "start": 5.787
+    },
+    {
+     "word": "make",
+     "start": 6.032
+    },
+    {
+     "word": "these",
+     "start": 6.2
+    },
+    {
+     "word": "up.",
+     "start": 6.48
+    }
+   ]
+  },
+  "This chart has three lines. You. What you'd have if you had just held. And autopilot, a 90/10 mix that never sells, never panics.": {
+   "file": "76ec63fa64ede736.mp3",
+   "words": [
+    {
+     "word": "This",
+     "start": 0
+    },
+    {
+     "word": "chart",
+     "start": 0.227
+    },
+    {
+     "word": "has",
+     "start": 0.7
+    },
+    {
+     "word": "three",
+     "start": 1.16
+    },
+    {
+     "word": "lines.",
+     "start": 1.453
+    },
+    {
+     "word": "You.",
+     "start": 2.52
+    },
+    {
+     "word": "What",
+     "start": 3.36
+    },
+    {
+     "word": "you'd",
+     "start": 4.02
+    },
+    {
+     "word": "have",
+     "start": 4.224
+    },
+    {
+     "word": "if",
+     "start": 4.667
+    },
+    {
+     "word": "you",
+     "start": 5.06
+    },
+    {
+     "word": "had",
+     "start": 5.14
+    },
+    {
+     "word": "just",
+     "start": 5.264
+    },
+    {
+     "word": "held.",
+     "start": 5.616
+    },
+    {
+     "word": "And",
+     "start": 6.46
+    },
+    {
+     "word": "autopilot,",
+     "start": 6.973
+    },
+    {
+     "word": "a",
+     "start": 8.16
+    },
+    {
+     "word": "90/10",
+     "start": 8.32
+    },
+    {
+     "word": "mix",
+     "start": 9.12
+    },
+    {
+     "word": "that",
+     "start": 9.392
+    },
+    {
+     "word": "never",
+     "start": 9.587
+    },
+    {
+     "word": "sells,",
+     "start": 10.013
+    },
+    {
+     "word": "never",
+     "start": 10.867
+    },
+    {
+     "word": "panics.",
+     "start": 11.28
+    }
+   ]
+  },
+  "This is a fund's page. The buttons under the chart change the range: a week, a month, a year, or all of it. [slow] Zoom out. It's calmer out there.": {
+   "file": "eca0671afea1e497.mp3",
+   "words": [
+    {
+     "word": "This",
+     "start": 0
+    },
+    {
+     "word": "is",
+     "start": 0.187
+    },
+    {
+     "word": "a",
+     "start": 0.28
+    },
+    {
+     "word": "fund's",
+     "start": 0.384
+    },
+    {
+     "word": "page.",
+     "start": 0.816
+    },
+    {
+     "word": "The",
+     "start": 1.4
+    },
+    {
+     "word": "buttons",
+     "start": 1.82
+    },
+    {
+     "word": "under",
+     "start": 2.267
+    },
+    {
+     "word": "the",
+     "start": 2.42
+    },
+    {
+     "word": "chart",
+     "start": 2.573
+    },
+    {
+     "word": "change",
+     "start": 3.143
+    },
+    {
+     "word": "the",
+     "start": 3.78
+    },
+    {
+     "word": "range:",
+     "start": 3.947
+    },
+    {
+     "word": "a",
+     "start": 5.08
+    },
+    {
+     "word": "week,",
+     "start": 5.2
+    },
+    {
+     "word": "a",
+     "start": 6.12
+    },
+    {
+     "word": "month,",
+     "start": 6.227
+    },
+    {
+     "word": "a",
+     "start": 7.24
+    },
+    {
+     "word": "year,",
+     "start": 7.392
+    },
+    {
+     "word": "or",
+     "start": 8.187
+    },
+    {
+     "word": "all",
+     "start": 8.78
+    },
+    {
+     "word": "of",
+     "start": 8.987
+    },
+    {
+     "word": "it.",
+     "start": 9.12
+    },
+    {
+     "word": "Zoom",
+     "start": 10.451
+    },
+    {
+     "word": "out.",
+     "start": 10.723
+    },
+    {
+     "word": "It's",
+     "start": 11.976
+    },
+    {
+     "word": "calmer",
+     "start": 12.603
+    },
+    {
+     "word": "out",
+     "start": 12.943
+    },
+    {
+     "word": "there.",
+     "start": 13.163
+    }
+   ]
+  },
+  "Your turn. Pick an amount and press Buy. Even $25 works. I'll wait. [whispers] Owls are very patient.": {
+   "file": "e8569a8629776499.mp3",
+   "words": [
+    {
+     "word": "Your",
+     "start": 0
+    },
+    {
+     "word": "turn.",
+     "start": 0.32
+    },
+    {
+     "word": "Pick",
+     "start": 0.848
+    },
+    {
+     "word": "an",
+     "start": 1.387
+    },
+    {
+     "word": "amount",
+     "start": 1.486
+    },
+    {
+     "word": "and",
+     "start": 1.78
+    },
+    {
+     "word": "press",
+     "start": 1.96
+    },
+    {
+     "word": "Buy.",
+     "start": 2.72
+    },
+    {
+     "word": "Even",
+     "start": 3.44
+    },
+    {
+     "word": "$25",
+     "start": 4.3
+    },
+    {
+     "word": "works.",
+     "start": 5.04
+    },
+    {
+     "word": "I'll",
+     "start": 5.92
+    },
+    {
+     "word": "wait.",
+     "start": 6.24
+    },
+    {
+     "word": "Owls",
+     "start": 7.873
+    },
+    {
+     "word": "are",
+     "start": 8.106
+    },
+    {
+     "word": "very",
+     "start": 8.214
+    },
+    {
+     "word": "patient.",
+     "start": 8.496
+    }
+   ]
+  },
+  "This is where you'd buy, any amount from $1. Your checking is empty right now, so we'll skip the shopping. Payday fixes that.": {
+   "file": "b30e284277a34bcb.mp3",
+   "words": [
+    {
+     "word": "This",
+     "start": 0
+    },
+    {
+     "word": "is",
+     "start": 0.133
+    },
+    {
+     "word": "where",
+     "start": 0.267
+    },
+    {
+     "word": "you'd",
+     "start": 0.44
+    },
+    {
+     "word": "buy,",
+     "start": 0.74
+    },
+    {
+     "word": "any",
+     "start": 1.28
+    },
+    {
+     "word": "amount",
+     "start": 1.829
+    },
+    {
+     "word": "from",
+     "start": 2.32
+    },
+    {
+     "word": "$1.",
+     "start": 2.68
+    },
+    {
+     "word": "Your",
+     "start": 3.552
+    },
+    {
+     "word": "checking",
+     "start": 4.364
+    },
+    {
+     "word": "is",
+     "start": 4.747
+    },
+    {
+     "word": "empty",
+     "start": 4.853
+    },
+    {
+     "word": "right",
+     "start": 5.16
+    },
+    {
+     "word": "now,",
+     "start": 5.42
+    },
+    {
+     "word": "so",
+     "start": 5.76
+    },
+    {
+     "word": "we'll",
+     "start": 5.973
+    },
+    {
+     "word": "skip",
+     "start": 6.224
+    },
+    {
+     "word": "the",
+     "start": 6.5
+    },
+    {
+     "word": "shopping.",
+     "start": 6.613
+    },
+    {
+     "word": "Payday",
+     "start": 7.32
+    },
+    {
+     "word": "fixes",
+     "start": 8.16
+    },
+    {
+     "word": "that.",
+     "start": 8.624
+    }
+   ]
+  },
+  "This box buys the same amount every payday, on its own. That's dollar cost averaging: more shares when prices are low, fewer when they're high.": {
+   "file": "770994e3db007459.mp3",
+   "words": [
+    {
+     "word": "This",
+     "start": 0
+    },
+    {
+     "word": "box",
+     "start": 0.26
+    },
+    {
+     "word": "buys",
+     "start": 0.736
+    },
+    {
+     "word": "the",
+     "start": 1.46
+    },
+    {
+     "word": "same",
+     "start": 1.568
+    },
+    {
+     "word": "amount",
+     "start": 1.806
+    },
+    {
+     "word": "every",
+     "start": 2.147
+    },
+    {
+     "word": "payday,",
+     "start": 2.583
+    },
+    {
+     "word": "on",
+     "start": 3.413
+    },
+    {
+     "word": "its",
+     "start": 3.74
+    },
+    {
+     "word": "own.",
+     "start": 4.02
+    },
+    {
+     "word": "That's",
+     "start": 4.896
+    },
+    {
+     "word": "dollar",
+     "start": 5.394
+    },
+    {
+     "word": "cost",
+     "start": 5.664
+    },
+    {
+     "word": "averaging:",
+     "start": 5.968
+    },
+    {
+     "word": "more",
+     "start": 6.992
+    },
+    {
+     "word": "shares",
+     "start": 7.177
+    },
+    {
+     "word": "when",
+     "start": 7.552
+    },
+    {
+     "word": "prices",
+     "start": 7.749
+    },
+    {
+     "word": "are",
+     "start": 8.18
+    },
+    {
+     "word": "low,",
+     "start": 8.32
+    },
+    {
+     "word": "fewer",
+     "start": 9.053
+    },
+    {
+     "word": "when",
+     "start": 9.616
+    },
+    {
+     "word": "they're",
+     "start": 10.032
+    },
+    {
+     "word": "high.",
+     "start": 10.352
+    }
+   ]
+  },
+  "Your money is spread out, which is good. One company can fall 80%. A fund that owns hundreds of them almost never does.": {
+   "file": "59be2fb601c4e3f4.mp3",
+   "words": [
+    {
+     "word": "Your",
+     "start": 0
+    },
+    {
+     "word": "money",
+     "start": 0.2
+    },
+    {
+     "word": "is",
+     "start": 0.453
+    },
+    {
+     "word": "spread",
+     "start": 0.606
+    },
+    {
+     "word": "out,",
+     "start": 0.94
+    },
+    {
+     "word": "which",
+     "start": 1.56
+    },
+    {
+     "word": "is",
+     "start": 1.787
+    },
+    {
+     "word": "good.",
+     "start": 1.92
+    },
+    {
+     "word": "One",
+     "start": 2.54
+    },
+    {
+     "word": "company",
+     "start": 3.25
+    },
+    {
+     "word": "can",
+     "start": 3.64
+    },
+    {
+     "word": "fall",
+     "start": 3.84
+    },
+    {
+     "word": "80%.",
+     "start": 4.32
+    },
+    {
+     "word": "A",
+     "start": 5.6
+    },
+    {
+     "word": "fund",
+     "start": 6.016
+    },
+    {
+     "word": "that",
+     "start": 6.48
+    },
+    {
+     "word": "owns",
+     "start": 6.88
+    },
+    {
+     "word": "hundreds",
+     "start": 7.244
+    },
+    {
+     "word": "of",
+     "start": 7.653
+    },
+    {
+     "word": "them",
+     "start": 7.792
+    },
+    {
+     "word": "almost",
+     "start": 8.034
+    },
+    {
+     "word": "never",
+     "start": 8.773
+    },
+    {
+     "word": "does.",
+     "start": 9.136
+    }
+   ]
+  },
+  "No debt to weigh against investing. Lovely. One rule still stands: if your job matches your 401(k), always take the match. It's free money.": {
+   "file": "9078ffaaa01f400a.mp3",
+   "words": [
+    {
+     "word": "No",
+     "start": 0
+    },
+    {
+     "word": "debt",
+     "start": 0.24
+    },
+    {
+     "word": "to",
+     "start": 0.72
+    },
+    {
+     "word": "weigh",
+     "start": 1.067
+    },
+    {
+     "word": "against",
+     "start": 1.25
+    },
+    {
+     "word": "investing.",
+     "start": 1.664
+    },
+    {
+     "word": "Lovely.",
+     "start": 2.549
+    },
+    {
+     "word": "One",
+     "start": 3.68
+    },
+    {
+     "word": "rule",
+     "start": 4.464
+    },
+    {
+     "word": "still",
+     "start": 4.773
+    },
+    {
+     "word": "stands:",
+     "start": 5.131
+    },
+    {
+     "word": "if",
+     "start": 5.92
+    },
+    {
+     "word": "your",
+     "start": 6.272
+    },
+    {
+     "word": "job",
+     "start": 6.5
+    },
+    {
+     "word": "matches",
+     "start": 6.85
+    },
+    {
+     "word": "your",
+     "start": 7.232
+    },
+    {
+     "word": "401(k),",
+     "start": 7.52
+    },
+    {
+     "word": "always",
+     "start": 9.131
+    },
+    {
+     "word": "take",
+     "start": 9.728
+    },
+    {
+     "word": "the",
+     "start": 9.96
+    },
+    {
+     "word": "match.",
+     "start": 10.16
+    },
+    {
+     "word": "It's",
+     "start": 10.827
+    },
+    {
+     "word": "free",
+     "start": 11.344
+    },
+    {
+     "word": "money.",
+     "start": 11.667
+    }
+   ]
+  },
+  "Someday the market will crash. Time stops, and I'll ask what you want to do. Selling in a panic locks in the loss. Holders usually get the rebound.": {
+   "file": "0e9ea2aebe5b7147.mp3",
+   "words": [
+    {
+     "word": "Someday",
+     "start": 0
+    },
+    {
+     "word": "the",
+     "start": 0.34
+    },
+    {
+     "word": "market",
+     "start": 0.446
+    },
+    {
+     "word": "will",
+     "start": 0.768
+    },
+    {
+     "word": "crash.",
+     "start": 1.04
+    },
+    {
+     "word": "Time",
+     "start": 1.744
+    },
+    {
+     "word": "stops,",
+     "start": 2.76
+    },
+    {
+     "word": "and",
+     "start": 3.6
+    },
+    {
+     "word": "I'll",
+     "start": 4.12
+    },
+    {
+     "word": "ask",
+     "start": 4.32
+    },
+    {
+     "word": "what",
+     "start": 4.592
+    },
+    {
+     "word": "you",
+     "start": 4.76
+    },
+    {
+     "word": "want",
+     "start": 4.912
+    },
+    {
+     "word": "to",
+     "start": 5.093
+    },
+    {
+     "word": "do.",
+     "start": 5.307
+    },
+    {
+     "word": "Selling",
+     "start": 5.74
+    },
+    {
+     "word": "in",
+     "start": 6.747
+    },
+    {
+     "word": "a",
+     "start": 6.84
+    },
+    {
+     "word": "panic",
+     "start": 6.973
+    },
+    {
+     "word": "locks",
+     "start": 7.56
+    },
+    {
+     "word": "in",
+     "start": 8.267
+    },
+    {
+     "word": "the",
+     "start": 8.5
+    },
+    {
+     "word": "loss.",
+     "start": 8.688
+    },
+    {
+     "word": "Holders",
+     "start": 9.408
+    },
+    {
+     "word": "usually",
+     "start": 10.53
+    },
+    {
+     "word": "get",
+     "start": 10.92
+    },
+    {
+     "word": "the",
+     "start": 11.06
+    },
+    {
+     "word": "rebound.",
+     "start": 11.21
+    }
+   ]
+  },
+  "That's the tour. [laughs] You now know more than most people with a brokerage app. The question mark in Stocks plays it again.": {
+   "file": "9fed16b18d9046fc.mp3",
+   "words": [
+    {
+     "word": "That's",
+     "start": 0
+    },
+    {
+     "word": "the",
+     "start": 0.21
+    },
+    {
+     "word": "tour.",
+     "start": 0.336
+    },
+    {
+     "word": "You",
+     "start": 1.52
+    },
+    {
+     "word": "now",
+     "start": 2.06
+    },
+    {
+     "word": "know",
+     "start": 2.272
+    },
+    {
+     "word": "more",
+     "start": 2.448
+    },
+    {
+     "word": "than",
+     "start": 2.672
+    },
+    {
+     "word": "most",
+     "start": 2.864
+    },
+    {
+     "word": "people",
+     "start": 3.177
+    },
+    {
+     "word": "with",
+     "start": 3.6
+    },
+    {
+     "word": "a",
+     "start": 4.08
+    },
+    {
+     "word": "brokerage",
+     "start": 4.272
+    },
+    {
+     "word": "app.",
+     "start": 4.64
+    },
+    {
+     "word": "The",
+     "start": 5.2
+    },
+    {
+     "word": "question",
+     "start": 5.956
+    },
+    {
+     "word": "mark",
+     "start": 6.304
+    },
+    {
+     "word": "in",
+     "start": 6.747
+    },
+    {
+     "word": "Stocks",
+     "start": 7.2
+    },
+    {
+     "word": "plays",
+     "start": 7.813
+    },
+    {
+     "word": "it",
+     "start": 8.507
+    },
+    {
+     "word": "again.",
+     "start": 8.64
+    }
+   ]
+  },
+  "Tax season. Your return for last year is ready, so let's walk through it together. [slow] It's less scary than it sounds.": {
+   "file": "565c655ebc206269.mp3",
+   "words": [
+    {
+     "word": "Tax",
+     "start": 0
+    },
+    {
+     "word": "season.",
+     "start": 0.309
+    },
+    {
+     "word": "Your",
+     "start": 0.864
+    },
+    {
+     "word": "return",
+     "start": 1.177
+    },
+    {
+     "word": "for",
+     "start": 1.54
+    },
+    {
+     "word": "last",
+     "start": 1.664
+    },
+    {
+     "word": "year",
+     "start": 1.952
+    },
+    {
+     "word": "is",
+     "start": 2.107
+    },
+    {
+     "word": "ready,",
+     "start": 2.227
+    },
+    {
+     "word": "so",
+     "start": 2.933
+    },
+    {
+     "word": "let's",
+     "start": 3.06
+    },
+    {
+     "word": "walk",
+     "start": 3.248
+    },
+    {
+     "word": "through",
+     "start": 3.46
+    },
+    {
+     "word": "it",
+     "start": 3.627
+    },
+    {
+     "word": "together.",
+     "start": 3.733
+    },
+    {
+     "word": "It's",
+     "start": 5.022
+    },
+    {
+     "word": "less",
+     "start": 5.168
+    },
+    {
+     "word": "scary",
+     "start": 5.427
+    },
+    {
+     "word": "than",
+     "start": 5.792
+    },
+    {
+     "word": "it",
+     "start": 5.947
+    },
+    {
+     "word": "sounds.",
+     "start": 6.114
+    }
+   ]
+  },
+  "Nothing to file right now. Your return shows up around April 15, and I'll walk you through it then. Here's the gist meanwhile.": {
+   "file": "d21cf01c5c7b71e6.mp3",
+   "words": [
+    {
+     "word": "Nothing",
+     "start": 0
+    },
+    {
+     "word": "to",
+     "start": 0.213
+    },
+    {
+     "word": "file",
+     "start": 0.384
+    },
+    {
+     "word": "right",
+     "start": 0.667
+    },
+    {
+     "word": "now.",
+     "start": 0.9
+    },
+    {
+     "word": "Your",
+     "start": 1.424
+    },
+    {
+     "word": "return",
+     "start": 2.069
+    },
+    {
+     "word": "shows",
+     "start": 2.533
+    },
+    {
+     "word": "up",
+     "start": 2.853
+    },
+    {
+     "word": "around",
+     "start": 3.006
+    },
+    {
+     "word": "April",
+     "start": 3.333
+    },
+    {
+     "word": "15,",
+     "start": 3.76
+    },
+    {
+     "word": "and",
+     "start": 4.74
+    },
+    {
+     "word": "I'll",
+     "start": 5.08
+    },
+    {
+     "word": "walk",
+     "start": 5.248
+    },
+    {
+     "word": "you",
+     "start": 5.46
+    },
+    {
+     "word": "through",
+     "start": 5.55
+    },
+    {
+     "word": "it",
+     "start": 5.813
+    },
+    {
+     "word": "then.",
+     "start": 5.984
+    },
+    {
+     "word": "Here's",
+     "start": 6.544
+    },
+    {
+     "word": "the",
+     "start": 7.54
+    },
+    {
+     "word": "gist",
+     "start": 7.664
+    },
+    {
+     "word": "meanwhile.",
+     "start": 7.976
+    }
+   ]
+  },
+  "Here's one of those paychecks on your statement. What lands in checking is after withholding. The rest already went to taxes.": {
+   "file": "d880fa87fb8bfef7.mp3",
+   "words": [
+    {
+     "word": "Here's",
+     "start": 0
+    },
+    {
+     "word": "one",
+     "start": 0.18
+    },
+    {
+     "word": "of",
+     "start": 0.267
+    },
+    {
+     "word": "those",
+     "start": 0.347
+    },
+    {
+     "word": "paychecks",
+     "start": 0.56
+    },
+    {
+     "word": "on",
+     "start": 1.067
+    },
+    {
+     "word": "your",
+     "start": 1.152
+    },
+    {
+     "word": "statement.",
+     "start": 1.336
+    },
+    {
+     "word": "What",
+     "start": 2.416
+    },
+    {
+     "word": "lands",
+     "start": 2.853
+    },
+    {
+     "word": "in",
+     "start": 3.147
+    },
+    {
+     "word": "checking",
+     "start": 3.253
+    },
+    {
+     "word": "is",
+     "start": 3.84
+    },
+    {
+     "word": "after",
+     "start": 4.24
+    },
+    {
+     "word": "withholding.",
+     "start": 4.7
+    },
+    {
+     "word": "The",
+     "start": 5.81
+    },
+    {
+     "word": "rest",
+     "start": 6.16
+    },
+    {
+     "word": "already",
+     "start": 6.56
+    },
+    {
+     "word": "went",
+     "start": 7.152
+    },
+    {
+     "word": "to",
+     "start": 7.307
+    },
+    {
+     "word": "taxes.",
+     "start": 7.48
+    }
+   ]
+  },
+  "Now the big question. Your bottom line is what you already paid, plus credits, minus the tax. Pick the one you think is right.": {
+   "file": "f316b0615d3722d7.mp3",
+   "words": [
+    {
+     "word": "Now",
+     "start": 0
+    },
+    {
+     "word": "the",
+     "start": 0.18
+    },
+    {
+     "word": "big",
+     "start": 0.28
+    },
+    {
+     "word": "question.",
+     "start": 0.453
+    },
+    {
+     "word": "Your",
+     "start": 1.088
+    },
+    {
+     "word": "bottom",
+     "start": 1.646
+    },
+    {
+     "word": "line",
+     "start": 1.984
+    },
+    {
+     "word": "is",
+     "start": 2.293
+    },
+    {
+     "word": "what",
+     "start": 2.432
+    },
+    {
+     "word": "you",
+     "start": 2.6
+    },
+    {
+     "word": "already",
+     "start": 2.78
+    },
+    {
+     "word": "paid,",
+     "start": 3.296
+    },
+    {
+     "word": "plus",
+     "start": 4.144
+    },
+    {
+     "word": "credits,",
+     "start": 4.46
+    },
+    {
+     "word": "minus",
+     "start": 5.16
+    },
+    {
+     "word": "the",
+     "start": 5.8
+    },
+    {
+     "word": "tax.",
+     "start": 6.06
+    },
+    {
+     "word": "Pick",
+     "start": 6.752
+    },
+    {
+     "word": "the",
+     "start": 7.54
+    },
+    {
+     "word": "one",
+     "start": 7.64
+    },
+    {
+     "word": "you",
+     "start": 7.78
+    },
+    {
+     "word": "think",
+     "start": 7.88
+    },
+    {
+     "word": "is",
+     "start": 8.133
+    },
+    {
+     "word": "right.",
+     "start": 8.307
+    }
+   ]
+  },
+  "One last thing. File late and the IRS adds 5% of what you owe each month, up to 25%. Pay late, and it's another 0.5% a month, plus interest.": {
+   "file": "593898824f12be4a.mp3",
+   "words": [
+    {
+     "word": "One",
+     "start": 0
+    },
+    {
+     "word": "last",
+     "start": 0.144
+    },
+    {
+     "word": "thing.",
+     "start": 0.44
+    },
+    {
+     "word": "File",
+     "start": 0.896
+    },
+    {
+     "word": "late",
+     "start": 1.696
+    },
+    {
+     "word": "and",
+     "start": 2.22
+    },
+    {
+     "word": "the",
+     "start": 2.66
+    },
+    {
+     "word": "IRS",
+     "start": 2.88
+    },
+    {
+     "word": "adds",
+     "start": 3.504
+    },
+    {
+     "word": "5%",
+     "start": 4.16
+    },
+    {
+     "word": "of",
+     "start": 4.827
+    },
+    {
+     "word": "what",
+     "start": 4.912
+    },
+    {
+     "word": "you",
+     "start": 5.08
+    },
+    {
+     "word": "owe",
+     "start": 5.26
+    },
+    {
+     "word": "each",
+     "start": 5.504
+    },
+    {
+     "word": "month,",
+     "start": 5.827
+    },
+    {
+     "word": "up",
+     "start": 6.773
+    },
+    {
+     "word": "to",
+     "start": 6.933
+    },
+    {
+     "word": "25%.",
+     "start": 7.12
+    },
+    {
+     "word": "Pay",
+     "start": 8.46
+    },
+    {
+     "word": "late,",
+     "start": 9.184
+    },
+    {
+     "word": "and",
+     "start": 9.68
+    },
+    {
+     "word": "it's",
+     "start": 10.187
+    },
+    {
+     "word": "another",
+     "start": 10.35
+    },
+    {
+     "word": "0.5%",
+     "start": 10.64
+    },
+    {
+     "word": "a",
+     "start": 11.8
+    },
+    {
+     "word": "month,",
+     "start": 11.907
+    },
+    {
+     "word": "plus",
+     "start": 12.608
+    },
+    {
+     "word": "interest.",
+     "start": 12.862
+    }
+   ]
+  },
+  "Leave it unpaid for 6 months and it turns into an IRS debt, and missed payments on that hurt your credit score. [slow] So, file by April 15.": {
+   "file": "0e69916b79e31f3e.mp3",
+   "words": [
+    {
+     "word": "Leave",
+     "start": 0
+    },
+    {
+     "word": "it",
+     "start": 0.187
+    },
+    {
+     "word": "unpaid",
+     "start": 0.297
+    },
+    {
+     "word": "for",
+     "start": 0.68
+    },
+    {
+     "word": "6",
+     "start": 0.88
+    },
+    {
+     "word": "months",
+     "start": 1.097
+    },
+    {
+     "word": "and",
+     "start": 1.58
+    },
+    {
+     "word": "it",
+     "start": 2.027
+    },
+    {
+     "word": "turns",
+     "start": 2.133
+    },
+    {
+     "word": "into",
+     "start": 2.448
+    },
+    {
+     "word": "an",
+     "start": 2.693
+    },
+    {
+     "word": "IRS",
+     "start": 2.92
+    },
+    {
+     "word": "debt,",
+     "start": 3.344
+    },
+    {
+     "word": "and",
+     "start": 4.26
+    },
+    {
+     "word": "missed",
+     "start": 4.366
+    },
+    {
+     "word": "payments",
+     "start": 4.693
+    },
+    {
+     "word": "on",
+     "start": 5.147
+    },
+    {
+     "word": "that",
+     "start": 5.296
+    },
+    {
+     "word": "hurt",
+     "start": 5.808
+    },
+    {
+     "word": "your",
+     "start": 6.352
+    },
+    {
+     "word": "credit",
+     "start": 6.537
+    },
+    {
+     "word": "score.",
+     "start": 6.96
+    },
+    {
+     "word": "So,",
+     "start": 8.764
+    },
+    {
+     "word": "file",
+     "start": 9.2
+    },
+    {
+     "word": "by",
+     "start": 9.973
+    },
+    {
+     "word": "April",
+     "start": 10.32
+    },
+    {
+     "word": "15.",
+     "start": 10.8
+    }
+   ]
+  },
+  "And that's taxes. [laughs] You survived. The question mark on the Taxes tab plays this again.": {
+   "file": "b9211484c0919d1e.mp3",
+   "words": [
+    {
+     "word": "And",
+     "start": 0
+    },
+    {
+     "word": "that's",
+     "start": 0.128
+    },
+    {
+     "word": "taxes.",
+     "start": 0.693
+    },
+    {
+     "word": "You",
+     "start": 2.2
+    },
+    {
+     "word": "survived.",
+     "start": 2.649
+    },
+    {
+     "word": "The",
+     "start": 4.01
+    },
+    {
+     "word": "question",
+     "start": 4.444
+    },
+    {
+     "word": "mark",
+     "start": 4.848
+    },
+    {
+     "word": "on",
+     "start": 5.093
+    },
+    {
+     "word": "the",
+     "start": 5.22
+    },
+    {
+     "word": "Taxes",
+     "start": 5.36
+    },
+    {
+     "word": "tab",
+     "start": 5.86
+    },
+    {
+     "word": "plays",
+     "start": 6.293
+    },
+    {
+     "word": "this",
+     "start": 7.024
+    },
+    {
+     "word": "again.",
+     "start": 7.373
+    }
+   ]
+  },
+  "Tax season again. Last year's bottom line tripped you up, so here's the short version.": {
+   "file": "829716d1a2a03a16.mp3",
+   "words": [
+    {
+     "word": "Tax",
+     "start": 0
+    },
+    {
+     "word": "season",
+     "start": 0.286
+    },
+    {
+     "word": "again.",
+     "start": 0.64
+    },
+    {
+     "word": "Last",
+     "start": 1.312
+    },
+    {
+     "word": "year's",
+     "start": 2.112
+    },
+    {
+     "word": "bottom",
+     "start": 2.354
+    },
+    {
+     "word": "line",
+     "start": 2.624
+    },
+    {
+     "word": "tripped",
+     "start": 2.92
+    },
+    {
+     "word": "you",
+     "start": 3.22
+    },
+    {
+     "word": "up,",
+     "start": 3.36
+    },
+    {
+     "word": "so",
+     "start": 4.053
+    },
+    {
+     "word": "here's",
+     "start": 4.192
+    },
+    {
+     "word": "the",
+     "start": 4.42
+    },
+    {
+     "word": "short",
+     "start": 4.547
+    },
+    {
+     "word": "version.",
+     "start": 4.94
+    }
+   ]
+  },
+  "That's the refresher. [laughs] Much quicker the second time.": {
+   "file": "9d0d2d8b3e48d837.mp3",
+   "words": [
+    {
+     "word": "That's",
+     "start": 0
+    },
+    {
+     "word": "the",
+     "start": 0.26
+    },
+    {
+     "word": "refresher.",
+     "start": 0.36
+    },
+    {
+     "word": "Much",
+     "start": 2.368
+    },
+    {
+     "word": "quicker",
+     "start": 2.75
+    },
+    {
+     "word": "the",
+     "start": 2.98
+    },
+    {
+     "word": "second",
+     "start": 3.097
+    },
+    {
+     "word": "time.",
+     "start": 3.52
+    }
+   ]
+  },
+  "Hello. I'm Sammy. This is Larp City, and the life in it is yours: your salary, your rent, your debt.": {
+   "file": "0dacb9eb05bce0e1.mp3",
+   "words": [
+    {
+     "word": "Hello.",
+     "start": 0
+    },
+    {
+     "word": "I'm",
+     "start": 0.6
+    },
+    {
+     "word": "Sammy.",
+     "start": 0.96
+    },
+    {
+     "word": "This",
+     "start": 1.616
+    },
+    {
+     "word": "is",
+     "start": 2.373
+    },
+    {
+     "word": "Larp",
+     "start": 2.52
+    },
+    {
+     "word": "City,",
+     "start": 2.88
+    },
+    {
+     "word": "and",
+     "start": 3.78
+    },
+    {
+     "word": "the",
+     "start": 3.86
+    },
+    {
+     "word": "life",
+     "start": 3.984
+    },
+    {
+     "word": "in",
+     "start": 4.293
+    },
+    {
+     "word": "it",
+     "start": 4.427
+    },
+    {
+     "word": "is",
+     "start": 4.56
+    },
+    {
+     "word": "yours:",
+     "start": 4.827
+    },
+    {
+     "word": "your",
+     "start": 5.952
+    },
+    {
+     "word": "salary,",
+     "start": 6.16
+    },
+    {
+     "word": "your",
+     "start": 7.072
+    },
+    {
+     "word": "rent,",
+     "start": 7.28
+    },
+    {
+     "word": "your",
+     "start": 8.192
+    },
+    {
+     "word": "debt.",
+     "start": 8.432
+    }
+   ]
+  },
+  "The goal is simple. Retire. [slow] Preferably before sixty-five, and preferably not broke. You'll learn a few money tricks on the way.": {
+   "file": "b25da87a7a3092d8.mp3",
+   "words": [
+    {
+     "word": "The",
+     "start": 0
+    },
+    {
+     "word": "goal",
+     "start": 0.128
+    },
+    {
+     "word": "is",
+     "start": 0.347
+    },
+    {
+     "word": "simple.",
+     "start": 0.469
+    },
+    {
+     "word": "Retire.",
+     "start": 1.28
+    },
+    {
+     "word": "Preferably",
+     "start": 2.779
+    },
+    {
+     "word": "before",
+     "start": 3.088
+    },
+    {
+     "word": "sixty-five,",
+     "start": 3.415
+    },
+    {
+     "word": "and",
+     "start": 4.582
+    },
+    {
+     "word": "preferably",
+     "start": 4.693
+    },
+    {
+     "word": "not",
+     "start": 5.382
+    },
+    {
+     "word": "broke.",
+     "start": 6.029
+    },
+    {
+     "word": "You'll",
+     "start": 7.212
+    },
+    {
+     "word": "learn",
+     "start": 7.695
+    },
+    {
+     "word": "a",
+     "start": 7.802
+    },
+    {
+     "word": "few",
+     "start": 7.902
+    },
+    {
+     "word": "money",
+     "start": 8.122
+    },
+    {
+     "word": "tricks",
+     "start": 8.368
+    },
+    {
+     "word": "on",
+     "start": 8.695
+    },
+    {
+     "word": "the",
+     "start": 8.822
+    },
+    {
+     "word": "way.",
+     "start": 8.982
+    }
+   ]
+  },
+  "Your phone runs everything. Money, stocks, goals, the map, and a calendar where every day actually happens.": {
+   "file": "c7291f282efee705.mp3",
+   "words": [
+    {
+     "word": "Your",
+     "start": 0
+    },
+    {
+     "word": "phone",
+     "start": 0.213
+    },
+    {
+     "word": "runs",
+     "start": 0.544
+    },
+    {
+     "word": "everything.",
+     "start": 0.865
+    },
+    {
+     "word": "Money,",
+     "start": 1.733
+    },
+    {
+     "word": "stocks,",
+     "start": 2.891
+    },
+    {
+     "word": "goals,",
+     "start": 3.853
+    },
+    {
+     "word": "the",
+     "start": 4.56
+    },
+    {
+     "word": "map,",
+     "start": 4.88
+    },
+    {
+     "word": "and",
+     "start": 5.62
+    },
+    {
+     "word": "a",
+     "start": 5.72
+    },
+    {
+     "word": "calendar",
+     "start": 5.831
+    },
+    {
+     "word": "where",
+     "start": 6.48
+    },
+    {
+     "word": "every",
+     "start": 6.933
+    },
+    {
+     "word": "day",
+     "start": 7.28
+    },
+    {
+     "word": "actually",
+     "start": 7.591
+    },
+    {
+     "word": "happens.",
+     "start": 8.25
+    }
+   ]
+  },
+  "Along the way: a house, a wedding, paying off those loans. Where you live matters. San Francisco rent is [sighs] a lot.": {
+   "file": "89f6261339ddc9d9.mp3",
+   "words": [
+    {
+     "word": "Along",
+     "start": 0
+    },
+    {
+     "word": "the",
+     "start": 0.26
+    },
+    {
+     "word": "way:",
+     "start": 0.42
+    },
+    {
+     "word": "a",
+     "start": 1.2
+    },
+    {
+     "word": "house,",
+     "start": 1.453
+    },
+    {
+     "word": "a",
+     "start": 2.36
+    },
+    {
+     "word": "wedding,",
+     "start": 2.46
+    },
+    {
+     "word": "paying",
+     "start": 3.074
+    },
+    {
+     "word": "off",
+     "start": 3.8
+    },
+    {
+     "word": "those",
+     "start": 3.96
+    },
+    {
+     "word": "loans.",
+     "start": 4.267
+    },
+    {
+     "word": "Where",
+     "start": 5.407
+    },
+    {
+     "word": "you",
+     "start": 5.88
+    },
+    {
+     "word": "live",
+     "start": 6.08
+    },
+    {
+     "word": "matters.",
+     "start": 6.5
+    },
+    {
+     "word": "San",
+     "start": 7.46
+    },
+    {
+     "word": "Francisco",
+     "start": 8.048
+    },
+    {
+     "word": "rent",
+     "start": 8.56
+    },
+    {
+     "word": "is",
+     "start": 8.987
+    },
+    {
+     "word": "a",
+     "start": 10.44
+    },
+    {
+     "word": "lot.",
+     "start": 10.68
+    }
+   ]
+  },
+  "Time moves a day at a time. Speed it up, or skip straight to the next thing that needs you.": {
+   "file": "31514fce9f0061be.mp3",
+   "words": [
+    {
+     "word": "Time",
+     "start": 0
+    },
+    {
+     "word": "moves",
+     "start": 0.507
+    },
+    {
+     "word": "a",
+     "start": 1.08
+    },
+    {
+     "word": "day",
+     "start": 1.18
+    },
+    {
+     "word": "at",
+     "start": 1.387
+    },
+    {
+     "word": "a",
+     "start": 1.48
+    },
+    {
+     "word": "time.",
+     "start": 1.632
+    },
+    {
+     "word": "Speed",
+     "start": 2.307
+    },
+    {
+     "word": "it",
+     "start": 3.067
+    },
+    {
+     "word": "up,",
+     "start": 3.2
+    },
+    {
+     "word": "or",
+     "start": 3.947
+    },
+    {
+     "word": "skip",
+     "start": 4.08
+    },
+    {
+     "word": "straight",
+     "start": 4.444
+    },
+    {
+     "word": "to",
+     "start": 4.827
+    },
+    {
+     "word": "the",
+     "start": 4.9
+    },
+    {
+     "word": "next",
+     "start": 5.008
+    },
+    {
+     "word": "thing",
+     "start": 5.24
+    },
+    {
+     "word": "that",
+     "start": 5.472
+    },
+    {
+     "word": "needs",
+     "start": 5.653
+    },
+    {
+     "word": "you.",
+     "start": 6
+    }
+   ]
+  },
+  "Skips stop for the big stuff. A market crash, a car breakdown, a trip to the hospital, a divorce. I'll explain what happened. Calmly.": {
+   "file": "75d35d0cd584f93a.mp3",
+   "words": [
+    {
+     "word": "Skips",
+     "start": 0
+    },
+    {
+     "word": "stop",
+     "start": 0.528
+    },
+    {
+     "word": "for",
+     "start": 1.16
+    },
+    {
+     "word": "the",
+     "start": 1.54
+    },
+    {
+     "word": "big",
+     "start": 1.66
+    },
+    {
+     "word": "stuff.",
+     "start": 1.92
+    },
+    {
+     "word": "A",
+     "start": 2.72
+    },
+    {
+     "word": "market",
+     "start": 3.086
+    },
+    {
+     "word": "crash,",
+     "start": 3.427
+    },
+    {
+     "word": "a",
+     "start": 4.12
+    },
+    {
+     "word": "car",
+     "start": 4.22
+    },
+    {
+     "word": "breakdown,",
+     "start": 4.456
+    },
+    {
+     "word": "a",
+     "start": 5.32
+    },
+    {
+     "word": "trip",
+     "start": 5.408
+    },
+    {
+     "word": "to",
+     "start": 5.627
+    },
+    {
+     "word": "the",
+     "start": 5.72
+    },
+    {
+     "word": "hospital,",
+     "start": 5.884
+    },
+    {
+     "word": "a",
+     "start": 6.68
+    },
+    {
+     "word": "divorce.",
+     "start": 6.8
+    },
+    {
+     "word": "I'll",
+     "start": 7.84
+    },
+    {
+     "word": "explain",
+     "start": 8.465
+    },
+    {
+     "word": "what",
+     "start": 8.656
+    },
+    {
+     "word": "happened.",
+     "start": 8.773
+    },
+    {
+     "word": "Calmly.",
+     "start": 9.75
+    }
+   ]
+  },
+  "I'll pop in with tips when you reach a goal, go broke, or your stocks swing. [whispers] Mostly: diversify.": {
+   "file": "a413ed3f879b5eab.mp3",
+   "words": [
+    {
+     "word": "I'll",
+     "start": 0
+    },
+    {
+     "word": "pop",
+     "start": 0.2
+    },
+    {
+     "word": "in",
+     "start": 0.373
+    },
+    {
+     "word": "with",
+     "start": 0.496
+    },
+    {
+     "word": "tips",
+     "start": 0.656
+    },
+    {
+     "word": "when",
+     "start": 1.136
+    },
+    {
+     "word": "you",
+     "start": 1.54
+    },
+    {
+     "word": "reach",
+     "start": 1.64
+    },
+    {
+     "word": "a",
+     "start": 1.92
+    },
+    {
+     "word": "goal,",
+     "start": 2.064
+    },
+    {
+     "word": "go",
+     "start": 2.853
+    },
+    {
+     "word": "broke,",
+     "start": 3.04
+    },
+    {
+     "word": "or",
+     "start": 3.973
+    },
+    {
+     "word": "your",
+     "start": 4.112
+    },
+    {
+     "word": "stocks",
+     "start": 4.331
+    },
+    {
+     "word": "swing.",
+     "start": 5.027
+    },
+    {
+     "word": "Mostly:",
+     "start": 7.144
+    },
+    {
+     "word": "diversify.",
+     "start": 7.532
+    }
+   ]
+  },
+  "First, let's set up your life and pick your goals. They're permanent, so choose like a grown-up.": {
+   "file": "89986458d04be505.mp3",
+   "words": [
+    {
+     "word": "First,",
+     "start": 0
+    },
+    {
+     "word": "let's",
+     "start": 0.84
+    },
+    {
+     "word": "set",
+     "start": 1.08
+    },
+    {
+     "word": "up",
+     "start": 1.227
+    },
+    {
+     "word": "your",
+     "start": 1.312
+    },
+    {
+     "word": "life",
+     "start": 1.504
+    },
+    {
+     "word": "and",
+     "start": 1.78
+    },
+    {
+     "word": "pick",
+     "start": 1.888
+    },
+    {
+     "word": "your",
+     "start": 2.112
+    },
+    {
+     "word": "goals.",
+     "start": 2.347
+    },
+    {
+     "word": "They're",
+     "start": 3.072
+    },
+    {
+     "word": "permanent,",
+     "start": 3.656
+    },
+    {
+     "word": "so",
+     "start": 4.613
+    },
+    {
+     "word": "choose",
+     "start": 4.777
+    },
+    {
+     "word": "like",
+     "start": 5.152
+    },
+    {
+     "word": "a",
+     "start": 5.32
+    },
+    {
+     "word": "grown-up.",
+     "start": 5.413
     }
    ]
   }
