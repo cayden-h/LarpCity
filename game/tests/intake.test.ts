@@ -191,3 +191,16 @@ test("a freshly-built life always starts with a 600 credit score", () => {
   assert.equal(lifeFor().book.profile.score, CREDIT_SCORE_START);
   assert.equal(lifeFromIntake(NURSE, { place: CA, day: 0, market: new MarketPath() }).book.profile.score, CREDIT_SCORE_START);
 });
+
+test("a freshly-built life defaults to age 22 when the intake states no age", () => {
+  assert.equal(lifeFor().age, 22);
+});
+
+test("a freshly-built life defaults to the male avatar preset when the intake states no avatar", () => {
+  assert.equal(lifeFor().avatar, "male");
+});
+
+test("an explicit female avatar choice round-trips through lifeFromIntake onto the life", () => {
+  const life = lifeFromIntake({ ...NURSE, avatar: "female" }, { place: TX, day: 0, market: new MarketPath() });
+  assert.equal(life.avatar, "female");
+});

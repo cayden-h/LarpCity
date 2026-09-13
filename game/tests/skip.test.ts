@@ -164,7 +164,7 @@ test("the preview is a consistent band from other seeds' markets", () => {
   const goal: Goal = { kind: "net_worth", amount: 100_000 };
   const futures = buildFutures(7, 20, 45);
   const p = runPreview(life, orders, goal, { futures, month: 0, capAge: 67 });
-  assert.equal(p.months, 480);
+  assert.equal(p.months, 540); // (67 - 22) * 12; default starting age is now 22, not 27
   assert.equal(p.p50.length, p.months + 1);
   for (let m = 0; m <= p.months; m++) assert.ok(p.p10[m] <= p.p50[m] && p.p50[m] <= p.p90[m], `month ${m}`);
   assert.ok(p.p90[p.months] > p.p10[p.months], "invested money should spread with luck");

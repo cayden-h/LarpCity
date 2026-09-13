@@ -21,6 +21,8 @@ export interface IntakeAnswers {
   debt: number;
   /** Total savings. */
   savings: number;
+  /** Avatar preset chosen at onboarding; no further customization. Defaults to "male". */
+  avatar?: "male" | "female";
 }
 
 /** Caps that keep a typo or a joke answer from breaking the sim. */
@@ -72,6 +74,7 @@ export function coerceAnswers(raw: unknown): Partial<IntakeAnswers> {
   if (!raw || typeof raw !== "object") return out;
   const r = raw as Record<string, unknown>;
   if (typeof r.job === "string" && r.job.trim()) out.job = r.job.trim().replace(/\s+/g, " ").slice(0, JOB_MAX_LENGTH);
+  if (r.avatar === "male" || r.avatar === "female") out.avatar = r.avatar;
   for (const k of NUMBER_KEYS) {
     const n = parseDollars(r[k]);
     if (n !== undefined) out[k] = Math.min(Math.round(n), INTAKE_LIMITS[k]);
@@ -83,7 +86,7 @@ export function coerceAnswers(raw: unknown): Partial<IntakeAnswers> {
 export function completeAnswers(p: Partial<IntakeAnswers>): IntakeAnswers | null {
   const { salary, rent, debt, savings } = p;
   if (salary === undefined || rent === undefined || debt === undefined || savings === undefined) return null;
-  return { job: p.job ?? "", salary, rent, debt, savings };
+  return { job: p.job ?? "", salary, rent, debt, savings, ...(p.avatar ? { avatar: p.avatar } : {}) };
 }
 
 /** Monthly take-home for a gross yearly salary in the given state (real federal + state withholding, sim/tax). */
@@ -132,6 +135,7 @@ export function lifeFromIntake(a: IntakeAnswersInput, o: { place: Place; day: nu
     grossAnnual: salary,
     monthlyTakeHome,
     job: a.job,
+    avatar: a.avatar,
     rent: a.rent,
     book,
     accounts,

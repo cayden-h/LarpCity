@@ -62,6 +62,10 @@ class Intake {
   private answers: IntakeAnswers | null = null;
   /** "voice" once the Narrator's call handed over answers; the form alone is "typed". */
   private source: "voice" | "typed" = "typed";
+  /** Avatar preset chosen on the avatar screen; no further customization. */
+  private avatar: "male" | "female" = "male";
+  /** Which screen the avatar screen leads to once a preset is picked. */
+  private nextAfterAvatar: "talk" | "type" = "talk";
   private lines: { role: Role; text: string }[] = [];
   /** Set once the narrator starts the goodbye after the answers arrive. */
   private goodbye = false;
@@ -110,6 +114,34 @@ class Intake {
     this.focus("[data-act=talk]");
   }
 
+  /** Two avatar presets, no further customization. `next` is which screen to show once one is picked. */
+  private avatarScreen(next: "talk" | "type"): void {
+    this.nextAfterAvatar = next;
+    this.show(`
+      <div class="in-owl-slot"></div>
+      <div class="in-name">The Narrator</div>
+      <p class="in-lead">One more thing before we start: who's moving into Larp City?</p>
+      <div class="in-actions in-avatar-picker">
+        <button type="button" class="btn in-big in-avatar-card" data-act="avatar-male">
+          <span class="in-avatar-icon" aria-hidden="true">🧑</span>
+          <span>Male</span>
+        </button>
+        <button type="button" class="btn in-big in-avatar-card" data-act="avatar-female">
+          <span class="in-avatar-icon" aria-hidden="true">👩</span>
+          <span>Female</span>
+        </button>
+      </div>`);
+    this.mountOwl(OWL_BIG);
+    void this.owl.play("idle");
+    this.focus("[data-act=avatar-male]");
+  }
+
+  private chooseAvatar(avatar: "male" | "female"): void {
+    this.avatar = avatar;
+    if (this.nextAfterAvatar === "talk") void this.talk();
+    else this.typeInstead();
+  }
+
   private show(html: string): void {
     this.body.innerHTML = html;
   }
@@ -127,8 +159,10 @@ class Intake {
   private onClick(ev: MouseEvent): void {
     if (this.leaving) return;
     const act = (ev.target as HTMLElement).closest<HTMLElement>("[data-act]")?.dataset.act;
-    if (act === "talk") void this.talk();
-    else if (act === "type") this.typeInstead();
+    if (act === "talk") this.avatarScreen("talk");
+    else if (act === "type") this.avatarScreen("type");
+    else if (act === "avatar-male") this.chooseAvatar("male");
+    else if (act === "avatar-female") this.chooseAvatar("female");
     else if (act === "hangup") void this.hangUp(this.callSeq);
     else if (act === "skip") void this.finish(null);
   }
@@ -408,6 +442,6 @@ class Intake {
     }
     this.owl.stop();
     this.el.remove();
-    this.resolve(answers ? { answers, source: this.source } : { answers: null, source: "skipped" });
+    this.resolve(answers ? { answers: { ...answers, avatar: this.avatar }, source: this.source } : { answers: null, source: "skipped" });
   }
 }

@@ -95,6 +95,17 @@
   padding: 10px 22px;
   font-size: 17px;
 }
+.in-avatar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 110px;
+}
+.in-avatar-icon {
+  font-size: 40px;
+  line-height: 1;
+}
 .in-link {
   display: block;
   margin: 14px auto 0;

@@ -131,6 +131,8 @@ export interface LifeOptions {
   grossAnnual?: number;
   /** Job title from onboarding. */
   job?: string;
+  /** Avatar preset chosen at onboarding; no further customization. Defaults to "male". */
+  avatar?: "male" | "female";
   /** One-way commute in minutes; defaults to the SOEP-inspired design approximation. */
   commuteMinutes?: number;
   /** Monthly rent the player stated in onboarding; after a move it scales with the new state's housing costs. */
@@ -198,6 +200,8 @@ export interface LifeSave {
    */
   relationship?: "single" | "partnered";
   commuteMinutes?: number;
+  /** Avatar preset chosen at onboarding; optional so a save from before it existed still loads. */
+  avatar?: "male" | "female";
   reemployedDay?: number | null;
   pulses?: Pulse[];
   taxYear?: number;
@@ -277,6 +281,8 @@ export class PlayerLife {
   grossAnnual: number;
   /** Job title from onboarding; empty for the sample household. */
   job: string;
+  /** Avatar preset chosen at onboarding ("male" or "female"); no further customization. */
+  avatar: "male" | "female" = "male";
   /** The plan from the fast-forward setup screen (sim/skip), in force from the day it was set. */
   orders: StandingOrders | null = null;
   /**
@@ -385,6 +391,7 @@ export class PlayerLife {
       this.monthlyTakeHome = s.monthlyTakeHome;
       this.grossAnnual = s.grossAnnual;
       this.job = s.job;
+      this.avatar = s.avatar ?? "male";
       this.employed = s.employed;
       this.rentAnchor = s.rentAnchor;
       this.orders = s.orders;
@@ -427,13 +434,14 @@ export class PlayerLife {
     this.crash = new CrashWatch();
     this.place = o.place;
     this.startDay = o.day;
-    this.startAge = o.age ?? 27;
+    this.startAge = o.age ?? 22;
     this.age = this.startAge;
     this.today = o.day;
     this.book = o.book ?? sampleHousehold(o.day, "avalanche", 300);
     this.monthlyTakeHome = o.monthlyTakeHome ?? this.book.monthlyTakeHome;
     this.grossAnnual = o.grossAnnual ?? Math.round((this.monthlyTakeHome * 12) / TAKE_HOME_SHARE);
     this.job = o.job ?? "";
+    this.avatar = o.avatar ?? "male";
     this.commuteMinutes = o.commuteMinutes ?? 23;
     this.rentAnchor = o.rent === undefined ? null : { amount: o.rent, housing: o.place.rpp.housing };
     // The engine's bankruptcy test compares minimums with the book's take-home, so keep them in sync.
@@ -462,6 +470,7 @@ export class PlayerLife {
       monthlyTakeHome: this.monthlyTakeHome,
       grossAnnual: this.grossAnnual,
       job: this.job,
+      avatar: this.avatar,
       orders: this.orders,
       recurring: this.recurring,
       today: this.today,
