@@ -1,259 +1,291 @@
-// Cars follow the road grid tile to tile, keep to the right lane, space
-// themselves out, climb onto bridges, and switch on lights at night.
-// Boats patrol the longest straight runs of water and pass under bridges.
+// Traffic: draws the road sim's cars (moving, parked, and fading out) and
+// runs the boats. The sim (roads/sim.ts) steps at a fixed 1/20 s; each frame
+// runs the steps the frame covers and draws every car between its last two
+// poses. Boats patrol the longest straight runs of water under the bridges.
 
-import { Container, Graphics } from "pixi.js";
+import { Container, Graphics, GraphicsContext } from "pixi.js";
 import { shade } from "./color";
 import type { CityGrid } from "./grid";
-import { BRIDGE_Z, WATER_Z } from "./ground";
-import { DIRS, iso } from "./iso";
-import { pick, pickWeighted, rngFor, type Rng } from "./rng";
+import { WATER_Z } from "./ground";
+import { iso } from "./iso";
+import type { Pose } from "./roads/geometry";
+import type { RoadNet } from "./roads/graph";
+import { elevation, facingOf, lerpPose } from "./roads/pose";
+import { DT, Sim, type Car } from "./roads/sim";
+import { buildSpots, spotPose, Trips, type Ghost, type Look, type Parked, type Place } from "./roads/trips";
+import { pickWeighted, rngFor, type Rng } from "./rng";
 import type { BoatKind, VehicleKind } from "./types";
 
-const CAR_COLORS = [0xe53935, 0x1e88e5, 0xfdd835, 0x43a047, 0xffffff, 0x263238, 0xfb8c00, 0x8e24aa, 0x00acc1];
-
-interface Car {
-  kind: VehicleKind;
-  x: number; // current tile
-  y: number;
-  dir: number; // 0 N, 1 E, 2 S, 3 W
-  t: number; // progress to the next tile, 0..1
-  speed: number; // tiles per second
-  cruise: number;
+interface CarView {
   view: Container;
-  bodies: [Graphics, Graphics]; // [along x, along y]
+  body: Graphics;
   lamps: Graphics;
-  leaving: boolean;
+  facing: number;
+  look: Look;
 }
 
 export class Traffic {
-  private readonly cars: Car[] = [];
-  private readonly boats: Boat[] = [];
-  private readonly roadTiles: [number, number][] = [];
-  /** Cable-car track tiles; cable cars never leave them. */
-  private readonly tramTiles: [number, number][] = [];
-  private target = 0;
-  private readonly rng: Rng;
   /** Registered by the scene so cars take the time-of-day tint. */
   tint = 0xffffff;
+  readonly sim: Sim;
+  readonly trips: Trips;
+  private readonly boats: Boat[] = [];
+  private readonly moving = new Map<Car, CarView>();
+  private readonly parkedViews = new Map<Parked, CarView>();
+  private readonly ghostViews = new Map<Ghost, CarView>();
+  private readonly prev = new Map<Car, Pose>();
+  private acc = 0;
   private readonly grid: CityGrid;
   private readonly objects: Container;
-  private readonly waterLayer: Container;
-  private readonly kinds: { kind: VehicleKind; weight: number }[];
 
   constructor(
+    net: RoadNet,
     grid: CityGrid,
     objects: Container,
     waterLayer: Container,
-    kinds: { kind: VehicleKind; weight: number }[],
+    vehicles: { kind: VehicleKind; weight: number }[],
     boatKinds: { kind: BoatKind; weight: number }[],
+    places: Place[],
     seed: number,
+    hourSeconds: number,
   ) {
     this.grid = grid;
     this.objects = objects;
-    this.waterLayer = waterLayer;
-    this.kinds = kinds;
-    this.rng =rngFor(seed, "traffic");
-    for (const { x, y } of grid.cells()) {
-      if (grid.at(x, y) === "t") this.tramTiles.push([x, y]);
-      else if (grid.isRoad(x, y)) this.roadTiles.push([x, y]);
-    }
-    this.spawnBoats(boatKinds, seed);
+    this.sim = new Sim(net);
+    this.trips = new Trips(this.sim, places, buildSpots(net), vehicles, seed, hourSeconds);
+    this.spawnBoats(boatKinds, seed, waterLayer);
   }
 
   setTarget(n: number): void {
-    this.target = n;
+    this.trips.target = Math.min(250, n);
+  }
+
+  setHour(hour: number): void {
+    this.trips.hour = hour;
   }
 
   get count(): number {
-    return this.cars.filter((c) => !c.leaving).length;
+    return this.sim.cars.length;
   }
 
   update(dt: number, night: number): void {
-    // Spawn or retire gradually so traffic swells and thins over a few seconds.
-    const live = this.count;
-    if (live < this.target && this.rng() < dt * 6) this.spawnCar();
-    if (live > this.target) {
-      const c = this.cars.find((car) => !car.leaving);
-      if (c) c.leaving = true;
+    this.acc += dt;
+    let steps = 0;
+    while (this.acc >= DT && steps < 5) {
+      for (const car of this.sim.cars) this.prev.set(car, this.sim.pose(car));
+      this.sim.step();
+      this.trips.tick();
+      this.acc -= DT;
+      steps++;
+    }
+    if (steps === 5) this.acc = 0;
+    const t = this.acc / DT;
+
+    // Moving cars.
+    const live = new Set(this.sim.cars);
+    for (const [car, v] of this.moving)
+      if (!live.has(car)) {
+        v.view.destroy({ children: true });
+        this.moving.delete(car);
+        this.prev.delete(car);
+      }
+    for (const car of this.sim.cars) {
+      const now = this.sim.pose(car);
+      const pose = lerpPose(this.prev.get(car) ?? now, now, t);
+      const road = car.track.kind === "lane" ? car.track.seg.road : car.track.from.seg.road;
+      const v = this.viewFor(this.moving, car, this.trips.lookOf(car));
+      this.place(v, pose, road.cls === "highway");
+      v.view.alpha = Math.min(1, this.trips.ageOf(car) * 2);
+      v.lamps.alpha = night;
     }
 
-    for (const car of this.cars) this.stepCar(car, dt);
-    for (let i = this.cars.length - 1; i >= 0; i--) {
-      const car = this.cars[i];
-      if (car.leaving) {
-        car.view.alpha -= dt * 1.5;
-        if (car.view.alpha <= 0) {
-          car.view.destroy({ children: true });
-          this.cars.splice(i, 1);
-        }
-      } else if (car.view.alpha < 1) car.view.alpha = Math.min(1, car.view.alpha + dt * 2);
-      car.lamps.alpha = night;
-      for (const b of car.bodies) b.tint = this.tint;
+    // Parked cars.
+    const parked = new Set(this.trips.parked);
+    for (const [p, v] of this.parkedViews)
+      if (!parked.has(p)) {
+        v.view.destroy({ children: true });
+        this.parkedViews.delete(p);
+      }
+    for (const p of this.trips.parked) {
+      const v = this.viewFor(this.parkedViews, p, p.look);
+      this.place(v, spotPose(p.spot), false);
+      v.lamps.alpha = 0;
     }
+
+    // Cars fading out where they left the road.
+    const ghosts = new Set(this.trips.ghosts);
+    for (const [g, v] of this.ghostViews)
+      if (!ghosts.has(g)) {
+        v.view.destroy({ children: true });
+        this.ghostViews.delete(g);
+      }
+    for (const g of this.trips.ghosts) {
+      const v = this.viewFor(this.ghostViews, g, g.look);
+      this.place(v, g.pose, false);
+      v.view.alpha = Math.max(0, 1 - g.t / 0.6);
+      v.lamps.alpha = 0;
+    }
+
+    for (const views of [this.moving, this.parkedViews, this.ghostViews]) for (const v of views.values()) v.body.tint = this.tint;
     for (const boat of this.boats) boat.step(dt, night, this.tint);
   }
 
-  /** Road links a vehicle of this kind may take: cable cars stay on their tracks. */
-  private links(kind: VehicleKind, x: number, y: number): boolean[] {
-    const links = this.grid.roadLinks(x, y);
-    if (kind !== "cable-car") return links;
-    return links.map((ok, d) => ok && this.grid.at(x + DIRS[d].dx, y + DIRS[d].dy) === "t");
-  }
-
-  private spawnCar(): void {
-    const kind = pickWeighted(this.rng, this.kinds.map((k) => ({ weight: k.weight, value: k.kind })));
-    const pool = kind === "cable-car" ? this.tramTiles : this.roadTiles;
-    if (!pool.length) return;
-    const [x, y] = pick(this.rng, pool);
-    const dirs = this.links(kind, x, y).map((ok, i) => (ok ? i : -1)).filter((i) => i >= 0);
-    if (!dirs.length) return;
-    const color = kind === "taxi" ? 0xffc928 : kind === "police" ? 0xffffff : kind === "bus" ? 0x2f7de1 : pick(this.rng, CAR_COLORS);
-    const view = new Container();
-    const bodies: [Graphics, Graphics] = [drawVehicle(kind, color, true), drawVehicle(kind, color, false)];
-    const lamps = new Graphics();
-    view.addChild(bodies[0], bodies[1], lamps);
-    view.alpha = 0;
-    const cruise = (kind === "bus" ? 0.75 : kind === "cable-car" ? 0.5 : 1.05) * (0.85 + this.rng() * 0.3);
-    const car: Car = { kind, x, y, dir: pick(this.rng, dirs), t: this.rng() * 0.5, speed: cruise, cruise, view, bodies, lamps, leaving: false };
-    this.cars.push(car);
-    this.objects.addChild(view);
-    this.place(car);
-  }
-
-  private stepCar(car: Car, dt: number): void {
-    // Brake if another car is close ahead in the same lane.
-    let gap = Infinity;
-    const [ax, ay] = this.pos(car);
-    for (const other of this.cars) {
-      if (other === car || other.dir !== car.dir) continue;
-      const [bx, by] = this.pos(other);
-      const dx = bx - ax, dy = by - ay;
-      const ahead = dx * DIRS[car.dir].dx + dy * DIRS[car.dir].dy;
-      const side = Math.abs(dx * DIRS[car.dir].dy - dy * DIRS[car.dir].dx);
-      if (ahead > 0 && side < 0.2) gap = Math.min(gap, ahead);
+  private viewFor<K>(map: Map<K, CarView>, key: K, look: Look): CarView {
+    let v = map.get(key);
+    if (!v) {
+      const view = new Container();
+      const body = new Graphics(vehicleContext(look, 0));
+      const lamps = new Graphics(lampContext(0));
+      lamps.blendMode = "add";
+      view.addChild(body, lamps);
+      view.cullable = true;
+      this.objects.addChild(view);
+      v = { view, body, lamps, facing: 0, look };
+      map.set(key, v);
     }
-    const want = gap < 0.42 ? 0 : gap < 0.8 ? car.cruise * 0.45 : car.cruise;
-    car.speed += (want - car.speed) * Math.min(1, dt * 5);
-    car.t += car.speed * dt;
-    while (car.t >= 1) {
-      car.t -= 1;
-      car.x += DIRS[car.dir].dx;
-      car.y += DIRS[car.dir].dy;
-      car.dir = this.nextDir(car);
+    return v;
+  }
+
+  private place(v: CarView, pose: Pose, underpass: boolean): void {
+    const ahead = 0.3;
+    const z =
+      (elevation(this.grid, pose.x, pose.y, underpass) * 2 +
+        elevation(this.grid, pose.x + Math.cos(pose.h) * ahead, pose.y + Math.sin(pose.h) * ahead, underpass) +
+        elevation(this.grid, pose.x - Math.cos(pose.h) * ahead, pose.y - Math.sin(pose.h) * ahead, underpass)) /
+      4;
+    const p = iso(pose.x, pose.y, z);
+    v.view.position.set(p.x, p.y);
+    v.view.zIndex = (pose.x + pose.y) * 100 + 40 + (z > 0 ? 45 : 0);
+    const facing = facingOf(pose.h);
+    if (facing !== v.facing) {
+      v.facing = facing;
+      v.body.context = vehicleContext(v.look, facing);
+      v.lamps.context = lampContext(facing);
     }
-    this.place(car);
   }
 
-  private nextDir(car: Car): number {
-    const links = this.links(car.kind, car.x, car.y);
-    const back = (car.dir + 2) % 4;
-    const options: { weight: number; value: number }[] = [];
-    links.forEach((ok, d) => {
-      if (!ok || d === back) return;
-      options.push({ weight: d === car.dir ? 3 : 1, value: d });
-    });
-    return options.length ? pickWeighted(this.rng, options) : back;
-  }
-
-  /** Continuous tile-space position including the lane offset. */
-  private pos(car: Car): [number, number] {
-    const d = DIRS[car.dir];
-    // Right-hand lane: offset to the right of the direction of travel.
-    const laneX = -d.dy * 0.2, laneY = d.dx * 0.2;
-    return [car.x + 0.5 + d.dx * car.t + laneX, car.y + 0.5 + d.dy * car.t + laneY];
-  }
-
-  private place(car: Car): void {
-    const [px, py] = this.pos(car);
-    const here = this.grid.at(car.x, car.y) === "B" ? BRIDGE_Z : 0;
-    const nx = car.x + DIRS[car.dir].dx, ny = car.y + DIRS[car.dir].dy;
-    const there = this.grid.at(nx, ny) === "B" ? BRIDGE_Z : 0;
-    const z = here + (there - here) * car.t;
-    const p = iso(px, py, z);
-    car.view.position.set(p.x, p.y);
-    car.view.zIndex = (px + py) * 100 + 40 + (z > 0 ? 30 : 0);
-    const alongX = car.dir === 1 || car.dir === 3;
-    car.bodies[0].visible = alongX;
-    car.bodies[1].visible = !alongX;
-    drawLamps(car.lamps, car.dir);
-  }
-
-  private spawnBoats(kinds: { kind: BoatKind; weight: number }[], seed: number): void {
+  private spawnBoats(kinds: { kind: BoatKind; weight: number }[], seed: number, layer: Container): void {
     if (!kinds.length) return;
     const rng = rngFor(seed, "boats");
     const runs = waterRuns(this.grid).filter((r) => r.length >= 5).sort((a, b) => b.length - a.length);
     const n = Math.min(runs.length, 2 + Math.floor(runs.length / 3), 7);
     for (let i = 0; i < n; i++) {
-      const run = runs[i];
       const kind = pickWeighted(rng, kinds.map((k) => ({ weight: k.weight, value: k.kind })));
-      this.boats.push(new Boat(kind, run, rng, this.waterLayer));
+      this.boats.push(new Boat(kind, runs[i], rng, layer));
     }
   }
 }
 
-/** A vehicle drawn as a small iso toy car, facing along x or along y. */
-function drawVehicle(kind: VehicleKind, color: number, alongX: boolean): Graphics {
-  const g = new Graphics();
-  const len = kind === "bus" || kind === "cable-car" ? 0.62 : kind === "pickup" || kind === "van" || kind === "snowplow" ? 0.44 : 0.38;
-  const wid = kind === "bus" || kind === "cable-car" ? 0.24 : 0.2;
-  const hx = alongX ? len / 2 : wid / 2, hy = alongX ? wid / 2 : len / 2;
-  const box = (x0: number, y0: number, x1: number, y1: number, z0: number, z1: number, c: number) => {
-    const T = iso(x0, y0, z1), R = iso(x1, y0, z1), B = iso(x1, y1, z1), L = iso(x0, y1, z1);
-    const Bd = iso(x1, y1, z0), Ld = iso(x0, y1, z0), Rd = iso(x1, y0, z0);
-    g.poly([L.x, L.y, B.x, B.y, Bd.x, Bd.y, Ld.x, Ld.y]).fill(shade(c, 0.9));
-    g.poly([B.x, B.y, R.x, R.y, Rd.x, Rd.y, Bd.x, Bd.y]).fill(shade(c, 0.72));
-    g.poly([T.x, T.y, R.x, R.y, B.x, B.y, L.x, L.y]).fill(shade(c, 1.1));
-  };
+// ------------------------------------------------------------------ vehicles
+
+const contexts = new Map<string, GraphicsContext>();
+
+interface VehicleShape {
+  len: number;
+  wid: number;
+}
+
+function shapeOf(kind: VehicleKind): VehicleShape {
+  if (kind === "bus" || kind === "cable-car") return { len: 0.62, wid: 0.24 };
+  if (kind === "pickup" || kind === "van" || kind === "snowplow") return { len: 0.44, wid: 0.2 };
+  return { len: 0.38, wid: 0.2 };
+}
+
+/**
+ * An oriented box in tile space around the car's center, `fwd` along the
+ * car's heading and `side` across it, from z0 to z1 screen pixels. Faces
+ * turned toward the camera (+x, +y) are drawn back to front, then the top.
+ */
+function box(g: GraphicsContext, angle: number, fwd: [number, number], side: [number, number], z0: number, z1: number, color: number): void {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  const at = (f: number, w: number) => ({ x: f * c - w * s, y: f * s + w * c });
+  const pts = [at(fwd[1], side[0]), at(fwd[1], side[1]), at(fwd[0], side[1]), at(fwd[0], side[0])];
+  const faces: { a: (typeof pts)[0]; b: (typeof pts)[0]; nx: number; ny: number }[] = [];
+  for (let i = 0; i < 4; i++) {
+    const a = pts[i], b = pts[(i + 1) % 4];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const cx = (pts[0].x + pts[2].x) / 2, cy = (pts[0].y + pts[2].y) / 2;
+    const nx = mx - cx, ny = my - cy;
+    if (nx + ny > 1e-6) faces.push({ a, b, nx, ny });
+  }
+  faces.sort((p, q) => p.a.x + p.a.y + p.b.x + p.b.y - (q.a.x + q.a.y + q.b.x + q.b.y));
+  for (const f of faces) {
+    const l = Math.hypot(f.nx, f.ny);
+    const k = 0.81 + 0.1 * ((f.ny - f.nx) / l);
+    const A = iso(f.a.x, f.a.y, z0), B = iso(f.b.x, f.b.y, z0), B1 = iso(f.b.x, f.b.y, z1), A1 = iso(f.a.x, f.a.y, z1);
+    g.poly([A.x, A.y, B.x, B.y, B1.x, B1.y, A1.x, A1.y]).fill(shade(color, k));
+  }
+  const top = pts.map((p) => iso(p.x, p.y, z1));
+  g.poly(top.flatMap((p) => [p.x, p.y])).fill(shade(color, 1.1));
+}
+
+function vehicleContext(look: Look, facing: number): GraphicsContext {
+  const key = `${look.kind}:${look.color}:${facing}`;
+  const hit = contexts.get(key);
+  if (hit) return hit;
+  const g = new GraphicsContext();
+  const { kind, color } = look;
+  const { len, wid } = shapeOf(kind);
+  const a = (facing * Math.PI) / 4;
+  const L = len / 2, W = wid / 2;
+  const glass = 0xb8e0f5;
   // Shadow and wheels.
-  const s = iso(0, 0);
-  g.ellipse(s.x, s.y + 1, (hx + hy) * 34, (hx + hy) * 14).fill({ color: 0x000000, alpha: 0.16 });
-  for (const [wx, wy] of [[-hx * 0.6, hy], [hx * 0.6, hy], [hx, -hy * 0.6], [hx, hy * 0.6]] as const) {
-    const p = iso(alongX ? wx : wy === hy ? hx : wx, alongX ? wy : wx === hx ? wy : hy);
-    g.circle(p.x, p.y - 1.5, 2.2).fill(0x1c1c1c);
+  const s0 = iso(0, 0);
+  g.ellipse(s0.x, s0.y + 1, (L + W) * 34, (L + W) * 14).fill({ color: 0x000000, alpha: 0.16 });
+  for (const [f, w] of [[L * 0.62, W], [L * 0.62, -W], [-L * 0.62, W], [-L * 0.62, -W]]) {
+    const p = iso(f * Math.cos(a) - w * Math.sin(a), f * Math.sin(a) + w * Math.cos(a), 1.5);
+    g.circle(p.x, p.y, 2.2).fill(0x1c1c1c);
   }
-  const tall = kind === "bus" || kind === "cable-car" ? 16 : kind === "van" ? 13 : 8;
-  box(-hx, -hy, hx, hy, 2, 2 + (kind === "bus" || kind === "cable-car" || kind === "van" ? tall : 6), color);
-  if (kind === "cable-car") {
-    box(-hx * 0.92, -hy * 0.92, hx * 0.92, hy * 0.92, 18, 20, 0x8d2b20);
-    g.moveTo(iso(0, 0, 20).x, iso(0, 0, 20).y).lineTo(iso(0, 0, 26).x, iso(0, 0, 26).y).stroke({ width: 1, color: 0x333333 });
-  } else if (kind !== "bus" && kind !== "van") {
-    // Cabin with windows.
-    const cx = alongX ? hx * 0.55 : hx, cy = alongX ? hy : hy * 0.55;
-    if (kind === "pickup" || kind === "snowplow") box(alongX ? -hx * 0.1 : -cx, alongX ? -cy : -hy * 0.1, alongX ? cx : cx, alongX ? cy : cy, 8, 14, 0xb8e0f5);
-    else if (kind === "convertible") box(-cx, -cy, cx, cy, 8, 9, 0x5d4037);
-    else box(-cx, -cy, cx, cy, 8, 13, 0xb8e0f5);
-    const roof = iso(0, 0, kind === "convertible" ? 9 : 13);
-    if (kind !== "convertible" && kind !== "pickup" && kind !== "snowplow") g.ellipse(roof.x, roof.y, 4, 2).fill(shade(color, 1.05));
-    if (kind === "taxi") g.rect(roof.x - 3, roof.y - 4, 6, 3).fill(0x222222);
-    if (kind === "police") {
-      g.rect(roof.x - 4, roof.y - 3, 4, 2.5).fill(0xe53935);
-      g.rect(roof.x, roof.y - 3, 4, 2.5).fill(0x1e88e5);
+  if (kind === "bus" || kind === "van" || kind === "cable-car") {
+    const band: [number, number] = kind === "van" ? [8, 11] : [9, 13];
+    const top = kind === "van" ? 15 : 18;
+    box(g, a, [-L, L], [-W, W], 2, band[0], color);
+    box(g, a, [-L * 0.98, L * 0.98], [-W * 0.98, W * 0.98], band[0], band[1], glass);
+    box(g, a, [-L, L], [-W, W], band[1], top, kind === "cable-car" ? 0xf3e2c0 : color);
+    if (kind === "cable-car") {
+      const b = iso(0, 0, top), t = iso(0, 0, top + 8);
+      g.moveTo(b.x, b.y).lineTo(t.x, t.y).stroke({ width: 1, color: 0x333333 });
     }
-    if (kind === "snowplow") {
-      const b0 = iso(alongX ? hx + 0.05 : -hy - 0.02, alongX ? -hy - 0.05 : hy + 0.05, 2);
-      g.circle(b0.x, b0.y, 3).fill(0xff9800);
-    }
+    return cache(key, g);
+  }
+  box(g, a, [-L, L], [-W, W], 2, 8, color);
+  if (kind === "snowplow") box(g, a, [L, L + 0.05], [-W * 1.2, W * 1.2], 1, 5, 0xff9800);
+  if (kind === "convertible") box(g, a, [-L * 0.5, L * 0.3], [-W * 0.85, W * 0.85], 8, 9, 0x5d4037);
+  else if (kind === "pickup" || kind === "snowplow") {
+    box(g, a, [-L * 0.05, L * 0.55], [-W * 0.9, W * 0.9], 8, 12, glass);
+    box(g, a, [-L * 0.05, L * 0.55], [-W * 0.9, W * 0.9], 12, 13.5, color);
   } else {
-    // Bus and van windows as a band.
-    for (let i = 0; i < 4; i++) {
-      const t = -0.8 + i * 0.5;
-      const p = alongX ? iso(hx * t, hy, 11) : iso(hx, hy * t, 11);
-      g.rect(p.x - 2.5, p.y - 2, 5, 3.5).fill(0xb8e0f5);
+    box(g, a, [-L * 0.55, L * 0.45], [-W * 0.9, W * 0.9], 8, 12, glass);
+    box(g, a, [-L * 0.5, L * 0.4], [-W * 0.85, W * 0.85], 12, 13, color);
+    if (kind === "taxi") box(g, a, [-L * 0.12, L * 0.12], [-W * 0.4, W * 0.4], 13, 15, 0x222222);
+    if (kind === "police") {
+      box(g, a, [-L * 0.1, L * 0.1], [-W * 0.8, 0], 13, 14.5, 0xe53935);
+      box(g, a, [-L * 0.1, L * 0.1], [0, W * 0.8], 13, 14.5, 0x1e88e5);
     }
   }
-  return g;
+  return cache(key, g);
 }
 
-function drawLamps(g: Graphics, dir: number): void {
-  g.clear();
-  const d = DIRS[dir];
-  const front = iso(d.dx * 0.24, d.dy * 0.24, 5);
-  const back = iso(-d.dx * 0.22, -d.dy * 0.22, 5);
-  g.ellipse(front.x + d.dx * 10 - d.dy * 10, front.y + (d.dx + d.dy) * 5, 11, 5).fill({ color: 0xfff1b8, alpha: 0.35 });
-  g.circle(front.x, front.y, 1.8).fill(0xfff8d0);
-  g.circle(back.x, back.y, 1.6).fill(0xff3b30);
-  g.blendMode = "add";
+function lampContext(facing: number): GraphicsContext {
+  const key = `lamps:${facing}`;
+  const hit = contexts.get(key);
+  if (hit) return hit;
+  const g = new GraphicsContext();
+  const a = (facing * Math.PI) / 4, c = Math.cos(a), s = Math.sin(a);
+  const at = (f: number, w: number, z: number) => iso(f * c - w * s, f * s + w * c, z);
+  const glow = at(0.5, 0, 0);
+  g.ellipse(glow.x, glow.y, 11, 5).fill({ color: 0xfff1b8, alpha: 0.35 });
+  for (const w of [-0.07, 0.07]) {
+    const f = at(0.2, w, 5), r = at(-0.2, w, 5);
+    g.circle(f.x, f.y, 1.5).fill(0xfff8d0);
+    g.circle(r.x, r.y, 1.3).fill(0xff3b30);
+  }
+  return cache(key, g);
+}
+
+function cache(key: string, g: GraphicsContext): GraphicsContext {
+  contexts.set(key, g);
+  return g;
 }
 
 /** Straight runs of open water, used as boat routes. */

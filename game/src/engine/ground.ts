@@ -9,10 +9,11 @@ import { mix, shade } from "./color";
 import type { CityGrid } from "./grid";
 import { iso, flat, tileCorners, type Pt } from "./iso";
 import { rngFor } from "./rng";
+import { DECK_Z } from "./roads/pose.ts";
 import type { CityPalette } from "./types";
 
 export const WATER_Z = -6;
-export const BRIDGE_Z = 7;
+export const BRIDGE_Z = DECK_Z;
 const PLATE_T = 18;
 const CHUNK = 16;
 

@@ -14,6 +14,8 @@ import { depthOf, footprintRect, HALF_H, HALF_W, iso } from "./iso";
 import { People, type Mood, type NpcInfo } from "./people";
 import { plant, populate, zoneAt, type Placed, type Plant } from "./populate";
 import { rngFor } from "./rng";
+import { buildGraph, type RoadNet } from "./roads/graph";
+import { buildPlaces, demand } from "./roads/trips";
 import { placeShelters } from "./sprite-pick";
 import { buildSprite, type SpriteSet } from "./sprites";
 import { Traffic } from "./traffic";
@@ -56,6 +58,7 @@ export class CityScene {
   private readonly world = new Container();
   private readonly objects = new Container();
   private readonly ground: Ground;
+  private readonly net: RoadNet;
   private readonly traffic: Traffic;
   private readonly people: People;
   private readonly weatherFx = new WeatherFx();
@@ -102,10 +105,10 @@ export class CityScene {
           if (this.grid.at(x + dx, y + dy) === "b") this.grid.set(x + dx, y + dy, ".");
 
     this.ground = new Ground(this.grid, this.city.palette, seed);
+    this.net = buildGraph(this.city.roads, { core: this.city.core });
     this.objects.sortableChildren = true;
     this.world.addChild(this.ground.waterLayer, this.ground.landLayer, this.objects);
     this.root.addChild(this.world, this.weatherFx.view);
-    this.traffic = new Traffic(this.grid, this.objects, this.ground.waterLayer, this.city.vehicles, this.city.boats, seed);
     this.people = new People(this.grid, this.objects, seed);
 
     this.season = clock.season;
@@ -121,6 +124,9 @@ export class CityScene {
       this.objects.addChild(v);
     }
     this.replant();
+
+    const places = buildPlaces(this.net, this.buildings.map((b) => ({ x: b.x, y: b.y, w: b.w, d: b.d })), (x, y) => zoneAt(this.city, x, y));
+    this.traffic = new Traffic(this.net, this.grid, this.objects, this.ground.waterLayer, this.city.vehicles, this.city.boats, places, seed, clock.visualDaySeconds / 24);
 
     const ctx = { clock, night: () => this.clock.nightness, time: () => this.time, storm: () => this.weatherFx.stormy, sprites };
     for (const place of this.city.landmarks) {
@@ -447,8 +453,9 @@ export class CityScene {
       cars *= this.weather === "snow" ? 0.55 : 0.9;
       walkers *= 0.5;
     }
-    cars *= 1 - night * 0.35;
+    cars *= demand(this.clock.timeOfDay * 24);
     walkers *= 1 - night * 0.7;
+    this.traffic.setHour(this.clock.timeOfDay * 24);
     this.traffic.setTarget(Math.round(cars));
     this.traffic.tint = tint;
     this.traffic.update(dt, night);

@@ -216,7 +216,7 @@ export class Trips {
   }
 
   private newLook(kind: VehicleKind): Look {
-    const color = kind === "taxi" ? 0xffc928 : kind === "police" ? 0xffffff : kind === "bus" ? 0x2f7de1 : pick(this.rng, CAR_COLORS);
+    const color = kind === "taxi" ? 0xffc928 : kind === "police" ? 0xffffff : kind === "bus" ? 0x2f7de1 : kind === "cable-car" ? 0xc8452f : pick(this.rng, CAR_COLORS);
     return { kind, color };
   }
 
