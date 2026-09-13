@@ -63,7 +63,8 @@ def render(spec, raw):
     S.set_ids()  # last: it replaces every material
     S.render(raw / files["ids"])
     for key, field in (("entry_kind", "kind"), ("landmark", "landmark"), ("prop", "prop"), ("side", "side"),
-                       ("facing", "facing"), ("style", "style"), ("tier", "tier"), ("area", "area")):
+                       ("facing", "facing"), ("style", "style"), ("tier", "tier"), ("area", "area"),
+                       ("sign_face", "signFace")):
         if spec[key] is not None:
             entry[field] = spec[key]
     if not spec["fill"]:

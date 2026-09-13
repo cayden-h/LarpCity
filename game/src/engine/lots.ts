@@ -178,8 +178,11 @@ function brandLots(grid: CityGrid, city: CityDef, seed: number, manifest: Sprite
       // How near the camera the lot is within its zone: 0 at the zone's back (up the screen), 1 at its front.
       const z = nearestZone(city, zone, cx, cy);
       const front = z ? Math.min(1, Math.max(0, (cx + cy - (z.x + z.y)) / (4 * z.r) + 0.5)) : 0.5;
-      const depth = e.floors >= BRAND_TOWER_FLOORS ? front : 1 - front;
-      const key = (inArea ? 0 : 1) + depth * 0.9 + rng() * 0.1;
+      const tower = e.floors >= BRAND_TOWER_FLOORS;
+      const depth = tower ? front : 1 - front;
+      // A lot built right against a sign's face hides it, so a clear sign face comes first.
+      const blocked = signBlocked(grid, taken, x, y, e.w, e.d, e.signFace);
+      const key = (blocked ? 2 : 0) + (inArea ? 0 : 1) + depth * 0.9 + rng() * 0.1;
       if (key < bestKey) [bestKey, best] = [key, { x, y, zone }];
     }
     if (!best) continue;
@@ -191,6 +194,20 @@ function brandLots(grid: CityGrid, city: CityDef, seed: number, manifest: Sprite
     out.push({ x, y, w: e.w, d: e.d, spec, entry: e, tint: pick(rngFor(seed, city.id, `walls:${x},${y}`), city.palette.walls) });
   }
   return out;
+}
+
+/**
+ * Whether a building on this footprint would have its sign hidden by a lot (planned or taken) right against the
+ * face carrying it: the right face looks along column x + w, the left face down row y + d. "right" needs the right
+ * face clear; "any" needs one of the two clear; no sign face (rooftop boards, tower bands) is never hidden.
+ */
+export function signBlocked(grid: CityGrid, taken: Set<string>, x: number, y: number, w: number, d: number, face?: "right" | "any"): boolean {
+  if (!face) return false;
+  const lot = (i: number, j: number) => grid.at(i, j) === "b" || taken.has(`${i},${j}`);
+  let left = false, right = false;
+  for (let i = x; i < x + w; i++) if (lot(i, y + d)) left = true;
+  for (let j = y; j < y + d; j++) if (lot(x + w, j)) right = true;
+  return face === "right" ? right : left && right;
 }
 
 /** The zone circle of this kind whose center is nearest (x, y). */

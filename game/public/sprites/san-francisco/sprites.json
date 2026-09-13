@@ -70,7 +70,8 @@
    "ay": 83,
    "topZ": 75,
    "day": "shop-2x1-f3-capital-one-cafe.png",
-   "night": "shop-2x1-f3-capital-one-cafe.night.png"
+   "night": "shop-2x1-f3-capital-one-cafe.night.png",
+   "signFace": "any"
   },
   {
    "id": "shop-2x1-f4-wells-fargo",
@@ -87,7 +88,8 @@
    "ay": 103,
    "topZ": 95,
    "day": "shop-2x1-f4-wells-fargo.png",
-   "night": "shop-2x1-f4-wells-fargo.night.png"
+   "night": "shop-2x1-f4-wells-fargo.night.png",
+   "signFace": "any"
   },
   {
    "id": "hq-2x2-f12-uber",
@@ -183,7 +185,8 @@
    "ay": 58,
    "topZ": 50,
    "day": "shop-2x1-f2-jenis.png",
-   "night": "shop-2x1-f2-jenis.night.png"
+   "night": "shop-2x1-f2-jenis.night.png",
+   "signFace": "any"
   },
   {
    "id": "loft-2x1-f4-elevenlabs",
@@ -432,7 +435,8 @@
    "topZ": 114,
    "day": "loft-1x2-f5-levis.png",
    "night": "loft-1x2-f5-levis.night.png",
-   "area": "soma"
+   "area": "soma",
+   "signFace": "right"
   },
   {
    "id": "loft-1x2-f4-mlh",
@@ -449,7 +453,8 @@
    "topZ": 94,
    "day": "loft-1x2-f4-mlh.png",
    "night": "loft-1x2-f4-mlh.night.png",
-   "area": "soma"
+   "area": "soma",
+   "signFace": "right"
   },
   {
    "id": "loft-1x1-f4-notability",
@@ -466,7 +471,8 @@
    "topZ": 95,
    "day": "loft-1x1-f4-notability.png",
    "night": "loft-1x1-f4-notability.night.png",
-   "area": "soma"
+   "area": "soma",
+   "signFace": "right"
   },
   {
    "id": "loft-1x2-f3-bobatalks",
@@ -483,7 +489,8 @@
    "topZ": 75,
    "day": "loft-1x2-f3-bobatalks.png",
    "night": "loft-1x2-f3-bobatalks.night.png",
-   "area": "soma"
+   "area": "soma",
+   "signFace": "right"
   },
   {
    "id": "loft-2x1-f4-tiger-data",
@@ -552,7 +559,8 @@
    "ay": 143,
    "topZ": 135,
    "day": "office-1x2-f6-backboard.png",
-   "night": "office-1x2-f6-backboard.night.png"
+   "night": "office-1x2-f6-backboard.night.png",
+   "signFace": "right"
   },
   {
    "id": "loft-1x2-f4-godaddy",
@@ -569,7 +577,8 @@
    "topZ": 93,
    "day": "loft-1x2-f4-godaddy.png",
    "night": "loft-1x2-f4-godaddy.night.png",
-   "area": "soma"
+   "area": "soma",
+   "signFace": "right"
   },
   {
    "id": "hq-2x2-f9-mathworks",
@@ -601,7 +610,8 @@
    "ay": 122,
    "topZ": 114,
    "day": "office-1x2-f5-presage.png",
-   "night": "office-1x2-f5-presage.night.png"
+   "night": "office-1x2-f5-presage.night.png",
+   "signFace": "right"
   },
   {
    "id": "hq-2x2-f13-stripe",
@@ -650,7 +660,8 @@
    "ay": 98,
    "topZ": 90,
    "day": "shop-1x2-f4-schwab.png",
-   "night": "shop-1x2-f4-schwab.night.png"
+   "night": "shop-1x2-f4-schwab.night.png",
+   "signFace": "any"
   },
   {
    "id": "pole-1x1-f1-robinhood-lyft",
@@ -686,7 +697,8 @@
    "topZ": 95,
    "day": "loft-1x2-f4-plaid.png",
    "night": "loft-1x2-f4-plaid.night.png",
-   "area": "soma"
+   "area": "soma",
+   "signFace": "right"
   },
   {
    "id": "hq-2x1-f6-airbnb",
@@ -753,7 +765,8 @@
    "topZ": 112,
    "day": "loft-1x2-f5-ghirardelli.png",
    "night": "loft-1x2-f5-ghirardelli.night.png",
-   "area": "soma"
+   "area": "soma",
+   "signFace": "right"
   },
   {
    "id": "shop-1x2-f3-blue-bottle",
@@ -770,7 +783,8 @@
    "topZ": 75,
    "day": "shop-1x2-f3-blue-bottle.png",
    "night": "shop-1x2-f3-blue-bottle.night.png",
-   "area": "embarcadero"
+   "area": "embarcadero",
+   "signFace": "any"
   },
   {
    "id": "shop-1x2-f3-gap",
@@ -786,7 +800,8 @@
    "ay": 82,
    "topZ": 74,
    "day": "shop-1x2-f3-gap.png",
-   "night": "shop-1x2-f3-gap.night.png"
+   "night": "shop-1x2-f3-gap.night.png",
+   "signFace": "any"
   },
   {
    "id": "glass-2x2-f16-11",

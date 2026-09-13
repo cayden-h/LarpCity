@@ -40,6 +40,9 @@ export interface SpriteEntry {
   prop?: "shelter" | "vboard";
   /** Branded buildings: the city area (CityDef.areas) whose lots it prefers. */
   area?: string;
+  /** Branded buildings: which camera face carries the sign at eye level ("right": a painted wall or wall board;
+   * "any": a storefront's bands on both faces), so the planner keeps that face clear of the next lot. */
+  signFace?: "right" | "any";
   /** Which tile edge a shelter stands on: "sy" toward y+1 (lower left), "sx" toward x+1 (lower right). */
   side?: "sy" | "sx";
 }

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { sanFrancisco } from "../src/cities/san-francisco.ts";
 import { CityGrid } from "../src/engine/grid.ts";
-import { planLots, zoneAt } from "../src/engine/lots.ts";
+import { planLots, signBlocked, zoneAt } from "../src/engine/lots.ts";
 import type { SpriteEntry, SpriteManifest } from "../src/engine/sprite-pick.ts";
 import { expandWorld } from "../src/engine/world.ts";
 
@@ -28,6 +28,18 @@ for (const seed of [1, 7, 20260912]) {
     }
   });
 }
+
+test("painted walls, wall boards, and shops keep their sign face clear of the next lot", () => {
+  const signed = brands.filter((b) => b.signFace);
+  assert.ok(signed.length >= 14, `only ${signed.length} brands name a sign face`);
+  for (const seed of [1, 7, 20260912]) {
+    const { city } = expandWorld(sanFrancisco, seed);
+    const grid = new CityGrid(city.layout);
+    const plans = planLots(grid, city, seed, manifest);
+    const hidden = signed.filter((b) => { const p = plans.find((q) => q.entry?.id === b.id)!; return signBlocked(grid, new Set(), p.x, p.y, p.w, p.d, b.signFace); });
+    assert.ok(hidden.length <= 1, `seed ${seed}: signs against the next lot: ${hidden.map((b) => b.id).join(", ")}`);
+  }
+});
 
 test("brands with an area stand in it on the default seed", () => {
   const seed = 20260912;

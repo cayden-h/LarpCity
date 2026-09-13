@@ -16,14 +16,14 @@ KINDS = {"glass_tower": "glass", "brick_loft": "loft", "concrete_office": "offic
 
 def _e(kind, w, d, floors, seed, zones, sign=None, brand=None, opts=None, unique=None, sid=None,
        entry_kind=None, landmark=None, prop=None, side=None, fill=True, crown=False, pad=0,
-       facing=None, style=None, walls=False, tier=None, area=None):
+       facing=None, style=None, walls=False, tier=None, area=None, sign_face=None):
     if sid is None:
         sid = f"{KINDS[kind]}-{w}x{d}-f{floors}-" + (brand or str(seed))
     return {
         "id": sid, "kind": kind, "w": w, "d": d, "floors": floors, "seed": seed, "zones": zones, "sign": sign,
         "brand": brand, "unique": (brand is not None) if unique is None else unique, "opts": opts or {},
         "entry_kind": entry_kind, "landmark": landmark, "prop": prop, "side": side, "fill": fill, "crown": crown, "pad": pad,
-        "facing": facing, "style": style, "walls": walls, "tier": tier, "area": area,
+        "facing": facing, "style": style, "walls": walls, "tier": tier, "area": area, "sign_face": sign_face,
     }
 
 
@@ -48,8 +48,9 @@ def shop(brand, facade="brick", atm=False):
 
 
 def storefront(w, d, floors, seed, zones, brand, area=None, **opts):
-    """A branded storefront: the entry's brand and its signs come from the same name."""
-    return _e("storefront", w, d, floors, seed, zones, brand=brand, opts=shop(brand, **opts), area=area)
+    """A branded storefront: the entry's brand and its signs come from the same name. Its bands are on both camera
+    faces, so either one facing a street shows it (sign_face "any")."""
+    return _e("storefront", w, d, floors, seed, zones, brand=brand, opts=shop(brand, **opts), area=area, sign_face="any")
 
 
 # A name band is 12 game px tall over an HQ's lobby and spans 92% of its face, so its art's aspect follows the
@@ -76,10 +77,10 @@ def branded(b):
                           brand=art, area=p["area"]))
         elif s == "wall_board":
             out.append(_e(p["host"], p["w"], p["d"], p["floors"], p["seed"], p["zones"], brand=art, area=p["area"],
-                          opts={"wall_board": f"bb-{art}.png"}))
+                          opts={"wall_board": f"bb-{art}.png"}, sign_face="right"))
         elif s == "mural":
             out.append(_e("brick_loft", p["w"], p["d"], p["floors"], p["seed"], p["zones"], brand=b["id"],
-                          opts=mural(art, p["aspect"]), area=p["area"]))
+                          opts=mural(art, p["aspect"]), area=p["area"], sign_face="right"))
         elif s == "shop":
             out.append(storefront(p["w"], p["d"], p["floors"], p["seed"], p["zones"], art, area=p["area"],
                                   facade=p["facade"], atm=p["atm"]))
