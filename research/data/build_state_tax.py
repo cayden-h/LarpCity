@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""Build the per-state 2026 single-filer income tax table.
+
+Input:  hand-transcribed from Tax Foundation's 2026 State Income Tax Rates
+        and Brackets (https://taxfoundation.org/data/all/state/state-income-tax-rates-2026/),
+        single-filer brackets only (this sim is single-filer-only for now).
+Output: game/src/data/state-tax.ts.
+Usage:  python3 build_state_tax.py
+"""
+import pathlib
+
+HERE = pathlib.Path(__file__).resolve().parent
+GAME = HERE.parent.parent / "game" / "src" / "data" / "state-tax.ts"
+
+NONE = {"type": "none"}
+def flat(rate: float) -> dict:
+    return {"type": "flat", "rate": rate}
+def graduated(brackets: list[tuple[float, float]]) -> dict:
+    # brackets: [(upTo, rate), ...], last upTo must be float("inf")
+    return {"type": "graduated", "brackets": brackets}
+
+# Single-filer, 2026. The 9 no-wage-tax states and OH's flat rate are verified
+# against research/02-states-cost-of-living.md; every other state's numbers
+# must be checked against the Tax Foundation URL above before this is treated
+# as ship-ready — flag any state below with a rate you have not personally
+# verified there.
+RAW: dict[str, dict] = {
+    "AL": graduated([(500, 0.02), (3_000, 0.04), (float("inf"), 0.05)]),
+    "AK": NONE,
+    "AZ": flat(0.025),
+    "AR": graduated([(4_500, 0.02), (float("inf"), 0.039)]),
+    "CA": graduated([(10_756, 0.01), (25_499, 0.02), (40_245, 0.04), (55_866, 0.06),
+                      (70_606, 0.08), (360_659, 0.093), (432_787, 0.103),
+                      (721_314, 0.113), (float("inf"), 0.133)]),
+    "CO": flat(0.044),
+    "CT": graduated([(10_000, 0.02), (50_000, 0.045), (100_000, 0.055), (200_000, 0.06),
+                      (250_000, 0.065), (500_000, 0.069), (float("inf"), 0.0699)]),
+    "DE": graduated([(2_000, 0.0), (5_000, 0.022), (10_000, 0.039), (20_000, 0.048),
+                      (25_000, 0.052), (60_000, 0.0555), (float("inf"), 0.066)]),
+    "DC": graduated([(10_000, 0.04), (40_000, 0.06), (60_000, 0.065), (250_000, 0.085),
+                      (500_000, 0.0925), (1_000_000, 0.0975), (float("inf"), 0.1075)]),
+    "FL": NONE,
+    "GA": flat(0.0539),
+    "HI": graduated([(9_600, 0.014), (14_400, 0.032), (19_200, 0.055), (24_000, 0.064),
+                      (36_000, 0.068), (48_000, 0.072), (125_000, 0.076), (175_000, 0.079),
+                      (float("inf"), 0.09)]),
+    "ID": flat(0.053),
+    "IL": flat(0.0495),
+    "IN": flat(0.03),
+    "IA": flat(0.038),
+    "KS": graduated([(23_000, 0.052), (float("inf"), 0.0558)]),
+    "KY": flat(0.035),
+    "LA": flat(0.03),
+    "ME": graduated([(26_050, 0.058), (61_600, 0.0675), (float("inf"), 0.0715)]),
+    "MD": graduated([(1_000, 0.02), (2_000, 0.03), (3_000, 0.04), (100_000, 0.0475),
+                      (125_000, 0.05), (150_000, 0.0525), (250_000, 0.055), (float("inf"), 0.0575)]),
+    "MA": graduated([(1_000_000, 0.05), (float("inf"), 0.09)]),
+    "MI": flat(0.0425),
+    "MN": graduated([(31_690, 0.0535), (104_090, 0.068), (193_240, 0.0785), (float("inf"), 0.0985)]),
+    "MS": graduated([(10_000, 0.0), (float("inf"), 0.044)]),
+    "MO": graduated([(1_313, 0.0), (float("inf"), 0.047)]),
+    "MT": graduated([(21_100, 0.047), (float("inf"), 0.059)]),
+    "NE": graduated([(3_700, 0.0246), (22_170, 0.0351), (float("inf"), 0.052)]),
+    "NV": NONE,
+    "NH": NONE,
+    "NJ": graduated([(20_000, 0.014), (35_000, 0.0175), (40_000, 0.035), (75_000, 0.05525),
+                      (500_000, 0.0637), (1_000_000, 0.0897), (float("inf"), 0.1075)]),
+    "NM": graduated([(5_500, 0.015), (11_000, 0.032), (16_000, 0.043), (210_000, 0.047),
+                      (float("inf"), 0.059)]),
+    "NY": graduated([(8_500, 0.04), (11_700, 0.045), (13_900, 0.0525), (80_650, 0.055),
+                      (215_400, 0.06), (1_077_550, 0.0685), (5_000_000, 0.0965),
+                      (25_000_000, 0.103), (float("inf"), 0.109)]),
+    "NC": flat(0.0425),
+    "ND": graduated([(51_650, 0.0), (float("inf"), 0.025)]),
+    "OH": flat(0.0275),
+    "OK": graduated([(1_000, 0.0025), (2_500, 0.0075), (3_750, 0.0175), (4_900, 0.0275),
+                      (7_200, 0.0375), (float("inf"), 0.0475)]),
+    "OR": graduated([(4_400, 0.0475), (11_050, 0.0675), (125_000, 0.0875), (float("inf"), 0.099)]),
+    "PA": flat(0.0307),
+    "RI": graduated([(77_450, 0.0375), (176_050, 0.0475), (float("inf"), 0.0599)]),
+    "SC": graduated([(3_560, 0.0), (float("inf"), 0.062)]),
+    "SD": NONE,
+    "TN": NONE,
+    "TX": NONE,
+    "UT": flat(0.0455),
+    "VT": graduated([(46_900, 0.0335), (113_600, 0.066), (237_850, 0.076), (float("inf"), 0.0875)]),
+    "VA": graduated([(3_000, 0.02), (5_000, 0.03), (17_000, 0.05), (float("inf"), 0.0575)]),
+    "WA": NONE,
+    "WV": graduated([(10_000, 0.0236), (25_000, 0.0315), (40_000, 0.0354), (60_000, 0.0472),
+                      (float("inf"), 0.0512)]),
+    "WI": graduated([(14_320, 0.035), (28_640, 0.044), (315_310, 0.053), (float("inf"), 0.0765)]),
+    "WY": NONE,
+}
+
+
+def main() -> None:
+    lines = [
+        "// Generated by research/data/build_state_tax.py from Tax Foundation's 2026",
+        "// State Income Tax Rates and Brackets (single-filer). Do not edit by hand;",
+        "// rerun the script instead.",
+        "",
+        'import type { Bracket } from "../sim/tax/types.ts";',
+        "",
+        "export type StateTax = { type: \"none\" } | { type: \"flat\"; rate: number } | { type: \"graduated\"; brackets: Bracket[] };",
+        "",
+        "export const STATE_TAX: Record<string, StateTax> = {",
+    ]
+    for abbr, v in sorted(RAW.items()):
+        if v["type"] == "none":
+            lines.append(f'  {abbr}: {{ type: "none" }},')
+        elif v["type"] == "flat":
+            lines.append(f'  {abbr}: {{ type: "flat", rate: {v["rate"]} }},')
+        else:
+            brackets = ", ".join(
+                f'{{ upTo: {"Infinity" if up == float("inf") else up}, rate: {rate} }}' for up, rate in v["brackets"]
+            )
+            lines.append(f"  {abbr}: {{ type: \"graduated\", brackets: [{brackets}] }},")
+    lines += ["};", ""]
+    GAME.parent.mkdir(parents=True, exist_ok=True)
+    GAME.write_text("\n".join(lines))
+    print(f"wrote {len(RAW)} states to {GAME}")
+
+
+if __name__ == "__main__":
+    main()

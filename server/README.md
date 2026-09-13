@@ -32,21 +32,49 @@ event, sent about once a game month and in 5,000-row chunks after a fast-forward
 | Route | Body or query | Returns |
 | --- | --- | --- |
 | `POST /api/runs` | `{ seed }` | `201 { runId }` |
+| `POST /api/runs/:runId/fork` | `{ throughDay }` | `201 { runId }`: a rewind's branch, a new run for the same player and seed that starts with the old run's snapshots and events through that day; the old run is kept |
 | `POST /api/snapshot` | `{ runId, entries }` (up to 5,000 days; each may carry `you`, `held`, `autopilot`) | `{ stored }`; a re-sent day keeps its latest numbers, and its stored investing lines when the resend leaves them out |
 | `POST /api/events` | `{ runId, events }` (up to 5,000, keyed `day:sequence`) | `{ stored }`; a retried batch adds nothing |
 | `GET /api/history/:runId` | `?bucket=day\|week\|month&from&to` | daily rows (with `you`, `held`, `autopilot`, null on older rows), or weekly/monthly buckets (`firstDay`, `lastDay`, `netWorth`, `peak`, `low`, ...) |
 | `GET /api/events/:runId` | `?from&to&kinds=a,b` | events oldest first |
 | `GET /api/leaderboard` | | each run's latest net worth; verified players only once `PERSONA_API_KEY` is set |
 
-Weekly and monthly history come from two real-time continuous aggregates over `player_snapshots`
+Weekly and monthly history bucket the run's own rows with `time_bucket`, so a 40-year run charts
+from about 2,100 weekly rows instead of 14,600 daily ones, and its newest days always show.
+They use the same expressions as the two real-time continuous aggregates over `player_snapshots`
 (`player_snapshots_weekly`, `player_snapshots_monthly`, created in `src/migrations.sql` with a
-one-minute refresh policy), so a 40-year run charts from about 2,100 weekly rows instead of 14,600
-daily ones, and the newest days show before they're materialized. Migrations run one statement at a
-time (`src/sql.ts`), because TimescaleDB won't create a continuous aggregate inside a transaction.
+one-minute refresh policy), which stay for cross-run analytics.
+History doesn't read the aggregates because every run starts at 2000-01-01: once a long run is
+materialized, the watermark is past all of a newer run's days, and real-time aggregation would leave
+them out until the next refresh.
+Migrations run one statement at a time (`src/sql.ts`), because TimescaleDB won't create a
+continuous aggregate inside a transaction.
 
 `npm test` skips the database tests unless `TEST_DATABASE_URL` points at a TimescaleDB where they may
 create a throwaway database (the local Docker one above works):
 `TEST_DATABASE_URL='postgres://postgres:larp@127.0.0.1:5433/postgres' npm test`.
+
+## Profile and saves
+
+Each player's confirmed intake and saved game live in Tiger Data (`profiles` and `saves` tables,
+`src/store/saves.ts`), keyed by the session's player.
+`GET /api/me` is the one call the game makes on boot, to decide between resuming, building a life
+from the profile, and running the intake.
+
+| Route | Body | Returns |
+| --- | --- | --- |
+| `GET /api/me` | | `{ player, profile, save }` |
+| `PUT /api/profile` | the confirmed intake | `204` |
+| `PUT /api/save` | `{ runId, seed, version, gameDay, state, baseRev }` | `{ rev }`, or `409` when `baseRev` is stale, the run has ended, the run isn't this player's, or its seed doesn't match the run's own seed |
+| `DELETE /api/save` | | `204`; "New life": forgets the save and profile and ends the run, all in one transaction |
+
+The save's `state` is opaque JSON (only the game's own codec, `game/src/sim/save/`, knows its
+shape) capped at 1.5 MB (`MAX_STATE_BYTES` in `src/routes/save.ts`), which a 60-year save stays well
+under once its history is compacted.
+`rev` is optimistic concurrency: a write names the rev it started from, so two tabs (or a stale
+retry) can't silently clobber each other's progress.
+The AI coach and the newspaper below read the player's job and financial state from this same
+profile, never from text the browser sends.
 
 ## AI coach and newspaper (Gemini)
 
@@ -65,6 +93,21 @@ The client (`src/adapters/gemini.ts`) tries `GEMINI_TEXT_MODEL` and then `GEMINI
 (15 seconds each; `gemini-3.8-flash` is often busy), rotates `GEMINI_API_KEYS` on 429, and keeps the
 key in a header. The same moment asked twice is cached in memory, and the routes share the strict
 rate limit.
+
+## News Progression Engine
+
+Every `POST /api/events` batch is scored for newsworthiness before it's inserted (`src/news/scorer.ts`:
+severity + rarity + the player's own dollar magnitude relative to their net worth), and whatever clears
+the publish threshold is stored in `news_stories` with its facts verbatim, no prose yet. Prose is written
+lazily — Gemini with the same template fallback as the coach and newspaper above — the first time a day
+range is read.
+
+| Route | Query | Returns |
+| --- | --- | --- |
+| `GET /api/news/:runId` | `?from&to` | stories in that day range, oldest first, with prose already filled in (writing capped at 20 per request) |
+
+Branches don't exist server-side yet, so every story's `branch_id` is its `run_id` (the root branch); see
+`docs/superpowers/specs/2026-09-12-news-progression-engine-design.md` for the rewind design this reserves.
 
 ## Bank mirror (Capital One Nessie)
 

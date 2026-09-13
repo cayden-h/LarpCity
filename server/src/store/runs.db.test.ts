@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { splitSql } from "../sql.js";
-import { createRun, history, insertEvents, insertSnapshots, leaderboard, listEvents, ownsRun, type HistoryBucket, type SnapshotRow } from "./runs.js";
+import { createRun, forkRun, history, insertEvents, insertSnapshots, leaderboard, listEvents, ownsRun, type HistoryBucket, type SnapshotRow } from "./runs.js";
 
 const url = process.env.TEST_DATABASE_URL;
 const skip = url ? false : "set TEST_DATABASE_URL to a TimescaleDB to run (server/README.md)";
@@ -85,7 +85,11 @@ test("a resent day without the investing lines keeps the stored ones", { skip },
   assert.deepEqual([day.you, day.held, day.autopilot], [10, 12, 11]);
 });
 
-test("weekly and monthly history come from the continuous aggregates, fresh without a refresh", { skip }, async () => {
+test("weekly and monthly history include a run's newest days even after another run was materialized", { skip }, async () => {
+  // Every run's day 0 is 2000-01-01, so once a longer run is materialized, the aggregates' watermark
+  // is past all of a new run's days; history must still show them without waiting for a refresh.
+  await db.query(`CALL refresh_continuous_aggregate('player_snapshots_weekly', NULL, NULL)`);
+  await db.query(`CALL refresh_continuous_aggregate('player_snapshots_monthly', NULL, NULL)`);
   const run = await createRun(db, ALICE, 2);
   await insertSnapshots(db, run, Array.from({ length: 400 }, (_, d) => snap(d)));
   const weeks = (await history(db, run, "week", 0, 100_000)) as HistoryBucket[];
@@ -101,6 +105,15 @@ test("weekly and monthly history come from the continuous aggregates, fresh with
 
   await db.query(`CALL refresh_continuous_aggregate('player_snapshots_weekly', NULL, NULL)`);
   assert.deepEqual(await history(db, run, "week", 0, 100_000), weeks, "materializing changes nothing");
+  await db.query(`CALL refresh_continuous_aggregate('player_snapshots_monthly', NULL, NULL)`);
+  for (const [bucket, view, got] of [["week", "player_snapshots_weekly", weeks], ["month", "player_snapshots_monthly", months]] as const) {
+    const { rows } = await db.query(
+      `SELECT first_day AS "firstDay", last_day AS "lastDay", net_worth AS "netWorth", peak, low, checking, savings, brokerage, retirement, debt
+       FROM ${view} WHERE run_id = $1 ORDER BY bucket`,
+      [run],
+    );
+    assert.deepEqual(got, rows, `${bucket} history matches the continuous aggregate row for row`);
+  }
   // Day 0 (2000-01-01) is a Saturday and week buckets start on Mondays, so weeks run days 2-8, 9-15, ...
   const touching = weeks.filter((w) => w.lastDay >= 100 && w.firstDay <= 120);
   assert.deepEqual(await history(db, run, "week", 100, 120), touching, "a window returns the weeks it touches");
@@ -133,4 +146,24 @@ test("the leaderboard ranks each run by its latest day and can require verified 
   assert.ok(!(await leaderboard(db, true)).some((r) => r.runId === run), "unverified players drop out once Persona is required");
   await db.query(`UPDATE players SET verified = true WHERE id = $1`, [BOB]);
   assert.equal((await leaderboard(db, true))[0].runId, run);
+});
+
+test("a fork copies a run through a day into a new run for the same player and seed, and leaves the old run alone", { skip }, async () => {
+  const run = await createRun(db, ALICE, 42);
+  await insertSnapshots(db, run, [snap(0), snap(1), snap(2), snap(3)]);
+  await insertEvents(db, run, [0, 1, 2, 3].map((d) => ({ key: `${d}:0`, day: d, kind: "paycheck", payload: { day: d } })));
+  const fork = await forkRun(db, run, 1);
+  assert.notEqual(fork, run);
+  assert.equal(await ownsRun(db, ALICE, fork), true);
+  assert.equal(await ownsRun(db, BOB, fork), false);
+  const days = async (id: string) => ((await history(db, id, "day", 0, 100)) as SnapshotRow[]).map((r) => r.day);
+  assert.deepEqual(await days(fork), [0, 1]);
+  assert.deepEqual((await listEvents(db, fork, { from: 0, to: 100 })).map((e) => e.key), ["0:0", "1:0"]);
+  assert.deepEqual(await days(run), [0, 1, 2, 3]);
+  const { rows } = await db.query<{ seed: string }>(`SELECT seed FROM runs WHERE id = $1`, [fork]);
+  assert.equal(Number(rows[0].seed), 42);
+  // The branch records its own day 2 without touching the old run's.
+  await insertSnapshots(db, fork, [snap(2, 7)]);
+  const two = ((await history(db, run, "day", 2, 2)) as SnapshotRow[])[0];
+  assert.equal(two.netWorth, snap(2).netWorth);
 });

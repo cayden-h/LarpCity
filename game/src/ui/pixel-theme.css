@@ -23,6 +23,8 @@
     0 4px var(--edge), 4px 4px var(--edge), 7px 8px #102231a6;
   font-family: "Pixelify Sans", monospace;
   font-weight: 700;
+  /* Pixelify's "fi" and "fl" ligatures squeeze two letters into one cell, so "find" reads as "And". */
+  font-variant-ligatures: no-common-ligatures;
 }
 
 button, input { font-family: inherit; }
@@ -117,9 +119,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .app-name { font-size: clamp(11px, .85vw, 14px); font-weight: 700; text-shadow: none; }
 .app.soon .app-icon { filter: none; opacity: 1; }
 .app-badge { font-size: 8px; border-radius: 0; padding: 1px 3px; top: -7px; right: 0; background: #fff7dd; border: 1px solid #16354b; box-shadow: none; }
+.app-badge-alert { background: #e54c50; color: #fff7dd; border-color: #7a1f22; }
 .home-bar { background: #103c57; border-radius: 0; width: 70px; }
 .toast { border-radius: 0; border: 2px solid #101f2c; background: #0c5486; color: #fff7dd; backdrop-filter: none; }
-.view-stocks { inset: 0; background: #fff7dd; padding-top: 42px; }
+.view-stocks { background: #fff7dd; }
 .st-row { border-color: #c4d3c9; }
 .st-sub, .st-name span { color: #4f6876; }
 .st-pill, .st-open, .st-back { border-radius: 0; }
@@ -149,8 +152,15 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .state-panel { background: var(--paper); color: var(--ink); }
 .desk-bar, .ff-overlay { font-family: "Pixelify Sans", monospace; }
 .desk-window, .ff-window { box-shadow: var(--shadow); }
-.desk-bar, .ff-bar { background: var(--panel); }
-.desk-bar { border-bottom-color: var(--edge); }
+.ff-bar { background: var(--panel); }
+.desk-bar {
+  background: linear-gradient(180deg, #2a2e31 0%, #101214 100%);
+  box-shadow: inset 3px 3px #4c4f50, inset -3px -3px #000;
+}
+.desk-close {
+  background: #26292a;
+  box-shadow: inset 2px 2px #4c4f50, inset -2px -2px #000, 0 3px #000;
+}
 .ff-window button, .ff-window input, .ff-window select { border-radius: 0; }
 
 @media (max-width: 1200px) {
@@ -241,11 +251,6 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .phone .app-icon { width: 48px; max-width: 48px; justify-self: center; }
 .phone .app-icon .pixel-icon { width: 40px; height: 40px; }
 
-.view-timeline {
-  padding: 10px 14px 30px;
-  gap: 16px;
-  background: var(--paper);
-}
 .phone-app-head {
   display: flex;
   align-items: center;
@@ -273,55 +278,6 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   background: var(--panel);
   filter: brightness(1.12);
 }
-.timeline-date {
-  display: grid;
-  gap: 2px;
-  padding: 15px 12px;
-  border: 3px solid var(--edge);
-  background: linear-gradient(#2b9cee, #0873c5);
-  color: white;
-  box-shadow: inset 3px 3px #9ce3ff, inset -3px -3px #075093, 0 3px #11283a;
-  text-align: center;
-  text-shadow: 2px 2px #075093;
-}
-.timeline-date span { font-size: 20px; }
-.timeline-date strong { font-size: 27px; line-height: 1.05; }
-.timeline-section {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-.timeline-label {
-  grid-column: 1 / -1;
-  font-size: 18px;
-  color: var(--ink);
-}
-.timeline-speeds {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-.timeline-speeds button,
-.timeline-jump {
-  min-height: 43px;
-  border: 3px solid var(--edge);
-  background: var(--panel);
-  color: white;
-  font: inherit;
-  font-size: 20px;
-  box-shadow: inset 3px 3px #8edcff, inset -3px -3px #07539e, 0 3px #11283a;
-  cursor: pointer;
-}
-.timeline-speeds button.on,
-.timeline-jump {
-  background: linear-gradient(#ffe778, #ffcf2f);
-  color: #16212b;
-  text-shadow: none;
-  box-shadow: inset 3px 3px #fff5ac, inset -3px -3px #c58b13, 0 3px #11283a;
-}
-.timeline-jump { font-size: 18px; }
-
 /* Map and weather phone apps ------------------------------------------------ */
 .view-map-app,
 .view-weather {
@@ -442,6 +398,133 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   text-align: center;
 }
 
+/* Bank phone app ------------------------------------------------------------ */
+.view-bank {
+  padding: 10px 12px 26px;
+  gap: 10px;
+  background: var(--paper);
+}
+.bank-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 13px 14px;
+  border: 3px solid var(--edge);
+  background: linear-gradient(#2b9cee, #0873c5);
+  color: white;
+  box-shadow: inset 3px 3px #9ce3ff, inset -3px -3px #075093, 0 3px #11283a;
+  text-shadow: 2px 2px #075093;
+}
+.bank-total span { font-size: 15px; }
+.bank-total strong { font-size: 24px; }
+.bank-accounts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bank-account-row {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 4px;
+  border-bottom: 3px solid #d9e4c8;
+}
+.bank-account-row:last-child { border-bottom: 0; }
+.bank-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--edge);
+  color: #fff7dd;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: inset 2px 2px rgba(255, 255, 255, .35), inset -2px -2px rgba(0, 0, 0, .3);
+}
+.bank-account-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.bank-account-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bank-account-top strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bank-account-balance {
+  flex: none;
+  color: var(--ink);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.bank-account-sub {
+  color: #6d8794;
+  font-size: 12px;
+}
+.bank-activity-head {
+  padding: 4px 4px 0;
+  color: #44697c;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+.bank-activity {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.bank-activity::-webkit-scrollbar { display: none; }
+.bank-activity-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 4px;
+  border-bottom: 3px solid #d9e4c8;
+}
+.bank-activity-row:last-child { border-bottom: 0; }
+.bank-activity-body {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.bank-activity-body strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bank-activity-body span {
+  color: #6d8794;
+  font-size: 11px;
+}
+.bank-activity-amount {
+  flex: none;
+  font-size: 14px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.bank-activity-amount.up { color: #1c7a3e; }
+.bank-activity-amount.down { color: #b3391c; }
+.bank-activity-empty {
+  padding: 14px 4px;
+  color: #6d8794;
+  font-size: 13px;
+  text-align: center;
+}
+
 /* Pixel treatment for the full U.S. map ------------------------------------ */
 #map {
   background: rgba(5, 18, 33, .72);
@@ -497,7 +580,27 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   background: #65bdd2;
   image-rendering: pixelated;
   user-select: none;
+  touch-action: none;
+  cursor: grab;
 }
+.map-viewport.panning .map-svg { cursor: grabbing; }
+.map-zoom-controls {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+}
+.map-zoom-btn {
+  width: 34px;
+  height: 34px;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+}
+.map-zoom-btn.map-zoom-reset { font-size: 15px; }
 .map-ocean { fill: #6dc2d7; }
 .map-water-grid { fill: url(#map-water-grid); pointer-events: none; }
 .water-grid-line { fill: none; stroke: #46a7be; stroke-width: 1; opacity: .45; }
@@ -520,18 +623,43 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   cursor: pointer;
   transition: filter .08s ease-out;
 }
+/* brightness/saturate are per-pixel color remaps, safe on any geometry.
+   drop-shadow rasterizes+blurs the shape first, which on these stair-stepped
+   (many tiny co-linear segments) paths made some states flash solid white
+   on hover in Chromium — so highlighting here stays filter-blur-free. */
 .state:hover {
-  filter: brightness(1.22) saturate(1.15) drop-shadow(0 0 3px #fff);
+  filter: brightness(1.22) saturate(1.15);
 }
 .state.sel {
-  stroke: #ffffff;
-  stroke-width: 3px;
   filter: brightness(1.12);
 }
 .state.current {
+  filter: brightness(1.15);
+}
+
+/* Highlight outlines: a shared border between two states belongs to both
+   paths, so whichever one paints last in the states-layer wins the pixel —
+   a plain per-state stroke only shows on the sides where the highlighted
+   state happens to paint after its neighbor. These three paths live in their
+   own layer above every state's border, so a highlighted state's full
+   outline always wins regardless of paint order. */
+.state-outline {
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: miter;
+  stroke-miterlimit: 2;
+}
+.outline-current {
   stroke: #ffe44b;
   stroke-width: 4px;
-  filter: brightness(1.15) drop-shadow(0 0 4px #ffe44b);
+}
+.outline-sel {
+  stroke: #ffffff;
+  stroke-width: 3px;
+}
+.outline-hover {
+  stroke: #ffffff;
+  stroke-width: 3px;
 }
 
 /* State Abbreviation Labels */
@@ -552,10 +680,16 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 /* Pixel City Pins */
 .pin {
   cursor: pointer;
+  /* Position lives in these custom properties instead of the SVG `transform`
+     attribute: a CSS `transform` on an SVG element replaces that attribute
+     entirely rather than composing with it, so a hover rule that only set
+     `scale()` was discarding the pin's translate and snapping it to the
+     map's origin, then animating back — the "phasing across the screen" bug. */
+  transform: translate(var(--px), var(--py));
   transition: transform .12s cubic-bezier(0.18, 0.89, 0.32, 1.28);
 }
 .pin:hover {
-  transform: scale(1.15);
+  transform: translate(var(--px), var(--py)) scale(1.15);
 }
 .pin-shadow {
   fill: #071c2b;
@@ -579,8 +713,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 .pin.handmade .pin-highlight {
   fill: #fff5ab;
 }
-.pin.current .pin-fill {
-  fill: #34d058;
+/* The current-location beacon (below) replaces a pin at the same spot, so it
+   isn't drawn twice. */
+.pin.current {
+  display: none;
 }
 .pin-badge {
   pointer-events: none;
@@ -634,41 +770,44 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
 }
 .compass-n { fill: #e84e47; }
 
-/* Current Location Player Beacon */
+/* Current Location Player Beacon: a planted flag, with the city name on a
+   plaque underneath — deliberately just these two pieces, since a pin
+   graphic, a diamond, a pulsing box, and a label bubble all stacked on the
+   same spot read as visual noise, not a location. The plaque is styled in
+   the flag's own greens rather than reusing the pins' cream/dark-blue look,
+   so this one marker reads as a distinct kind of thing on the map, not just
+   another pin. */
 .current-marker {
   pointer-events: none;
 }
-.current-pulse-box {
-  fill: none;
-  stroke: #ffea52;
-  stroke-width: 2;
-  stroke-dasharray: 4 4;
-  opacity: .8;
-  animation: markerPulse 1.6s infinite linear;
+.flag-shadow {
+  fill: #0c2538;
+  opacity: .35;
 }
-@keyframes markerPulse {
-  0% { transform: scale(0.85); opacity: 0.9; }
-  50% { transform: scale(1.25); opacity: 0.3; }
-  100% { transform: scale(0.85); opacity: 0.9; }
-}
-.current-diamond {
-  fill: #fff7dd;
-  stroke: #101a23;
-  stroke-width: 3;
-}
-.current-diamond-inner {
-  fill: #e84545;
-}
-.current-core-dot {
-  fill: #ffe44b;
-}
-.current-tag-bg { fill: #101a23; }
-.current-tag-fill { fill: #ffd83d; }
-.current-tag-text {
+.flag-pole,
+.flag-ball {
   fill: #101a23;
+}
+.flag-fabric-outline {
+  fill: #101a23;
+}
+.flag-fabric {
+  fill: #1f9e3f;
+}
+.flag-fabric-hi {
+  fill: #34d058;
+}
+.current-plaque-bg {
+  fill: #0b2b1a;
+}
+.current-plaque-border {
+  fill: #2bb35a;
+}
+.current-location-label {
+  fill: #fff7dd;
   font-family: "Pixelify Sans", monospace;
-  font-size: 10px;
-  font-weight: 900;
+  font-size: 11px;
+  font-weight: 800;
   text-anchor: middle;
   dominant-baseline: central;
 }
@@ -703,6 +842,27 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
   filter: contrast(1.04) saturate(1.08);
+}
+.city-preview.unvisited {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: repeating-linear-gradient(45deg, #0c2035, #0c2035 6px, #0a1c2e 6px, #0a1c2e 12px);
+}
+.preview-placeholder-icon {
+  width: 34px;
+  height: 34px;
+  opacity: .65;
+}
+.preview-placeholder-text {
+  font-family: "Pixelify Sans", monospace;
+  font-size: 12px;
+  font-weight: 800;
+  color: #d9ecf5;
+  text-align: center;
+  padding: 0 10px;
 }
 .preview-scanlines {
   position: absolute;
@@ -916,3 +1076,41 @@ button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-off
     width: min(310px, calc(100% - 24px));
   }
 }
+
+/* HUD: who the player is, and a chip when saving stops (ui/hud.ts). The label is a flex
+   row with a 12px gap; the name pulls back so "·" sits as close to "home" as to the job. */
+.hud-who { font-weight: 400; opacity: 0.75; margin-left: -4px; }
+.hud-chip {
+  margin-top: 8px;
+  padding: 4px 8px;
+  border: 3px solid var(--edge);
+  background: #c8372d;
+  color: var(--white);
+  font-size: 16px;
+  line-height: 1.1;
+  text-shadow: 1px 2px #7a1712;
+  box-shadow: inset 2px 2px #ef7a6c, inset -2px -2px #8f2119;
+}
+
+/* A blocking notice over the city (ui/notice.ts). */
+.notice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgb(20 28 24 / 0.55);
+}
+.notice-card {
+  max-width: min(440px, 90vw);
+  padding: 20px 22px;
+  border: 4px solid var(--edge);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: inset 0 4px #fff, var(--shadow);
+}
+.notice-card h2 { margin: 0 0 10px; font-size: 24px; line-height: 1.1; }
+.notice-card p { margin: 0 0 18px; font-size: 17px; line-height: 1.4; }
+.notice-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+/* The page-wide white focus ring vanishes on the paper card: a dark one, close in. */
+.notice-card button:focus-visible { outline: 3px solid var(--edge); outline-offset: 2px; }

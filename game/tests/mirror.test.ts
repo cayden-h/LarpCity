@@ -9,6 +9,7 @@ import { MarketPath } from "../src/sim/market/index.ts";
 import { BankSync, lastDayOf, MonthMirror, type MirrorBalances, type MirrorEntry } from "../src/sim/mirror/index.ts";
 import { npcLife } from "../src/sim/npcs/index.ts";
 import { NPCS } from "../src/data/npcs.ts";
+import { LifeTimeline } from "../src/sim/rewind/index.ts";
 
 const TX: Place = { abbr: "TX", name: "Texas", rpp: { all: 97.4, goods: 97.0, housing: 88.6 } };
 const START = new Date(2026, 8, 11);
@@ -122,6 +123,22 @@ test("sync stays off when the server can't reach Nessie", async () => {
   assert.deepEqual(server.calls.map((c) => c.path), ["/api/bank/status"]);
 });
 
+test("a spend event becomes a checking withdrawal memo'd by category", () => {
+  const life = new PlayerLife({ place: TX, day: 0, monthlyTakeHome: 4_000 });
+  life.ledger.get("checking").balance = 200;
+  const mirror = new MonthMirror(life, START);
+  mirror.rebase({ checking: 200, savings: 0, credit: 0 });
+  life.spend(5, "Dining out", 25);
+  // Force the month to close by advancing to October (day 20 is Oct 1)
+  for (let day = 1; day <= 20; day++) life.onDay(day, dateOf(day));
+  const batch = mirror.prepare(20)!;
+  const entry = batch.entries.find((e) => e.memo === "Dining out");
+  assert.ok(entry, "Dining out should appear as its own line item");
+  assert.equal(entry!.account, "checking");
+  assert.equal(entry!.kind, "withdrawal");
+  assert.equal(entry!.amount, 25);
+});
+
 test("sync opens each life, posts finished months with the session cookie, and reopens after a 409", async () => {
   let entriesStatus = 200;
   const server = fakeServer({ entriesStatus: () => entriesStatus });
@@ -148,4 +165,41 @@ test("sync opens each life, posts finished months with the session cookie, and r
   }
   await sync.idle();
   assert.equal(server.calls.filter((c) => c.path.endsWith("/open")).length > 1, true, "reopened after the server lost the run");
+});
+
+test("after a rewind the statements still reach the sim's balances, and no key repeats", () => {
+  const life = jordan();
+  const timeline = new LifeTimeline(life, { start: START });
+  const mirror = new MonthMirror(life, START);
+  let implied = mirror.open();
+  const keys = new Set<string>();
+  let batches = 0;
+  const post = (day: number) => {
+    const batch = mirror.prepare(day);
+    if (!batch) return;
+    batches++;
+    for (const e of batch.entries) {
+      // Nessie skips a key it already holds, so a repeat would silently drop an entry.
+      assert.ok(!keys.has(e.key), `repeated key ${e.key}`);
+      assert.match(e.key, /^[A-Za-z0-9.:_-]{1,80}$/);
+      keys.add(e.key);
+    }
+    implied = apply(implied, batch.entries);
+    assert.deepEqual(implied, batch.closing);
+    mirror.commit(batch);
+  };
+  for (let day = 1; day <= 100; day++) {
+    life.onDay(day, dateOf(day));
+    post(day);
+  }
+  const before = batches;
+  timeline.rewindTo(40);
+  mirror.rewind(40);
+  for (let day = 41; day <= 160; day++) {
+    life.onDay(day, dateOf(day));
+    post(day);
+  }
+  // The relived months (Oct 2026 on) posted again, as a new branch.
+  assert.ok(batches >= before + 4, `${before} then ${batches}`);
+  assert.ok([...keys].some((k) => k.startsWith("r1:2026-10")));
 });

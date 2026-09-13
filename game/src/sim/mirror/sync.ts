@@ -26,6 +26,7 @@ interface Item {
   name: string;
   mirror: MonthMirror;
   busy: boolean;
+  base: string;
 }
 
 export class BankSync {
@@ -47,9 +48,9 @@ export class BankSync {
   }
 
   /** Mirrors a life as `entity` ("player" or an NPC's "npc-<name>"). */
-  add(entity: string, name: string, life: PlayerLife): MonthMirror {
+  add(entity: string, name: string, life: PlayerLife, opts: { base?: string } = {}): MonthMirror {
     const mirror = new MonthMirror(life, this.start);
-    this.items.push({ entity, name, mirror, busy: false });
+    this.items.push({ entity, name, mirror, busy: false, base: opts.base ?? this.base });
     return mirror;
   }
 
@@ -79,6 +80,11 @@ export class BankSync {
     while (this.inflight.size) await Promise.all([...this.inflight]);
   }
 
+  /** The lives went back to `day`: every mirror forgets the months it will live again (MonthMirror.rewind). */
+  rewind(day: number): void {
+    for (const i of this.items) i.mirror.rewind(day);
+  }
+
   private guard(i: Item, fn: () => Promise<void>): Promise<void> {
     if (i.busy) return Promise.resolve();
     i.busy = true;
@@ -94,7 +100,7 @@ export class BankSync {
 
   private async open(i: Item): Promise<void> {
     const body: MirrorOpenRequest = { run: this.run, name: i.name, opening: i.mirror.open() };
-    const r = await this.send(`/${i.entity}/open`, body);
+    const r = await this.send(i.base, `/${i.entity}/open`, body);
     if (!r.ok) {
       // Leave it unopened so the next tick tries again.
       i.mirror.close();
@@ -107,15 +113,15 @@ export class BankSync {
     const batch = i.mirror.prepare(today);
     if (!batch) return;
     const body: MirrorEntriesRequest = { run: this.run, entries: batch.entries };
-    const r = await this.send(`/${i.entity}/entries`, body);
+    const r = await this.send(i.base, `/${i.entity}/entries`, body);
     if (r.ok) return i.mirror.commit(batch);
     // 409: the server lost the run (a restart); reopen, which reads back what it already has.
     if (r.status === 409) i.mirror.close();
     throw new Error(`posting ${batch.months.join(", ")} failed (${r.status})`);
   }
 
-  private send(path: string, body: unknown): Promise<Response> {
-    return this.fetchFn(`${this.base}${path}`, {
+  private send(base: string, path: string, body: unknown): Promise<Response> {
+    return this.fetchFn(`${base}${path}`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },

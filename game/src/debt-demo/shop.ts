@@ -10,7 +10,7 @@
 // liabilities table, the payoff chart, the credit report) picks it up.
 
 import "./shop.css";
-import { SPEND_LABEL, SPEND_ORDER, cardValue } from "./shop-value.ts";
+import { SPEND_LABEL, SPEND_ORDER, cardOffer, cardValue } from "./shop-value.ts";
 import { CURATED, CURATED_AS_OF, TCCP_AS_OF } from "../data/cards-curated.ts";
 import { CARD_PRODUCTS } from "../data/cards.ts";
 import type { Clock } from "../engine/clock.ts";
@@ -26,9 +26,7 @@ import {
   recordApplication,
   tierOf,
   type Applicant,
-  type ApplicationRecord,
   type ApplicationResult,
-  type CardOffer,
   type CardProduct,
   type CuratedCard,
   type EarnCategory,
@@ -121,7 +119,6 @@ function fallbackFace(name: string, issuer: string, network: string, issuerKey: 
 
 export function mountShop(host: ShopHost): Shop {
   const { root, clock } = host;
-  const histories = new WeakMap<PlayerLife, ApplicationRecord[]>();
   const state = {
     credit: "all" as CreditFilter,
     sort: "match" as Sort,
@@ -136,11 +133,8 @@ export function mountShop(host: ShopHost): Shop {
   };
 
   const life = () => host.life();
-  const history = () => {
-    const l = life();
-    if (!histories.has(l)) histories.set(l, []);
-    return histories.get(l)!;
-  };
+  // The application history lives on the life, so a save or a rewind carries it.
+  const history = () => life().applications;
   const score = () => life().book.profile.score;
   const bySlug = (slug: string) => CURATED.find((c) => c.slug === slug)!;
 
@@ -150,18 +144,9 @@ export function mountShop(host: ShopHost): Shop {
     return { age: l.age, annualIncome: (l.employed ? l.monthlyTakeHome : l.monthlyTakeHome * 0.4) * 12 / 0.78, monthlyDebtPayments: l.minimums(), monthlyHousing: l.rent };
   }
 
-  function offerOf(card: CuratedCard): CardOffer | undefined {
-    if (!card.welcomeOffer) return undefined;
-    return {
-      cardId: card.slug, name: card.name, issuerKey: card.terms.issuerKey ?? "", currency: "USD", annualFee: card.annualFee,
-      firstYearFeeWaived: card.firstYearFeeWaived, baseEarnPct: 0, bonusAmount: card.welcomeOffer.valueUsd,
-      bonusValueUsd: card.welcomeOffer.valueUsd, bonusSpend: card.welcomeOffer.spend, bonusDays: card.welcomeOffer.months * 30, tccpProductId: card.tccpId,
-    };
-  }
-
   const yourApr = (terms: CardProduct) => aprFor(terms, score());
   const prequal = (card: CuratedCard) =>
-    applyForCard({ product: card.terms, offer: offerOf(card), applicant: applicant(), book: life().book, history: history(), day: clock.day, deposit: state.deposit });
+    applyForCard({ product: card.terms, offer: cardOffer(card), applicant: applicant(), book: life().book, history: history(), day: clock.day, deposit: state.deposit });
   const value = (card: CuratedCard) => cardValue(card, state.spend, { firstYear: true, carry: state.carry, apr: yourApr(card.terms) });
   const owns = (card: CuratedCard) => life().book.debts.some((d) => d.id.startsWith(`card-${card.slug}-`) && d.status !== "paid" && d.status !== "discharged");
 
@@ -292,7 +277,7 @@ export function mountShop(host: ShopHost): Shop {
     const p = prequal(card);
     const [ol, ot] = oddsLabel(p.odds);
     const rule = card.secured ? null : issuerRule(card.terms.issuerKey, history(), clock.day);
-    const offer = offerOf(card);
+    const offer = cardOffer(card);
     const bonusOk = offer ? bonusEligible(offer, history(), clock.day) : true;
     const checking = life().ledger.get("checking").balance;
     return `<div class="drawer-back" data-shop-close></div>
@@ -481,7 +466,7 @@ export function mountShop(host: ShopHost): Shop {
     const l = life();
     const day = clock.day;
     const attempt = history().filter((r) => r.productId === card.tccpId).length;
-    const r = applyForCard({ product: card.terms, offer: offerOf(card), applicant: applicant(), book: l.book, history: history(), day, roll: roll("apply", day, card.slug, attempt), deposit: state.deposit });
+    const r = applyForCard({ product: card.terms, offer: cardOffer(card), applicant: applicant(), book: l.book, history: history(), day, roll: roll("apply", day, card.slug, attempt), deposit: state.deposit });
     recordApplication(l.book, history(), r, day, { issuerKey: card.terms.issuerKey, productId: card.tccpId, bonusCardId: card.slug });
     if (r.decision === "approved") {
       if (card.secured) {

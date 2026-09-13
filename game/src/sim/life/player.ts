@@ -9,6 +9,7 @@
 
 import {
   compareStrategies,
+  fileBankruptcy,
   garnishmentRate,
   isOpen,
   owed,
@@ -17,15 +18,26 @@ import {
   tickDay,
   type DebtBook,
   type DebtEvent,
+  type BankruptcyResult,
   type Projection,
 } from "../debt/index.ts";
 import { instrument, MarketPath, type InstrumentId } from "../market/index.ts";
-import { Ledger } from "../money/accounts.ts";
-import type { Account, Holding } from "../money/types.ts";
-import { CrashWatch, PANIC_DRAWDOWN } from "../skip/crash.ts";
+import { Ledger, type LedgerSave } from "../money/accounts.ts";
+import type { Account, ApplicationRecord, Holding } from "../money/types.ts";
+import { deepCopy } from "../rewind/copy.ts";
+import { CrashWatch, PANIC_DRAWDOWN, type CrashSave } from "../skip/crash.ts";
 import { LIFESTYLE_FACTOR, type StandingOrders } from "../skip/types.ts";
+import { fileReturn } from "../tax/filing.ts";
+import { penaltyFor } from "../tax/penalties.ts";
+import type { TaxReturn } from "../tax/types.ts";
+import { withholdingForPaycheck } from "../tax/withholding.ts";
+import { installment } from "../debt/factory.ts";
 import { cashRateOn } from "./rates.ts";
-import { Twins } from "./twins.ts";
+import { Twins, type TwinsSave } from "./twins.ts";
+import { rngFor } from "../../engine/rng.ts";
+import { PULSE_TABLE } from "../wellbeing/pulses.ts";
+import { wellbeing } from "../wellbeing/index.ts";
+import type { Pulse } from "../wellbeing/types.ts";
 
 /** What the life needs to know about where the player lives (a StateInfo satisfies it). */
 export interface Place {
@@ -63,15 +75,21 @@ const ACCOUNT_NAMES = { emergency: "Emergency fund", k401: "401(k)" } as const;
 
 export type LifeEvent =
   | DebtEvent
-  | { type: "paycheck"; day: number; takeHome: number; garnished: number; unemployed: boolean; retirement?: number }
+  | { type: "paycheck"; day: number; takeHome: number; garnished: number; unemployed: boolean; retirement?: number; federalWithheld: number; stateWithheld: number }
   | { type: "bill"; day: number; name: string; amount: number; paid: number }
+  | { type: "spend"; day: number; category: string; amount: number }
   | { type: "savings_interest"; day: number; amount: number }
   | { type: "moved"; day: number; from: string; to: string; rent: number; living: number }
   | { type: "job"; day: number; employed: boolean }
+  | { type: "marriage"; day: number }
+  | { type: "bankruptcy_filed"; day: number; chapter: 7 | 13 }
   | { type: "trade"; day: number; id: InstrumentId; side: "buy" | "sell"; amount: number; units: number; price: number; recurring: boolean }
   | { type: "trade_skipped"; day: number; id: InstrumentId; amount: number; reason: string }
   | { type: "bear_market"; day: number; drop: number; stocks: number }
-  | { type: "market_recovered"; day: number; you: number; held: number; autopilot: number };
+  | { type: "market_recovered"; day: number; you: number; held: number; autopilot: number }
+  | { type: "tax_ready"; day: number; year: number }
+  | { type: "tax_filed"; day: number; year: number; refundOrOwed: number; auto: boolean }
+  | { type: "tax_penalty"; day: number; amount: number };
 
 export interface LifeSnapshot {
   day: number;
@@ -80,6 +98,7 @@ export interface LifeSnapshot {
   debt: number;
   netWorth: number;
   score: number;
+  wellbeing: number;
   /** Brokerage holdings at the day's prices. */
   brokerage: number;
   /** The player's investing line: brokerage plus the cash sells took out (sim/life/twins.ts). */
@@ -88,6 +107,17 @@ export interface LifeSnapshot {
   held: number;
   /** The same dollars at 90/10 LTM/BOND, never sold. */
   autopilot: number;
+}
+
+/** A life's state on one day, for rewinding (sim/rewind). */
+export interface LifeCheckpoint {
+  day: number;
+  /** A detached copy (no listeners, history, or log). */
+  state: PlayerLife;
+  historyLength: number;
+  /** The day's history row as it was then; a trade later that day replaces it in place. */
+  lastSnapshot: LifeSnapshot | null;
+  logLength: number;
 }
 
 export interface LifeOptions {
@@ -101,6 +131,8 @@ export interface LifeOptions {
   grossAnnual?: number;
   /** Job title from onboarding. */
   job?: string;
+  /** One-way commute in minutes; defaults to the SOEP-inspired design approximation. */
+  commuteMinutes?: number;
   /** Monthly rent the player stated in onboarding; after a move it scales with the new state's housing costs. */
   rent?: number;
   book?: DebtBook;
@@ -129,6 +161,70 @@ export interface RecurringBuy {
 
 export type TradeResult ={ ok: true; event: LifeEvent } | { ok: false; error: string };
 
+/** A life as plain JSON, for the saved game (sim/save). Listeners are not saved: whoever restores the life re-attaches them. */
+export interface LifeSave {
+  place: Place;
+  employed: boolean;
+  age: number;
+  monthlyTakeHome: number;
+  grossAnnual: number;
+  job: string;
+  orders: StandingOrders | null;
+  recurring: RecurringBuy[];
+  today: number;
+  history: LifeSnapshot[];
+  /** Events from the same recent days as daily history, so the calendar's past and a rewind's fork survive a reload. */
+  log: LifeEvent[];
+  book: DebtBook;
+  applications: ApplicationRecord[];
+  ledger: LedgerSave;
+  twins: TwinsSave;
+  startDay: number;
+  startAge: number;
+  rentAnchor: { amount: number; housing: number } | null;
+  crash: CrashSave;
+  crashCash: number;
+  lastFirst: { stock: number; bond: number } | null;
+  k401Year: number;
+  k401Ytd: number;
+  ltmPeak: number;
+  inBear: boolean;
+  startUnits: [InstrumentId, number][];
+  startSnap: LifeSnapshot;
+  /**
+   * GameEngine additions (life goals, wellbeing, taxes); all optional so a
+   * save from before they existed still loads, read with the same defaults
+   * the constructor otherwise sets.
+   */
+  relationship?: "single" | "partnered";
+  commuteMinutes?: number;
+  reemployedDay?: number | null;
+  pulses?: Pulse[];
+  taxYear?: number;
+  wagesYtdAmount?: number;
+  federalWithheldYtd?: number;
+  stateWithheldYtd?: number;
+  priorYearWages?: number;
+  priorYearFederalWithheld?: number;
+  priorYearStateWithheld?: number;
+  priorYearSnapshotYear?: number | null;
+  pendingReturn?: TaxReturn | null;
+  taxReadyDay?: number | null;
+  unpaidTax?: { originalOwed: number; amount: number; dueDay: number; filedDay: number | null; penaltyCharged: number } | null;
+  /** Saved as arrays (JSON has no Set); restored into a Set. */
+  convertedTaxDueDays?: number[];
+  marriageRollYears?: number[];
+  bankruptcyPulseDays?: number[];
+}
+
+/** Days of daily history a saved player life keeps; older days keep every 7th. */
+export const SAVE_DAILY_DAYS = 400;
+
+/** History for a save: every day in the last `keepDaily` days before `today`, and every 7th day before that. */
+export function compactHistory(history: LifeSnapshot[], today: number, keepDaily: number): LifeSnapshot[] {
+  return history.filter((s) => s.day > today - keepDaily || s.day % 7 === 0);
+}
+
 /** Checking, a high-yield savings account, an emergency fund, an empty brokerage account, and an empty 401(k). */
 export function defaultAccounts(day: number): Account[] {
   return [
@@ -155,6 +251,8 @@ export const CONCENTRATION_LIMIT = 0.2;
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const CASH_KINDS = new Set(["checking", "savings", "emergency"]);
+/** Fields a detached copy starts empty: it runs on its own and keeps no past. */
+const FRESH_ON_COPY = new Set(["history", "log", "listeners"]);
 /** Smallest trade the brokerage accepts, like most apps' $1 fractional minimum. */
 export const MIN_TRADE = 1;
 
@@ -167,6 +265,11 @@ export class PlayerLife {
   book: DebtBook;
   place: Place;
   employed = true;
+  relationship: "single" | "partnered" = "single";
+  /** Static until the game has job and home locations; 23 is a SOEP-inspired design default, not a US average. */
+  commuteMinutes: number;
+  reemployedDay: number | null = null;
+  readonly pulses: Pulse[] = [];
   /** Age in years, advancing with the calendar. */
   age: number;
   monthlyTakeHome: number;
@@ -184,6 +287,19 @@ export class PlayerLife {
   /** The latest game day the life has seen; holdings are valued at this day's prices. */
   today: number;
   readonly history: LifeSnapshot[] = [];
+  /**
+   * Every card and loan application, oldest first, for the issuer rules (5/24
+   * and the like) and sign-up bonus eligibility. Ordinary state: saved, and a
+   * rewind to before an application forgets it.
+   */
+  applications: ApplicationRecord[] = [];
+  /** Every event the life has emitted, in order (the calendar reads it; a rewind truncates it). */
+  readonly log: LifeEvent[] = [];
+  /**
+   * True while days replay for a rewind: events still go in the log, but no listener hears them.
+   * Not saved: it is only true inside `quietly`, and a save is never taken there.
+   */
+  private muted = false;
   /** Shadow portfolios of the player's buys, for "if you had held" and "autopilot". */
   readonly twins: Twins;
   private readonly startDay: number;
@@ -192,13 +308,59 @@ export class PlayerLife {
   private readonly rentAnchor: { amount: number; housing: number } | null;
   private readonly cashRate: (date: Date) => number;
   private readonly listeners: ((events: LifeEvent[], life: PlayerLife) => void)[] = [];
-  private readonly crash = new CrashWatch();
+  private readonly crash: CrashWatch;
   /** Proceeds of the crash rule's panic sale, waiting to buy back in. */
   private crashCash = 0;
   /** Stock and bond prices on the last 1st of the month, for the 401(k)'s monthly return. */
   private lastFirst: { stock: number; bond: number } | null = null;
   private k401Year = -1;
   private k401Ytd = 0;
+  private taxYear = 0; // 0 is a sentinel meaning "not initialized yet"; set on first payday
+  private wagesYtdAmount = 0;
+  private federalWithheldYtd = 0;
+  private stateWithheldYtd = 0;
+  /**
+   * The just-closed calendar year's final wages/withholding, snapshotted at
+   * the January 1 reset so the April 15 filing check (which runs after that
+   * reset, in the same new year) reads the year that actually closed, not
+   * whatever has re-accumulated since. `priorYearSnapshotYear` records which
+   * year the snapshot is *for*, so the April 15 block can tell a real
+   * snapshot apart from "no reset has ever happened" (e.g. a life whose very
+   * first April 15 arrives before its first January 1) and fall back to the
+   * live accumulators in that case.
+   */
+  private priorYearWages = 0;
+  private priorYearFederalWithheld = 0;
+  private priorYearStateWithheld = 0;
+  private priorYearSnapshotYear: number | null = null;
+  private pendingReturn: TaxReturn | null = null;
+  /** The day the pending return became ready (~April 15) — the reference point penalties.ts measures lateness from, independent of when (or whether) the player actually files. */
+  private taxReadyDay: number | null = null;
+  /**
+   * `originalOwed` is fixed (the actual unpaid tax) — `penaltyFor` (Task 11)
+   * always computes off this, never off the inflated running balance, so
+   * penalties are never charged on top of previously-added penalties. `amount`
+   * is the running balance (original + all penalties/interest so far) that
+   * becomes the eventual Debt's opening balance. `penaltyCharged` is how much
+   * of `penaltyFor`'s cumulative total has already been folded into `amount`,
+   * so each monthly tick adds only that month's new increment.
+   */
+  private unpaidTax: { originalOwed: number; amount: number; dueDay: number; filedDay: number | null; penaltyCharged: number } | null = null;
+
+  /** dueDay values whose unpaid tax has already converted to a Debt, so a later year's distinct balance is never blocked by an older year's still-open "IRS balance" Debt. */
+  private convertedTaxDueDays = new Set<number>();
+  /** Calendar years already checked for marriage, preventing rerolls on duplicate ticks. */
+  private readonly marriageRollYears = new Set<number>();
+  private readonly bankruptcyPulseDays = new Set<number>();
+  /** Coverage is an employment-derived approximation until insurance shopping exists. */
+  get insured(): boolean {
+    return this.employed;
+  }
+
+  /** Gross wages earned so far in the current calendar year (resets each January 1 payday); shown on the Taxes tab. */
+  wagesYtd(): number {
+    return this.wagesYtdAmount;
+  }
   /** Highest LTM close seen, for the bear-market line. */
   private ltmPeak: number;
   /** A bear_market event fired and the market hasn't set a new high since. */
@@ -208,7 +370,61 @@ export class PlayerLife {
   /** Balances on the first day, before anything the player does that day. */
   private readonly startSnap: LifeSnapshot;
 
-  constructor(o: LifeOptions) {
+  constructor(o: LifeOptions, saved?: LifeSave) {
+    this.market = o.market ?? new MarketPath();
+    this.cashRate = o.cashRate ?? cashRateOn;
+    if (saved) {
+      const s = structuredClone(saved);
+      this.place = s.place;
+      this.startDay = s.startDay;
+      this.startAge = s.startAge;
+      this.age = s.age;
+      this.today = s.today;
+      this.book = s.book;
+      this.applications = s.applications ?? [];
+      this.monthlyTakeHome = s.monthlyTakeHome;
+      this.grossAnnual = s.grossAnnual;
+      this.job = s.job;
+      this.employed = s.employed;
+      this.rentAnchor = s.rentAnchor;
+      this.orders = s.orders;
+      this.recurring = s.recurring;
+      this.ledger = Ledger.fromSave(s.ledger);
+      this.twins = Twins.fromSave(s.twins, this.market);
+      this.crash = CrashWatch.fromSave(s.crash);
+      this.crashCash = s.crashCash;
+      this.lastFirst = s.lastFirst;
+      this.k401Year = s.k401Year;
+      this.k401Ytd = s.k401Ytd;
+      this.ltmPeak = s.ltmPeak;
+      this.inBear = s.inBear;
+      this.startUnits.push(...s.startUnits);
+      this.history.push(...s.history);
+      this.log.push(...s.log);
+      this.startSnap = s.startSnap;
+      // GameEngine additions: optional, so an older save (without them) restores the same defaults
+      // the constructor otherwise sets for a fresh life.
+      this.relationship = s.relationship ?? "single";
+      this.commuteMinutes = s.commuteMinutes ?? 23;
+      this.reemployedDay = s.reemployedDay ?? null;
+      this.pulses.push(...(s.pulses ?? []));
+      this.taxYear = s.taxYear ?? 0;
+      this.wagesYtdAmount = s.wagesYtdAmount ?? 0;
+      this.federalWithheldYtd = s.federalWithheldYtd ?? 0;
+      this.stateWithheldYtd = s.stateWithheldYtd ?? 0;
+      this.priorYearWages = s.priorYearWages ?? 0;
+      this.priorYearFederalWithheld = s.priorYearFederalWithheld ?? 0;
+      this.priorYearStateWithheld = s.priorYearStateWithheld ?? 0;
+      this.priorYearSnapshotYear = s.priorYearSnapshotYear ?? null;
+      this.pendingReturn = s.pendingReturn ?? null;
+      this.taxReadyDay = s.taxReadyDay ?? null;
+      this.unpaidTax = s.unpaidTax ?? null;
+      for (const d of s.convertedTaxDueDays ?? []) this.convertedTaxDueDays.add(d);
+      for (const y of s.marriageRollYears ?? []) this.marriageRollYears.add(y);
+      for (const d of s.bankruptcyPulseDays ?? []) this.bankruptcyPulseDays.add(d);
+      return;
+    }
+    this.crash = new CrashWatch();
     this.place = o.place;
     this.startDay = o.day;
     this.startAge = o.age ?? 27;
@@ -218,17 +434,75 @@ export class PlayerLife {
     this.monthlyTakeHome = o.monthlyTakeHome ?? this.book.monthlyTakeHome;
     this.grossAnnual = o.grossAnnual ?? Math.round((this.monthlyTakeHome * 12) / TAKE_HOME_SHARE);
     this.job = o.job ?? "";
+    this.commuteMinutes = o.commuteMinutes ?? 23;
     this.rentAnchor = o.rent === undefined ? null : { amount: o.rent, housing: o.place.rpp.housing };
     // The engine's bankruptcy test compares minimums with the book's take-home, so keep them in sync.
     this.book.monthlyTakeHome = this.monthlyTakeHome;
     this.ledger = new Ledger(o.accounts ?? defaultAccounts(o.day));
-    this.market = o.market ?? new MarketPath();
     this.ltmPeak = this.market.price("LTM", o.day);
-    this.cashRate = o.cashRate ?? cashRateOn;
     this.twins = new Twins(this.market);
     if (o.holdings) this.seedHoldings(o.holdings, o.day);
     this.startSnap = this.snapshot(o.day);
     this.record(o.day);
+  }
+
+  /** The life from a save, on `market` (rebuilt from the save's seed; it isn't stored). */
+  static fromSave(s: LifeSave, o: { market: MarketPath; cashRate?: (date: Date) => number }): PlayerLife {
+    return new PlayerLife({ place: s.place, day: s.startDay, market: o.market, cashRate: o.cashRate }, s);
+  }
+
+  /** Everything needed to carry on from today, as plain JSON; history keeps `keepDaily` days daily and weekly before. */
+  toSave(keepDaily = SAVE_DAILY_DAYS): LifeSave {
+    // A JSON round trip, not structuredClone: the save is exactly what the server
+    // stores, so a value JSON can't carry (a key set to undefined, NaN) shows up here.
+    const save: LifeSave = {
+      place: { abbr: this.place.abbr, name: this.place.name, rpp: this.place.rpp },
+      employed: this.employed,
+      age: this.age,
+      monthlyTakeHome: this.monthlyTakeHome,
+      grossAnnual: this.grossAnnual,
+      job: this.job,
+      orders: this.orders,
+      recurring: this.recurring,
+      today: this.today,
+      history: compactHistory(this.history, this.today, keepDaily),
+      log: this.log.filter((e) => e.day > this.today - keepDaily),
+      book: this.book,
+      applications: this.applications,
+      ledger: this.ledger.toSave(),
+      twins: this.twins.toSave(),
+      startDay: this.startDay,
+      startAge: this.startAge,
+      rentAnchor: this.rentAnchor,
+      crash: this.crash.toSave(),
+      crashCash: this.crashCash,
+      lastFirst: this.lastFirst,
+      k401Year: this.k401Year,
+      k401Ytd: this.k401Ytd,
+      ltmPeak: this.ltmPeak,
+      inBear: this.inBear,
+      startUnits: this.startUnits,
+      startSnap: this.startSnap,
+      relationship: this.relationship,
+      commuteMinutes: this.commuteMinutes,
+      reemployedDay: this.reemployedDay,
+      pulses: this.pulses,
+      taxYear: this.taxYear,
+      wagesYtdAmount: this.wagesYtdAmount,
+      federalWithheldYtd: this.federalWithheldYtd,
+      stateWithheldYtd: this.stateWithheldYtd,
+      priorYearWages: this.priorYearWages,
+      priorYearFederalWithheld: this.priorYearFederalWithheld,
+      priorYearStateWithheld: this.priorYearStateWithheld,
+      priorYearSnapshotYear: this.priorYearSnapshotYear,
+      pendingReturn: this.pendingReturn,
+      taxReadyDay: this.taxReadyDay,
+      unpaidTax: this.unpaidTax,
+      convertedTaxDueDays: [...this.convertedTaxDueDays],
+      marriageRollYears: [...this.marriageRollYears],
+      bankruptcyPulseDays: [...this.bankruptcyPulseDays],
+    };
+    return JSON.parse(JSON.stringify(save));
   }
 
   /**
@@ -256,6 +530,7 @@ export class PlayerLife {
         debt: first.debt,
         netWorth: round2(first.cash + investments - first.debt),
         score: first.score,
+        wellbeing: first.wellbeing,
         brokerage,
         you,
         held: you,
@@ -402,6 +677,61 @@ export class PlayerLife {
     this.listeners.push(fn);
   }
 
+  /** Runs `fn` (days replayed for a rewind) without telling any listener; the log still records. */
+  quietly(fn: () => void): void {
+    const was = this.muted;
+    this.muted = true;
+    try {
+      fn();
+    } finally {
+      this.muted = was;
+    }
+  }
+
+  /** A copy of this life that runs on its own: the same state, but no listeners, history, or log. */
+  detached(): PlayerLife {
+    const self = this as unknown as Record<string, unknown>;
+    const copy = Object.create(PlayerLife.prototype) as Record<string, unknown>;
+    const seen = new Map<unknown, unknown>();
+    for (const k of Object.keys(self)) copy[k] = FRESH_ON_COPY.has(k) ? [] : deepCopy(self[k], seen);
+    return copy as unknown as PlayerLife;
+  }
+
+  /** Today's state, to come back to later with `restore`. Taken right after a day's tick, it's that day's morning. */
+  checkpoint(): LifeCheckpoint {
+    const last = this.history[this.history.length - 1];
+    return { day: this.today, state: this.detached(), historyLength: this.history.length, lastSnapshot: last ? { ...last } : null, logLength: this.log.length };
+  }
+
+  /**
+   * Puts a checkpoint's state back into this same life, so everything holding
+   * it (the desk, the recorder, the bank mirror) keeps working. History and
+   * the log are cut back to where they were; the checkpoint stays reusable.
+   */
+  restore(cp: LifeCheckpoint): void {
+    const from = cp.state.detached() as unknown as Record<string, unknown>;
+    const self = this as unknown as Record<string, unknown>;
+    for (const k of Object.keys(from)) if (!FRESH_ON_COPY.has(k)) self[k] = from[k];
+    this.history.length = cp.historyLength;
+    // A trade later that day replaced the day's row; put the morning's back.
+    if (cp.lastSnapshot) this.history[cp.historyLength - 1] = { ...cp.lastSnapshot };
+    this.log.length = cp.logLength;
+  }
+
+  /**
+   * A one-off discretionary purchase outside the daily bill/payday cycle
+   * (sim/npcs' spending-habit engine calls this). Goes through the same
+   * checking -> savings -> emergency waterfall as a bill, so it can never
+   * overdraw, and emits like any other event so the bank mirror picks it up.
+   */
+  spend(day: number, category: string, amount: number): LifeEvent {
+    const paid = this.ledger.wallet().withdraw(amount, category);
+    const event: LifeEvent = { type: "spend", day, category, amount: paid };
+    this.record(day);
+    this.emit([event]);
+    return event;
+  }
+
   /** One game day. `date` is the calendar date of `day`. */
   onDay(day: number, date: Date): LifeEvent[] {
     const events: LifeEvent[] = [];
@@ -412,14 +742,46 @@ export class PlayerLife {
     const dom = date.getDate();
     const payday = dom === 1 || dom === 15;
 
+    const year = date.getFullYear();
+    if (this.relationship === "single" && dom === 1 && date.getMonth() === 0 && !this.marriageRollYears.has(year)) {
+      this.marriageRollYears.add(year);
+      // Gameplay placeholder pending age-banded marriage-rate calibration.
+      const ANNUAL_MARRIAGE_CHANCE = 0.08;
+      if (rngFor("marriage", this.market.seed, year)() < ANNUAL_MARRIAGE_CHANCE) {
+        this.relationship = "partnered";
+        this.addPulse(PULSE_TABLE.marriage.p0, PULSE_TABLE.marriage.halfLifeDays, day);
+        events.push({ type: "marriage", day });
+      }
+    }
+
     if (payday) {
-      const pay = (this.monthlyTakeHome / 2) * (this.employed ? 1 : UNEMPLOYMENT_SHARE);
+      if (year !== this.taxYear) {
+        if (this.taxYear !== 0) {
+          this.priorYearWages = this.wagesYtdAmount;
+          this.priorYearFederalWithheld = this.federalWithheldYtd;
+          this.priorYearStateWithheld = this.stateWithheldYtd;
+          this.priorYearSnapshotYear = this.taxYear;
+        }
+        this.taxYear = year;
+        this.wagesYtdAmount = 0;
+        this.federalWithheldYtd = 0;
+        this.stateWithheldYtd = 0;
+      }
+      const grossThisPeriod = (this.grossAnnual / 24) * (this.employed ? 1 : UNEMPLOYMENT_SHARE);
+      const withheld = withholdingForPaycheck({ state: this.place.abbr, wagesThisPeriod: grossThisPeriod, wagesYtdBefore: this.wagesYtdAmount });
+      this.wagesYtdAmount = round2(this.wagesYtdAmount + grossThisPeriod);
+      this.federalWithheldYtd = round2(this.federalWithheldYtd + withheld.federalIncomeTax);
+      this.stateWithheldYtd = round2(this.stateWithheldYtd + withheld.stateIncomeTax);
+      const pay = round2(grossThisPeriod - withheld.federalIncomeTax - withheld.fica - withheld.stateIncomeTax);
       const garnished = round2(pay * garnishmentRate(this.book));
       const retirement = this.contribute401k(date);
       const takeHome = round2(pay - retirement.cost - garnished);
       const checking = this.ledger.get("checking");
       checking.balance = round2(checking.balance + takeHome);
-      events.push({ type: "paycheck", day, takeHome, garnished, unemployed: !this.employed, retirement: retirement.added });
+      events.push({
+        type: "paycheck", day, takeHome, garnished, unemployed: !this.employed, retirement: retirement.added,
+        federalWithheld: withheld.federalIncomeTax, stateWithheld: withheld.stateIncomeTax,
+      });
     }
     // Rent on the 1st and living costs on the 15th come before debt payments.
     const bill = dom === 1 ? { name: "Rent", amount: this.rent } : dom === 15 ? { name: "Living costs", amount: this.living } : null;
@@ -447,7 +809,28 @@ export class PlayerLife {
       this.ledger.newMonth();
       if (interest > 0) events.push({ type: "savings_interest", day, amount: interest });
       if (this.orders) events.push(...this.onFirstOfMonth(day));
+      this.tickTaxPenalty(day, events);
     }
+
+    if (date.getMonth() === 3 && date.getDate() === 15 && !this.pendingReturn) {
+      const priorYear = date.getFullYear() - 1;
+      // Normally the January 1 reset already snapshotted the year that just
+      // closed. But if this life's first April 15 arrives before its first
+      // January 1 (it started partway through its very first year, and that
+      // year hasn't closed yet), there is no snapshot for `priorYear` — the
+      // live accumulators still hold that partial year's data, so use them.
+      const useSnapshot = this.priorYearSnapshotYear === priorYear;
+      this.pendingReturn = fileReturn({
+        year: priorYear,
+        state: this.place.abbr,
+        wagesYtd: useSnapshot ? this.priorYearWages : this.wagesYtdAmount,
+        federalWithheldYtd: useSnapshot ? this.priorYearFederalWithheld : this.federalWithheldYtd,
+        stateWithheldYtd: useSnapshot ? this.priorYearStateWithheld : this.stateWithheldYtd,
+      });
+      this.taxReadyDay = day;
+      events.push({ type: "tax_ready", day, year: priorYear });
+    }
+
     events.push(...this.watchMarket(day));
     this.record(day);
     this.emit(events);
@@ -467,6 +850,8 @@ export class PlayerLife {
       date.setDate(date.getDate() + 1);
       const events = this.onDay(fromDay + i, new Date(date));
       all.push(...events);
+      const filed = this.autoFilePending(fromDay + i);
+      if (filed) all.push(filed);
       if (this.stopsSkip(events)) return { daysRun: i, stoppedBy: "bankruptcy", events: all };
     }
     return { daysRun: days, stoppedBy: null, events: all };
@@ -486,16 +871,195 @@ export class PlayerLife {
     const from = this.place.abbr;
     this.place = place;
     const e: LifeEvent = { type: "moved", day, from, to: place.abbr, rent: this.rent, living: this.living };
+    this.record(day);
     this.emit([e]);
     return e;
   }
 
   setEmployed(employed: boolean, day: number): LifeEvent {
+    if (employed === this.employed) {
+      const unchanged: LifeEvent = { type: "job", day, employed };
+      this.emit([unchanged]);
+      return unchanged;
+    }
+    if (employed) this.reemployedDay = day;
+    else this.addPulse(PULSE_TABLE.layoff.p0, PULSE_TABLE.layoff.halfLifeDays, day);
     this.employed = employed;
     this.book.monthlyTakeHome = this.monthlyTakeHome * (employed ? 1 : UNEMPLOYMENT_SHARE);
     const e: LifeEvent = { type: "job", day, employed };
+    this.record(day);
     this.emit([e]);
     return e;
+  }
+
+  addPulse(p0: number, halfLifeDays: number, day: number): void {
+    this.pulses.push({ p0, halfLifeDays, startDay: day });
+  }
+
+  /** Files through the debt engine and records the researched wellbeing shock exactly once. */
+  fileBankruptcy(chapter: 7 | 13, day: number): BankruptcyResult {
+    const result = fileBankruptcy(this.book, chapter, day);
+    if (!this.bankruptcyPulseDays.has(day)) {
+      this.bankruptcyPulseDays.add(day);
+      this.addPulse(PULSE_TABLE.bankruptcy.p0, PULSE_TABLE.bankruptcy.halfLifeDays, day);
+    }
+    const event: LifeEvent = { type: "bankruptcy_filed", day, chapter };
+    this.record(day);
+    this.emit([event]);
+    return result;
+  }
+
+  /** 401(k) and Roth IRA balances used by retirement scoring. */
+  retirementSavings(): number {
+    let total = 0;
+    for (const account of this.ledger.accounts.values()) {
+      if (account.kind === "k401" || account.kind === "roth_ira") total += account.balance;
+    }
+    return round2(total);
+  }
+
+  hasPastDue(): boolean {
+    return this.book.debts.some((debt) => isOpen(debt) && (debt.pastDue > 0 || debt.status === "late" || debt.status === "delinquent" || debt.status === "serious" || debt.status === "default"));
+  }
+
+  inCollectionsOrRecentBankruptcy(today = this.today): boolean {
+    const bankruptcy = this.book.profile.bankruptcy;
+    const elapsed = bankruptcy === undefined ? Number.POSITIVE_INFINITY : today - bankruptcy.day;
+    return this.book.debts.some((debt) => debt.status === "collections") || (elapsed >= 0 && elapsed < 730);
+  }
+
+  /** The prior year's tax return, once ready (around April 15), until the player files it. */
+  pendingTaxReturn(): TaxReturn | null {
+    return this.pendingReturn;
+  }
+
+  /**
+   * Fast-forwards (both `runHeadless` here and the player-facing `runSkip`)
+   * must never silently blow past a filing deadline: if a return is waiting
+   * to be filed, auto-file it with the standard deduction so a multi-year
+   * skip can't rack up failure-to-file/failure-to-pay penalties the player
+   * never saw form. Returns the `tax_filed` event so the caller can fold it
+   * into whatever event list or count it's already collecting, or null if
+   * there was nothing pending.
+   */
+  autoFilePending(day: number): LifeEvent | null {
+    return this.pendingReturn ? this.fileTaxes(day, true) : null;
+  }
+
+  /** Any unpaid tax balance still owed (accumulates across unresolved years); null once paid off. */
+  unpaidTaxBalance(): { originalOwed: number; amount: number; dueDay: number; filedDay: number | null; penaltyCharged: number } | null {
+    return this.unpaidTax;
+  }
+
+  /**
+   * Files the pending return: applies a refund to checking, or withdraws what's
+   * owed (partially, if checking can't cover it). A shortfall becomes or
+   * updates `unpaidTax` — same object Task 11's monthly tick creates if the
+   * deadline passes with nothing filed yet, so the two paths never double-track
+   * the same balance. Real-world-accurate detail this preserves: failure-to-pay
+   * and interest run from the original April 15 due date regardless of when
+   * (or whether) the player files; only failure-to-file stops the moment you file.
+   */
+  fileTaxes(day: number, auto = false): LifeEvent {
+    const ret = this.pendingReturn;
+    if (!ret) throw new Error("No pending tax return to file.");
+    const refundOrOwed = round2(ret.federalRefundOrOwed + ret.stateRefundOrOwed);
+    const checking = this.ledger.get("checking");
+    if (refundOrOwed >= 0) checking.balance = round2(checking.balance + refundOrOwed);
+    else {
+      const owed = -refundOrOwed;
+      const paid = Math.min(owed, checking.balance);
+      checking.balance = round2(checking.balance - paid);
+      const unpaid = round2(owed - paid);
+      const dueDay = this.taxReadyDay ?? day;
+      if (unpaid > 0 && this.convertedTaxDueDays.has(dueDay)) {
+        // This due day already converted to a real "IRS balance" Debt (the
+        // player let it sit unfiled past 180 days). Filing late now must not
+        // spin up a second, parallel shadow balance for the same obligation —
+        // the Debt already represents it, so just let this return close out.
+      } else if (unpaid > 0) {
+        if (this.unpaidTax) {
+          // A prior year's shortfall is still outstanding; this year's adds to it
+          // rather than overwriting, so the balance a later penalty-escalation
+          // feature reads never silently shrinks.
+          this.unpaidTax.originalOwed = round2(this.unpaidTax.originalOwed + unpaid);
+          this.unpaidTax.amount = round2(this.unpaidTax.amount + unpaid);
+          this.unpaidTax.filedDay = day;
+        } else {
+          this.unpaidTax = { originalOwed: unpaid, amount: unpaid, dueDay: this.taxReadyDay ?? day, filedDay: day, penaltyCharged: 0 };
+        }
+      }
+    }
+    ret.filedDay = day;
+    this.pendingReturn = null;
+    const e: LifeEvent = { type: "tax_filed", day, year: ret.year, refundOrOwed, auto };
+    this.record(day);
+    this.emit([e]);
+    return e;
+  }
+
+  /**
+   * Monthly: escalates an unfiled-and-owing or filed-with-a-balance tax debt
+   * (failure-to-file/pay + interest, penalties.ts), and converts it to a real
+   * Debt after 180 days unpaid so it flows through the existing debt engine's
+   * delinquency and credit-score machinery unchanged.
+   *
+   * `unpaidTax` is created lazily, the first time it's needed, by whichever of
+   * two paths gets there first: this tick (the deadline passes with nothing
+   * filed and money owed) or `fileTaxes` (filed, but checking couldn't cover
+   * it). Once created, `penaltyCharged` tracks how much of `penaltyFor`'s
+   * cumulative total has already been folded into `amount`, so each tick adds
+   * only that month's new increment instead of re-adding the running total.
+   */
+  private tickTaxPenalty(day: number, events: LifeEvent[]): void {
+    if (
+      !this.unpaidTax &&
+      this.pendingReturn &&
+      this.taxReadyDay !== null &&
+      day > this.taxReadyDay &&
+      !this.convertedTaxDueDays.has(this.taxReadyDay)
+    ) {
+      const owed = round2(-(this.pendingReturn.federalRefundOrOwed + this.pendingReturn.stateRefundOrOwed));
+      if (owed > 0) this.unpaidTax = { originalOwed: owed, amount: owed, dueDay: this.taxReadyDay, filedDay: null, penaltyCharged: 0 };
+    }
+    if (!this.unpaidTax) return;
+    const monthsSinceDue = Math.max(0, Math.floor((day - this.unpaidTax.dueDay) / 30));
+    const monthsUnfiled = this.unpaidTax.filedDay === null ? monthsSinceDue : 0;
+    const penalty = penaltyFor({ owed: this.unpaidTax.originalOwed, monthsUnfiled, monthsUnpaid: monthsSinceDue });
+    const delta = round2(penalty.total - this.unpaidTax.penaltyCharged);
+    if (delta > 0) {
+      this.unpaidTax.penaltyCharged = penalty.total;
+      this.unpaidTax.amount = round2(this.unpaidTax.amount + delta);
+      events.push({ type: "tax_penalty", day, amount: delta });
+    }
+    if (monthsSinceDue >= 6 && !this.convertedTaxDueDays.has(this.unpaidTax.dueDay)) {
+      this.book.debts.push(
+        installment({
+          id: `irs-${this.unpaidTax.dueDay}`,
+          kind: "personal",
+          name: "IRS balance",
+          balance: this.unpaidTax.amount,
+          apr: 0.08,
+          months: 36,
+          day,
+          openedDay: day,
+        }),
+      );
+      this.convertedTaxDueDays.add(this.unpaidTax.dueDay);
+      // From here the balance lives entirely as a normal Debt (its own accrual,
+      // payments, and delinquency via tickDay): clear the shadow tracker so it
+      // doesn't keep escalating in parallel, forever diverging from what the
+      // real Debt actually still owes.
+      this.unpaidTax = null;
+      // The pending return (if any) that fed this shortfall is now resolved by
+      // the Debt: it will never be filed, so clear it. Otherwise it stays set
+      // forever, which both permanently blocks next April 15's new return (the
+      // `!this.pendingReturn` guard below never re-passes) and, if it somehow
+      // got filed late anyway, would create a second shadow balance for a due
+      // day that's already converted (see the `convertedTaxDueDays` guard in
+      // `fileTaxes`).
+      this.pendingReturn = null;
+    }
   }
 
   /** The paycheck's 401(k) contribution and employer match, within the yearly IRS limit. */
@@ -647,6 +1211,8 @@ export class PlayerLife {
   }
 
   private emit(events: LifeEvent[]) {
+    this.log.push(...events);
+    if (this.muted) return;
     for (const fn of this.listeners) fn(events, this);
   }
 
@@ -664,6 +1230,7 @@ export class PlayerLife {
       debt,
       netWorth: round2(cash + investments - debt),
       score: this.book.profile.score,
+      wellbeing: wellbeing(this, day).W,
       brokerage,
       you: this.twins.you(brokerage),
       held: this.twins.held(day),

@@ -11,7 +11,7 @@ import { CityGrid } from "./grid";
 import { Ground } from "./ground";
 import { HeroHome } from "./hero";
 import { depthOf, footprintRect, HALF_H, HALF_W, iso } from "./iso";
-import { People, type Mood, type NpcInfo } from "./people";
+import { People, type Mood, type NpcInfo, type ResidentSeed } from "./people";
 import { plant, populate, zoneAt, type Placed, type Plant } from "./populate";
 import { rngFor } from "./rng";
 import { buildRoadProps, type RoadProps } from "./roads/draw";
@@ -91,7 +91,15 @@ export class CityScene {
   private readonly clock: Clock;
   private readonly seed: number;
 
-  constructor(app: Application, city: CityDef, clock: Clock, factories: Record<string, LandmarkFactory>, sprites: SpriteSet | null = null, seed = 7) {
+  constructor(
+    app: Application,
+    city: CityDef,
+    clock: Clock,
+    factories: Record<string, LandmarkFactory>,
+    sprites: SpriteSet | null = null,
+    seed = 7,
+    residents: ResidentSeed[] = [],
+  ) {
     this.app = app;
     this.clock = clock;
     this.seed = seed;
@@ -133,7 +141,7 @@ export class CityScene {
       v.cullable = true;
       this.objects.addChild(v);
     }
-    this.people = new People(this.grid, this.net, this.traffic.sim, this.objects, seed);
+    this.people = new People(this.grid, this.net, this.traffic.sim, this.objects, seed, residents);
 
     const ctx = { clock, night: () => this.clock.nightness, time: () => this.time, storm: () => this.weatherFx.stormy, sprites };
     for (const place of this.city.landmarks) {

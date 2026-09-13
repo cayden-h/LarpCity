@@ -2,9 +2,10 @@
 // The player's run in Tiger Data (src/store/runs.ts):
 //
 //   POST /api/runs               { seed }                -> 201 { runId }
+//   POST /api/runs/:runId/fork   { throughDay }          -> 201 { runId }  a rewind's branch, with the run through that day
 //   POST /api/snapshot           { runId, entries }      -> { stored }   one row per game day, latest wins
 //   POST /api/events             { runId, events }       -> { stored }   once per event key
-//   GET  /api/history/:runId     ?bucket=day|week|month&from&to   (week and month come from continuous aggregates)
+//   GET  /api/history/:runId     ?bucket=day|week|month&from&to   (week and month bucket the run's own rows)
 //   GET  /api/events/:runId      ?from&to&kinds=a,b
 //   GET  /api/leaderboard        each run's latest net worth
 import { Router, type Request } from "express";
@@ -12,7 +13,8 @@ import { z } from "zod";
 import { pool } from "../db.js";
 import { env } from "../env.js";
 import { handle, HttpError, parse, Reply } from "../http.js";
-import { createRun, history, insertEvents, insertSnapshots, leaderboard, listEvents, ownsRun } from "../store/runs.js";
+import { scoreAndStoreEvents } from "../news/pipeline.js";
+import { createRun, forkRun, history, insertEvents, insertSnapshots, leaderboard, listEvents, ownsRun } from "../store/runs.js";
 
 export const snapshotRouter = Router();
 
@@ -28,6 +30,9 @@ const money = z.number().finite();
 const runId = z.string().uuid();
 
 const startRunBody = z.object({ seed: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER) });
+
+/** The last day a rewind's branch keeps from the run it leaves. */
+export const forkBody = z.object({ throughDay: day });
 
 export const snapshotBody = z.object({
   runId,
@@ -95,6 +100,14 @@ snapshotRouter.post(
 );
 
 snapshotRouter.post(
+  "/runs/:runId/fork",
+  handle(async (req) => {
+    const { throughDay } = parse(forkBody, req.body);
+    return new Reply(201, { runId: await forkRun(pool, await ownRun(req, req.params.runId), throughDay) });
+  }),
+);
+
+snapshotRouter.post(
   "/snapshot",
   handle(async (req) => {
     const body = parse(snapshotBody, req.body);
@@ -106,7 +119,12 @@ snapshotRouter.post(
   "/events",
   handle(async (req) => {
     const body = parse(eventsBody, req.body);
-    return { stored: await insertEvents(pool, await ownRun(req, body.runId), body.events) };
+    const runId = await ownRun(req, body.runId);
+    // Scores before inserting: priorKindCounts reads the events table, and scoring after insert would
+    // count this batch's own rows, making a kind's first occurrence in the batch look like a repeat
+    // (server/src/news/pipeline.ts's file header has the full reasoning).
+    await scoreAndStoreEvents(pool, runId, body.events);
+    return { stored: await insertEvents(pool, runId, body.events) };
   }),
 );
 

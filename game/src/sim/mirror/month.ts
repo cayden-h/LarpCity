@@ -53,6 +53,8 @@ export class MonthMirror {
   private readonly months = new Map<string, Month>();
   /** What the posted entries add up to; null until the account is opened. */
   private posted: MirrorBalances | null = null;
+  /** Rewinds so far; entries after one are keyed apart, since Nessie skips a key it already holds. */
+  private branch = 0;
 
   constructor(life: PlayerLife, start: Date) {
     this.life = life;
@@ -111,7 +113,7 @@ export class MonthMirror {
       const amount = Math.round(Math.abs(signed));
       if (!amount) return;
       const kind = signed > 0 ? "deposit" : "withdrawal";
-      entries.push({ key: `${span}:${account}:${slug(memo)}`, account, kind, amount, date, memo: done.length > 1 ? `${memo} (${done.length} months)` : memo });
+      entries.push({ key: `${this.branch ? `r${this.branch}:` : ""}${span}:${account}:${slug(memo)}`, account, kind, amount, date, memo: done.length > 1 ? `${memo} (${done.length} months)` : memo });
       reached[account] += kind === "deposit" ? amount : -amount;
     };
     for (const [flow, v] of sums) {
@@ -120,6 +122,18 @@ export class MonthMirror {
     }
     for (const a of MIRROR_ACCOUNTS) push(a, OTHER_MEMO, closing[a] - reached[a]);
     return { months: done, entries, closing };
+  }
+
+  /**
+   * The life went back to `day`: forget the unposted months from that day's
+   * month on (the next batch's "Transfers and other" entries bring Nessie back
+   * to the sim's balances), and key what comes next as a new branch, since
+   * Nessie already holds the relived months' old keys.
+   */
+  rewind(day: number): void {
+    const from = monthKey(this.dateOf(day));
+    for (const k of [...this.months.keys()]) if (k >= from) this.months.delete(k);
+    this.branch++;
   }
 
   /** The server has the batch: drop its months and continue from its closing balances. */
@@ -155,6 +169,9 @@ export class MonthMirror {
         break;
       case "bill":
         add("checking", e.name, -e.paid);
+        break;
+      case "spend":
+        add("checking", e.category, -e.amount);
         break;
       case "payment": {
         const debt = this.life.book.debts.find((d) => d.id === e.debtId);

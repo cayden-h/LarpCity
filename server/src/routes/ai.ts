@@ -10,11 +10,12 @@ import { Router } from "express";
 import { z } from "zod";
 import { Gemini, GeminiError } from "../adapters/gemini.js";
 import { coachFeedback, writeNews } from "../ai/coach.js";
-import { crashAndRecovery, feedbackFacts, newsFacts } from "../ai/facts.js";
+import { crashAndRecovery, feedbackFacts, newsFacts, playerFacts } from "../ai/facts.js";
 import { pool } from "../db.js";
 import { env, geminiKeys, geminiTextModels } from "../env.js";
 import { handle, HttpError, parse, type ErrorMap } from "../http.js";
 import { strictLimiter } from "../middleware/rateLimit.js";
+import { getProfile } from "../store/saves.js";
 import { history, listEvents, playerVerified, type SnapshotRow } from "../store/runs.js";
 import { ownRun } from "./snapshot.js";
 
@@ -67,7 +68,7 @@ aiRouter.post(
         const trades = await listEvents(pool, runId, { from: pair.bear.day, to: pair.rec.day, kinds: ["trade"] });
         recoveryEvents = [...marks, ...trades];
       }
-      const facts = feedbackFacts(b.trigger, b.day, snaps, events, b.goal, recoveryEvents);
+      const facts = { ...feedbackFacts(b.trigger, b.day, snaps, events, b.goal, recoveryEvents), player: playerFacts(await getProfile(pool, req.playerId)) };
       const r = await coachFeedback(gemini, facts);
       return { ...r.feedback, source: r.source, ...(r.model ? { model: r.model } : {}), facts };
     });
@@ -83,7 +84,7 @@ aiRouter.post(
     return cached(`${runId}|news|${b.from}|${b.to}`, async () => {
       const snaps = (await history(pool, runId, "day", b.from, b.to)) as SnapshotRow[];
       const events = await listEvents(pool, runId, { from: b.from, to: b.to });
-      const facts = newsFacts(b.from, b.to, snaps, events);
+      const facts = { ...newsFacts(b.from, b.to, snaps, events), player: playerFacts(await getProfile(pool, req.playerId)) };
       const r = await writeNews(gemini, facts);
       return { stories: r.stories, source: r.source, ...(r.model ? { model: r.model } : {}), facts };
     });

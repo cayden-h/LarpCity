@@ -18,8 +18,10 @@ ALTER TABLE players ADD COLUMN IF NOT EXISTS backboard_thread_id text;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS key text;
 CREATE UNIQUE INDEX IF NOT EXISTS events_key ON events (run_id, ts, key);
 
--- Net worth by week and by month for the charts and the milestone look-back. Real-time
--- (materialized_only = false), so the newest days show before the policy materializes them.
+-- Net worth by week and by month across all runs, for analytics. A single run's history
+-- (store/runs.ts) buckets its own rows with the same expressions instead: every run starts at
+-- 2000-01-01, so once a long run is materialized, the watermark is past a newer run's days and
+-- real-time aggregation would leave them out until the next refresh.
 CREATE MATERIALIZED VIEW IF NOT EXISTS player_snapshots_weekly
   WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
   SELECT time_bucket('7 days', ts) AS bucket, run_id,
@@ -103,3 +105,65 @@ CREATE TABLE IF NOT EXISTS voice_interviews (
 ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS you double precision;
 ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS held double precision;
 ALTER TABLE player_snapshots ADD COLUMN IF NOT EXISTS autopilot double precision;
+
+-- The player's confirmed intake (docs/superpowers/specs/2026-09-12-save-and-connected-apps-design.md).
+-- Numbers are null when the player skipped to the sample household.
+CREATE TABLE IF NOT EXISTS profiles (
+  player_id    uuid PRIMARY KEY REFERENCES players ON DELETE CASCADE,
+  display_name text,
+  job          text,
+  salary       numeric,
+  rent         numeric,
+  debt         numeric,
+  savings      numeric,
+  state        text NOT NULL,
+  source       text NOT NULL CHECK (source IN ('voice','typed','skipped')),
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+
+-- The player's saved game: one opaque JSON document per player and slot. `rev` guards
+-- against two tabs (later, two devices) overwriting each other.
+CREATE TABLE IF NOT EXISTS saves (
+  player_id  uuid NOT NULL REFERENCES players ON DELETE CASCADE,
+  slot       text NOT NULL DEFAULT 'main',
+  run_id     uuid NOT NULL REFERENCES runs,
+  seed       bigint NOT NULL,
+  version    int NOT NULL,
+  game_day   int NOT NULL,
+  state      jsonb NOT NULL,
+  rev        int NOT NULL DEFAULT 1,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (player_id, slot)
+);
+
+-- Background NPCs (game/src/data/background-npcs.ts, GameEnginePlan.md Part 2): customers that must
+-- never be promoted to live Nessie, because the shared sandbox's 12-customer allowance is already
+-- fully spent on the primary roster. listUnsyncedCustomers() excludes these permanently.
+ALTER TABLE nessie_customers ADD COLUMN IF NOT EXISTS local_only boolean NOT NULL DEFAULT false;
+
+-- News Progression Engine (docs/superpowers/specs/2026-09-12-news-progression-engine-design.md):
+-- events that clear the newsworthiness score, branch-scoped for calendar rewind. branch_id defaults
+-- to run_id (the root branch) until server-side branching exists; facts is stored verbatim so every
+-- story is auditable and regeneratable, same discipline as ai/facts.ts.
+
+CREATE TABLE IF NOT EXISTS news_stories (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id       uuid NOT NULL REFERENCES runs(id),
+  branch_id    uuid NOT NULL,
+  day          int  NOT NULL,
+  event_key    text NOT NULL,
+  kind         text NOT NULL,
+  category     text NOT NULL,
+  score        real NOT NULL,
+  prominence   text NOT NULL,
+  facts        jsonb NOT NULL,
+  headline     text,
+  blurb        text,
+  impact       text,
+  source       text,
+  written_at   timestamptz,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (run_id, branch_id, event_key)
+);
+CREATE INDEX IF NOT EXISTS news_stories_run_branch_day ON news_stories (run_id, branch_id, day);

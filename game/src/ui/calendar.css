@@ -1,0 +1,355 @@
+/* The phone's Calendar app (ui/calendar.ts), in the pixel theme: square
+   cells with hard edges, red and blue chips, the yellow decision "?", and a
+   bottom sheet with a yellow action button like the rest of the phone. */
+
+.view-calendar {
+  padding: 10px 12px 26px;
+  background: var(--paper, #fff7dd);
+}
+.cal-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+/* Header: the pixel back button (phone-app-head), month and year, and the month arrows. */
+.cal-head { padding-bottom: 8px; }
+.cal-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.cal-nav button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid var(--edge, #101a23);
+  background: #fff;
+  color: var(--ink, #092c49);
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: inset -2px -2px #d8cfb2;
+  cursor: pointer;
+}
+.cal-nav button:hover:not(:disabled) { background: #f5e9c3; }
+.cal-nav button:disabled { opacity: 0.35; cursor: default; }
+
+/* Month grid: fills whatever height the phone has. */
+.cal-dow {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  color: #4f6876;
+  font-size: 11px;
+  text-align: center;
+}
+.cal-grid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  min-height: 0;
+  border-top: 2px solid #c4d3c9;
+  border-left: 2px solid #c4d3c9;
+}
+.cal-d {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 2px;
+  border: 0;
+  border-right: 2px solid #c4d3c9;
+  border-bottom: 2px solid #c4d3c9;
+  background: #fffdf3;
+  color: var(--ink, #092c49);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+button.cal-d:hover { background: #f5e9c3; }
+.cal-d.out,
+.cal-d.pre {
+  background: #f1e8cb;
+  color: #b9b39d;
+  cursor: default;
+}
+.cal-d.future { background: #ece6d2; color: #9a978a; }
+button.cal-d.future:hover { background: #e4dcc3; }
+.cal-d.sel {
+  z-index: 1;
+  outline: 3px solid var(--edge, #101a23);
+  outline-offset: -3px;
+}
+.cal-d:focus-visible {
+  z-index: 1;
+  outline: 3px solid var(--blue, #096abe);
+  outline-offset: -3px;
+}
+.cal-n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  line-height: 1;
+}
+.cal-d.today .cal-n {
+  background: #0b7ed5;
+  color: #fff;
+  box-shadow: inset 2px 2px #8cddff, inset -2px -2px #07539e;
+}
+.cal-chip {
+  align-self: stretch;
+  overflow: hidden;
+  padding: 1px 2px 0;
+  color: #fff;
+  font-size: 9px;
+  line-height: 10px;
+  white-space: nowrap;
+}
+.cal-chip.red { background: #d6453b; }
+.cal-chip.blue { background: #0b7ed5; }
+.cal-chip.more { background: #aac2c9; color: var(--ink, #092c49); }
+.cal-chip.dec {
+  background: #ffdb39;
+  color: #16212b;
+  box-shadow: inset 0 0 0 1px #c58b13;
+  font-size: 10px;
+  text-align: center;
+}
+
+/* Speed strip: pause, 1x, 2x. */
+.cal-speeds {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.cal-speeds button {
+  min-height: 36px;
+  border: 3px solid var(--edge, #101a23);
+  background: var(--panel);
+  color: #fff;
+  font: inherit;
+  font-size: 17px;
+  box-shadow: inset 3px 3px #8edcff, inset -3px -3px #07539e, 0 3px #11283a;
+  cursor: pointer;
+}
+.cal-speeds button.on {
+  background: linear-gradient(#ffe778, #ffcf2f);
+  color: #16212b;
+  box-shadow: inset 3px 3px #fff5ac, inset -3px -3px #c58b13, 0 3px #11283a;
+}
+
+/* A day's sheet. */
+.cal-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  padding: 0;
+  border: 0;
+  background: #0a1b2966;
+  cursor: pointer;
+}
+.cal-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 78%;
+  padding: 8px 14px 28px;
+  border-top: 4px solid var(--edge, #101a23);
+  background: var(--paper, #fff7dd);
+  animation: cal-up 0.16s steps(4);
+  outline: none;
+}
+@keyframes cal-up {
+  from { transform: translateY(36px); }
+}
+.cal-grab {
+  flex: none;
+  align-self: center;
+  width: 44px;
+  height: 5px;
+  padding: 0;
+  border: 0;
+  background: #aac2c9;
+  cursor: pointer;
+}
+.cal-kicker { color: #4f6876; font-size: 12px; }
+.cal-sheet h3 { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.1; }
+.cal-rows {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+.cal-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 2px solid #e4dcc0;
+  font-size: 14px;
+}
+.cal-dot { flex: none; width: 10px; height: 10px; background: #aac2c9; }
+.cal-dot.red { background: #d6453b; }
+.cal-dot.blue { background: #0b7ed5; }
+.cal-text { min-width: 0; }
+.cal-amt { margin-left: auto; white-space: nowrap; }
+.cal-amt.pos { color: #138a3a; }
+.cal-amt.neg { color: #c0392b; }
+.cal-mystery {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 3px solid var(--edge, #101a23);
+  background: #fff;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.cal-q {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--edge, #101a23);
+  background: #ffdb39;
+  box-shadow: inset 2px 2px #fff5ac, inset -2px -2px #c58b13;
+  font-size: 26px;
+}
+.cal-action {
+  flex: none;
+  min-height: 42px;
+  margin-top: 3px;
+  border: 3px solid var(--edge, #101a23);
+  background: linear-gradient(#ffe778, #ffcf2f);
+  color: #16212b;
+  font: inherit;
+  font-size: 18px;
+  box-shadow: inset 3px 3px #fff5ac, inset -3px -3px #c58b13, 0 3px #11283a;
+  cursor: pointer;
+}
+.cal-action:hover { filter: brightness(1.05); }
+
+/* Year view. */
+/* One row of years that scrolls sideways, however long the run gets. */
+.cal-years {
+  position: relative;
+  display: flex;
+  flex: none;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.cal-years::-webkit-scrollbar { display: none; }
+.cal-years button {
+  flex: none;
+  padding: 4px 9px;
+  border: 2px solid var(--edge, #101a23);
+  background: #fff;
+  color: var(--ink, #092c49);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.cal-years button.fut:not(.on) { border-color: #b9b39d; background: #ece6d2; color: #8f8b7c; }
+.cal-years button.on {
+  background: var(--panel);
+  color: #fff;
+  box-shadow: inset 2px 2px #8cddff, inset -2px -2px #07539e;
+}
+.cal-year {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: 8px 6px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.cal-mini {
+  padding: 3px;
+  border: 0;
+  background: none;
+  color: var(--ink, #092c49);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cal-mini:hover:not(:disabled) { background: #f5e9c3; }
+.cal-mini:disabled { cursor: default; }
+.cal-mini.cur { outline: 2px solid var(--edge, #101a23); outline-offset: -2px; }
+.cal-mini.fut { opacity: 0.6; }
+.cal-mini h4 { margin: 0 0 3px; font-size: 11px; font-weight: 700; }
+.cal-mini .g {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+.cal-mini .g i { height: 8px; background: #e7dfc4; }
+.cal-mini .g i.e { background: transparent; }
+.cal-mini .g i.p { background: #fffdf3; box-shadow: inset 0 0 0 1px #cfc6a8; }
+.cal-mini .g i.r { background: #d6453b; }
+.cal-mini .g i.b { background: #0b7ed5; }
+.cal-mini .g i.t { background: #092c49; }
+.cal-mini .g i.y { background: #ffdb39; box-shadow: inset 0 0 0 1px #c58b13; }
+
+/* The note after going back. */
+.cal-toast {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 74px;
+  z-index: 6;
+  padding: 8px 10px;
+  border: 3px solid var(--edge, #101a23);
+  background: #0c5486;
+  color: #fff7dd;
+  font-size: 13px;
+  line-height: 1.3;
+  text-align: center;
+}
+
+/* "Start a new life" under the year: plain and red, then solid red once armed for the second tap. */
+.cal-new-life {
+  flex: none;
+  min-height: 36px;
+  border: 3px solid var(--edge, #101a23);
+  background: #fff;
+  color: #c0392b;
+  font: inherit;
+  font-size: 15px;
+  box-shadow: inset -2px -2px #d8cfb2;
+  cursor: pointer;
+}
+.cal-new-life:hover:not(:disabled) { background: #fbe6e2; }
+.cal-new-life.armed {
+  background: #d6453b;
+  color: #fff;
+  box-shadow: inset 2px 2px #f08a80, inset -2px -2px #8e231c;
+}
+.cal-new-life.armed:hover:not(:disabled) { background: #e04d42; }
+.cal-new-life:disabled { cursor: default; opacity: 0.8; }
+/* Heard, not seen: what "Start a new life" is waiting for (ui/calendar.ts). */
+.cal-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -40,7 +40,9 @@ export type Goal =
   | { kind: "debt_free" }
   | { kind: "emergency_fund"; months: number }
   | { kind: "net_worth"; amount: number }
-  | { kind: "house"; downPct: number };
+  | { kind: "house"; downPct: number }
+  | { kind: "marriage" }
+  | { kind: "status"; annualIncome: number };
 
 /** What a goal check reads. The daily life and the monthly preview both build one, so they agree. */
 export interface GoalView {
@@ -57,6 +59,8 @@ export interface GoalView {
   monthlyGross: number;
   /** A typical home in the player's state. */
   homePrice: number;
+  relationship: "single" | "partnered";
+  grossAnnual: number;
 }
 
 export type StopReason = "goal" | "bankruptcy" | "cap";

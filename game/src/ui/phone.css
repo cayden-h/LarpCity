@@ -511,7 +511,7 @@
 .desk-window {
   display: flex;
   flex-direction: column;
-  width: min(1480px, 100%);
+  width: min(1040px, 100%);
   height: min(920px, 100%);
   overflow: hidden;
   border: 3px solid #fff;
@@ -575,3 +575,155 @@
     top: 124px;
   }
 }
+
+/* Mail, News, and Bank (ui/phone-apps.ts), in the paper palette like Calendar and Stocks. */
+.view-app {
+  gap: 8px;
+  padding: 10px 12px 26px;
+  background: var(--paper, #fff7dd);
+}
+.app-scroll {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.app-scroll::-webkit-scrollbar { display: none; }
+.app-empty {
+  margin: 10px 2px;
+  color: #4f6876;
+  font-size: 14px;
+  line-height: 1.3;
+}
+.app-retry,
+.mail-open {
+  width: 100%;
+  min-height: 38px;
+  border: 3px solid var(--edge, #101a23);
+  background: linear-gradient(#ffe778, #ffcf2f);
+  color: #16212b;
+  font: inherit;
+  font-size: 16px;
+  box-shadow: inset 3px 3px #fff5ac, inset -3px -3px #c58b13, 0 3px #11283a;
+  cursor: pointer;
+}
+.app-retry:hover,
+.mail-open:hover { filter: brightness(1.05); }
+/* The unread count on the Mail icon. */
+.phone .app-badge.count {
+  top: -6px;
+  right: 2px;
+  min-width: 18px;
+  padding: 1px 3px 0;
+  border: 2px solid var(--edge, #101a23);
+  background: #d6453b;
+  color: #fff;
+  font-size: 11px;
+  line-height: 12px;
+  text-align: center;
+}
+
+.mail-item + .mail-item { border-top: 2px solid #c4d3c9; }
+.mail-item.open { background: #fffdf3; }
+.mail-row {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 7px 4px 7px 16px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.mail-row:hover { background: #f5e9c3; }
+.mail-row:focus-visible { outline: 3px solid var(--blue, #096abe); outline-offset: -3px; }
+.mail-row.mail-unread::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: 4px;
+  width: 6px;
+  height: 6px;
+  background: #0b7ed5;
+}
+.mail-from {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #4f6876;
+  font-size: 12px;
+}
+.mail-from b {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mail-from em { flex: none; font-style: normal; }
+.mail-subject { font-size: 15px; line-height: 1.15; }
+.mail-unread .mail-subject { font-weight: 700; }
+.mail-row.bad .mail-subject { color: #c0392b; }
+.mail-row.good .mail-subject { color: #138a3a; }
+.mail-body { padding: 0 6px 10px 16px; font-size: 13px; line-height: 1.3; }
+.mail-body p { margin: 0 0 8px; }
+
+.news-date {
+  margin: 0;
+  padding-bottom: 4px;
+  border-bottom: 2px solid #aac2c9;
+  color: #4f6876;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.news-story { padding: 8px 0; }
+.news-story + .news-story { border-top: 2px solid #c4d3c9; }
+.news-where { color: #4f6876; font-size: 11px; text-transform: uppercase; }
+.news-story h3 { margin: 2px 0 4px; font-size: 18px; line-height: 1.1; }
+.news-story p { margin: 0 0 4px; font-size: 13px; line-height: 1.3; }
+.news-story .news-impact { color: #0c5486; }
+.news-impact::before { content: "▸ "; }
+
+.bank-acct {
+  padding: 8px 10px;
+  border: 3px solid #174d6d;
+  background: #d8edf0;
+  box-shadow: inset 3px 3px #f5ffff, inset -3px -3px #95bac6;
+}
+.bank-acct + .bank-acct { margin-top: 10px; }
+.bank-acct header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0 8px;
+  font-size: 14px;
+}
+.bank-acct header span { color: #44697c; font-size: 12px; }
+.bank-acct header strong { grid-column: 1 / -1; font-size: 22px; }
+/* The credit card's balance is what's owed (ui/phone-apps.ts bankHtml). */
+.bank-acct header strong.down { color: #c0392b; }
+.bank-acct header strong.up { color: #138a3a; }
+.bank-acct ul { margin: 4px 0 0; padding: 0; list-style: none; }
+.bank-acct li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 2px solid #b3d0d6;
+  font-size: 13px;
+}
+.bank-memo { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bank-memo em { display: block; color: #44697c; font-size: 11px; font-style: normal; }
+.bank-amt { flex: none; }
+.bank-amt.up { color: #138a3a; }
+.bank-amt.down { color: #c0392b; }
+.bank-none { color: #44697c; }

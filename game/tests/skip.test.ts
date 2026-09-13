@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MarketPath } from "../src/sim/market/index.ts";
-import { K401_LIMIT, PlayerLife, type Place } from "../src/sim/life/index.ts";
+import { K401_LIMIT, PlayerLife, STARTER_PORTFOLIO, type Place } from "../src/sim/life/index.ts";
 import {
   applyOrders,
   budget,
@@ -16,6 +16,8 @@ import {
   runPreview,
   runSkip,
   viewOf,
+  priceTag,
+  type GoalView,
   type Goal,
 } from "../src/sim/skip/index.ts";
 
@@ -30,6 +32,19 @@ const dateOf = (day: number) => {
 const newLife = (extra: Partial<ConstructorParameters<typeof PlayerLife>[0]> = {}) =>
   new PlayerLife({ place: TX, day: 0, market: new MarketPath(7), ...extra });
 const never: Goal = { kind: "net_worth", amount: 1e12 };
+const baseView = (): GoalView => ({
+  cash: 1_000,
+  emergency: 0,
+  brokerage: 0,
+  retirement: 0,
+  debt: 0,
+  minimums: 0,
+  monthlyExpenses: 2_000,
+  monthlyGross: 5_000,
+  homePrice: 300_000,
+  relationship: "single",
+  grossAnnual: 60_000,
+});
 
 test("the setup screen pre-fills with current habits; Recommended captures the match and fits the budget", () => {
   const life = newLife();
@@ -156,4 +171,37 @@ test("the preview is a consistent band from other seeds' markets", () => {
   assert.ok(p.reached > 0 && p.reachTypical !== null);
   assert.notEqual(previewSeed(7, 0), 7);
   assert.deepEqual(runPreview(life, orders, goal, { futures, month: 0, capAge: 67 }), p);
+});
+
+test("marriage and career goals use relationship and current annual pay", () => {
+  const single = baseView();
+  assert.equal(isMet({ kind: "marriage" }, single), false);
+  assert.equal(priceTag({ kind: "marriage" }, single, "Texas").progress, null);
+  const partnered = { ...single, relationship: "partnered" as const };
+  assert.equal(isMet({ kind: "marriage" }, partnered), true);
+  assert.equal(priceTag({ kind: "marriage" }, partnered, "Texas").progress, 1);
+
+  const goal: Goal = { kind: "status", annualIncome: 100_000 };
+  assert.equal(isMet(goal, single), false);
+  assert.equal(priceTag(goal, single, "Texas").progress, 0.6);
+  assert.match(priceTag(goal, single, "Texas").text, /assumes your current pay/);
+  assert.equal(isMet(goal, { ...single, grossAnnual: 100_000 }), true);
+  assert.equal(priceTag(goal, { ...single, grossAnnual: 150_000 }, "Texas").progress, 1);
+  assert.equal(priceTag(goal, { ...single, grossAnnual: -10_000 }, "Texas").progress, 0);
+});
+
+test("preview labels unsupported relationship timing and static salary assumptions", () => {
+  const life = newLife();
+  const futures = buildFutures(7, 2, 2);
+  const opts = { futures, month: 0, capAge: life.age + 1 };
+  const orders = recommendedOrders(life);
+  assert.equal(runPreview(life, orders, { kind: "marriage" }, opts).goalTiming, "relationship_unsupported");
+  assert.equal(runPreview(life, orders, { kind: "status", annualIncome: 100_000 }, opts).goalTiming, "income_static");
+});
+
+test("live goal view includes invested brokerage positions", () => {
+  const life = newLife({ holdings: STARTER_PORTFOLIO });
+  const invested = life.positions().reduce((sum, position) => sum + position.value, 0);
+  assert.ok(invested > 0);
+  assert.ok(viewOf(life).brokerage >= invested);
 });
