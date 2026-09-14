@@ -3,7 +3,7 @@
 Research for Larp City, HackRice 2026 (Sep 11-13), Finance track.
 Compiled 2026-09-12.
 Builds on the onboarding decision made on 2026-09-12: the player enters gross salary, current age, job category, marital status, and location (state and city).
-From salary and category the game infers a job level from real salary ranges, then projects a realistic career (raises, promotions, plateaus, layoffs) without preset jobs, which the meeting rejected ([../meeting-2026-09-11-game-design.md](../meeting-2026-09-11-game-design.md), "Game overview").
+From salary and category the game infers a job level from real salary ranges, then projects a realistic career (raises, promotions, plateaus, layoffs) without preset jobs, which the meeting rejected ([../docs/meetings/2026-09-11-game-design.md](../docs/meetings/2026-09-11-game-design.md), "Game overview").
 Every number links to its source; numbers the model derives or assumes are marked as such.
 
 ## TL;DR

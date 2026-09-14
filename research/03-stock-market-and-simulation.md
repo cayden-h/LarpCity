@@ -456,7 +456,7 @@ Annual rates for personal events are design choices tuned for drama, not statist
 
 ## Open questions for the team
 
-Update from the 2026-09-11 game design meeting ([../meeting-2026-09-11-game-design.md](../meeting-2026-09-11-game-design.md)): the player lives their own life (question 1), retirement is the end goal (question 7), and 1 tick is now 1 day, not 1 week.
+Update from the 2026-09-11 game design meeting ([../docs/meetings/2026-09-11-game-design.md](../docs/meetings/2026-09-11-game-design.md)): the player lives their own life (question 1), retirement is the end goal (question 7), and 1 tick is now 1 day, not 1 week.
 Normal speed was set to 1 in-game week every 10 real seconds (changed to 5 seconds on 2026-09-12, below), which replaces the speed table in Section 5; skips (+1 month, next event, and fast-forward until a goal; the age teleport was removed on 2026-09-12) cover the long stretches.
 The weekly calibration above still holds; divide weekly drift by 5 and weekly volatility by sqrt(5) for trading days, and use `dailyProb = 1 - (1 - annualProb) ** (1/365)` for events.
 

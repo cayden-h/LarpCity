@@ -1,7 +1,7 @@
 /* Sammy's setup for a new life (ui/intake.ts): his card over a blurred
    plate of the city, in the HUD's pixel theme (square blue card with
    dark pixel edges, yellow buttons, Pixelify Sans; ui/pixel-theme.css), after
-   reference/screenshots/02-onboarding-mayor.jpg. */
+   docs/reference/screenshots/02-onboarding-mayor.jpg. */
 
 .in-overlay {
   position: fixed;

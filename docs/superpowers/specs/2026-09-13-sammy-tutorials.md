@@ -2,7 +2,7 @@ Goal: rename the narrator to "Sammy" everywhere, and build two guided tutorials 
 
 ## Context (read before coding)
 
-- Repo: ~/Documents/GitHub/HackRice/Larp City. Read CLAUDE.md, README.md, game/README.md, meeting-2026-09-13-revamp.md (it wins over older docs; it says "The narrator is named Sammy"), and docs/superpowers/specs/2026-09-12-tax-filing-design.md.
+- Repo: ~/Documents/GitHub/HackRice/Larp City. Read CLAUDE.md, README.md, game/README.md, docs/meetings/2026-09-13-revamp.md (it wins over older docs; it says "The narrator is named Sammy"), and docs/superpowers/specs/2026-09-12-tax-filing-design.md.
 - Other sessions push to this repo at the same time. Run `git fetch` first. Work in your own worktree, never in the shared checkout.
 - The base branch matters. The year-1 tax tutorial (a quiz on the bottom line, answers from sim/tax/tutorial.ts, and taxTutorialHtml plus the "tax-answer" click handler in src/debt-demo/main.ts) exists only on branch `revamp-p3` (PR #24, worktree ../larp-p3). Branch from `origin/revamp-p3` (for example `sammy-tutorials` in ../larp-sammy) and open the PR against `revamp-p3`. If PR #24 has merged by the time you start, branch from origin/main instead.
 - P1 (a teammate: Sammy's onboarding screens) and P2 (a teammate: goals and happiness) are not on the remote yet. Keep the name in one exported constant so their merges pick it up, and don't restructure intake.ts beyond the strings.

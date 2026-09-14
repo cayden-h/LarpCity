@@ -2,7 +2,7 @@
 
 How the age teleport ("jump from 24 to 60") and goal skips ("skip until I can buy a house") should work: the setup screen before the jump, how decisions get made while skipping, what interrupts a skip, what the player sees afterwards, and how to build it on the code we have.
 Written 2026-09-12 during HackRice 2026.
-It follows the meeting file ([../meeting-2026-09-11-game-design.md](../meeting-2026-09-11-game-design.md)), especially "Goal skips and the age teleport" in the 2026-09-12 follow-up decisions; where this doc conflicts with the meeting, the meeting wins.
+It follows the meeting file ([../docs/meetings/2026-09-11-game-design.md](../docs/meetings/2026-09-11-game-design.md)), especially "Goal skips and the age teleport" in the 2026-09-12 follow-up decisions; where this doc conflicts with the meeting, the meeting wins.
 It builds on the event table and determinism rules in [03-stock-market-and-simulation.md](03-stock-market-and-simulation.md), the debt strategy input from [06-debt-and-credit.md](06-debt-and-credit.md) and [07-debt-system-design.md](07-debt-system-design.md), and the "no new applications during skips" rule from [08-cards-loans-accounts.md](08-cards-loans-accounts.md).
 A later decision on 2026-09-12 (now in the meeting file's "Review and rewind") lets the player tap any red or blue circled date and change that decision; time rewinds to that date and re-simulates on the same seed, the old path stays as a ghost line, and rewinds are unlimited.
 Section 10 designs for that.

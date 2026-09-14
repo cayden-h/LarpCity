@@ -3,7 +3,7 @@
 How the debt system from [06-debt-and-credit.md](06-debt-and-credit.md) is built in the game.
 Written 2026-09-11 during HackRice 2026.
 Code: `game/src/sim/debt/` (engine), `game/src/debt-demo/` (the Money desk page, formerly the Credit Desk), `game/tests/debt.test.ts` and `life.test.ts` (24 tests), `game/scripts/debt-charts.ts` (pitch chart).
-Diagrams for the pitch deck: [../diagrams/debt/](../diagrams/debt/) (SVG source plus 3200 px PNG exports).
+Diagrams for the pitch deck: [../docs/diagrams/debt/](../docs/diagrams/debt/) (SVG source plus 3200 px PNG exports).
 Mirrored to Notion on 2026-09-11 as the "🛠️ Research: Debt System Design" sub-page (with all five diagrams), plus a "Built on Sep 11" block and the architecture diagram in the "💳 Debt & Credit" section.
 
 ## TL;DR
@@ -16,7 +16,7 @@ Mirrored to Notion on 2026-09-11 as the "🛠️ Research: Debt System Design" s
 - Play it: `cd game && npm run dev`, then open `/debt.html` (the Money desk).
 - Test it: `npm test` (Node's built-in runner, no new dependencies).
 
-![Architecture](../diagrams/debt/01-architecture.png)
+![Architecture](../docs/diagrams/debt/01-architecture.png)
 
 ## Files
 
@@ -34,7 +34,7 @@ Mirrored to Notion on 2026-09-11 as the "🛠️ Research: Debt System Design" s
 
 ## The daily tick
 
-![Daily tick](../diagrams/debt/02-daily-tick.png)
+![Daily tick](../docs/diagrams/debt/02-daily-tick.png)
 
 For each open debt, in order:
 
@@ -53,7 +53,7 @@ Then on the 1st of each month: variable APRs reset to prime plus their margin, t
 
 ## The delinquency ladder
 
-![Delinquency ladder](../diagrams/debt/03-delinquency-ladder.png)
+![Delinquency ladder](../docs/diagrams/debt/03-delinquency-ladder.png)
 
 | Days past due | Engine effect |
 | --- | --- |
@@ -72,7 +72,7 @@ Chapter 13 turns 40% of it plus the attorney fee into a 60-month 0% plan and las
 
 ## The credit score
 
-![Credit score](../diagrams/debt/04-credit-score.png)
+![Credit score](../docs/diagrams/debt/04-credit-score.png)
 
 `score = round(300 + 550 × weighted sum)`, with FICO's weights: payment history 35%, amounts owed 30%, length of history 15%, new credit 10%, credit mix 10%.
 Late marks cost 0.15 to 0.5 of the payment factor and fade linearly over 7 years; utilization is piecewise (1.0 under 10%, 0.85 at 30%, 0.5 at 50%, 0.2 at 90%+).
@@ -81,7 +81,7 @@ The score feeds `offeredApr`, so a missed payment today raises the price of the 
 
 ## Strategies and projections
 
-![Payoff strategies](../diagrams/debt/05-payoff-strategies.png)
+![Payoff strategies](../docs/diagrams/debt/05-payoff-strategies.png)
 
 `project(debts, strategy, extra)` runs month by month with the real card minimum, and pays `extra` plus every freed-up payment to the target debt.
 It powers the payment slider's debt-free date, the ghost lines, and the goal fast-forward's debt input.

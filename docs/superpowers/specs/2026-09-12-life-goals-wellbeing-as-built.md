@@ -2,11 +2,11 @@
 
 Date: 2026-09-12
 Branch: `GameEngine`
-Status: Implemented with subagent development and integration review. See [engine contracts, validation and remaining model assumptions](docs/life-goals-wellbeing.md). The original plan below is retained as the design record.
+Status: Implemented with subagent development and integration review. See [engine contracts, validation and remaining model assumptions](../../life-goals-wellbeing.md). The original plan below is retained as the design record.
 
 ## Problem
 
-Larp City has two pieces of a goal-and-scoring system today, and they've never been connected. `game/src/sim/skip/goals.ts` already lets a player pick a fast-forward destination (`debt_free`, `emergency_fund`, `net_worth`, `house`) — but every one of them is purely financial. Separately, `research/09-wellbeing-meter.md` is a fully cited, ready-to-build design for a wellbeing meter (nine weighted factors plus decaying event pulses), and the team's own locked-in decision (`meeting-2026-09-11-game-design.md`, "Scoring and win condition") is that **the final score is retirement readiness plus a wellbeing meter that includes marital status and relationships** — but zero code exists for any of it (`grep -rli wellbeing game/src` returns nothing). A player today cannot set a life goal like "get married" or "reach a career level," and there is no score to check progress against, even though both pieces were already designed for exactly this.
+Larp City has two pieces of a goal-and-scoring system today, and they've never been connected. `game/src/sim/skip/goals.ts` already lets a player pick a fast-forward destination (`debt_free`, `emergency_fund`, `net_worth`, `house`) — but every one of them is purely financial. Separately, `research/09-wellbeing-meter.md` is a fully cited, ready-to-build design for a wellbeing meter (nine weighted factors plus decaying event pulses), and the team's own locked-in decision (`docs/meetings/2026-09-11-game-design.md`, "Scoring and win condition") is that **the final score is retirement readiness plus a wellbeing meter that includes marital status and relationships** — but zero code exists for any of it (`grep -rli wellbeing game/src` returns nothing). A player today cannot set a life goal like "get married" or "reach a career level," and there is no score to check progress against, even though both pieces were already designed for exactly this.
 
 The ask: let a player set life goals (marriage, life savings, a career/income status) alongside the existing financial goals, and give them a real, always-checkable score built from research/09's wellbeing meter and retirement readiness — not a new scoring system invented from scratch.
 
@@ -151,7 +151,7 @@ The `marriage` goal's `progress: null` (like `debt_free`'s met case) is delibera
 - Test convention: `node --test tests/<name>.test.ts` from `game/`. **Known environment bug:** `node --test tests/` (the bare directory) fails with `MODULE_NOT_FOUND` on this Node install — always run against explicit file(s) or `tests/*.test.ts`.
 - No new server route, table, or migration — the wellbeing score and the new `marriage` event are computed/recorded entirely through existing client-side state and the existing generic event-recording path.
 - Every wellbeing factor and the retirement-readiness formula must match research/09's cited numbers exactly (weights: Work 20, Cash cushion 18, Debt load 14, Real income 12, Relationships 10, Retirement on track 8, Health coverage 8, Commute 6, Home stability 4; pulse P0/half-life table in research/09 §3.3) — these are cited, sourced figures, not free parameters to adjust during implementation.
-- Spec of record: this file (`lastengine.md`), sections above. Research of record: `research/09-wellbeing-meter.md`.
+- Spec of record: this file (`2026-09-12-life-goals-wellbeing-as-built.md`), sections above. Research of record: `research/09-wellbeing-meter.md`.
 
 ---
 
@@ -599,7 +599,7 @@ Expected: FAIL — `retirement.ts` does not exist.
 ```ts
 // game/src/sim/wellbeing/retirement.ts
 // The adopted placeholder retirement readiness formula (research/09 §3.4),
-// final per lastengine.md's decision to adopt it as-is.
+// final per the as-built spec's decision to adopt it as-is.
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 const round1 = (x: number) => Math.round(x * 10) / 10;
 
@@ -820,7 +820,7 @@ import type { Pulse } from "../wellbeing/types.ts";
   reemployedDay: number | null = null;
   pulses: Pulse[] = [];
 
-  /** Derived: no separate insurance-shopping system exists yet (lastengine.md), so coverage tracks employment. */
+  /** Derived: no separate insurance-shopping system exists yet (the as-built spec), so coverage tracks employment. */
   get insured(): boolean {
     return this.employed;
   }
