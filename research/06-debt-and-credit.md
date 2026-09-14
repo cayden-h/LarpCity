@@ -2,7 +2,7 @@
 
 Research on how debt works in the US in 2026 and how to build it into Larp City as a first-class system next to the stock market.
 Written 2026-09-11 during HackRice 2026.
-It follows the 2026-09-11 game design meeting ([../meeting-2026-09-11-game-design.md](../meeting-2026-09-11-game-design.md)): daily ticks, one player life, retirement as the goal, skips and fast-forwarding to goals (the age teleport was removed on 2026-09-12), and AI feedback only at goals, bankruptcy, and big swings.
+It follows the 2026-09-11 game design meeting ([../docs/meetings/2026-09-11-game-design.md](../docs/meetings/2026-09-11-game-design.md)): daily ticks, one player life, retirement as the goal, skips and fast-forwarding to goals (the age teleport was removed on 2026-09-12), and AI feedback only at goals, bankruptcy, and big swings.
 Where this doc conflicts with the meeting, the meeting wins.
 Mirrored to the team Notion page on 2026-09-11: a "💳 Debt & Credit" toggle section after Stock Market & Simulation, a "💳 Research: Debt & Credit" sub-page under Research & Docs, a "Debt & credit" group under Open Questions (each with a 💡 Suggested answer), and a debt section in the ChatGPT Brief.
 
@@ -160,7 +160,7 @@ Four debts: a $1,500 furniture loan at 11%, a $7,000 credit card at 23.96%, a $1
 
 These come from `project()` in `game/src/sim/debt/strategy.ts`, which uses the real card minimum (the greater of $25 or 1% plus interest), so under "minimums only" the card payment shrinks as the balance falls and the tail runs for decades.
 An earlier hand calculation used a fixed card payment and gave 64 / 43 / 43 months; the engine numbers replace it.
-The chart is `diagrams/debt/05-payoff-strategies.png` (regenerate with `npm run debt:charts` in `game/`).
+The chart is `docs/diagrams/debt/05-payoff-strategies.png` (regenerate with `npm run debt:charts` in `game/`).
 
 Takeaway for the player: the extra $300 matters far more than the order (it saves about $15,000 and 18 years), and snowball's early win costs only $92.
 

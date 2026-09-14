@@ -54,4 +54,4 @@ from before still apply: keep the mood face and the avatar portrait as two separ
 (the current setup), or key `happiness.ts`'s `ICON_FOR` by `[avatar][expression]` instead of just
 `[expression]` to show mood on the player's own character.
 
-`extraP2.md` can be deleted once this record is no longer useful — nothing in it is a live TODO.
+`This file` can be deleted once this record is no longer useful — nothing in it is a live TODO.

@@ -1,6 +1,6 @@
 # Life goals and wellbeing integration
 
-Implemented from [`lastengine.md`](../lastengine.md) and the adopted model in [`research/09`](../research/09-wellbeing-meter.md). Both engines run locally from the same `PlayerLife` used by the city, Money desk and headless skips. They require no service, API key, migration or additional dependency.
+Implemented from [the as-built spec](superpowers/specs/2026-09-12-life-goals-wellbeing-as-built.md) and the adopted model in [`research/09`](../research/09-wellbeing-meter.md). Both engines run locally from the same `PlayerLife` used by the city, Money desk and headless skips. They require no service, API key, migration or additional dependency.
 
 ## Frontend contracts
 

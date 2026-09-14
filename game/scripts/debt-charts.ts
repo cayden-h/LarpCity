@@ -1,5 +1,5 @@
 // Draws the payoff-strategy chart for the pitch deck from the real engine.
-// Run from game/: `node scripts/debt-charts.ts` (writes ../diagrams/debt/05-payoff-strategies.svg).
+// Run from game/: `node scripts/debt-charts.ts` (writes ../docs/diagrams/debt/05-payoff-strategies.svg).
 
 import { writeFileSync } from "node:fs";
 import { compareStrategies, sampleHousehold, type Projection } from "../src/sim/debt/index.ts";
@@ -72,7 +72,7 @@ ${card(cmp.avalanche, 2)}
 </svg>
 `;
 
-const out = new URL("../../diagrams/debt/05-payoff-strategies.svg", import.meta.url);
+const out = new URL("../../docs/diagrams/debt/05-payoff-strategies.svg", import.meta.url);
 writeFileSync(out, svg);
 console.log(
   JSON.stringify(

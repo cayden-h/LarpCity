@@ -175,7 +175,7 @@ python3 art/check_register.py common/property
 | `npm run build` | Typecheck, then build both pages into `dist/` |
 | `npm test` | Node's built-in test runner over `tests/` (debt engine, money life, money, market, sprites, Card Shop, and goal fast-forwards); no test dependencies |
 | `npm run market:snapshot` | Refresh `src/data/market.ts` from FRED (no key needed) |
-| `npm run debt:charts` | Redraw the pitch chart `../diagrams/debt/05-payoff-strategies.svg` from the engine |
+| `npm run debt:charts` | Redraw the pitch chart `../docs/diagrams/debt/05-payoff-strategies.svg` from the engine |
 
 ## Building sprites (Blender)
 

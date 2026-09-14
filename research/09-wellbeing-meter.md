@@ -2,7 +2,7 @@
 
 Research for Larp City, HackRice 2026 (Sep 11-13), Finance track.
 Compiled 2026-09-12.
-Builds on the scoring decision in [../meeting-2026-09-11-game-design.md](../meeting-2026-09-11-game-design.md) ("Follow-up decisions (2026-09-12)" > "Scoring and win condition"): final score = retirement readiness (net worth, retirement savings, credit score, debt) + a wellbeing meter.
+Builds on the scoring decision in [../docs/meetings/2026-09-11-game-design.md](../docs/meetings/2026-09-11-game-design.md) ("Follow-up decisions (2026-09-12)" > "Scoring and win condition"): final score = retirement readiness (net worth, retirement savings, credit score, debt) + a wellbeing meter.
 The team's starting wellbeing list was marital status and relationships, financial stability, salary and job, and closeness to retirement.
 This doc fills in the rest of the factors and the weights from published data, and every number links to its source.
 

@@ -23,7 +23,7 @@ Larp City is an educational financial-life simulation game with real impact as t
 It teaches people to make better financial decisions by letting them live out, in minutes, how those decisions shape a life over decades.
 The look and core loop are modeled on LEGO City Adventures: Build and Protect (an isometric PixiJS city builder), but the "fires and crimes" become financial events and the "buildings" become savings, investments, and homes.
 
-Core features (updated after the team's 2026-09-11 game design meeting, see [../meeting-2026-09-11-game-design.md](../meeting-2026-09-11-game-design.md); where this brief conflicts with it, the meeting wins):
+Core features (updated after the team's 2026-09-11 game design meeting, see [../docs/meetings/2026-09-11-game-design.md](../docs/meetings/2026-09-11-game-design.md); where this brief conflicts with it, the meeting wins):
 
 - **Retirement is the end goal.** The player lives their own life, from today to retirement.
 - **Personalized:** The player enters their real finances, so the challenge scales to them; no preset jobs or salaries, though a made-up scenario is allowed.
@@ -131,7 +131,7 @@ None combines a persistent personal life, real state costs, event-driven decisio
 - The goal fast-forward setup gets a debt strategy input (minimums, snowball, or avalanche plus an extra amount), and "become debt-free" is a goal, which keeps AI feedback to the meeting's three triggers.
 - Map hook: each debt is a building that shrinks as it is paid and is demolished at $0; late payments set it on fire.
 - Headline lesson: $5,000 at 23.96% takes 19.5 years and $8,871 of interest at the minimum, versus 35 months and $1,995 at $200 a month.
-- **Built on Sep 11** (see [07-debt-system-design.md](07-debt-system-design.md)): a deterministic daily engine in `game/src/sim/debt/` shared by live play, skips, and goal fast-forwards; the Credit Desk, a markets-terminal view of the same engine, at `game/debt.html`; 16 tests (`npm test`); and pitch-deck diagrams in `diagrams/debt/`.
+- **Built on Sep 11** (see [07-debt-system-design.md](07-debt-system-design.md)): a deterministic daily engine in `game/src/sim/debt/` shared by live play, skips, and goal fast-forwards; the Credit Desk, a markets-terminal view of the same engine, at `game/debt.html`; 16 tests (`npm test`); and pitch-deck diagrams in `docs/diagrams/debt/`.
   The engine's sample household ($44,500 of debt) takes 22.3 years and $22,425 of interest on minimums, versus 4 years and about $7,200 with $300 a month extra; snowball clears its first debt at month 5, avalanche at month 21, for $92 more interest.
 
 ### Cards, loans, and moving money (added 2026-09-11, see [08-cards-loans-accounts.md](08-cards-loans-accounts.md))
@@ -185,7 +185,7 @@ Built so far (2026-09-11 night), all in `game/`:
 ## 9. Open questions for the team
 
 Answered in the 2026-09-11 meeting: the player lives their own life, retirement is the end goal, and time runs daily with skips.
-Answered on 2026-09-12 ([../meeting-2026-09-11-game-design.md](../meeting-2026-09-11-game-design.md), "Follow-up decisions"):
+Answered on 2026-09-12 ([../docs/meetings/2026-09-11-game-design.md](../docs/meetings/2026-09-11-game-design.md), "Follow-up decisions"):
 
 - The score mixes retirement readiness (net worth, credit score, debt) with a wellbeing meter (marital status, financial stability, job and salary, closeness to retirement).
 - Events during skips go into a full-screen newspaper; "skip to next event" jumps to the next red circle on the phone's calendar.

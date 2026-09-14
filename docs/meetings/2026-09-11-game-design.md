@@ -3,7 +3,7 @@
 Decisions from the team's game design meeting on Friday night of HackRice.
 Sources: the team's AI meeting notes (kept verbatim at the bottom) and the Granola notes for the meeting (https://notes.granola.ai/t/5ae65b87-db4a-4f75-887e-deb43fba1331).
 Where these decisions conflict with the earlier research docs, this file wins.
-The later revamp meeting ([meeting-2026-09-13-revamp.md](meeting-2026-09-13-revamp.md)) wins where it conflicts with this file (for example the preset avatar, and going back only in the end-of-game review).
+The later revamp meeting ([2026-09-13-revamp.md](2026-09-13-revamp.md)) wins where it conflicts with this file (for example the preset avatar, and going back only in the end-of-game review).
 
 ## Decisions
 
@@ -113,7 +113,7 @@ The final score is a mix of two parts:
   The screen is pre-filled with the player's current habits ("What you're doing now"), not the recommended settings.
 - Those inputs decide the choices the fast-forward passes through; bankruptcy and reaching the goal stop it.
 - The AI Bubble Pop does not interrupt a fast-forward; the pre-set "hold" rule decides it and the newspaper digest tells the story.
-- The proposed input list, the other interrupts, and the hackathon-sized version are in [research/10-teleport-and-goal-skips.md](research/10-teleport-and-goal-skips.md); read its teleport parts as applying to goal fast-forwards only.
+- The proposed input list, the other interrupts, and the hackathon-sized version are in [research/10-teleport-and-goal-skips.md](../../research/10-teleport-and-goal-skips.md); read its teleport parts as applying to goal fast-forwards only.
 
 #### Scoring is for learning
 
@@ -126,12 +126,12 @@ The final score is a mix of two parts:
 - Onboarding asks for gross salary, current age, job category, marital status, and location.
 - The game infers a job level (for example entry, mid, senior) from the salary and real salary ranges for that job category.
 - From the category and level, the game projects a realistic future salary path (raises, promotions, plateaus, layoff risk) from real salary progression data.
-  This is being researched in [research/11-jobs-and-salary-progression.md](research/11-jobs-and-salary-progression.md).
+  This is being researched in [research/11-jobs-and-salary-progression.md](../../research/11-jobs-and-salary-progression.md).
 
 #### Wellbeing research
 
 - The remaining wellbeing factors and their weights should come from real data, not guesses.
-  A data-backed proposal (9 weighted factors, and a final score of 60% retirement readiness and 40% lifetime wellbeing) is in [research/09-wellbeing-meter.md](research/09-wellbeing-meter.md), not yet decided.
+  A data-backed proposal (9 weighted factors, and a final score of 60% retirement readiness and 40% lifetime wellbeing) is in [research/09-wellbeing-meter.md](../../research/09-wellbeing-meter.md), not yet decided.
 
 ### Goals and milestones
 
@@ -173,14 +173,14 @@ Life-changing events are personal, and they are separate from general market or 
 No owners were assigned in the meeting.
 
 - [ ] **Research cost-of-living data by state** and map every state to LCOL / MCOL / HCOL.
-  A head start already exists: [research/02-states-cost-of-living.md](research/02-states-cost-of-living.md) lists the free data sources, and [research/data/states-sample.json](research/data/states-sample.json) has 5 sample states.
+  A head start already exists: [research/02-states-cost-of-living.md](../../research/02-states-cost-of-living.md) lists the free data sources, and [research/data/states-sample.json](../../research/data/states-sample.json) has 5 sample states.
 - [x] **Define the event system (gacha / random events)** and how it works with the time skips, the "skip to next event" button, the age teleport, and goal skips.
   Answered in the 2026-09-12 follow-up decisions (the age teleport was removed; the details of goal fast-forwards are proposed in research/10).
 
 ## How this changes the earlier research
 
 - **Daily ticks, not weekly.**
-  The market calibration in [research/03-stock-market-and-simulation.md](research/03-stock-market-and-simulation.md) is written per week.
+  The market calibration in [research/03-stock-market-and-simulation.md](../../research/03-stock-market-and-simulation.md) is written per week.
   At a daily tick it converts to about 252 trading days a year: daily drift is the weekly drift divided by 5, and daily volatility is the weekly volatility divided by the square root of 5.
   Event probabilities convert the same way: `dailyProb = 1 - (1 - annualProb) ** (1/365)`.
 - **Skips reuse the seeded engine.**

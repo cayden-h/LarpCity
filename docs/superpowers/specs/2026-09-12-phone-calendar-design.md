@@ -1,7 +1,7 @@
 # Phone Calendar and Rewind
 
 Decided with Cayden on 2026-09-12, from the mockups in `.superpowers/brainstorm/` (layouts A and C, and the flow screen).
-It implements the meeting's "Calendar in the phone" and "Review and rewind" ([meeting-2026-09-11-game-design.md](../../../meeting-2026-09-11-game-design.md)), with the changes below.
+It implements the meeting's "Calendar in the phone" and "Review and rewind" ([docs/meetings/2026-09-11-game-design.md](../../meetings/2026-09-11-game-design.md)), with the changes below.
 
 ## What the player sees
 

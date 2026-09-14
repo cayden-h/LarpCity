@@ -1,7 +1,7 @@
 # 05 - City Visuals, States Map, and Art Pipeline
 
 How each Larp City city looks and moves: generated backgrounds with day, night, and weather, plus live SVG and Pixi layers for buildings, landmarks, water, and traffic.
-Written 2026-09-11, building on the team's Notion updates (specialized cities, "view other cities for free, pay to move", seasons, and the event list) and the [game design meeting](../meeting-2026-09-11-game-design.md) (daily calendar, one player life, retirement goal, LCOL/MCOL/HCOL tiers).
+Written 2026-09-11, building on the team's Notion updates (specialized cities, "view other cities for free, pay to move", seasons, and the event list) and the [game design meeting](../docs/meetings/2026-09-11-game-design.md) (daily calendar, one player life, retirement goal, LCOL/MCOL/HCOL tiers).
 Where this conflicts with the meeting, the meeting wins.
 
 ## TL;DR

@@ -1,5 +1,9 @@
 # Larp City
 
+🏆 **Capital One HackRice Track Winner** - [Devpost](https://devpost.com/software/temp-6yaocn?ref_content=user-portfolio&ref_feature=in_progress)
+
+Play it live: https://144-202-68-33.sslip.io
+
 A financial-life city sim for HackRice 2026 (Finance track).
 We copy the core loop of LEGO City Adventures: Build and Protect, then reskin it so the "fires and criminals" are financial disasters and the "buildings" are your savings, investments, and home.
 Build your wealth, protect yourself from going broke, and make it to retirement.
@@ -41,12 +45,12 @@ The player lives their own financial life, from today to retirement.
 - **Multi-state map:** The player can move between US states, each in a low, medium, or high cost-of-living tier.
 - **Stock market:** The core system, which needs heavy design work around how the simulation runs.
 
-Meeting decisions and next steps: [meeting-2026-09-13-revamp.md](meeting-2026-09-13-revamp.md) (the latest, which wins where they differ) and [meeting-2026-09-11-game-design.md](meeting-2026-09-11-game-design.md).
+Meeting decisions and next steps: [the 2026-09-13 revamp](docs/meetings/2026-09-13-revamp.md) (the latest, which wins where they differ) and [the 2026-09-11 game design meeting](docs/meetings/2026-09-11-game-design.md).
 Research for each area lives in [research/](research/); where it conflicts with the meeting, the meeting wins.
 City art direction (backgrounds with day/night/weather, landmarks, traffic, the states map) is in [research/05-city-visuals-and-art-pipeline.md](research/05-city-visuals-and-art-pipeline.md).
 The playable city prototype (every state, 6 hand-made cities, generated backgrounds, weather, traffic) is in [game/](game/): `cd game && npm install && npm run dev`.
 Debt and credit (card, student, auto, mortgage, BNPL, payday loans, credit score, delinquency, bankruptcy) is in [research/06-debt-and-credit.md](research/06-debt-and-credit.md), mirrored to Notion as the "💳 Debt & Credit" section and research sub-page.
-The debt engine is built and wired into the city: design in [research/07-debt-system-design.md](research/07-debt-system-design.md), engine in `game/src/sim/debt/`, the player's money life (paychecks, state rent, accounts, debt) in `game/src/sim/life/` running on every game day, the Money desk at `/debt.html` (opened from the phone's Stocks app; real FRED rates and index history, plus live Alpha Vantage quotes in local development when `ALPHAVANTAGE_API_KEY` is set), tests via `npm test`, and pitch-deck diagrams in [diagrams/debt/](diagrams/debt/).
+The debt engine is built and wired into the city: design in [research/07-debt-system-design.md](research/07-debt-system-design.md), engine in `game/src/sim/debt/`, the player's money life (paychecks, state rent, accounts, debt) in `game/src/sim/life/` running on every game day, the Money desk at `/debt.html` (opened from the phone's Stocks app; real FRED rates and index history, plus live Alpha Vantage quotes in local development when `ALPHAVANTAGE_API_KEY` is set), tests via `npm test`, and pitch-deck diagrams in [docs/diagrams/debt/](docs/diagrams/debt/).
 Card applications, perks, loans, and moving money between accounts are in [research/08-cards-loans-accounts.md](research/08-cards-loans-accounts.md), with a real card catalog (663 CFPB plans, 175 bonus offers, FRED rates) in Tiger Data (`game/db/`) and the engine in `game/src/sim/money/`, mirrored to Notion as the "🏦 Cards, Loans & Accounts" section.
 The Card Shop is playable on the Money desk's **Cards** tab (`/debt.html`): 23 real cards with official art, issuer-page earn rates and offers, CFPB terms, year-one value on your spending, and soft-pull odds before a hard-pull application that opens the card as a real debt.
 Investing in the Money desk (**Investing**, in the city from the phone's Stocks app or standalone at `/debt.html`) charts the player against "if you had held" and a 90/10 autopilot on the same seeded market, starting all three at the starter portfolio's value; when a bear market starts it pauses time and opens a decision (in the city, the phone opens the desk on it), and at the recovery shows what the choice cost, with a lesson from the Gemini coach written from the run's own Tiger Data ([spec](docs/superpowers/specs/2026-09-12-investing-twins-design.md)).
@@ -65,18 +69,20 @@ Everything for Larp City lives in this folder, which is the private GitHub repos
 | --- | --- |
 | `game/` | The playable app (Vite + PixiJS + TypeScript): the city at `/`, the Money desk at `/debt.html`, the simulation in `game/src/sim/`, tests in `game/tests/`, and build scripts in `game/scripts/`. See [game/README.md](game/README.md). `game/plates-src/` (95 MB of regenerable plate sources) is gitignored. |
 | `server/` | The API server (Express + Zod + pg over Tiger Data): holds every key from the root `.env` and serves `/api/*` (runs and history, the Nessie bank mirror, the voice intake, the Gemini coach and newspaper). See [server/README.md](server/README.md), including how to deploy. |
-| `docs/superpowers/` | Specs and plans for feature work (the backend, the investing twins, the Nessie fallback, and more). |
-| `CLAUDE.md` | Commands and architecture for Claude Code sessions working in this repository. |
 | `research/` | Research and design docs (start with [research/SUMMARY.md](research/SUMMARY.md)), plus the data builders and their raw inputs in `research/data/` (the card-art upscaler weights go in the gitignored `research/data/cards/models/`). |
-| `requirements.txt` | Python dependencies for the data builders and loaders (the game itself is Node: `cd game && npm install`). |
-| `diagrams/` | Pitch-deck diagrams (SVG sources and PNG exports), currently for the debt system. |
-| `reference/` | Screenshots of the LEGO reference game. |
+| `docs/` | Everything else written about the project; see [docs/README.md](docs/README.md). |
+| `docs/meetings/` | The team's decision log; a later meeting wins over an earlier one. |
+| `docs/superpowers/` | Specs and plans for feature work (the backend, the investing twins, the Nessie fallback, and more). |
+| `docs/diagrams/` | Pitch-deck diagrams (SVG sources and PNG exports), currently for the debt system. |
+| `docs/screenshots/`, `docs/reference/` | Screenshots of our game, and of the LEGO reference game. |
+| `docs/notion/`, `docs/history/` | The team's original Notion notes, backups of the Notion page before each automated edit, and resolved integration records. |
 | `SETUP.md`, `.env.example` | API keys and integrations; copy `.env.example` to `.env` (never committed). |
-| `meeting-*.md`, `notion-*.md` | Meeting decisions and backups of the team Notion page before each automated edit. |
+| `CLAUDE.md` | Commands and architecture for Claude Code sessions working in this repository. |
+| `requirements.txt` | Python dependencies for the data builders and loaders (the game itself is Node: `cd game && npm install`). |
 
 Team Notion page (organized, the live source of truth): https://app.notion.com/p/Larp-City-3d846cd8aa24804a9c63c8bfc95a5e6b
-Backup of the team's original Notion notes, before reorganizing: [notion-notes.md](notion-notes.md).
-Reference screenshots: [reference/screenshots/](reference/screenshots/).
+Backup of the team's original Notion notes, before reorganizing: [docs/notion/original-notes.md](docs/notion/original-notes.md).
+Reference screenshots: [docs/reference/screenshots/](docs/reference/screenshots/).
 
 ## The reference game
 
@@ -100,9 +106,9 @@ What we confirmed by loading it and reading its shipped JS bundles:
 
 | # | Screenshot |
 | --- | --- |
-| 1 | [Title screen](reference/screenshots/01-title-screen.jpg) |
-| 2 | [Mayor onboarding](reference/screenshots/02-onboarding-mayor.jpg) |
-| 3 | [City map + HUD](reference/screenshots/03-city-map-hud.jpg) |
+| 1 | [Title screen](docs/reference/screenshots/01-title-screen.jpg) |
+| 2 | [Mayor onboarding](docs/reference/screenshots/02-onboarding-mayor.jpg) |
+| 3 | [City map + HUD](docs/reference/screenshots/03-city-map-hud.jpg) |
 
 ## Our twist: LEGO mechanic to Larp City mechanic
 
