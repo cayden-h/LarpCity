@@ -73,7 +73,7 @@ Everything for Larp City lives in this folder, which is the private GitHub repos
 | `docs/meetings/` | The team's decision log; a later meeting wins over an earlier one. |
 | `docs/superpowers/` | Specs and plans for feature work (the backend, the investing twins, the Nessie fallback, and more). |
 | `docs/diagrams/` | Pitch-deck diagrams (SVG sources and PNG exports), currently for the debt system. |
-| `docs/screenshots/`, `docs/reference/` | Screenshots of our game, and of the LEGO reference game. |
+| `docs/screenshots/` | Screenshots of the game, grouped by the feature they document. |
 | `docs/notion/`, `docs/history/` | The team's original Notion notes, backups of the Notion page before each automated edit, and resolved integration records. |
 | `SETUP.md`, `.env.example` | API keys and integrations; copy `.env.example` to `.env` (never committed). |
 | `CLAUDE.md` | Commands and architecture for Claude Code sessions working in this repository. |
@@ -81,47 +81,20 @@ Everything for Larp City lives in this folder, which is the private GitHub repos
 
 Team Notion page (organized, the live source of truth): https://app.notion.com/p/Larp-City-3d846cd8aa24804a9c63c8bfc95a5e6b
 Backup of the team's original Notion notes, before reorganizing: [docs/notion/original-notes.md](docs/notion/original-notes.md).
-Reference screenshots: [docs/reference/screenshots/](docs/reference/screenshots/).
 
-## The reference game
+## How it plays
 
-LEGO City Adventures: Build and Protect (Nickelodeon), playable at https://plays.org/game/lego-city-adventures-build-and-protect/.
-
-What we confirmed by loading it and reading its shipped JS bundles:
-
-- **Engine:** PixiJS (`pixi.js-legacy` is bundled in `vendor.js`), with Howler.js for audio.
-  It is a single full-screen canvas, isometric 2D, no 3D engine.
-- **View:** Isometric tile map of city blocks, roads, and a fenced-off locked district.
-  Small cars drive the roads.
-  Zoom in/out buttons on the right.
-- **HUD:** Coin counter bottom-left (starts at 1,000), dig button bottom-right (costs 300), police and fire alert badges top-left, pause and inventory top-right.
-- **Onboarding:** Mayor Solomon Fleck pops up in a modal and walks you through the first actions (collect coins, pick a dig site, place police and fire stations, first build, then free build).
-- **Core loop** (from the game's own string keys):
-  1. Buildings generate coins over time up to a cap (`coin_ready`, `coinCap`).
-  2. Spend coins to dig up LEGO bricks at dig sites (`dig_minigame`, `digPrices`).
-  3. Spend bricks on blueprints to build buildings (`blueprints_build`, `quick_build`).
-  4. Fires and crimes break out as random events; dispatch the Fire Chief or Police Sergeant, or the building burns and loses value (`burntBuildingCoinValue`).
-  5. Build 25 buildings in a district to unlock the next district, working toward a full metropolis.
-
-| # | Screenshot |
+| Part of the game | What it means in Larp City |
 | --- | --- |
-| 1 | [Title screen](docs/reference/screenshots/01-title-screen.jpg) |
-| 2 | [Mayor onboarding](docs/reference/screenshots/02-onboarding-mayor.jpg) |
-| 3 | [City map + HUD](docs/reference/screenshots/03-city-map-hud.jpg) |
-
-## Our twist: LEGO mechanic to Larp City mechanic
-
-| LEGO City | Larp City |
-| --- | --- |
-| Mayor onboarding modal | Sammy, the owl narrator (ElevenLabs voice agent), interviews you for your real finances: job, salary, rent, debt, savings |
-| Coin income from buildings | Paychecks hitting your checking account |
-| Dig for bricks, spend on blueprints | Allocate money into Emergency Fund, Roth IRA, 401k, brokerage, savings |
-| Buildings on the map | Each NPC's home and assets; they visibly upgrade or decay with net worth |
-| Fires and crimes | Financial events: market crash, the AI bubble pop, recession, layoff, injury and hospital bill, car breakdown, divorce, penny-stock tip |
-| Dispatch police/fire | Player makes a decision at that moment (hold or sell stocks, repair or replace the car, a hospital payment plan, sign the prenup) |
-| Burnt building loses value | Bankruptcy or homelessness, followed by a "what went wrong" breakdown |
-| Unlock next district at 25 buildings | Reach a goal (buy a house, move states), which becomes a milestone on the way to retirement |
-| Day/night, city growth | A daily calendar, with seasons and map changes as months and years pass |
+| Onboarding | Sammy, the owl narrator (ElevenLabs voice agent), walks you through your starting life: job, salary, rent, debt, savings |
+| Income | Paychecks hitting your checking account |
+| Building up | Allocate money into Emergency Fund, Roth IRA, 401k, brokerage, savings |
+| The city | Each NPC's home and assets; they visibly upgrade or decay with net worth |
+| Disasters | Financial events: market crash, the AI bubble pop, recession, layoff, injury and hospital bill, car breakdown, divorce, penny-stock tip |
+| Responding | Player makes a decision at that moment (hold or sell stocks, repair or replace the car, a hospital payment plan, sign the prenup) |
+| Losing | Bankruptcy or homelessness, followed by a "what went wrong" breakdown |
+| Progress | Reach a goal (buy a house, move states), which becomes a milestone on the way to retirement |
+| Time | A daily calendar, with seasons and map changes as months and years pass |
 
 Events are probabilistic, each with its own likelihood and timing.
 Some are one-offs, like the AI bubble pop, which can only happen once per run; it and the AI Boom before it are preset to fixed dates so they always show up in the demo.
@@ -130,7 +103,7 @@ At the end-of-game review, the calendar lets the player go back to any past deci
 ## Tech plan
 
 - **Rendering: PixiJS (v8) over Phaser.**
-  The game we are copying is itself built on PixiJS, so the art style and isometric feel map one-to-one.
+  It is built for 2D isometric sprite scenes like ours.
   We need a sprite renderer plus our own simulation, not a physics or scene engine, which is Phaser's main value-add.
 - **App:** Vite + TypeScript.
   The HUD and modals (bank dashboard, decision prompts, "what went wrong") can be DOM/React overlaid on the canvas, which is faster to build than Pixi UI.
@@ -164,7 +137,7 @@ All of these stack on one Devpost submission, on top of the track, Capital One, 
 | Solana, Presage | Various | Low fit; skip |
 
 NPC deaths should be handled as a respectful lesson about life insurance, emergency funds, and wills, not a shock moment.
-- **Art:** Isometric tile and building sprites; a free isometric city asset pack gets us close to the LEGO look without their IP.
+- **Art:** Isometric pixel-art tiles and building sprites.
 
 ## 24-hour MVP
 
@@ -172,7 +145,7 @@ NPC deaths should be handled as a respectful lesson about life insurance, emerge
 2. Isometric map of one district, pan and zoom.
 3. Daily tick engine with paychecks, bills, and the five account types from the notes.
 4. Random event system with per-event probabilities, at least one one-off (AI bubble pop), and life events (layoff, marriage, divorce with a prenup, injuries, car breakdowns).
-5. HUD: net worth, date, pause / 1x / 2x / +1 month and "Skip to next event", event alerts like the LEGO police and fire badges; a Calendar app in the phone with red (event) and blue (decision, milestone) circles.
+5. HUD: net worth, date, pause / 1x / 2x / +1 month and "Skip to next event", event alert badges; a Calendar app in the phone with red (event) and blue (decision, milestone) circles.
 6. Decision modal when an event hits the player.
 7. Fast-forward to a goal with bankruptcy stopping it, and the "what went wrong" breakdown.
 8. AI feedback at goals, bankruptcy, and big portfolio swings.
