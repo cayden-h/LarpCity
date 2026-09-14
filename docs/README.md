@@ -10,7 +10,6 @@ The vision and mechanics live in the [root README](../README.md), and the resear
 | [diagrams/](diagrams/) | Pitch-deck diagrams (SVG sources and PNG exports); `npm run debt:charts` in `game/` redraws the payoff chart. |
 | [screenshots/](screenshots/) | Screenshots of our game, grouped by the feature they document. |
 | [mockups/](mockups/) | Static HTML mockups. |
-| [reference/](reference/) | Screenshots of LEGO City Adventures: Build and Protect, the game we reskinned. |
 | [notion/](notion/) | The team's original Notion notes and backups of the Notion page before each automated edit (Notion is the live source of truth). |
 | [history/](history/) | Resolved integration records kept for context. |
 
