@@ -2,7 +2,7 @@
 
 🏆 **Capital One HackRice Track Winner** - [Devpost](https://devpost.com/software/temp-6yaocn?ref_content=user-portfolio&ref_feature=in_progress)
 
-Play it live: https://144-202-68-33.sslip.io
+Play it live: www.larpcity.club
 
 A financial-life city sim for HackRice 2026 (Finance track).
 We copy the core loop of LEGO City Adventures: Build and Protect, then reskin it so the "fires and criminals" are financial disasters and the "buildings" are your savings, investments, and home.
