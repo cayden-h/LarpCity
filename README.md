@@ -4,8 +4,7 @@
 
 Play it live: www.larpcity.club
 
-A financial-life city sim for HackRice 2026 (Finance track).
-We copy the core loop of LEGO City Adventures: Build and Protect, then reskin it so the "fires and criminals" are financial disasters and the "buildings" are your savings, investments, and home.
+A financial-life city sim for HackRice 16.
 Build your wealth, protect yourself from going broke, and make it to retirement.
 
 ## Vision (updated 2026-09-13, after the revamp meeting)
